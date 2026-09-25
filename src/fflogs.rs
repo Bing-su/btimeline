@@ -37,12 +37,13 @@ pub struct FFLogsCommand {
     #[usage(short = 'k', long, env = "FFLOGS_API_KEY")]
     api_key: String,
 
-    /// Output file path, default is {report_code}_{fight_id}.{format}
+    /// directory for output files, default is current directory
+    /// file will be named {report_code}_{fight_id}.{format}
     #[usage(short = 'o', long)]
     output: Option<Utf8PathBuf>,
 
-    /// Output format
-    #[usage(short = 'f', long, value_enum, default = "json")]
+    /// Output file format
+    #[usage(short = 'f', long, value_enum, default = "ndjson")]
     format: OutputFormat,
 }
 
@@ -142,30 +143,40 @@ fn get_all_fight_events(
     Ok(events)
 }
 
+fn save_events_to_file(
+    events: &[Map<String, Value>],
+    output: &Option<impl AsRef<std::path::Path>>,
+    filename: &str,
+    format: OutputFormat,
+) -> Result<()> {
+    let output_dir = match &output {
+        Some(path) => path.as_ref().to_path_buf(),
+        None => std::env::current_dir()?,
+    };
+
+    std::fs::create_dir_all(&output_dir)?;
+
+    let filename = output_dir.join(filename);
+    let mut file = std::fs::File::create(&filename)?;
+    match format {
+        OutputFormat::Json => writeln!(file, "{}", serde_json::to_string(&events)?)?,
+        OutputFormat::Ndjson => {
+            for event in events {
+                writeln!(file, "{}", serde_json::to_string(&event)?)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
 impl Run for FFLogsCommand {
     type Output = Result<()>;
 
     fn run(self) -> Self::Output {
         let events = get_all_fight_events(&self.report_code, self.fight_id, &self.api_key)?;
-        let output = self.output.unwrap_or_else(|| {
-            format!("{}_{}.{}", self.report_code, self.fight_id, self.format).into()
-        });
-
-        if let Some(parent) = output.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-
-        let mut file = std::fs::File::create(&output)?;
-        match self.format {
-            OutputFormat::Json => writeln!(file, "{}", serde_json::to_string(&events)?)?,
-            OutputFormat::Ndjson => {
-                for event in events {
-                    writeln!(file, "{}", serde_json::to_string(&event)?)?;
-                }
-            }
-        }
-
-        Ok(())
+        let filename = format!("{}_{}.{}", self.report_code, self.fight_id, self.format);
+        save_events_to_file(&events, &self.output, &filename, self.format)
     }
 }
 
