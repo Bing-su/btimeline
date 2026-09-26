@@ -436,3 +436,74 @@ fn command_validation_rejects_invalid_options_before_network_access(
     change(&mut command);
     assert_eq!(command.validate().is_ok(), valid);
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn isolates_reports_with_the_same_fight_id_and_absolute_pull_times() {
+    // Two uploads can share a pull's absolute time; keep each report's raw clock and pages.
+    let server = server(token(), None).await;
+    for (code, origin, start) in [("reportA", 1000, 10), ("reportB", 900, 110)] {
+        let mut data = metadata().1["data"]["reportData"]["report"].clone();
+        data["code"] = json!(code);
+        data["startTime"] = json!(origin);
+        data["fights"][0]["startTime"] = json!(start);
+        data["fights"][0]["endTime"] = json!(start + 20);
+        api("TimelineMetadata")
+            .and(body_partial_json(
+                json!({"variables":{"code":code,"fightIDs":[1]}}),
+            ))
+            .respond_with(response(report(data)))
+            .expect(1)
+            .mount(&server)
+            .await;
+        for (cursor, timestamp, next) in [
+            (start, start + 1, json!(start + 10)),
+            (start + 10, start + 11, Value::Null),
+        ] {
+            api("TimelineEvents")
+                .and(body_partial_json(json!({"variables":{
+                    "code":code,"fightIDs":[1],"start":cursor as f64,"end":(start + 20) as f64
+                }})))
+                .respond_with(response(report(json!({"events":{
+                    "data":[{"timestamp":timestamp,"abilityGameID":46387,"upload":code}],
+                    "nextPageTimestamp":next
+                }}))))
+                .expect(1)
+                .mount(&server)
+                .await;
+        }
+    }
+    let client = authenticate(&server);
+    let dir = std::env::temp_dir().join(format!("btimeline-reports-{}", std::process::id()));
+    let mut collected = Vec::new();
+    for (code, origin, start) in [("reportA", 1000, 10), ("reportB", 900, 110)] {
+        let data = client.collect(code, 1).unwrap();
+        assert_eq!(data["report"]["code"], code);
+        assert_eq!(data["report"]["startTime"], origin);
+        assert_eq!(
+            data["events"],
+            json!([
+                {"timestamp":start + 1,"abilityGameID":46387,"upload":code},
+                {"timestamp":start + 11,"abilityGameID":46387,"upload":code}
+            ])
+        );
+        assert_eq!(data["collection"]["reportCode"], code);
+        assert_eq!(
+            data["collection"]["pageStartTimes"],
+            json!([start as f64, (start + 10) as f64])
+        );
+        assert_eq!(
+            data["collection"]["requests"]["events"]["variables"]["code"],
+            code
+        );
+        save(&data, &dir, &format!("{code}_1.json"), OutputFormat::Json).unwrap();
+        collected.push(data);
+    }
+    assert_ne!(collected[0]["events"], collected[1]["events"]);
+    for (code, expected) in ["reportA", "reportB"].into_iter().zip(&collected) {
+        let saved: Value =
+            serde_json::from_slice(&fs::read(dir.join(format!("{code}_1.json"))).unwrap()).unwrap();
+        assert_eq!(&saved, expected);
+    }
+    fs::remove_dir_all(dir).unwrap();
+    server.verify().await;
+}
