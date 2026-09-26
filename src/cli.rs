@@ -4,13 +4,13 @@ use crate::fflogs::FFLogsCommand;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[derive(Debug, Subcommands)]
+#[derive(Subcommands)]
 #[usage(run)]
 pub enum MainCommands {
     Fflogs(FFLogsCommand),
 }
 
-#[derive(Debug, Cli)]
+#[derive(Cli)]
 #[usage(bin = "btimeline", version = VERSION, completion)]
 pub struct MainCli {
     #[usage(subcommand)]
