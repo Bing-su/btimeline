@@ -35,7 +35,7 @@
 생성 JSON은 문서에 중복 저장하지 않는다. 아래 수치는 조사 기준일의 스냅샷이며, 파일별 상세 근거는 현재 로그와 감사 명령으로 확인한다. 과거 표본 집계는 현재 집계로 대체했다.
 
 ```sh
-python3 scripts/audit_timeline_sequences.py > /tmp/btimeline-audit.json
+uv run scripts/audit_timeline_sequences.py > /tmp/btimeline-audit.json
 ```
 
 [스크립트](../scripts/audit_timeline_sequences.py)는 파일별 수집·이벤트 무결성, boss begincast trace, 선택 도달·후반 시전, 페이즈 상대시각을 기록한다. 전투별 모든 쌍을 비교하며 104·101의 990쌍, 105·101의 6,441쌍, 1085·100의 1,225쌍, 4551·10의 105쌍이다. 비교는 구조 탐색 지표이며 완성된 생성기의 정렬·시간 검증이 아니다.
@@ -373,7 +373,7 @@ PM4Py의 실제 통합은 AGPL 조건과 배포 방식의 적합성을 결정한
 
 첫 입력에서 생성된 process tree에는 parallel/optional 구조도 포함된다. 조합만 맞아 보이는 것으로 충분하지 않고, 스킬 생략·추가 순서·동시성이 새로 허용되는지도 검사해야 한다. 발견 모델의 구조를 그대로 SPEC로 번역하지 않는다.
 
-재현: 임시 Python 환경에 `pm4py==2.7.23.8`을 설치한 뒤 `python scripts/research_pm4py_branches.py`. [실험 스크립트](../scripts/research_pm4py_branches.py). alignment에서 무음 transition은 허용하고 **가시 이벤트의 log/model move가 없을 때** 수용으로 판정했다. 무음 transition도 기본 비용을 가질 수 있어 총 비용 0만 검사하는 방식은 사용하지 않았다.
+재현: `uv run scripts/research_pm4py_branches.py`. [실험 스크립트](../scripts/research_pm4py_branches.py). alignment에서 무음 transition은 허용하고 **가시 이벤트의 log/model move가 없을 때** 수용으로 판정했다. 무음 transition도 기본 비용을 가질 수 있어 총 비용 0만 검사하는 방식은 사용하지 않았다.
 
 | PM4Py 사용 규칙                                 | 이유                                                                            |
 | ----------------------------------------------- | ------------------------------------------------------------------------------- |

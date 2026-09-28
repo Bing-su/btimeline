@@ -1,3 +1,7 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["pm4py==2.7.23.8"]
+# ///
 """Probe branch generalization with PM4Py 2.7.23.8; this is not a generator."""
 
 import importlib.metadata

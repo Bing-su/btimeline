@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
-"""Audit raw logs, e.g. python3 scripts/audit_timeline_sequences.py > /tmp/btimeline-audit.json.
+# /// script
+# requires-python = ">=3.10"
+# ///
+"""Audit raw logs, e.g. uv run scripts/audit_timeline_sequences.py > /tmp/btimeline-audit.json.
 
 Boss trace matching reports candidates, not proven branches or runtime compatibility.
 """
 
 import collections
 import difflib
+import hashlib
 import json
 from itertools import pairwise
 from pathlib import Path
 
 
-def load_trace(path):
-    data = json.loads(path.read_text())
+def load_trace(path, data):
     report = data["report"]
     fight = report["fights"][0]
     actors = {actor["id"]: actor for actor in report["masterData"]["actors"]}
@@ -82,7 +85,8 @@ def compare(reference, trace):
 
 
 def inspect(path):
-    data = json.loads(path.read_text())
+    raw = path.read_bytes()
+    data = json.loads(raw)
     report = data["report"]
     fight = report["fights"][0]
     {a["id"]: a for a in report["masterData"]["actors"]}
@@ -97,7 +101,7 @@ def inspect(path):
     starts = [
         e for e in events if e["type"] == "begincast" and e.get("sourceID") in enemies
     ]
-    trace = load_trace(path)
+    trace = load_trace(path, data)
     collection = data.get("collection", {})
     # Exact identity checks detect duplicate executions without merging distinct helpers.
     keys = [
@@ -115,6 +119,7 @@ def inspect(path):
     ]
     return {
         "file": str(path),
+        "sha256": hashlib.sha256(raw).hexdigest(),
         "identity": [report.get("code"), fight["id"]],
         "group": list(trace["group"]),
         "kill": fight.get("kill"),
