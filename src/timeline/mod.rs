@@ -280,7 +280,9 @@ fn generated_schema() -> Result<Value> {
     }
     forbid_null(&mut schema);
     // Use the same Rust log definitions for editor schemas and conversion validation.
-    let logs = schema["$defs"]["LogType"]["enum"]
+    let logs = schema
+        .pointer("/$defs/LogType/enum")
+        .context("Missing network log enum in generated schema")?
         .as_array()
         .context("Missing network log enum in generated schema")?
         .clone();
@@ -294,7 +296,11 @@ fn generated_schema() -> Result<Value> {
             }))
         })
         .collect();
-    schema["$defs"]["NetworkSync"]["allOf"] = Value::Array(conditions?);
+    schema
+        .pointer_mut("/$defs/NetworkSync")
+        .and_then(Value::as_object_mut)
+        .context("Missing network sync in generated schema")?
+        .insert("allOf".into(), Value::Array(conditions?));
     Ok(schema)
 }
 

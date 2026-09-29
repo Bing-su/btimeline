@@ -32,7 +32,7 @@ kani = { git = "https://github.com/model-checking/kani" }
 
 [lints.clippy]
 get_unwrap = "warn"
-indexing_slicing = "allow"
+indexing_slicing = "warn"
 panic = "warn"
 panic_in_result_fn = "warn"
 # Don't Panic - prevent panics from unwraps and unsafe slicing or indexing

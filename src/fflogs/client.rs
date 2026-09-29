@@ -250,7 +250,7 @@ impl Client {
             start.is_finite() && end.is_finite() && start >= 0.0 && end >= start,
             "Invalid fight time range"
         );
-        report["fights"] = json!([fight]);
+        *report.get_mut("fights").context("Invalid fights array")? = json!([fight]);
         let mut cursor = start;
         let mut events = Vec::new();
         let mut page_starts = Vec::new();

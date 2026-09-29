@@ -182,7 +182,7 @@ fn validate_collection(collection: &Collection, _: &()) -> garde::Result {
             && collection
                 .page_start_times
                 .windows(2)
-                .all(|pair| pair[0] < pair[1]),
+                .all(|pair| matches!(pair, [first, second] if first < second)),
         "Invalid collection page cursor",
     )
 }

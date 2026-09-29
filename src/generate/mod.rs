@@ -175,7 +175,7 @@ fn load_one(path: &Path) -> Result<(GroupKey, Pull)> {
             simultaneous += 1;
             last_at = Some(at);
         }
-        let event = &events[index];
+        let event = events.get(index).context("Missing indexed event")?;
         let paired = if event.kind == "begincast" {
             starts.retain(|pending| {
                 pending.actor != actor
@@ -195,7 +195,10 @@ fn load_one(path: &Path) -> Result<(GroupKey, Pull)> {
             start_for(&mut starts, actor, event.source_instance, ability, at)
         };
         if let Some(ref start) = paired {
-            occurrences[start.row].completion_event_index = Some(index);
+            occurrences
+                .get_mut(start.row)
+                .context("Missing cast start row")?
+                .completion_event_index = Some(index);
         }
         let identity = actors.get(&actor).context("Missing enemy actor")?;
         occurrences.push(Occurrence {
