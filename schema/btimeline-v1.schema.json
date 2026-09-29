@@ -1,0 +1,613 @@
+{
+  "$defs": {
+    "Ability": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[0-9A-F]+$",
+          "type": "string"
+        },
+        "ignored": {
+          "default": false,
+          "type": "boolean"
+        },
+        "name": {
+          "pattern": "^[^\\r\\n]+$",
+          "type": "string"
+        },
+        "note": {
+          "pattern": "^[^\\r\\n]+$",
+          "type": ["string"]
+        }
+      },
+      "required": ["id", "name"],
+      "type": "object"
+    },
+    "Destination": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "format": "double",
+          "minimum": 0.0,
+          "multipleOf": 0.1,
+          "type": "number"
+        }
+      ]
+    },
+    "Entry": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "at": {
+              "format": "double",
+              "minimum": 0.0,
+              "multipleOf": 0.1,
+              "type": "number"
+            },
+            "duration": {
+              "exclusiveMinimum": 0,
+              "format": "double",
+              "type": ["number"]
+            },
+            "jump": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Jump"
+                }
+              ]
+            },
+            "kind": {
+              "const": "event",
+              "type": "string"
+            },
+            "name": {
+              "pattern": "^[^\"\\r\\n]+$",
+              "type": "string"
+            },
+            "note": {
+              "pattern": "^[^\\r]+$",
+              "type": ["string"]
+            },
+            "sync": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Sync"
+                }
+              ]
+            }
+          },
+          "required": ["kind", "at", "name"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "at": {
+              "format": "double",
+              "minimum": 0.0,
+              "multipleOf": 0.1,
+              "type": "number"
+            },
+            "kind": {
+              "const": "label",
+              "type": "string"
+            },
+            "name": {
+              "pattern": "^[^\"\\r\\n]+$",
+              "type": "string"
+            }
+          },
+          "required": ["kind", "at", "name"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "note",
+              "type": "string"
+            },
+            "text": {
+              "pattern": "^[^\\r]+$",
+              "type": "string"
+            }
+          },
+          "required": ["kind", "text"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "required": ["targetable"]
+            },
+            {
+              "required": ["ignoredCombatants"]
+            },
+            {
+              "required": ["phaseStarts"]
+            }
+          ],
+          "properties": {
+            "ignoredCombatants": {
+              "items": {
+                "pattern": "^[^\"\\r\\n]+$",
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": ["array"]
+            },
+            "kind": {
+              "const": "generatorOptions",
+              "type": "string"
+            },
+            "phaseStarts": {
+              "items": {
+                "$ref": "#/$defs/PhaseStart"
+              },
+              "minItems": 1,
+              "type": ["array"]
+            },
+            "targetable": {
+              "items": {
+                "pattern": "^[^\"\\r\\n]+$",
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": ["array"]
+            }
+          },
+          "required": ["kind"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "kind": {
+              "const": "syncOrder",
+              "type": "string"
+            }
+          },
+          "required": ["kind", "enabled"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "abilities": {
+              "items": {
+                "$ref": "#/$defs/Ability"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "abilityCatalog",
+              "type": "string"
+            },
+            "phase": {
+              "pattern": "^[^\\r\\n]+$",
+              "type": ["string"]
+            }
+          },
+          "required": ["kind", "abilities"],
+          "type": "object"
+        }
+      ]
+    },
+    "FieldPattern": {
+      "anyOf": [
+        {
+          "pattern": "^[^#\"\\r\\n]*$",
+          "type": "string"
+        },
+        {
+          "items": {
+            "pattern": "^[^#\"\\r\\n]*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      ]
+    },
+    "Jump": {
+      "additionalProperties": false,
+      "properties": {
+        "to": {
+          "$ref": "#/$defs/Destination"
+        },
+        "when": {
+          "$ref": "#/$defs/JumpWhen"
+        }
+      },
+      "required": ["to", "when"],
+      "type": "object"
+    },
+    "JumpWhen": {
+      "enum": ["sync", "always"],
+      "type": "string"
+    },
+    "LogType": {
+      "enum": [
+        "Ability",
+        "StartsUsing",
+        "InCombat",
+        "GainsEffect",
+        "LosesEffect",
+        "AddedCombatant",
+        "RemovedCombatant",
+        "Tether",
+        "HeadMarker",
+        "GameLog",
+        "Map"
+      ],
+      "type": "string"
+    },
+    "NetworkSync": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "log": {
+                "const": "Ability"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "fields": {
+                "propertyNames": {
+                  "enum": [
+                    "type",
+                    "sourceId",
+                    "source",
+                    "id",
+                    "name",
+                    "targetId",
+                    "target",
+                    "castTime",
+                    "abilityGameLog",
+                    "flags",
+                    "damage",
+                    "targetIndex",
+                    "targetCount"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "log": {
+                "const": "StartsUsing"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "fields": {
+                "propertyNames": {
+                  "enum": [
+                    "type",
+                    "sourceId",
+                    "source",
+                    "id",
+                    "name",
+                    "targetId",
+                    "target",
+                    "castTime",
+                    "abilityGameLog",
+                    "flags",
+                    "damage",
+                    "targetIndex",
+                    "targetCount"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "log": {
+                "const": "InCombat"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "fields": {
+                "propertyNames": {
+                  "enum": ["type", "inGameCombat", "inACTCombat"]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "log": {
+                "const": "GainsEffect"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "fields": {
+                "propertyNames": {
+                  "enum": [
+                    "type",
+                    "effectId",
+                    "effect",
+                    "duration",
+                    "sourceId",
+                    "source",
+                    "targetId",
+                    "target",
+                    "count"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "log": {
+                "const": "LosesEffect"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "fields": {
+                "propertyNames": {
+                  "enum": [
+                    "type",
+                    "effectId",
+                    "effect",
+                    "duration",
+                    "sourceId",
+                    "source",
+                    "targetId",
+                    "target",
+                    "count"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "log": {
+                "const": "AddedCombatant"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "fields": {
+                "propertyNames": {
+                  "enum": ["type", "id", "name", "npcId", "npcNameId", "job", "level", "ownerId"]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "log": {
+                "const": "RemovedCombatant"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "fields": {
+                "propertyNames": {
+                  "enum": ["type", "id", "name", "npcId", "npcNameId", "job", "level", "ownerId"]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "log": {
+                "const": "Tether"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "fields": {
+                "propertyNames": {
+                  "enum": ["type", "sourceId", "source", "targetId", "target", "id"]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "log": {
+                "const": "HeadMarker"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "fields": {
+                "propertyNames": {
+                  "enum": ["type", "targetId", "target", "id"]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "log": {
+                "const": "GameLog"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "fields": {
+                "propertyNames": {
+                  "enum": ["type", "code", "name", "message"]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "log": {
+                "const": "Map"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "fields": {
+                "propertyNames": {
+                  "enum": ["type", "id", "regionName", "placeName"]
+                }
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "enabled": {
+          "default": true,
+          "type": "boolean"
+        },
+        "fields": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FieldPattern"
+          },
+          "minProperties": 1,
+          "type": "object"
+        },
+        "log": {
+          "$ref": "#/$defs/LogType"
+        },
+        "window": {
+          "items": {
+            "minimum": 0,
+            "multipleOf": 0.1,
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": ["array"]
+        }
+      },
+      "required": ["log", "fields"],
+      "type": "object"
+    },
+    "PhaseStart": {
+      "additionalProperties": false,
+      "properties": {
+        "abilityId": {
+          "pattern": "^[0-9A-F]+$",
+          "type": "string"
+        },
+        "at": {
+          "format": "double",
+          "minimum": 0.0,
+          "multipleOf": 0.1,
+          "type": "number"
+        }
+      },
+      "required": ["abilityId", "at"],
+      "type": "object"
+    },
+    "RegexSync": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": true,
+          "type": "boolean"
+        },
+        "regex": {
+          "pattern": "^[^#\"\\r\\n/]*$",
+          "type": "string"
+        },
+        "window": {
+          "items": {
+            "minimum": 0,
+            "multipleOf": 0.1,
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": ["array"]
+        }
+      },
+      "required": ["regex"],
+      "type": "object"
+    },
+    "Sync": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NetworkSync"
+        },
+        {
+          "$ref": "#/$defs/RegexSync"
+        }
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/Entry"
+      },
+      "type": "array"
+    },
+    "hideNames": {
+      "default": [],
+      "items": {
+        "pattern": "^[^\"\\r\\n]+$",
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "schemaVersion": {
+      "const": 1,
+      "format": "uint8",
+      "maximum": 255,
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": ["schemaVersion", "entries"],
+  "title": "Timeline",
+  "type": "object"
+}

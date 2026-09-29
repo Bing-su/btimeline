@@ -73,6 +73,8 @@ btimeline validate out/fight-draft.yaml
 btimeline convert out/fight-draft.yaml -o out/fight.txt
 ```
 
+생성되는 `draft.yaml`의 첫 줄은 `# yaml-language-server: $schema=https://raw.githubusercontent.com/Bing-su/btimeline/main/schema/btimeline-v1.schema.json`로 고정한다. 편집기에서 이 저장소의 공개 v1 스키마를 참조하도록 하기 위한 지시문이다.
+
 | 계약          | 동작                                                                                                                                                          |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 전투 선택     | 입력에서 호환 그룹을 발견하고 둘 이상이면 명시적 선택을 요구. 이름은 표시·선택용이며 ID/이름 하드코딩 없이 처리. 연속 전투 연결은 별도 근거가 있을 때만 허용  |

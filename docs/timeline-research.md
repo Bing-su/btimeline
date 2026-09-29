@@ -299,6 +299,7 @@ SPEC에는 graph/branch entry가 없다. 내부 분석 그래프를 기존 label
 아래는 긴 window와 jump의 **형식 예시**다. ID와 시각은 설명용 가상 값이며 현재 로그에서 추출한 결과가 아니다.
 
 ```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Bing-su/btimeline/main/schema/btimeline-v1.schema.json
 schemaVersion: 1
 hideNames: ["--sync--"]
 entries:

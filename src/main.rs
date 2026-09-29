@@ -1,5 +1,6 @@
 mod cli;
 mod fflogs;
+mod timeline;
 
 use anyhow::Result;
 use usage::Run;

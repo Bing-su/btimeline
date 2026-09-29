@@ -393,7 +393,9 @@ fn cli_preserves_single_fight_and_supports_listing_and_batch_modes(
     args.extend(options);
     let args: Vec<_> = args.into_iter().map(std::ffi::OsStr::new).collect();
     let parsed = crate::cli::MainCli::parse_from(&args).unwrap();
-    let crate::cli::MainCommands::Fflogs(command) = parsed.command;
+    let crate::cli::MainCommands::Fflogs(command) = parsed.command else {
+        panic!("expected fflogs command")
+    };
     command.validate().unwrap();
     assert_eq!(
         (command.fight_id, command.list, command.all),
