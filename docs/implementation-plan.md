@@ -18,6 +18,7 @@ P0 산출물: [평가 계약과 검증 체크리스트](evaluation-contract.md),
 | 의존성         | YAML 1.2와 중복 키 거부를 지원하는 파서, JSON Schema 검증기만 계약상 선행 도입         | 구체 crate와 버전은 도입 시 현재 API·지원 범위를 확인하고 고정                              |
 | PM4Py          | 연구용 합성 비교 도구로 유지                                                           | 정식 통합은 모델 발견이 실제로 필요해지고 배포·라이선스 조건을 해결했을 때                  |
 | 편집 보존      | 생성은 새 파일에만 수행. 기존 YAML 덮어쓰기 거부                                       | 편집 내용 자동 병합은 별도 기능으로 미룸                                                    |
+| 생성 모드      | 기본 `raid`는 전체 구간을 생성하고 `--mode dungeon`은 보스 구간의 적 cast만 생성       | 전투 적 중 `Boss` actor의 첫·마지막 관측 상호작용 사이를 구간으로 잡아 helper 기믹은 유지   |
 | SPEC           | v1 필드만 사용                                                                         | graph, confidence, censoring은 report에 기록. SPEC 변경을 전제로 구현하지 않음              |
 
 ### 전투 독립 입력 계약
@@ -47,6 +48,8 @@ P0 산출물: [평가 계약과 검증 체크리스트](evaluation-contract.md),
 | P7 분기·페이즈 확장         | 판별 신호가 있는 경로를 label/sync jump로 컴파일. 입력별 관측 신호와 보정된 가상 시계로 전환 window 산정                                                                                                                                                                                    | 분기 블록과 전환 초안                                           | 서로 다른 전투의 전환 사례와 합성 미지 경로에서 오활성 sync 0. lookahead 표시와 실제 진입을 각각 검증. 미검증 우선순위에 의존하는 forcejump 제한                      |
 | P8 반복 압축                | 역할·instance·targetability 등 관측 문맥으로 회차·출구 대응. 충분한 wipe·clear 근거가 있을 때만 반복 압축                                                                                                                                                                                   | 조건부 반복 후보와 근거 report                                  | 서로 다른 전투의 반복 사례와 합성 출구 부재 사례에서 회차·간격·출구를 재생으로 설명. 근거 부족 시 유한 행 유지                                                        |
 
+P3의 `--mode`는 `raid`와 `dungeon`을 받으며 기본값은 `raid`다. `raid`는 전체 구간을 생성하고, `dungeon`은 해당 전투의 적 `Boss` actor별 첫·마지막 상호작용 구간만 YAML 행과 ability catalog에 반영한다. 보스 구간 밖의 occurrence는 근거 보고서에 보존한다. report에는 모드와 관계없이 actor별 관측 시작·종료 시각을 기록하며, `dungeon`에서 보스가 관측되지 않으면 오류로 처리한다. 구간 경계는 관측 기반 초안이므로 전투별 첫 진입 시각과 보스 간 이동 시간은 그대로 남는다. P4–P6에서 보스별 진입 sync·시계 재설정·구간별 재생을 검증한 뒤 런타임 동기화 완료로 판정한다.
+
 P3의 표시 행은 원본 밀리초 시각·actor ID·ability ID가 같은 완료 cast에서 첫 이벤트 하나만 남긴다. instance별 실행은 `report.json`의 `occurrences`와 `collapsedCasts`에 보존한다. sync 충돌은 출력에서 생략한 cast를 포함한 전체 원본으로 검사하며, 서로 다른 시각의 cast는 기본 sync window가 겹쳐도 합치지 않는다. 이 정책은 별도 on/off 플래그 없이 적용한다.
 
 ## 3. 최소 코드 구성
@@ -70,6 +73,7 @@ P3의 표시 행은 원본 밀리초 시각·actor ID·ability ID가 같은 완�
 
 ```sh
 btimeline generate logs/example/fight_4.json -o out/single-draft.yaml
+btimeline generate logs/example/fight_4.json --mode dungeon -o out/dungeon-draft.yaml
 btimeline generate logs/example --name "Example Fight" -o out/fight-draft.yaml
 btimeline validate out/fight-draft.yaml
 btimeline convert out/fight-draft.yaml -o out/fight.txt
@@ -82,6 +86,7 @@ btimeline convert out/fight-draft.yaml -o out/fight.txt
 | 전투 선택     | 입력에서 호환 그룹을 발견하고 둘 이상이면 명시적 선택을 요구. 이름은 표시·선택용이며 ID/이름 하드코딩 없이 처리. 연속 전투 연결은 별도 근거가 있을 때만 허용                       |
 | 생성 저장     | 지정한 `fight-draft.yaml`과 짝이 되는 `.report.json`과 검토용 `.report.md`. 기존 파일을 덮어쓰지 않음. 모두 검증·임시 기록 후 저장하고 여러 파일 전체가 원자적이라고 주장하지 않음 |
 | 변환 저장     | 새 `.txt` 파일. 검증 실패 시 출력하지 않음. 기존 출력 덮어쓰기 정책은 기본 거부                                                                                                    |
+| 생성 모드     | 기본 `raid`는 전체 구간 출력. `--mode dungeon`은 보스 구간만 생성. report에 모드·actor별 관측 시작/종료 시각 기록                                                                  |
 | 결정성        | 입력을 고정 순서로 처리하고 동일 시각 source order 유지. 원본 millisecond 유지, YAML 출력 직전에만 반올림                                                                          |
 | 작성자 수정   | 수정 YAML을 validate/convert에 다시 입력. 기존 notes/catalog를 보존. 자동 재생성 병합은 범위 밖                                                                                    |
 | parser 미해결 | Schema·semantic 성공과 parser 미실행을 구분. parser 미검증 결과를 전체 검증 성공으로 표시하지 않음                                                                                 |
@@ -93,6 +98,7 @@ report에는 입력 파일·report/fight/revision/logVersion·수집 완료 상�
 | 검증           | 최소 실행 가능한 확인                                                                                                                           | 통과 기준                                                                                                                                  |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | SPEC 회귀      | 모든 entry를 포함한 정상 fixture와 주요 잘못된 입력을 사용하는 Rust 테스트                                                                      | 결정적 기대 텍스트 일치, 유효하지 않은 입력 거부                                                                                           |
+| 보스 구간 회귀 | 보스 전·사이·후 잡몹과 보스전 helper를 가진 합성 로그, 실제 Clyteum 입력                                                                        | `raid`/`dungeon` 출력 차이와 구간 근거 확인. 보스전 helper 유지, 잡몹 행 제외, 보스 미관측 오류                                            |
 | 정규화 회귀    | 동시 helper 둘·timestamp 역전·취소/종료 cast를 가진 작은 fixture                                                                                | 두 실행 및 원본 참조 보존, 가짜 완료 없음                                                                                                  |
 | 정렬 회귀      | 알려진 대안 조합·선택 이력에 따른 후속·반복 회차·중간 wipe                                                                                      | 순서/개수/의존성 보존. 알려진 선택 슬롯의 미관측 조합은 unknown으로 지원                                                                   |
 | 재생 회귀      | 반복 ID, 겹치는 window, 전환, 초기화 후 독립 진입, 시전 중 clear의 합성 및 실제 사례                                                            | 올바른 signal만 매칭, 종료 이후 미발생을 누락 오류로 세지 않음                                                                             |

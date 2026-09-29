@@ -4,6 +4,7 @@ use anyhow::Result;
 use usage::{Args, Cli, Run, Subcommands};
 
 use crate::fflogs::FFLogsCommand;
+use crate::generate::GenerateMode;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -90,11 +91,14 @@ pub struct GenerateCommand {
     input: Utf8PathBuf,
     #[usage(short = 'o', long)]
     output: Utf8PathBuf,
+    /// Generation mode: dungeon keeps boss encounters; raid keeps the full fight.
+    #[usage(long, value_enum, default = "raid")]
+    mode: GenerateMode,
 }
 impl Run for GenerateCommand {
     type Output = Result<()>;
     fn run(self) -> Self::Output {
-        crate::generate::generate(self.input, self.output)
+        crate::generate::generate(self.input, self.output, self.mode)
     }
 }
 
@@ -107,5 +111,30 @@ impl Run for ReportMarkdownCommand {
     type Output = Result<()>;
     fn run(self) -> Self::Output {
         crate::generate::markdown_file(self.input)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generate_defaults_to_raid_and_accepts_dungeon() {
+        for (mode, expected) in [
+            (None, GenerateMode::Raid),
+            (Some("raid"), GenerateMode::Raid),
+            (Some("dungeon"), GenerateMode::Dungeon),
+        ] {
+            let mut args = vec!["generate", "input.json", "-o", "out.yaml"];
+            if let Some(mode) = mode {
+                args.extend(["--mode", mode]);
+            }
+            let args: Vec<_> = args.into_iter().map(std::ffi::OsStr::new).collect();
+            let MainCommands::Generate(command) = MainCli::parse_from(&args).unwrap().command
+            else {
+                panic!("expected generate command");
+            };
+            assert_eq!(command.mode, expected);
+        }
     }
 }

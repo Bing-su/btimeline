@@ -244,8 +244,8 @@ fn generates_deterministic_draft_and_disables_excluded_cast_collision() {
     with_file(&data, |input| {
         let first = input.with_extension("first.yaml");
         let second = input.with_extension("second.yaml");
-        generate(input, &first).unwrap();
-        generate(input, &second).unwrap();
+        generate(input, &first, GenerateMode::Raid).unwrap();
+        generate(input, &second, GenerateMode::Raid).unwrap();
         let yaml = fs::read_to_string(&first).unwrap();
         assert_eq!(yaml, fs::read_to_string(&second).unwrap());
         assert!(yaml.starts_with("# yaml-language-server: $schema="));
@@ -286,18 +286,18 @@ fn generates_deterministic_draft_and_disables_excluded_cast_collision() {
             json!([5])
         );
         assert_eq!(report["validation"]["cactbotParser"], false);
-        assert!(generate(input, &first).is_err());
+        assert!(generate(input, &first, GenerateMode::Raid).is_err());
         let third = input.with_extension("third.yaml");
         let existing_report = third.with_extension("report.json");
         fs::write(&existing_report, "keep").unwrap();
-        assert!(generate(input, &third).is_err());
+        assert!(generate(input, &third, GenerateMode::Raid).is_err());
         assert_eq!(fs::read_to_string(&existing_report).unwrap(), "keep");
         assert!(!third.exists());
         fs::remove_file(existing_report).unwrap();
         let fourth = input.with_extension("fourth.yaml");
         let existing_markdown = fourth.with_extension("report.md");
         fs::write(&existing_markdown, "keep").unwrap();
-        assert!(generate(input, &fourth).is_err());
+        assert!(generate(input, &fourth, GenerateMode::Raid).is_err());
         assert_eq!(fs::read_to_string(&existing_markdown).unwrap(), "keep");
         assert!(!fourth.exists());
         fs::remove_file(existing_markdown).unwrap();
@@ -327,7 +327,7 @@ fn sync_conflicts_use_the_displayed_rounded_time() {
     ]);
     with_file(&data, |input| {
         let output = input.with_extension("rounded.yaml");
-        generate(input, &output).unwrap();
+        generate(input, &output, GenerateMode::Raid).unwrap();
         let yaml = fs::read_to_string(&output).unwrap();
         let parsed: Value = serde_saphyr::from_str(&yaml).unwrap();
         let events: Vec<&Value> = parsed["entries"]
@@ -353,6 +353,80 @@ fn sync_conflicts_use_the_displayed_rounded_time() {
             &output.with_extension("report.md"),
         ] {
             fs::remove_file(path).unwrap();
+        }
+    });
+}
+
+#[test]
+fn dungeon_keeps_mechanics_inside_boss_segments() {
+    let mut data = sample();
+    data["report"]["masterData"]["actors"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"id":12,"name":"Second Boss","gameID":99903,"type":"NPC","subType":"Boss"}));
+    data["report"]["fights"][0]["enemyNPCs"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"id":12,"gameID":99903}));
+    data["events"] = json!([
+        {"timestamp":1050,"type":"cast","sourceID":11,"abilityGameID":90001,"fight":2},
+        {"timestamp":1200,"type":"cast","sourceID":10,"abilityGameID":90001,"fight":2},
+        {"timestamp":1300,"type":"cast","sourceID":11,"abilityGameID":90001,"fight":2},
+        {"timestamp":1400,"type":"death","targetID":10,"fight":2},
+        {"timestamp":1500,"type":"cast","sourceID":11,"abilityGameID":90001,"fight":2},
+        {"timestamp":1700,"type":"cast","sourceID":12,"abilityGameID":90001,"fight":2},
+        {"timestamp":1750,"type":"cast","sourceID":11,"abilityGameID":90001,"fight":2},
+        {"timestamp":1800,"type":"death","targetID":12,"fight":2},
+        {"timestamp":1900,"type":"cast","sourceID":11,"abilityGameID":90001,"fight":2}
+    ]);
+    data["collection"]["eventCount"] = json!(9);
+    let mut without_boss = data.clone();
+    for actor in without_boss["report"]["masterData"]["actors"]
+        .as_array_mut()
+        .unwrap()
+    {
+        actor["subType"] = json!("NPC");
+    }
+    with_file(&without_boss, |input| {
+        let output = input.with_extension("no-boss.yaml");
+        assert!(
+            generate(input, &output, GenerateMode::Dungeon)
+                .unwrap_err()
+                .to_string()
+                .contains("No observed boss segment")
+        );
+        assert!(!output.exists());
+    });
+    with_file(&data, |input| {
+        for (mode, expected) in [
+            (GenerateMode::Raid, vec![0, 1, 2, 4, 5, 6, 8]),
+            (GenerateMode::Dungeon, vec![1, 2, 5, 6]),
+        ] {
+            let output = input.with_extension(if mode == GenerateMode::Dungeon {
+                "dungeon.yaml"
+            } else {
+                "raid.yaml"
+            });
+            generate(input, &output, mode).unwrap();
+            let report: Value =
+                serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                    .unwrap();
+            assert_eq!(report["mode"], json!(mode));
+            assert_eq!(report["emittedEventIndices"], json!(expected));
+            assert_eq!(
+                report["bossSegments"],
+                json!([
+                    {"actorId":10,"startMs":200,"endMs":400},
+                    {"actorId":12,"startMs":700,"endMs":800}
+                ])
+            );
+            for path in [
+                &output,
+                &output.with_extension("report.json"),
+                &output.with_extension("report.md"),
+            ] {
+                fs::remove_file(path).unwrap();
+            }
         }
     });
 }

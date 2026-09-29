@@ -8,6 +8,7 @@ use std::{
 use anyhow::{Context, Result, ensure};
 use serde::Serialize;
 use serde_json::{Value, json};
+use usage::ValueEnum;
 
 use super::{Occurrence, inspect};
 use crate::fflogs::model::CollectedLog;
@@ -53,7 +54,18 @@ fn same_signal(
             || event.source_instance != row.instance)
 }
 
-pub fn generate(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()> {
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum GenerateMode {
+    Dungeon,
+    Raid,
+}
+
+pub fn generate(
+    input: impl AsRef<Path>,
+    output: impl AsRef<Path>,
+    mode: GenerateMode,
+) -> Result<()> {
     let input = input.as_ref();
     let output = output.as_ref();
 
@@ -94,12 +106,43 @@ pub fn generate(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()>
         .map(|enemy| enemy.id)
         .chain(fight.enemy_players.iter().flatten().copied())
         .collect();
+    let boss_ids: BTreeSet<i64> = data
+        .report
+        .master_data
+        .actors
+        .iter()
+        .filter(|actor| actor.sub_type == "Boss" && enemies.contains(&actor.id))
+        .map(|actor| actor.id)
+        .collect();
+    let mut boss_spans = BTreeMap::<i64, (i64, i64)>::new();
+    // Record boss boundaries for the report and the optional output filter.
+    for event in &data.events {
+        for id in [event.source_id, event.target_id].into_iter().flatten() {
+            if boss_ids.contains(&id) {
+                let span = boss_spans
+                    .entry(id)
+                    .or_insert((event.timestamp, event.timestamp));
+                span.0 = span.0.min(event.timestamp);
+                span.1 = span.1.max(event.timestamp);
+            }
+        }
+    }
+    if mode == GenerateMode::Dungeon {
+        ensure!(!boss_spans.is_empty(), "No observed boss segment");
+    }
+    let in_boss_span = |at: i64| {
+        mode == GenerateMode::Raid
+            || boss_spans
+                .values()
+                .any(|&(start, end)| start <= at && at <= end)
+    };
     let mut catalog = Vec::new();
     let mut catalog_ids = BTreeSet::new();
     let mut sorted_events: Vec<_> = data.events.iter().collect();
     sorted_events.sort_by_key(|event| event.timestamp);
     for event in sorted_events {
-        if !matches!(event.kind.as_str(), "begincast" | "cast")
+        if !in_boss_span(event.timestamp)
+            || !matches!(event.kind.as_str(), "begincast" | "cast")
             || !event.source_id.is_some_and(|id| enemies.contains(&id))
         {
             continue;
@@ -122,7 +165,11 @@ pub fn generate(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()>
     let mut collapsed: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
     let mut emitted = Vec::new();
     let mut slots = Vec::new();
-    for row in pull.occurrences.iter().filter(|row| row.kind == "cast") {
+    for row in pull
+        .occurrences
+        .iter()
+        .filter(|row| row.kind == "cast" && in_boss_span(row.timestamp_ms))
+    {
         // One display row for simultaneous instances of one actor/ability, e.g. two helpers at 1000 ms.
         let key = (row.timestamp_ms, row.actor_id, row.ability_id);
         if let Some(&representative) = used.get(&key) {
@@ -202,6 +249,10 @@ pub fn generate(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()>
     crate::timeline::convert(&yaml).context("Generated draft failed validation")?;
     let report: Value = json!({
         "status":"draft",
+        "mode":mode,
+        "bossSegments":boss_spans.into_iter().map(|(actor_id, (start, end))| json!({
+            "actorId":actor_id, "startMs":start - fight.start_time, "endMs":end - fight.start_time
+        })).collect::<Vec<_>>(),
         "input":{"file":input.display().to_string(), "report":pull.report, "fight":pull.fight,
             "name":pull.name,
             "revision":pull.revision, "logVersion":data.report.master_data.log_version,
