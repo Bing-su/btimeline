@@ -17,10 +17,11 @@ fn at(value: f64) -> String {
 fn quote(value: &str) -> String {
     format!("\"{value}\"")
 }
-fn comments(out: &mut String, text: &str) {
+fn comments(out: &mut String, text: &str) -> Result<()> {
     for line in text.split('\n') {
-        let _ = writeln!(out, "# {line}");
+        writeln!(out, "# {line}")?;
     }
+    Ok(())
 }
 fn field_pattern(value: &FieldPattern) -> String {
     match value {
@@ -67,8 +68,8 @@ fn render_jump(jump: &Jump) -> String {
         }
     )
 }
-fn ability_line(out: &mut String, ability: &Ability) {
-    let _ = writeln!(
+fn ability_line(out: &mut String, ability: &Ability) -> Result<()> {
+    writeln!(
         out,
         "# {} {}{}",
         ability.id,
@@ -77,7 +78,8 @@ fn ability_line(out: &mut String, ability: &Ability) {
             .note
             .as_ref()
             .map_or(String::new(), |note| format!(": {note}"))
-    );
+    )?;
+    Ok(())
 }
 
 impl Timeline {
@@ -99,7 +101,7 @@ impl Timeline {
                     if sync.as_ref().is_some_and(|s| !s.enabled())
                         && let Some(note) = note
                     {
-                        comments(&mut out, note);
+                        comments(&mut out, note)?;
                     }
                     write!(out, "{} {}", at(*time), quote(name))?;
                     if let Some(sync) = sync
@@ -131,9 +133,9 @@ impl Timeline {
                     out.push('\n');
                 }
                 Entry::Label { at: time, name } => {
-                    writeln!(out, "{} label {}", at(*time), quote(name))?
+                    writeln!(out, "{} label {}", at(*time), quote(name))?;
                 }
-                Entry::Note { text } => comments(&mut out, text),
+                Entry::Note { text } => comments(&mut out, text)?,
                 Entry::GeneratorOptions {
                     targetable,
                     ignored_combatants,
@@ -188,12 +190,12 @@ impl Timeline {
                         )?;
                         writeln!(out, "# IGNORED ABILITIES")?;
                         for ability in ignored {
-                            ability_line(&mut out, ability);
+                            ability_line(&mut out, ability)?;
                         }
                     }
                     writeln!(out, "# ALL ENCOUNTER ABILITIES")?;
                     for ability in abilities {
-                        ability_line(&mut out, ability);
+                        ability_line(&mut out, ability)?;
                     }
                 }
             }

@@ -1,4 +1,7 @@
-#![allow(clippy::unwrap_used)]
+#![allow(
+    clippy::unwrap_used,
+    reason = "test fixtures use unwrap to fail at the source"
+)]
 
 use super::*;
 use proptest::prelude::*;
@@ -74,7 +77,9 @@ fn stable_order_pairs_casts_and_keeps_unfinished_start() {
 fn rejects_incomplete_and_invalid_references(#[case] mutate: fn(&mut Value)) {
     let mut data = sample();
     mutate(&mut data);
-    with_file(&data, |path| assert!(inspect(&[path]).is_err()));
+    with_file(&data, |path| {
+        inspect(&[path]).unwrap_err();
+    });
 }
 
 #[test]

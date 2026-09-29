@@ -48,7 +48,7 @@ fn exported_schema_rejects_field_constraints() {
     use serde_json::json;
     let schema = generated_schema().expect("generated schema");
     let entry = |entry: Value| json!({"schemaVersion": 1, "entries": [entry]});
-    assert!(jsonschema::validate(&schema, &entry(json!({"kind": "note", "text": "ok"}))).is_ok());
+    jsonschema::validate(&schema, &entry(json!({"kind": "note", "text": "ok"}))).unwrap();
     for at in [0.1, 1.3, 145.1, 6553.5] {
         assert!(
             jsonschema::validate(
@@ -131,7 +131,7 @@ fn spec_render() {
         "# ALL ENCOUNTER ABILITIES\n# 9441 Mouser\n# 9442 Mouser follow-up: Extra hit\n",
     );
     assert_eq!(convert(SOURCE).expect("valid fixture"), expected);
-    assert!(convert(&SOURCE.replace("    phase: \"Phase 1\"\n", "")).is_ok());
+    convert(&SOURCE.replace("    phase: \"Phase 1\"\n", "")).unwrap();
     assert!(
         convert(&SOURCE.replace("duration: 9.7", "duration: 9.123"))
             .expect("arbitrary duration precision")
@@ -168,7 +168,7 @@ fn rejects_invalid_source(#[case] from: &str, #[case] to: &str) {
 #[test]
 fn rejects_multiple_documents() {
     let invalid = format!("{SOURCE}\n---\nschemaVersion: 1\nentries: []");
-    assert!(convert(&invalid).is_err());
+    convert(&invalid).unwrap_err();
 }
 
 #[test]
@@ -235,6 +235,6 @@ fn network_field_regex_preserves_backslashes() {
 #[test]
 fn validates_javascript_regex_syntax() {
     let source = "schemaVersion: 1\nentries:\n  - kind: event\n    at: 0\n    name: Test\n    sync: { regex: '\\Afoo' }\n";
-    assert!(convert(source).is_ok());
-    assert!(convert(&source.replace(r"\Afoo", "(?P<name>foo)")).is_err());
+    convert(source).unwrap();
+    convert(&source.replace(r"\Afoo", "(?P<name>foo)")).unwrap_err();
 }

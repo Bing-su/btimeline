@@ -80,7 +80,7 @@ impl Client {
             .post(token_url)
             .header("Authorization", format!("Basic {basic}"))
             .send_form([("grant_type", "client_credentials")])
-            .map_err(|_| anyhow!("FFLogs token request failed"))?;
+            .context("FFLogs token request failed")?;
         ensure!(
             response.status().is_success(),
             "FFLogs token HTTP {}",
@@ -89,7 +89,7 @@ impl Client {
         let token: Token = response
             .body_mut()
             .read_json()
-            .map_err(|_| anyhow!("Invalid FFLogs token response"))?;
+            .context("Invalid FFLogs token response")?;
         ensure!(
             !token.access_token.trim().is_empty(),
             "Empty FFLogs access token"

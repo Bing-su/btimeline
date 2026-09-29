@@ -147,7 +147,7 @@ pub struct Collection {
 }
 
 fn valid_millisecond(value: f64) -> bool {
-    value.is_finite() && (0.0..9_223_372_036_854_775_808.0).contains(&value) && value.fract() == 0.0
+    value.is_finite() && (0.0..9_223_372_036_854_776_000.0).contains(&value) && value.fract() == 0.0
 }
 
 fn check(valid: bool, message: &str) -> garde::Result {
@@ -188,6 +188,10 @@ fn validate_collection(collection: &Collection, _: &()) -> garde::Result {
 }
 
 // Cross-check the manifest against the report and event array, not just itself.
+#[expect(
+    clippy::float_cmp,
+    reason = "collection times must exactly match integral fight milliseconds"
+)]
 fn validate_collected_log(data: &CollectedLog, _: &()) -> garde::Result {
     let [fight] = data.report.fights.as_slice() else {
         return Err(garde::Error::new("Expected exactly one fight"));

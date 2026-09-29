@@ -48,7 +48,13 @@ pub(super) fn save<T: Serialize>(
         Ok(())
     })();
     if result.is_err() {
-        let _ = fs::remove_file(&temp);
+        {
+            #![allow(
+                clippy::let_underscore_must_use,
+                reason = "intentional ignore of remove_file result"
+            )]
+            let _ = fs::remove_file(&temp);
+        }
     }
     result
 }

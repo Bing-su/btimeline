@@ -1,4 +1,7 @@
-#![allow(clippy::unwrap_used)]
+#![allow(
+    clippy::unwrap_used,
+    reason = "test fixtures use unwrap to fail at the source"
+)]
 
 use super::*;
 use rstest::{fixture, rstest};
@@ -170,7 +173,7 @@ async fn rejects_missing_or_unavailable_fights(#[case] pointer: &str, #[case] va
     let mut metadata_response = metadata();
     *metadata_response.1.pointer_mut(pointer).unwrap() = value;
     let server = server(token(), Some(metadata_response)).await;
-    assert!(authenticate(&server).collect("example", 1).is_err());
+    authenticate(&server).collect("example", 1).unwrap_err();
     assert_eq!(server.received_requests().await.unwrap().len(), 2);
     server.verify().await;
 }
@@ -225,7 +228,7 @@ fn batch_name_matching_is_case_insensitive_and_preserves_sorted_unique_ids() {
         vec![1, 3]
     );
     assert_eq!(select_fights(&data, Some(4), None, false).unwrap(), vec![4]);
-    assert!(select_fights(&data, Some(99), None, false).is_err());
+    select_fights(&data, Some(99), None, false).unwrap_err();
     let mut listing = Vec::new();
     let listing_data = json!({"fights": [
         {"id":1,"name":"Lindwurm II","startTime":0,"endTime":1000},
@@ -257,9 +260,9 @@ async fn lists_and_collects_only_the_selected_batch_with_one_metadata_request() 
     other_difficulty["id"] = json!(5);
     other_difficulty["difficulty"] = json!(100);
     data["fights"] = json!([kill, wipe, other_phase, uploading, other_difficulty]);
-    assert!(select_fights(&data, None, None, true).is_err());
-    assert!(select_fights(&data, None, Some("Lindwurm"), true).is_err());
-    assert!(select_fights(&data, Some(99), None, true).is_err());
+    select_fights(&data, None, None, true).unwrap_err();
+    select_fights(&data, None, Some("Lindwurm"), true).unwrap_err();
+    select_fights(&data, Some(99), None, true).unwrap_err();
     assert_eq!(
         select_fights(&data, Some(1), None, true).unwrap(),
         vec![1, 2]
@@ -322,7 +325,7 @@ async fn retries_transient_responses_but_not_permission_errors(#[case] status: u
         .expect(1)
         .mount(&server)
         .await;
-    assert!(authenticate(&server).metadata("example", None).is_ok());
+    authenticate(&server).metadata("example", None).unwrap();
     let requests = server.received_requests().await.unwrap();
     assert_eq!(requests[1].body, requests[2].body);
     server.verify().await;
