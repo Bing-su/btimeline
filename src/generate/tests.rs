@@ -226,3 +226,133 @@ proptest! {
         });
     }
 }
+
+#[test]
+fn generates_deterministic_draft_and_disables_excluded_cast_collision() {
+    let mut data = sample();
+    data["report"]["masterData"]["actors"][1]["name"] = json!("Helper (A)+");
+    data["events"][0]["timestamp"] = json!(1150);
+    data["events"].as_array_mut().unwrap().push(json!({
+        "timestamp":1160,"type":"cast","sourceID":11,"sourceInstance":2,
+        "abilityGameID":90001,"melee":true,"fight":2
+    }));
+    data["events"].as_array_mut().unwrap().push(json!({
+        "timestamp":1150,"type":"cast","sourceID":11,"sourceInstance":3,
+        "abilityGameID":90001,"fight":2
+    }));
+    data["collection"]["eventCount"] = json!(6);
+    with_file(&data, |input| {
+        let first = input.with_extension("first.yaml");
+        let second = input.with_extension("second.yaml");
+        generate(input, &first).unwrap();
+        generate(input, &second).unwrap();
+        let yaml = fs::read_to_string(&first).unwrap();
+        assert_eq!(yaml, fs::read_to_string(&second).unwrap());
+        assert!(yaml.starts_with("# yaml-language-server: $schema="));
+        let parsed: Value = serde_saphyr::from_str(&yaml).unwrap();
+        let events: Vec<&Value> = parsed["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|entry| entry["kind"] == "event")
+            .collect();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0]["at"], json!(0.2));
+        assert_eq!(
+            events[0]["sync"]["fields"]["source"],
+            json!(r"^Helper \(A\)\+$")
+        );
+        assert_eq!(events[0]["sync"]["enabled"], json!(false));
+        assert_eq!(events[1]["at"], json!(0.5));
+        let markdown = fs::read_to_string(first.with_extension("report.md")).unwrap();
+        assert!(markdown.contains("| 표시할 완료 cast 행 | 2 |"));
+        assert!(markdown.contains("| 대표 행에 묶은 동시 cast | 1 |"));
+        assert!(markdown.contains("| sync 비활성화 | 1 |"));
+        let second_markdown = second.with_extension("report.md");
+        fs::remove_file(&second_markdown).unwrap();
+        markdown_file(second.with_extension("report.json")).unwrap();
+        assert_eq!(markdown, fs::read_to_string(&second_markdown).unwrap());
+        assert!(markdown_file(first.with_extension("report.json")).is_err());
+        let report: Value =
+            serde_json::from_slice(&fs::read(first.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            report["syncConflicts"][0]["conflictingEventIndices"],
+            json!([4, 5])
+        );
+        assert_eq!(report["collapsedCasts"][0]["representativeEventIndex"], 0);
+        assert_eq!(
+            report["collapsedCasts"][0]["omittedEventIndices"],
+            json!([5])
+        );
+        assert_eq!(report["validation"]["cactbotParser"], false);
+        assert!(generate(input, &first).is_err());
+        let third = input.with_extension("third.yaml");
+        let existing_report = third.with_extension("report.json");
+        fs::write(&existing_report, "keep").unwrap();
+        assert!(generate(input, &third).is_err());
+        assert_eq!(fs::read_to_string(&existing_report).unwrap(), "keep");
+        assert!(!third.exists());
+        fs::remove_file(existing_report).unwrap();
+        let fourth = input.with_extension("fourth.yaml");
+        let existing_markdown = fourth.with_extension("report.md");
+        fs::write(&existing_markdown, "keep").unwrap();
+        assert!(generate(input, &fourth).is_err());
+        assert_eq!(fs::read_to_string(&existing_markdown).unwrap(), "keep");
+        assert!(!fourth.exists());
+        fs::remove_file(existing_markdown).unwrap();
+        for path in [
+            &first,
+            &second,
+            &first.with_extension("report.json"),
+            &second.with_extension("report.json"),
+            &first.with_extension("report.md"),
+            &second.with_extension("report.md"),
+        ] {
+            fs::remove_file(path).unwrap();
+        }
+    });
+}
+
+#[test]
+fn sync_conflicts_use_the_displayed_rounded_time() {
+    let mut data = sample();
+    data["report"]["endTime"] = json!(9000);
+    data["report"]["fights"][0]["endTime"] = json!(9000);
+    data["collection"]["endTime"] = json!(9000);
+    data["collection"]["eventCount"] = json!(2);
+    data["events"] = json!([
+        {"timestamp":6050,"type":"cast","sourceID":10,"abilityGameID":90001,"fight":2},
+        {"timestamp":8600,"type":"cast","sourceID":10,"abilityGameID":90001,"fight":2}
+    ]);
+    with_file(&data, |input| {
+        let output = input.with_extension("rounded.yaml");
+        generate(input, &output).unwrap();
+        let yaml = fs::read_to_string(&output).unwrap();
+        let parsed: Value = serde_saphyr::from_str(&yaml).unwrap();
+        let events: Vec<&Value> = parsed["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|entry| entry["kind"] == "event")
+            .collect();
+        assert_eq!(events[0]["at"], json!(5.1));
+        assert_eq!(events[0]["sync"]["enabled"], false);
+        assert_eq!(events[1]["at"], json!(7.6));
+        assert!(events[1]["sync"].get("enabled").is_none());
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            report["syncConflicts"][0]["conflictingEventIndices"],
+            json!([1])
+        );
+        for path in [
+            &output,
+            &output.with_extension("report.json"),
+            &output.with_extension("report.md"),
+        ] {
+            fs::remove_file(path).unwrap();
+        }
+    });
+}

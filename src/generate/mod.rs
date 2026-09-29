@@ -276,6 +276,11 @@ pub fn inspect(paths: &[impl AsRef<Path>]) -> Result<Vec<Group>> {
         .collect())
 }
 
+mod draft;
+mod report;
+pub use draft::generate;
+pub use report::markdown_file;
+
 #[cfg(test)]
 mod tests;
 

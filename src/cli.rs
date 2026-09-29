@@ -15,6 +15,8 @@ pub enum MainCommands {
     Convert(ConvertCommand),
     ExportSchema(ExportSchemaCommand),
     InspectInputs(InspectInputsCommand),
+    Generate(GenerateCommand),
+    ReportMarkdown(ReportMarkdownCommand),
 }
 
 #[derive(Cli)]
@@ -79,5 +81,31 @@ impl Run for InspectInputsCommand {
         serde_json::to_writer_pretty(std::io::stdout().lock(), &groups)?;
         println!();
         Ok(())
+    }
+}
+
+#[derive(Args)]
+pub struct GenerateCommand {
+    #[usage(arg)]
+    input: Utf8PathBuf,
+    #[usage(short = 'o', long)]
+    output: Utf8PathBuf,
+}
+impl Run for GenerateCommand {
+    type Output = Result<()>;
+    fn run(self) -> Self::Output {
+        crate::generate::generate(self.input, self.output)
+    }
+}
+
+#[derive(Args)]
+pub struct ReportMarkdownCommand {
+    #[usage(arg)]
+    input: Utf8PathBuf,
+}
+impl Run for ReportMarkdownCommand {
+    type Output = Result<()>;
+    fn run(self) -> Self::Output {
+        crate::generate::markdown_file(self.input)
     }
 }

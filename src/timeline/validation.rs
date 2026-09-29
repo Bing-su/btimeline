@@ -20,7 +20,6 @@ impl Timeline {
         }
         let mut ordered = true;
         let mut previous = 0.0;
-        let mut sync_order_disabled = false;
         for entry in &self.entries {
             match entry {
                 Entry::Event { at, sync, jump, .. } => {
@@ -50,11 +49,10 @@ impl Timeline {
                 Entry::GeneratorOptions { .. } => {}
                 Entry::SyncOrder { enabled } => {
                     if *enabled {
-                        ensure!(sync_order_disabled, "Unmatched syncOrder enable");
+                        ensure!(!ordered, "Unmatched syncOrder enable");
                     } else {
-                        ensure!(!sync_order_disabled, "Nested syncOrder disable");
+                        ensure!(ordered, "Nested syncOrder disable");
                     }
-                    sync_order_disabled = !enabled;
                     ordered = *enabled;
                 }
                 Entry::AbilityCatalog { abilities, .. } => {
@@ -66,7 +64,7 @@ impl Timeline {
                 Entry::Note { .. } => {}
             }
         }
-        ensure!(!sync_order_disabled, "Unclosed syncOrder disable");
+        ensure!(ordered, "Unclosed syncOrder disable");
         Ok(())
     }
 }
