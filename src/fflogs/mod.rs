@@ -1,4 +1,5 @@
 mod client;
+pub(crate) mod model;
 mod storage;
 
 use std::{

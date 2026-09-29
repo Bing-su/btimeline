@@ -6,13 +6,13 @@ use std::{
 };
 
 use anyhow::{Result, ensure};
-use serde_json::Value;
+use serde::Serialize;
 
 use super::OutputFormat;
 
 // A same-directory temporary file makes replacement atomic, e.g. failed saves retain the old JSON.
-pub(super) fn save(
-    data: &Value,
+pub(super) fn save<T: Serialize>(
+    data: &T,
     directory: impl AsRef<Path>,
     filename: &str,
     format: OutputFormat,

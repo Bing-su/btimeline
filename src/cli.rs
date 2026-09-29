@@ -14,6 +14,7 @@ pub enum MainCommands {
     Validate(ValidateCommand),
     Convert(ConvertCommand),
     ExportSchema(ExportSchemaCommand),
+    InspectInputs(InspectInputsCommand),
 }
 
 #[derive(Cli)]
@@ -62,5 +63,21 @@ impl Run for ExportSchemaCommand {
     type Output = Result<()>;
     fn run(self) -> Self::Output {
         crate::timeline::export_schema(self.output)
+    }
+}
+
+#[derive(Args)]
+pub struct InspectInputsCommand {
+    /// Collected FFLogs fight JSON files
+    #[usage(arg)]
+    inputs: Vec<Utf8PathBuf>,
+}
+impl Run for InspectInputsCommand {
+    type Output = Result<()>;
+    fn run(self) -> Self::Output {
+        let groups = crate::generate::inspect(&self.inputs)?;
+        serde_json::to_writer_pretty(std::io::stdout().lock(), &groups)?;
+        println!();
+        Ok(())
     }
 }

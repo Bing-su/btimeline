@@ -27,8 +27,14 @@ rstest = { version = "0.27", default-features = false }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 wiremock = "0.6"
 
+[target."cfg(kani_ra)".dependencies]
+kani = { git = "https://github.com/model-checking/kani" }
+
 [lints.clippy]
 unwrap_used = "deny"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)"] }
 
 [profile.release]
 strip = true

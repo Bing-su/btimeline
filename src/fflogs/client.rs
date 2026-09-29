@@ -3,8 +3,11 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use anyhow::{Context, Result, anyhow, ensure};
 use backon::{BlockingRetryable, ExponentialBuilder};
 use base64::{Engine, engine::general_purpose::STANDARD};
+use garde::Validate;
 use serde::Deserialize;
 use serde_json::{Value, json};
+
+use super::model::CollectedLog;
 use tracing::info;
 
 pub(super) const TOKEN_URL: &str = "https://www.fflogs.com/oauth/token";
@@ -206,7 +209,12 @@ impl Client {
     #[cfg(test)]
     pub(super) fn collect(&self, code: &str, fight_id: i64) -> Result<Value> {
         let report = self.metadata(code, Some(fight_id))?;
-        self.collect_from_report(code, fight_id, report, Some(fight_id))
+        Ok(serde_json::to_value(self.collect_from_report(
+            code,
+            fight_id,
+            report,
+            Some(fight_id),
+        )?)?)
     }
 
     pub(super) fn collect_from_report(
@@ -215,7 +223,7 @@ impl Client {
         fight_id: i64,
         mut report: Value,
         metadata_fight_id: Option<i64>,
-    ) -> Result<Value> {
+    ) -> Result<CollectedLog> {
         validate_selection(code, Some(fight_id))?;
         let fights = report
             .get("fights")
@@ -281,7 +289,7 @@ impl Client {
         );
         // Keep provenance with raw data so one atomic save commits both, without credentials.
         let collected_at = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
-        Ok(json!({"report": report, "events": events, "collection": {
+        let data: CollectedLog = serde_json::from_value(json!({"report": report, "events": events, "collection": {
             "schemaVersion": 1,
             "toolVersion": env!("CARGO_PKG_VERSION"),
             "collectedAtUnixMs": u64::try_from(collected_at)?,
@@ -293,7 +301,9 @@ impl Client {
                 "metadata": {"query": METADATA, "variables": {"code": code, "fightIDs": metadata_fight_id.map(|id| vec![id])}},
                 "events": {"query": EVENTS, "variables": {"code": code, "fightIDs": [fight_id], "start": start, "end": end}}
             }
-        }}))
+        }})).context("Invalid collected log")?;
+        data.validate().context("Invalid collected log")?;
+        Ok(data)
     }
 }
 

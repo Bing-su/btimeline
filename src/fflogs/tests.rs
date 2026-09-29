@@ -21,11 +21,13 @@ fn report(value: Value) -> (u16, Value) {
 }
 
 fn metadata() -> (u16, Value) {
-    report(json!({"archiveStatus":{"isAccessible":true},"phases":null,
-        "masterData":{"lang":"en","actors":[],"abilities":[]},
+    report(
+        json!({"code":"example","revision":1,"startTime":0,"endTime":100,"archiveStatus":{"isAccessible":true},"phases":null,
+        "masterData":{"lang":"en","gameVersion":1,"logVersion":76,"actors":[],"abilities":[]},
         "fights":[{"id":1,"name":"Lindwurm II","encounterID":105,"difficulty":101,"kill":true,
-            "fightPercentage":100,"bossPercentage":0,"lastPhase":0,
-            "startTime":10,"endTime":30,"inProgress":false,"phaseTransitions":null}]}))
+            "fightPercentage":100,"bossPercentage":0,"lastPhase":0,"enemyNPCs":[],"enemyPets":[],
+            "startTime":10,"endTime":30,"inProgress":false,"phaseTransitions":null}]}),
+    )
 }
 
 fn response((status, body): (u16, Value)) -> ResponseTemplate {
@@ -81,7 +83,7 @@ async fn collects_two_pages_and_saves_raw_json() {
             json!({"variables":{"start":10.0,"fightIDs":[1]}}),
         ))
         .respond_with(response(report(
-            json!({"events":{"data":[{"timestamp":11,"optional":{"x":1}}],"nextPageTimestamp":20}}),
+            json!({"events":{"data":[{"type":"cast","timestamp":11,"optional":{"x":1}}],"nextPageTimestamp":20}}),
         )))
         .expect(1)
         .mount(&server)
@@ -89,7 +91,7 @@ async fn collects_two_pages_and_saves_raw_json() {
     api("TimelineEvents")
         .and(body_partial_json(json!({"variables":{"start":20.0}})))
         .respond_with(response(report(
-            json!({"events":{"data":[{"timestamp":21}],"nextPageTimestamp":null}}),
+            json!({"events":{"data":[{"type":"cast","timestamp":21}],"nextPageTimestamp":null}}),
         )))
         .expect(1)
         .mount(&server)
@@ -271,7 +273,7 @@ async fn lists_and_collects_only_the_selected_batch_with_one_metadata_request() 
         api("TimelineEvents")
             .and(body_partial_json(json!({"variables":{"fightIDs":[id]}})))
             .respond_with(response(report(
-                json!({"events":{"data":[{"timestamp":10 + id}],"nextPageTimestamp":null}}),
+                json!({"events":{"data":[{"type":"cast","timestamp":10 + id}],"nextPageTimestamp":null}}),
             )))
             .expect(1)
             .mount(&server)
@@ -280,9 +282,12 @@ async fn lists_and_collects_only_the_selected_batch_with_one_metadata_request() 
     let client = authenticate(&server);
     let metadata = client.metadata("example", None).unwrap();
     for id in select_fights(&metadata, Some(1), None, true).unwrap() {
-        let result = client
-            .collect_from_report("example", id, metadata.clone(), None)
-            .unwrap();
+        let result = serde_json::to_value(
+            client
+                .collect_from_report("example", id, metadata.clone(), None)
+                .unwrap(),
+        )
+        .unwrap();
         assert_eq!(result["report"]["fights"].as_array().unwrap().len(), 1);
         assert_eq!(result["collection"]["fightID"], id);
         assert!(result["collection"]["requests"]["metadata"]["variables"]["fightIDs"].is_null());
@@ -466,7 +471,7 @@ async fn isolates_reports_with_the_same_fight_id_and_absolute_pull_times() {
                     "code":code,"fightIDs":[1],"start":cursor as f64,"end":(start + 20) as f64
                 }})))
                 .respond_with(response(report(json!({"events":{
-                    "data":[{"timestamp":timestamp,"abilityGameID":46387,"upload":code}],
+                    "data":[{"type":"cast","timestamp":timestamp,"abilityGameID":46387,"upload":code}],
                     "nextPageTimestamp":next
                 }}))))
                 .expect(1)
@@ -484,8 +489,8 @@ async fn isolates_reports_with_the_same_fight_id_and_absolute_pull_times() {
         assert_eq!(
             data["events"],
             json!([
-                {"timestamp":start + 1,"abilityGameID":46387,"upload":code},
-                {"timestamp":start + 11,"abilityGameID":46387,"upload":code}
+                {"type":"cast","timestamp":start + 1,"abilityGameID":46387,"upload":code},
+                {"type":"cast","timestamp":start + 11,"abilityGameID":46387,"upload":code}
             ])
         );
         assert_eq!(data["collection"]["reportCode"], code);
