@@ -254,8 +254,10 @@ pub fn inspect(paths: &[impl AsRef<Path>]) -> Result<Vec<Group>> {
         .collect())
 }
 
+mod alignment;
 mod draft;
 mod report;
+pub use alignment::align;
 pub use draft::{GenerateMode, generate};
 pub use report::markdown_file;
 

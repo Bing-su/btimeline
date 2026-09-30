@@ -16,6 +16,7 @@ pub enum MainCommands {
     Convert(ConvertCommand),
     ExportSchema(ExportSchemaCommand),
     InspectInputs(InspectInputsCommand),
+    Align(AlignCommand),
     Generate(GenerateCommand),
     ReportMarkdown(ReportMarkdownCommand),
 }
@@ -80,6 +81,22 @@ impl Run for InspectInputsCommand {
     fn run(self) -> Self::Output {
         let groups = crate::generate::inspect(&self.inputs)?;
         serde_json::to_writer_pretty(std::io::stdout().lock(), &groups)?;
+        println!();
+        Ok(())
+    }
+}
+
+#[derive(Args)]
+pub struct AlignCommand {
+    /// Collected FFLogs fight JSON files from one compatible group
+    #[usage(arg)]
+    inputs: Vec<Utf8PathBuf>,
+}
+impl Run for AlignCommand {
+    type Output = Result<()>;
+    fn run(self) -> Self::Output {
+        let report = crate::generate::align(&self.inputs)?;
+        serde_json::to_writer_pretty(std::io::stdout().lock(), &report)?;
         println!();
         Ok(())
     }

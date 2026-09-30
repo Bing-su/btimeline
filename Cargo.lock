@@ -144,6 +144,7 @@ dependencies = [
  "backon",
  "base64 0.23.1",
  "camino",
+ "contracts",
  "garde",
  "jsonschema",
  "proptest",
@@ -153,6 +154,7 @@ dependencies = [
  "serde",
  "serde-saphyr",
  "serde_json",
+ "similar",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -223,6 +225,17 @@ dependencies = [
  "rustversion",
  "ryu",
  "static_assertions",
+]
+
+[[package]]
+name = "contracts"
+version = "0.6.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80771e396e09e4d428c6d034440a3fc62f3927334b66e13c8b8689d3f8785e42"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.6",
 ]
 
 [[package]]
@@ -1569,6 +1582,12 @@ name = "simdutf8"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
+
+[[package]]
+name = "similar"
+version = "3.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f66ca1f7aca2474dc10c942eb22feffc897735f54cd1db90138c2fddb490987"
 
 [[package]]
 name = "slab"
