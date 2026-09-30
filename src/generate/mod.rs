@@ -1,3 +1,5 @@
+mod pairing;
+
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
@@ -9,6 +11,8 @@ use garde::Validate;
 use serde::Serialize;
 
 use crate::fflogs::model::CollectedLog;
+
+use pairing::{PendingStart, start_for};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct GroupKey {
@@ -53,32 +57,6 @@ pub struct Pull {
 pub struct Group {
     pub key: GroupKey,
     pub pulls: Vec<Pull>,
-}
-
-struct PendingStart {
-    actor: i64,
-    instance: Option<i64>,
-    ability: i64,
-    event_index: usize,
-    timestamp: i64,
-    row: usize,
-}
-
-// A completion uses the latest start; a later start supersedes a canceled cast.
-fn start_for(
-    starts: &mut Vec<PendingStart>,
-    actor: i64,
-    instance: Option<i64>,
-    ability: i64,
-    at: i64,
-) -> Option<PendingStart> {
-    let position = starts.iter().rposition(|start| {
-        start.actor == actor
-            && start.instance == instance
-            && start.ability == ability
-            && start.timestamp <= at
-    })?;
-    Some(starts.remove(position))
 }
 
 fn load_one(path: &Path) -> Result<(GroupKey, Pull)> {
@@ -283,57 +261,3 @@ pub use report::markdown_file;
 
 #[cfg(test)]
 mod tests;
-
-#[cfg(kani)]
-mod proofs {
-    use super::*;
-
-    #[kani::proof]
-    fn completion_never_follows_end() {
-        let start: i64 = kani::any();
-        let end: i64 = kani::any();
-        kani::assume(start >= 0 && start <= 1000 && end >= 0 && end <= 1000);
-        let mut starts = vec![PendingStart {
-            actor: 1,
-            instance: Some(2),
-            ability: 3,
-            event_index: 7,
-            timestamp: start,
-            row: 0,
-        }];
-        let matched = start_for(&mut starts, 1, Some(2), 3, end);
-        assert_eq!(matched.is_some(), start <= end);
-        assert_eq!(starts.len(), usize::from(start > end));
-    }
-}
-
-#[cfg(kani)]
-#[kani::proof]
-fn completion_uses_latest_matching_start() {
-    let older: i64 = kani::any();
-    let newer: i64 = kani::any();
-    let completed: i64 = kani::any();
-    kani::assume(0 <= older && older < newer && newer <= completed && completed <= 1000);
-    let mut starts = vec![
-        PendingStart {
-            actor: 1,
-            instance: Some(2),
-            ability: 3,
-            event_index: 7,
-            timestamp: older,
-            row: 0,
-        },
-        PendingStart {
-            actor: 1,
-            instance: Some(2),
-            ability: 3,
-            event_index: 8,
-            timestamp: newer,
-            row: 1,
-        },
-    ];
-    assert_eq!(
-        start_for(&mut starts, 1, Some(2), 3, completed).map(|start| start.event_index),
-        Some(8)
-    );
-}
