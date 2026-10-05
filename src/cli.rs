@@ -111,11 +111,27 @@ pub struct GenerateCommand {
     /// Generation mode: dungeon keeps boss encounters; raid keeps the full fight.
     #[usage(long, value_enum, default = "raid")]
     mode: GenerateMode,
+    /// Select one compatible group by its exact fight name, e.g. --name "Example Fight".
+    #[usage(long)]
+    name: Option<String>,
+    /// Select an encounter segment when names overlap, e.g. --encounter 105 for a checkpoint entry.
+    #[usage(long)]
+    encounter: Option<i64>,
+    /// Select the difficulty when an encounter has multiple groups.
+    #[usage(long)]
+    difficulty: Option<i64>,
 }
 impl Run for GenerateCommand {
     type Output = Result<()>;
     fn run(self) -> Self::Output {
-        crate::generate::generate(self.input, self.output, self.mode)
+        crate::generate::generate_selected(
+            self.input,
+            self.output,
+            self.mode,
+            self.name.as_deref(),
+            self.encounter,
+            self.difficulty,
+        )
     }
 }
 
@@ -153,5 +169,48 @@ mod tests {
             };
             assert_eq!(command.mode, expected);
         }
+    }
+
+    #[test]
+    fn generate_accepts_directory_name_selection() {
+        let args: Vec<_> = [
+            "generate",
+            "logs/example",
+            "--name",
+            "Example Fight",
+            "-o",
+            "out.yaml",
+        ]
+        .into_iter()
+        .map(std::ffi::OsStr::new)
+        .collect();
+        let MainCommands::Generate(command) = MainCli::parse_from(&args).unwrap().command else {
+            panic!("expected generate command");
+        };
+        assert_eq!(command.name.as_deref(), Some("Example Fight"));
+        assert_eq!(command.input.as_str(), "logs/example");
+    }
+
+    #[test]
+    fn generate_accepts_encounter_and_difficulty_selection() {
+        let args: Vec<_> = [
+            "generate",
+            "logs/example",
+            "--encounter",
+            "105",
+            "--difficulty",
+            "101",
+            "-o",
+            "out.yaml",
+        ]
+        .into_iter()
+        .map(std::ffi::OsStr::new)
+        .collect();
+        let MainCommands::Generate(command) = MainCli::parse_from(&args).unwrap().command else {
+            panic!("expected generate command");
+        };
+        assert_eq!(command.encounter, Some(105));
+        assert_eq!(command.difficulty, Some(101));
+        assert_eq!(command.name, None);
     }
 }

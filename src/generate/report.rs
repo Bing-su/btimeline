@@ -49,6 +49,9 @@ fn cell(value: &str) -> String {
 }
 
 pub(super) fn render(report: &Value) -> Result<String> {
+    if report.get("inputs").is_some() {
+        return render_multi(report);
+    }
     let input = report.get("input").context("Missing input")?;
     let validation = report.get("validation").context("Missing validation")?;
     let conflicts = array_field(report, "syncConflicts")?;
@@ -184,6 +187,138 @@ pub(super) fn render(report: &Value) -> Result<String> {
                 cell(reason_label(&reason))
             )?;
         }
+    }
+    Ok(out)
+}
+
+fn render_multi(report: &Value) -> Result<String> {
+    let inputs = array_field(report, "inputs")?;
+    let slots = array_field(report, "slots")?;
+    let conflicts = array_field(report, "syncConflicts")?;
+    let mut out = String::from("# 다중 로그 초안\n\n");
+    writeln!(out, "| 항목 | 값 |\n| --- | --- |")?;
+    writeln!(out, "| 상태 | draft |")?;
+    writeln!(out, "| 모드 | {} |", text_field(report, "mode")?)?;
+    writeln!(out, "| 입력 pull | {} |", inputs.len())?;
+    writeln!(out, "| 표시할 완료 cast 행 | {} |", slots.len())?;
+    writeln!(out, "| sync 비활성화 | {} |", conflicts.len())?;
+    writeln!(
+        out,
+        "\n## 입력\n\n| 전투 | 원본 | report / fight | revision / logVersion | 종료 |\n| --- | --- | --- | --- | --- |"
+    )?;
+    for item in inputs {
+        let input = item.get("input").context("Missing pull input")?;
+        writeln!(
+            out,
+            "| {} | {} | {} / {} | {} / {} | {} ({} ms) |",
+            cell(text_field(input, "name")?),
+            cell(text_field(input, "file")?),
+            cell(text_field(input, "report")?),
+            number_field(input, "fight")?,
+            number_field(input, "revision")?,
+            number_field(input, "logVersion")?,
+            if item["kill"] == true { "kill" } else { "wipe" },
+            number_field(item, "endMs")?
+        )?;
+    }
+    writeln!(out, "\n## 검증 상태\n\n| 검사 | 결과 |\n| --- | --- |")?;
+    for (key, label) in [
+        ("schemaAndSemantic", "Schema · semantic"),
+        ("replay", "원본 재생"),
+        ("cactbotParser", "cactbot parser"),
+        ("runtime", "runtime"),
+    ] {
+        let passed = report
+            .get("validation")
+            .and_then(|validation| validation.get(key))
+            .context("Missing validation result")?
+            .as_bool()
+            .context("Missing validation result")?;
+        writeln!(
+            out,
+            "| {label} | {} |",
+            if passed { "통과" } else { "미실행" }
+        )?;
+    }
+    writeln!(
+        out,
+        "\n## 블록 진입\n\n| 블록 | 기준 | 중앙값 (ms) | min / max (ms) | 표본 |\n| ---: | --- | ---: | --- | ---: |"
+    )?;
+    for block in array_field(report, "blocks")? {
+        let time = &block["time"];
+        writeln!(
+            out,
+            "| {} | {} | {} | {} / {} | {} |",
+            number_field(block, "id")?,
+            text_field(block, "entry")?,
+            time["medianMs"],
+            time["minMs"],
+            time["maxMs"],
+            time["sampleCount"]
+        )?;
+    }
+    writeln!(
+        out,
+        "\n## 슬롯 시간\n\n블록 진입 이후의 관측 밀리초 통계입니다. 원본 index·instance·wipe 미관측 참조는 JSON report에 보존합니다.\n"
+    )?;
+    writeln!(
+        out,
+        "| 슬롯 | 블록 | 능력 ID | 중앙값 (ms) | min / max (ms) | 표본 | 근거 |\n| ---: | ---: | --- | ---: | --- | ---: | --- |"
+    )?;
+    for slot in slots {
+        let time = &slot["time"];
+        let ids = array_field(slot, "abilityIds")?
+            .iter()
+            .map(|id| {
+                id.as_i64()
+                    .map(|id| format!("{id:X}"))
+                    .context("Missing ability ID")
+            })
+            .collect::<Result<Vec<_>>>()?
+            .join(" / ");
+        writeln!(
+            out,
+            "| {} | {} | {} | {} | {} / {} | {} | {} |",
+            number_field(slot, "id")?,
+            number_field(slot, "block")?,
+            ids,
+            time["medianMs"],
+            time["minMs"],
+            time["maxMs"],
+            time["sampleCount"],
+            text_field(slot, "evidence")?
+        )?;
+    }
+    writeln!(
+        out,
+        "\n## sync 검토\n\n| 슬롯 | 이유 | 충돌 수 |\n| ---: | --- | ---: |"
+    )?;
+    for conflict in conflicts {
+        writeln!(
+            out,
+            "| {} | {} | {} |",
+            number_field(conflict, "slot")?,
+            cell(reason_label(text_field(conflict, "reason")?)),
+            array_field(conflict, "conflictingEvents")?.len()
+        )?;
+    }
+    writeln!(out, "\n## 제한\n\n| 항목 | 값 |\n| --- | --- |")?;
+    writeln!(
+        out,
+        "| 참조 경로에서 제외한 신호 | {} |",
+        array_field(report, "omittedSignals")?.len()
+    )?;
+    writeln!(
+        out,
+        "| 방향 민감한 로그 쌍 | {} |",
+        array_field(&report["alignment"], "orderSensitivePairs")?.len()
+    )?;
+    for limitation in array_field(report, "limitations")? {
+        writeln!(
+            out,
+            "| 제한 | {} |",
+            cell(limitation.as_str().context("Missing limitation")?)
+        )?;
     }
     Ok(out)
 }

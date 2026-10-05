@@ -9,6 +9,615 @@ use rstest::rstest;
 use serde_json::{Value, json};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+fn multi_log(code: &str, rows: &[(i64, i64, i64, &str)], end: i64, kill: bool) -> Value {
+    let mut data = sample();
+    data["report"]["code"] = json!(code);
+    data["collection"]["reportCode"] = json!(code);
+    data["report"]["endTime"] = json!(1000 + end);
+    data["report"]["fights"][0]["endTime"] = json!(1000 + end);
+    data["report"]["fights"][0]["kill"] = json!(kill);
+    data["collection"]["endTime"] = json!(1000 + end);
+    data["collection"]["eventCount"] = json!(rows.len());
+    data["report"]["masterData"]["abilities"] = json!(
+        rows.iter()
+            .map(|r| r.2)
+            .collect::<BTreeSet<_>>()
+            .iter()
+            .map(|&id| json!({"gameID":id,"name":format!("Ability {id}"),"type":"1"}))
+            .collect::<Vec<_>>()
+    );
+    data["events"] =
+        json!(rows.iter().map(|&(at, actor, ability, kind)| json!({
+        "timestamp":1000 + at,"type":kind,"sourceID":actor,"abilityGameID":ability,"fight":2
+    })).collect::<Vec<_>>());
+    data
+}
+
+fn with_logs(logs: &[Value], check: impl FnOnce(&Path)) {
+    with_file(&sample(), |path| {
+        let directory = path.with_extension("logs");
+        fs::create_dir(&directory).unwrap();
+        for (i, log) in logs.iter().enumerate() {
+            fs::write(
+                directory.join(format!("fight_{i}.json")),
+                serde_json::to_vec(log).unwrap(),
+            )
+            .unwrap();
+        }
+        check(&directory);
+        fs::remove_dir_all(directory).unwrap();
+    });
+}
+
+fn draft_events(yaml: &str) -> Vec<Value> {
+    let timeline: Value = serde_saphyr::from_str(yaml).unwrap();
+    timeline["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| e["kind"] == "event")
+        .cloned()
+        .collect()
+}
+
+#[test]
+fn multi_draft_merges_isolated_alternatives_and_keeps_block_timing_provenance() {
+    let a = multi_log(
+        "a",
+        &[
+            (1000, 10, 90001, "cast"),
+            (1400, 11, 90002, "begincast"),
+            (1500, 11, 90002, "cast"),
+            (4000, 10, 90004, "cast"),
+        ],
+        6000,
+        true,
+    );
+    let b = multi_log(
+        "b",
+        &[
+            (2000, 10, 90001, "cast"),
+            (2600, 11, 90003, "begincast"),
+            (2701, 11, 90003, "cast"),
+            (5000, 10, 90004, "cast"),
+        ],
+        6000,
+        true,
+    );
+    with_logs(&[a, b], |path| {
+        let selected = multi::select_group(path, Some("Unseen Fight"), None, None).unwrap();
+        let (yaml, report) = multi::build(selected, GenerateMode::Raid).unwrap();
+        let events = draft_events(&yaml);
+        assert_eq!(events.len(), 3);
+        assert_eq!(events[0]["at"], 1.5);
+        assert_eq!(events[1]["at"], 2.1);
+        assert_eq!(events[2]["at"], 4.5);
+        assert_eq!(
+            events[1]["sync"]["fields"]["id"],
+            json!(["^15F92$", "^15F93$"])
+        );
+        assert_eq!(
+            report["slots"][1]["time"],
+            json!({"medianMs":600.5,"minMs":500,"maxMs":701,"sampleCount":2})
+        );
+        assert_eq!(
+            report["blocks"][1]["time"],
+            json!({"medianMs":1500.0,"minMs":1000,"maxMs":2000,"sampleCount":2})
+        );
+        assert_eq!(report["slots"][1]["samples"][1]["eventIndices"], json!([2]));
+        assert_eq!(report["unobservedCombinations"], "unknown");
+        assert_eq!(report["validation"]["replay"], false);
+        assert!(report["omittedSignals"].as_array().unwrap().is_empty());
+        let mut reversed = multi::select_group(path, None, None, None).unwrap();
+        reversed.pulls.reverse();
+        let (reversed_yaml, reversed_report) = multi::build(reversed, GenerateMode::Raid).unwrap();
+        assert_eq!(yaml, reversed_yaml);
+        assert_eq!(report, reversed_report);
+        let output = path.join("out.yaml");
+        generate(path, &output, GenerateMode::Raid).unwrap();
+        assert_eq!(yaml, fs::read_to_string(&output).unwrap());
+        let markdown = fs::read_to_string(output.with_extension("report.md")).unwrap();
+        assert!(markdown.contains("600.5"));
+        assert!(markdown.contains("| 원본 재생 | 미실행 |"));
+        fs::remove_file(output.with_extension("report.md")).unwrap();
+        markdown_file(output.with_extension("report.json")).unwrap();
+        assert_eq!(
+            markdown,
+            fs::read_to_string(output.with_extension("report.md")).unwrap()
+        );
+        assert!(generate(path, &output, GenerateMode::Raid).is_err());
+        let second_output = path.join("second.yaml");
+        generate(path, &second_output, GenerateMode::Raid).unwrap();
+        assert_eq!(yaml, fs::read_to_string(second_output).unwrap());
+    });
+}
+
+#[rstest]
+#[case::adjacent(false)]
+#[case::shared_intermediate(true)]
+fn dependent_paths_produce_common_draft_instead_of_independent_id_arrays(
+    #[case] intermediate: bool,
+) {
+    let mut a = vec![(1000, 10, 90001, "cast"), (2000, 11, 90002, "cast")];
+    let mut b = vec![(1000, 10, 90001, "cast"), (2000, 11, 90003, "cast")];
+    if intermediate {
+        a.push((2500, 11, 90007, "cast"));
+        b.push((2500, 11, 90007, "cast"));
+    }
+    a.extend([(3000, 11, 90005, "cast"), (4000, 10, 90004, "cast")]);
+    b.extend([(3000, 11, 90006, "cast"), (4000, 10, 90004, "cast")]);
+    with_logs(
+        &[
+            multi_log("a", &a, 5000, true),
+            multi_log("b", &b, 5000, true),
+        ],
+        |path| {
+            let (yaml, report) = multi::build(
+                multi::select_group(path, None, None, None).unwrap(),
+                GenerateMode::Raid,
+            )
+            .unwrap();
+            let events = draft_events(&yaml);
+            assert_eq!(events.len(), if intermediate { 3 } else { 2 });
+            assert!(
+                events
+                    .iter()
+                    .all(|event| event["sync"]["fields"]["id"].is_string())
+            );
+            assert_eq!(report["omittedSignals"].as_array().unwrap().len(), 2);
+            assert!(
+                report["outputCoverage"][1]["omittedEventIndices"]
+                    .as_array()
+                    .unwrap()
+                    .len()
+                    >= 2
+            );
+        },
+    );
+}
+
+#[test]
+fn finite_repeats_keep_wipe_suffix_with_reached_sample_counts() {
+    let a = multi_log(
+        "a",
+        &[
+            (1000, 10, 90001, "cast"),
+            (5000, 10, 90001, "cast"),
+            (9000, 10, 90001, "cast"),
+        ],
+        10000,
+        true,
+    );
+    let b = multi_log(
+        "b",
+        &[(1000, 10, 90001, "cast"), (5000, 10, 90001, "cast")],
+        6000,
+        false,
+    );
+    with_logs(&[a, b], |path| {
+        let (yaml, report) = multi::build(
+            multi::select_group(path, None, None, None).unwrap(),
+            GenerateMode::Raid,
+        )
+        .unwrap();
+        let events = draft_events(&yaml);
+        assert_eq!(
+            events
+                .iter()
+                .map(|e| e["at"].as_f64().unwrap())
+                .collect::<Vec<_>>(),
+            [1.0, 5.0, 9.0]
+        );
+        assert_eq!(report["slots"][2]["time"]["sampleCount"], 1);
+        assert_eq!(
+            report["slots"][2]["unobservedAfterWipe"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(events.iter().all(|e| e.get("jump").is_none()));
+    });
+}
+
+#[test]
+fn three_pull_consensus_merges_only_the_same_position() {
+    let logs = [90002, 90003, 90005]
+        .into_iter()
+        .enumerate()
+        .map(|(i, id)| {
+            multi_log(
+                &format!("report{i}"),
+                &[
+                    (1000, 10, 90001, "cast"),
+                    (2000, 11, id, "cast"),
+                    (4000, 10, 90004, "cast"),
+                ],
+                5000,
+                true,
+            )
+        })
+        .collect::<Vec<_>>();
+    with_logs(&logs, |path| {
+        let (yaml, report) = multi::build(
+            multi::select_group(path, None, None, None).unwrap(),
+            GenerateMode::Raid,
+        )
+        .unwrap();
+        assert_eq!(
+            draft_events(&yaml)[1]["sync"]["fields"]["id"]
+                .as_array()
+                .unwrap()
+                .len(),
+            3
+        );
+        assert_eq!(report["slots"][1]["time"]["sampleCount"], 3);
+        assert_eq!(report["slots"][1]["samples"].as_array().unwrap().len(), 3);
+    });
+}
+
+#[test]
+fn directory_selection_requires_one_group_and_never_connects_encounters() {
+    let a = multi_log("a", &[(1000, 10, 90001, "cast")], 5000, true);
+    let mut b = a.clone();
+    b["report"]["code"] = json!("b");
+    b["collection"]["reportCode"] = json!("b");
+    b["report"]["fights"][0]["encounterID"] = json!(123456);
+    b["report"]["fights"][0]["name"] = json!("Another New Encounter");
+    with_logs(&[a, b.clone()], |path| {
+        let error = multi::select_group(path, None, None, None)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("--name") && error.contains("Another New Encounter"));
+        multi::select_group(path, Some("Missing"), None, None).unwrap_err();
+        let selected = multi::select_group(path, Some("Unseen Fight"), None, None).unwrap();
+        assert_eq!(selected.pulls.len(), 1);
+        assert_eq!(selected.key.encounter, 9999);
+        let output = path.join("selected.yaml");
+        draft::generate_selected(
+            path,
+            &output,
+            GenerateMode::Raid,
+            Some("Unseen Fight"),
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(draft_events(&fs::read_to_string(output).unwrap()).len(), 1);
+    });
+    b["report"]["fights"][0]["name"] = json!("Unseen Fight");
+    with_logs(
+        &[multi_log("a", &[(1000, 10, 90001, "cast")], 5000, true), b],
+        |path| {
+            multi::select_group(path, Some("Unseen Fight"), None, None).unwrap_err();
+        },
+    );
+}
+
+#[test]
+fn directory_rejects_duplicate_and_incomplete_inputs_before_writing() {
+    let a = multi_log("a", &[(1000, 10, 90001, "cast")], 5000, true);
+    with_logs(&[a.clone(), a.clone()], |path| {
+        let output = path.join("duplicate.yaml");
+        assert!(generate(path, &output, GenerateMode::Raid).is_err());
+        assert!(!output.exists());
+    });
+    let mut b = a.clone();
+    b["collection"]["complete"] = json!(false);
+    with_logs(&[a, b], |path| {
+        let output = path.join("incomplete.yaml");
+        assert!(generate(path, &output, GenerateMode::Raid).is_err());
+        assert!(!output.exists());
+    });
+}
+
+#[test]
+fn multi_sync_checks_alternative_ids_against_excluded_raw_casts() {
+    let a = multi_log(
+        "a",
+        &[
+            (1000, 10, 90001, "cast"),
+            (4000, 11, 90002, "cast"),
+            (9000, 10, 90004, "cast"),
+        ],
+        10000,
+        true,
+    );
+    let mut b = multi_log(
+        "b",
+        &[
+            (1000, 10, 90001, "cast"),
+            (4000, 11, 90003, "cast"),
+            (9000, 10, 90004, "cast"),
+        ],
+        10000,
+        true,
+    );
+    b["report"]["masterData"]["abilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"gameID":90002,"name":"Ability 90002","type":"1"}));
+    b["events"].as_array_mut().unwrap().push(json!({"timestamp":5200,"type":"cast","sourceID":11,"abilityGameID":90002,"melee":true,"fight":2}));
+    b["collection"]["eventCount"] = json!(4);
+    with_logs(&[a, b], |path| {
+        let (yaml, report) = multi::build(
+            multi::select_group(path, None, None, None).unwrap(),
+            GenerateMode::Raid,
+        )
+        .unwrap();
+        assert_eq!(draft_events(&yaml)[1]["sync"]["enabled"], false);
+        assert_eq!(
+            report["syncConflicts"][0]["conflictingEvents"][0]["eventIndex"],
+            3
+        );
+    });
+}
+
+#[test]
+fn multi_dungeon_keeps_helper_only_inside_boss_spans() {
+    let rows = [
+        (100, 11, 90002, "cast"),
+        (1000, 10, 90001, "cast"),
+        (2000, 11, 90002, "cast"),
+        (3000, 10, 90004, "cast"),
+        (4000, 11, 90002, "cast"),
+    ];
+    with_logs(
+        &[
+            multi_log("a", &rows, 5000, true),
+            multi_log("b", &rows, 5000, true),
+        ],
+        |path| {
+            let (yaml, report) = multi::build(
+                multi::select_group(path, None, None, None).unwrap(),
+                GenerateMode::Dungeon,
+            )
+            .unwrap();
+            assert_eq!(draft_events(&yaml).len(), 3);
+            assert_eq!(report["inputs"][0]["bossSegments"][0]["startMs"], 1000);
+            assert_eq!(
+                report["inputs"][0]["occurrences"].as_array().unwrap().len(),
+                5
+            );
+            assert_eq!(
+                report["observedPaths"][0]["occurrences"]
+                    .as_array()
+                    .unwrap()
+                    .len(),
+                3
+            );
+        },
+    );
+}
+
+#[test]
+fn censored_pull_raw_cast_still_disables_a_later_sync() {
+    let a = multi_log(
+        "a",
+        &[(1000, 10, 90001, "cast"), (4000, 11, 90002, "cast")],
+        5000,
+        true,
+    );
+    let mut b = multi_log(
+        "b",
+        &[(1000, 10, 90001, "cast"), (2500, 11, 90002, "cast")],
+        3000,
+        false,
+    );
+    b["events"][1]["melee"] = json!(true);
+    with_logs(&[a, b], |path| {
+        let (yaml, report) = multi::build(
+            multi::select_group(path, None, None, None).unwrap(),
+            GenerateMode::Raid,
+        )
+        .unwrap();
+        assert_eq!(draft_events(&yaml).len(), 2);
+        assert_eq!(draft_events(&yaml)[1]["sync"]["enabled"], false);
+        assert_eq!(report["slots"][1]["time"]["sampleCount"], 1);
+        assert_eq!(
+            report["syncConflicts"][0]["conflictingEvents"][0]["eventIndex"],
+            1
+        );
+    });
+}
+
+#[test]
+fn simultaneous_instances_are_preserved_without_inflating_pull_sample_counts() {
+    let mut a = multi_log(
+        "a",
+        &[
+            (1000, 10, 90001, "cast"),
+            (3000, 11, 90002, "cast"),
+            (3000, 11, 90002, "cast"),
+            (7000, 10, 90004, "cast"),
+        ],
+        8000,
+        true,
+    );
+    a["events"][1]["sourceInstance"] = json!(2);
+    a["events"][2]["sourceInstance"] = json!(3);
+    let mut b = a.clone();
+    b["report"]["code"] = json!("b");
+    b["collection"]["reportCode"] = json!("b");
+    with_logs(&[a, b], |path| {
+        let (yaml, report) = multi::build(
+            multi::select_group(path, None, None, None).unwrap(),
+            GenerateMode::Raid,
+        )
+        .unwrap();
+        assert_eq!(draft_events(&yaml).len(), 3);
+        assert_eq!(report["slots"][1]["time"]["sampleCount"], 2);
+        assert_eq!(
+            report["slots"][1]["samples"][0]["eventIndices"],
+            json!([1, 2])
+        );
+        assert_eq!(
+            report["slots"][1]["samples"][0]["instanceIds"],
+            json!([2, 3])
+        );
+        assert_eq!(draft_events(&yaml)[1]["sync"]["enabled"], false);
+    });
+}
+
+#[test]
+fn boss_block_entries_use_observed_medians_without_accumulating_interval_medians() {
+    let logs = [
+        [1000, 9000, 10000],
+        [2000, 3000, 13000],
+        [4000, 8000, 12000],
+    ]
+    .iter()
+    .enumerate()
+    .map(|(i, times)| {
+        multi_log(
+            &format!("report{i}"),
+            &[
+                (times[0], 10, 90001, "cast"),
+                (times[1], 10, 90002, "cast"),
+                (times[2], 10, 90003, "cast"),
+            ],
+            14000,
+            true,
+        )
+    })
+    .collect::<Vec<_>>();
+    with_logs(&logs, |path| {
+        let (yaml, report) = multi::build(
+            multi::select_group(path, None, None, None).unwrap(),
+            GenerateMode::Raid,
+        )
+        .unwrap();
+        assert_eq!(
+            draft_events(&yaml)
+                .iter()
+                .map(|e| e["at"].as_f64().unwrap())
+                .collect::<Vec<_>>(),
+            [2.0, 8.0, 12.0]
+        );
+        assert_eq!(report["slots"][1]["time"]["medianMs"], 4000.0);
+        assert_eq!(report["blocks"][2]["time"]["medianMs"], 8000.0);
+        assert_eq!(report["blocks"][3]["time"]["medianMs"], 12000.0);
+    });
+}
+
+#[test]
+fn mixed_roles_preserve_common_successors_when_interval_medians_differ() {
+    // Every pull has A → helper → B; mixing absolute and interval medians must not drop B.
+    let logs = [
+        (1000, 11000, 12000),
+        (9000, 10000, 11000),
+        (10000, 20000, 21000),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(i, (a, helper, b))| {
+        multi_log(
+            &format!("report{i}"),
+            &[
+                (a, 10, 90001, "cast"),
+                (helper, 11, 90002, "cast"),
+                (b, 10, 90003, "cast"),
+            ],
+            25000,
+            true,
+        )
+    })
+    .collect::<Vec<_>>();
+    with_logs(&logs, |path| {
+        let (yaml, report) = multi::build(
+            multi::select_group(path, None, None, None).unwrap(),
+            GenerateMode::Raid,
+        )
+        .unwrap();
+        assert_eq!(
+            draft_events(&yaml)
+                .iter()
+                .map(|event| event["at"].as_f64().unwrap())
+                .collect::<Vec<_>>(),
+            [9.0, 11.0, 12.0]
+        );
+        assert_eq!(report["slots"][1]["time"]["medianMs"], 10000.0);
+        assert!(report["omittedSignals"].as_array().unwrap().is_empty());
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["representedEventIndices"], json!([0, 1, 2]));
+            assert!(
+                coverage["omittedEventIndices"]
+                    .as_array()
+                    .unwrap()
+                    .is_empty()
+            );
+        }
+    });
+}
+
+#[rstest]
+#[case::boss_prefix(10, false)]
+#[case::boss_after_divergent_paths(10, true)]
+#[case::helper_prefix(11, false)]
+#[case::helper_after_divergent_paths(11, true)]
+fn observed_common_casts_survive_wipe_when_pull_timings_drift(
+    #[case] actor: i64,
+    #[case] divergent: bool,
+) {
+    let mut a = vec![(1000, 10, 90001, "cast")];
+    let mut b = a.clone();
+    if divergent {
+        // An observed common C restores the timing reference after X/Y before the slower B.
+        a.extend([(2000, 10, 90004, "cast"), (10000, 10, 90006, "cast")]);
+        b.extend([(2000, 10, 90005, "cast"), (12000, 10, 90006, "cast")]);
+    }
+    a.extend([(25000, actor, 90002, "cast"), (40000, 10, 90003, "cast")]);
+    b.push((18000, actor, 90002, "cast"));
+    with_logs(
+        &[
+            multi_log("a", &a, 50000, true),
+            multi_log("b", &b, 20000, false),
+        ],
+        |path| {
+            let group = multi::select_group(path, None, None, None).unwrap();
+            let comparison = alignment::compare(&group.pulls[0], &group.pulls[1]).unwrap();
+            assert!(
+                comparison
+                    .segments
+                    .iter()
+                    .flat_map(|segment| &segment.slots)
+                    .any(|slot| {
+                        matches!((&slot.left, &slot.right), (Some(a), Some(b))
+                if a.key.ability_id == 90002 && b.key.ability_id == 90002)
+                    })
+            );
+            let (_, report) = multi::build(group, GenerateMode::Raid).unwrap();
+            let common = report["slots"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|slot| slot["abilityIds"] == json!([90002]))
+                .unwrap();
+            assert_eq!(
+                common["absoluteTime"],
+                json!({
+                    "medianMs":21500.0,"minMs":18000,"maxMs":25000,"sampleCount":2
+                })
+            );
+            assert!(common["unobservedAfterWipe"].as_array().unwrap().is_empty());
+            assert!(
+                report["outputCoverage"][1]["omittedEventIndices"]
+                    .as_array()
+                    .unwrap()
+                    .is_empty()
+            );
+            let tail = report["slots"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|slot| slot["abilityIds"] == json!([90003]))
+                .unwrap();
+            assert_eq!(tail["time"]["sampleCount"], 1);
+            assert_eq!(tail["unobservedAfterWipe"].as_array().unwrap().len(), 1);
+        },
+    );
+}
+
 fn sample() -> Value {
     json!({
         "report": {"code":"new-report", "revision":1,"startTime":0,"endTime":3000,
@@ -82,19 +691,207 @@ fn rejects_incomplete_and_invalid_references(#[case] mutate: fn(&mut Value)) {
     });
 }
 
-#[test]
-fn rejects_conflicting_groups() {
+#[rstest]
+#[case::parser_version(1, 77)]
+#[case::game_version(2, 76)]
+#[case::both_versions(2, 77)]
+fn same_encounter_accepts_different_versions(#[case] game_version: i64, #[case] log_version: i64) {
     let mut changed = sample();
     changed["report"]["code"] = json!("other-report");
     changed["collection"]["reportCode"] = json!("other-report");
-    changed["report"]["masterData"]["logVersion"] = json!(77);
+    changed["report"]["masterData"]["gameVersion"] = json!(game_version);
+    changed["report"]["masterData"]["logVersion"] = json!(log_version);
+    with_file(&sample(), |first| {
+        with_file(&changed, |second| {
+            let groups = inspect(&[first, second]).unwrap();
+            assert_eq!(groups.len(), 1);
+            assert_eq!(groups[0].pulls.len(), 2);
+            assert_eq!(groups[0].pulls[1].game_version, game_version);
+            assert_eq!(groups[0].pulls[1].log_version, log_version);
+            let alignment = serde_json::to_value(align(&[first, second]).unwrap()).unwrap();
+            assert_eq!(alignment["inputs"][1]["gameVersion"], game_version);
+            assert_eq!(alignment["inputs"][1]["logVersion"], log_version);
+        })
+    });
+}
+
+#[test]
+fn directory_generation_accepts_mixed_versions_and_preserves_each_input_version() {
+    let a = multi_log(
+        "a",
+        &[(1000, 10, 90001, "cast"), (3000, 10, 90002, "cast")],
+        4000,
+        true,
+    );
+    let mut b = a.clone();
+    b["report"]["code"] = json!("b");
+    b["collection"]["reportCode"] = json!("b");
+    b["report"]["masterData"]["gameVersion"] = json!(2);
+    b["report"]["masterData"]["logVersion"] = json!(74);
+    with_logs(&[a, b], |path| {
+        let output = path.join("mixed.yaml");
+        generate(path, &output, GenerateMode::Raid).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(report["inputs"].as_array().unwrap().len(), 2);
+        assert_eq!(report["inputs"][0]["input"]["gameVersion"], 1);
+        assert_eq!(report["inputs"][0]["input"]["logVersion"], 76);
+        assert_eq!(report["inputs"][1]["input"]["gameVersion"], 2);
+        assert_eq!(report["inputs"][1]["input"]["logVersion"], 74);
+        assert_eq!(report["group"], json!({"encounter":9999,"difficulty":9}));
+        assert_eq!(report["slots"][0]["time"]["sampleCount"], 2);
+    });
+}
+
+#[test]
+fn wipe_on_an_early_branch_preserves_later_common_rows_without_matching_a_later_repeat() {
+    // The short pull's B at 2s must not align with B at 20s on the other path.
+    // Both surviving paths reach C at 5s, even though their early choices differ.
+    let logs = [
+        multi_log(
+            "a",
+            &[
+                (1000, 10, 90001, "cast"),
+                (2000, 10, 90002, "cast"),
+                (5000, 10, 90004, "cast"),
+                (20000, 10, 90003, "cast"),
+                (25000, 10, 90005, "cast"),
+            ],
+            30000,
+            true,
+        ),
+        multi_log(
+            "b",
+            &[
+                (1000, 10, 90001, "cast"),
+                (2000, 10, 90003, "cast"),
+                (5000, 10, 90004, "cast"),
+                (20000, 10, 90003, "cast"),
+                (25000, 10, 90005, "cast"),
+            ],
+            30000,
+            true,
+        ),
+        multi_log(
+            "c",
+            &[(1000, 10, 90001, "cast"), (2000, 10, 90003, "cast")],
+            3000,
+            false,
+        ),
+    ];
+    with_logs(&logs, |path| {
+        let group = multi::select_group(path, None, None, None).unwrap();
+        let comparison = alignment::compare(&group.pulls[0], &group.pulls[2]).unwrap();
+        assert!(comparison.segments.iter().flat_map(|s| &s.slots).all(|s| {
+            !matches!((&s.left,&s.right), (Some(a),Some(b)) if a.time_ms == 20000 && b.time_ms == 2000)
+        }));
+        let (yaml, report) = multi::build(group, GenerateMode::Raid).unwrap();
+        let events = draft_events(&yaml);
+        assert!(
+            events
+                .iter()
+                .any(|e| e["at"] == 5.0 && e["sync"]["fields"]["id"] == "^15F94$")
+        );
+        let common = report["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["abilityIds"] == json!([90004]))
+            .unwrap();
+        assert_eq!(common["time"]["sampleCount"], 2);
+        assert_eq!(common["unobservedAfterWipe"].as_array().unwrap().len(), 1);
+    });
+}
+
+#[test]
+fn an_initial_wipe_does_not_remove_the_entire_multi_pull_draft() {
+    let a = multi_log(
+        "a",
+        &[
+            (10000, 10, 90001, "begincast"),
+            (15000, 10, 90001, "cast"),
+            (30000, 10, 90002, "cast"),
+        ],
+        40000,
+        true,
+    );
+    let b = multi_log("b", &[(19000, 10, 90001, "begincast")], 20000, false);
+    with_logs(&[a, b], |path| {
+        let (yaml, report) = multi::build(
+            multi::select_group(path, None, None, None).unwrap(),
+            GenerateMode::Raid,
+        )
+        .unwrap();
+        assert_eq!(draft_events(&yaml).len(), 2);
+        assert_eq!(report["slots"][0]["time"]["sampleCount"], 1);
+        assert_eq!(
+            report["slots"][0]["unobservedAfterWipe"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(report["omittedSignals"].as_array().unwrap().is_empty());
+    });
+}
+
+#[test]
+fn encounter_and_difficulty_selectors_resolve_overlapping_names() {
+    let a = multi_log("a", &[(1000, 10, 90001, "cast")], 2000, true);
+    let mut b = a.clone();
+    b["report"]["code"] = json!("b");
+    b["collection"]["reportCode"] = json!("b");
+    b["report"]["fights"][0]["encounterID"] = json!(123456);
+    let mut c = b.clone();
+    c["report"]["code"] = json!("c");
+    c["collection"]["reportCode"] = json!("c");
+    c["report"]["fights"][0]["difficulty"] = json!(10);
+    with_logs(&[a, b, c], |path| {
+        let error = multi::select_group(path, None, None, None)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("--encounter 9999 --difficulty 9"));
+        assert!(error.contains("--encounter 123456 --difficulty 10"));
+        multi::select_group(path, Some("Unseen Fight"), None, None).unwrap_err();
+        multi::select_group(path, None, Some(123456), None).unwrap_err();
+        let selected = multi::select_group(path, None, Some(123456), Some(10)).unwrap();
+        assert_eq!(selected.key.encounter, 123456);
+        assert_eq!(selected.key.difficulty, 10);
+        assert_eq!(selected.pulls.len(), 1);
+        multi::select_group(path, Some("Missing"), Some(123456), Some(10)).unwrap_err();
+        let output = path.join("selected.yaml");
+        draft::generate_selected(
+            path,
+            &output,
+            GenerateMode::Raid,
+            None,
+            Some(123456),
+            Some(10),
+        )
+        .unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(report["group"], json!({"encounter":123456,"difficulty":10}));
+    });
+}
+
+#[test]
+fn actor_role_conflicts_are_rejected_even_when_versions_differ() {
+    let mut changed = sample();
+    changed["report"]["code"] = json!("other-report");
+    changed["collection"]["reportCode"] = json!("other-report");
+    changed["report"]["masterData"]["gameVersion"] = json!(2);
+    changed["report"]["masterData"]["logVersion"] = json!(74);
+    changed["report"]["masterData"]["actors"][0]["subType"] = json!("NPC");
     with_file(&sample(), |first| {
         with_file(&changed, |second| {
             assert!(
                 inspect(&[first, second])
                     .unwrap_err()
                     .to_string()
-                    .contains("Version conflict")
+                    .contains("Actor role conflict")
             );
         })
     });

@@ -29,7 +29,7 @@ fn rounded_milliseconds(ms: i64) -> i64 {
     (ms.div_euclid(100) + i64::from(ms.rem_euclid(100) >= 50)) * 100
 }
 
-fn rounded_seconds(ms: i64) -> f64 {
+pub(super) fn rounded_seconds(ms: i64) -> f64 {
     rounded_milliseconds(ms) as f64 / 1000.0
 }
 
@@ -61,18 +61,25 @@ pub enum GenerateMode {
     Raid,
 }
 
+#[cfg(test)]
 pub fn generate(
     input: impl AsRef<Path>,
     output: impl AsRef<Path>,
     mode: GenerateMode,
 ) -> Result<()> {
+    generate_selected(input, output, mode, None, None, None)
+}
+
+pub fn generate_selected(
+    input: impl AsRef<Path>,
+    output: impl AsRef<Path>,
+    mode: GenerateMode,
+    name: Option<&str>,
+    encounter: Option<i64>,
+    difficulty: Option<i64>,
+) -> Result<()> {
     let input = input.as_ref();
     let output = output.as_ref();
-
-    if let Some(parent) = output.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
     let report_path = output.with_extension("report.json");
     let markdown_path = output.with_extension("report.md");
     ensure!(
@@ -80,6 +87,28 @@ pub fn generate(
         "Output already exists"
     );
 
+    let group = super::multi::select_group(input, name, encounter, difficulty)?;
+    let (yaml, report) = if group.pulls.len() == 1 {
+        build_single(
+            Path::new(&group.pulls.first().context("Missing pull")?.file),
+            mode,
+        )?
+    } else {
+        super::multi::build(group, mode)?
+    };
+    let report_bytes = format!("{}\n", serde_json::to_string_pretty(&report)?);
+    let markdown = super::report::render(&report)?;
+    if let Some(parent) = output.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    save_outputs([
+        (output, yaml.as_bytes()),
+        (&report_path, report_bytes.as_bytes()),
+        (&markdown_path, markdown.as_bytes()),
+    ])
+}
+
+pub(super) fn build_single(input: &Path, mode: GenerateMode) -> Result<(String, Value)> {
     let groups = inspect(&[input])?;
     let group = groups.first().context("Missing input group")?;
     let pull = group.pulls.first().context("Missing input pull")?;
@@ -237,16 +266,12 @@ pub fn generate(
         entries.push(event);
         emitted.push(row.event_index);
         slots.push(json!({"eventIndex":row.event_index, "sampleCount":1,
-            "timeMs":row.relative_ms, "evidence":"observed"}));
+            "timeMs":row.relative_ms, "block":0,
+            "time":{"medianMs":row.relative_ms, "minMs":row.relative_ms, "maxMs":row.relative_ms, "sampleCount":1},
+            "evidence":"observed"}));
     }
     entries.push(json!({"kind":"abilityCatalog", "abilities":catalog}));
-    let yaml = format!(
-        "{SCHEMA_HEADER}{}",
-        serde_saphyr::to_string(&json!({
-            "schemaVersion":1, "entries":entries
-        }))?
-    );
-    crate::timeline::convert(&yaml).context("Generated draft failed validation")?;
+    let yaml = serialize_draft(entries)?;
     let report: Value = json!({
         "status":"draft",
         "mode":mode,
@@ -255,7 +280,7 @@ pub fn generate(
         })).collect::<Vec<_>>(),
         "input":{"file":input.display().to_string(), "report":pull.report, "fight":pull.fight,
             "name":pull.name,
-            "revision":pull.revision, "logVersion":data.report.master_data.log_version,
+            "revision":pull.revision, "gameVersion":pull.game_version, "logVersion":pull.log_version,
             "complete":data.collection.complete},
         "group":group.key,
         "kill":pull.kill,
@@ -268,16 +293,22 @@ pub fn generate(
             "representativeEventIndex":representative, "omittedEventIndices":omitted
         })).collect::<Vec<_>>(),
         "slots":slots,
+        "blocks":[{"id":0,"entry":"fightStart","time":{"medianMs":0,"minMs":0,"maxMs":0,"sampleCount":1}}],
         "syncConflicts":conflicts,
         "validation":{"schemaAndSemantic":true, "replay":false, "cactbotParser":false, "runtime":false}
     });
-    let report_bytes = format!("{}\n", serde_json::to_string_pretty(&report)?);
-    let markdown = super::report::render(&report)?;
-    save_outputs([
-        (output, yaml.as_bytes()),
-        (&report_path, report_bytes.as_bytes()),
-        (&markdown_path, markdown.as_bytes()),
-    ])
+    Ok((yaml, report))
+}
+
+pub(super) fn serialize_draft(entries: Vec<Value>) -> Result<String> {
+    let yaml = format!(
+        "{SCHEMA_HEADER}{}",
+        serde_saphyr::to_string(&json!({
+            "schemaVersion":1, "entries":entries
+        }))?
+    );
+    crate::timeline::convert(&yaml).context("Generated draft failed validation")?;
+    Ok(yaml)
 }
 
 fn write_temp(path: &Path, bytes: &[u8]) -> Result<()> {

@@ -14,12 +14,11 @@ use crate::fflogs::model::CollectedLog;
 
 use pairing::{PendingStart, start_for};
 
+// Align equivalent FFLogs segments; an encounter ID can identify one checkpoint segment of a battle.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct GroupKey {
     encounter: i64,
     difficulty: i64,
-    game_version: i64,
-    log_version: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -44,6 +43,8 @@ pub struct Pull {
     pub file: String,
     pub report: String,
     pub revision: i64,
+    pub game_version: i64,
+    pub log_version: i64,
     pub fight: i64,
     pub name: String,
     pub kill: bool,
@@ -76,8 +77,6 @@ fn load_one(path: &Path) -> Result<(GroupKey, Pull)> {
     let key = GroupKey {
         encounter: fight.encounter_id,
         difficulty: fight.difficulty,
-        game_version: master.game_version,
-        log_version: master.log_version,
     };
     ensure!(key.encounter > 0, "Invalid encounter ID");
     let mut actors = BTreeMap::new();
@@ -201,6 +200,8 @@ fn load_one(path: &Path) -> Result<(GroupKey, Pull)> {
             file: path.display().to_string(),
             report: report.code.clone(),
             revision: report.revision,
+            game_version: master.game_version,
+            log_version: master.log_version,
             fight: fight.id,
             name: fight.name.clone(),
             kill: fight.kill,
@@ -223,16 +224,8 @@ pub fn inspect(paths: &[impl AsRef<Path>]) -> Result<Vec<Group>> {
             identities.insert((pull.report.clone(), pull.fight)),
             "Duplicate pull input"
         );
-        // Version conflicts for the same encounter need review before any group is generated.
-        ensure!(
-            !groups.keys().any(|other| other.encounter == key.encounter
-                && other.difficulty == key.difficulty
-                && (other.game_version != key.game_version
-                    || other.log_version != key.log_version)),
-            "Version conflict for encounter {} difficulty {}",
-            key.encounter,
-            key.difficulty
-        );
+        // Versions describe provenance, not encounter identity: parser 74 and 76 may contain the same casts.
+        // Compare normalized actor identities below; P4/P5 retain any observed sequence differences.
         let peers = groups.entry(key).or_default();
         for peer in peers.iter() {
             for actor in pull.actors.values() {
@@ -256,9 +249,12 @@ pub fn inspect(paths: &[impl AsRef<Path>]) -> Result<Vec<Group>> {
 
 mod alignment;
 mod draft;
+mod multi;
 mod report;
 pub use alignment::align;
-pub use draft::{GenerateMode, generate};
+#[cfg(test)]
+use draft::generate;
+pub use draft::{GenerateMode, generate_selected};
 pub use report::markdown_file;
 
 #[cfg(test)]

@@ -12,48 +12,48 @@ use super::{GroupKey, Pull, inspect};
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct SignalKey {
-    actor_game_id: i64,
-    role: String,
-    ability_id: i64,
-    kind: String,
-    count: usize,
-    instances: usize,
+pub(super) struct SignalKey {
+    pub actor_game_id: i64,
+    pub role: String,
+    pub ability_id: i64,
+    pub kind: String,
+    pub count: usize,
+    pub instances: usize,
 }
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct Signal {
-    key: SignalKey,
-    time_ms: i64,
-    event_indices: Vec<usize>,
-    instance_ids: Vec<i64>,
+pub(super) struct Signal {
+    pub key: SignalKey,
+    pub time_ms: i64,
+    pub event_indices: Vec<usize>,
+    pub instance_ids: Vec<i64>,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct Slot {
-    left: Option<Signal>,
-    right: Option<Signal>,
-    evidence: &'static str,
+pub(super) struct Slot {
+    pub left: Option<Signal>,
+    pub right: Option<Signal>,
+    pub evidence: &'static str,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct Segment {
+pub(super) struct Segment {
     before_anchor: Option<usize>,
     after_anchor: Option<usize>,
-    slots: Vec<Slot>,
+    pub slots: Vec<Slot>,
     relation: &'static str,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct Comparison {
+pub(super) struct Comparison {
     left: String,
     right: String,
-    segments: Vec<Segment>,
-    order_sensitive: bool,
+    pub segments: Vec<Segment>,
+    pub order_sensitive: bool,
     matched_anchor_count: usize,
     repeated_anchor_keys: Vec<SignalKey>,
 }
@@ -62,13 +62,22 @@ struct Comparison {
 #[serde(rename_all = "camelCase")]
 pub struct AlignmentReport {
     group: GroupKey,
+    inputs: Vec<AlignmentInput>,
     implementation: &'static str,
     comparisons: Vec<Comparison>,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AlignmentInput {
+    file: String,
+    game_version: i64,
+    log_version: i64,
+}
+
 // Every occurrence contributes to exactly one grouped signal, even when helpers interleave.
 #[debug_ensures(ret.iter().map(|signal| signal.key.count).sum::<usize>() == pull.occurrences.len())]
-fn signals(pull: &Pull) -> Vec<Signal> {
+pub(super) fn signals(pull: &Pull) -> Vec<Signal> {
     let mut result: Vec<Signal> = Vec::new();
     let mut positions: BTreeMap<(usize, i64, i64, &str), usize> = BTreeMap::new();
     let mut instances: Vec<BTreeSet<i64>> = Vec::new();
@@ -163,6 +172,122 @@ fn pairs(left: &[Signal], right: &[Signal]) -> Result<Vec<(Option<usize>, Option
     )
 }
 
+fn boss_pairs(left: &[Signal], right: &[Signal]) -> Result<Vec<(Option<usize>, Option<usize>)>> {
+    let left_anchors = boss_anchors(left);
+    let right_anchors = boss_anchors(right);
+    paired_keys(
+        &left_anchors
+            .iter()
+            .filter_map(|&i| left.get(i))
+            .map(|s| s.key.clone())
+            .collect::<Vec<_>>(),
+        &right_anchors
+            .iter()
+            .filter_map(|&i| right.get(i))
+            .map(|s| s.key.clone())
+            .collect::<Vec<_>>(),
+    )
+    .map(|aligned| {
+        aligned
+            .into_iter()
+            .map(|(i, j)| {
+                (
+                    i.and_then(|i| left_anchors.get(i)).copied(),
+                    j.and_then(|j| right_anchors.get(j)).copied(),
+                )
+            })
+            .collect()
+    })
+}
+
+fn observed_len(
+    signals: &[Signal],
+    peer_signals: &[Signal],
+    peer: &Pull,
+    entry: (i64, i64),
+) -> usize {
+    if peer.kill {
+        return signals.len();
+    }
+    // An identical observed prefix can drift, e.g. A→B at 1s→25s versus 1s→18s before a 20s wipe.
+    // Beyond that prefix, keep the wipe bound so an early branch cannot match a later repeat.
+    let (own_entry, peer_entry) = signals
+        .iter()
+        .zip(peer_signals)
+        .take_while(|(a, b)| a.key == b.key)
+        .last()
+        .map_or(entry, |(a, b)| (a.time_ms, b.time_ms));
+    signals
+        .iter()
+        .take_while(|signal| signal.time_ms - own_entry <= peer.end_ms - peer_entry)
+        .count()
+}
+
+fn observed_pairs(
+    left: &[Signal],
+    right: &[Signal],
+    left_pull: &Pull,
+    right_pull: &Pull,
+    mut entry: (i64, i64),
+    pair_signals: impl Fn(&[Signal], &[Signal]) -> Result<Vec<(Option<usize>, Option<usize>)>>,
+) -> Result<Vec<(Option<usize>, Option<usize>)>> {
+    let mut result = Vec::new();
+    let (mut left_start, mut right_start) = (0, 0);
+    loop {
+        let left_remaining = left.get(left_start..).context("Invalid left suffix")?;
+        let right_remaining = right.get(right_start..).context("Invalid right suffix")?;
+        let left_len = observed_len(left_remaining, right_remaining, right_pull, entry);
+        let right_len = observed_len(
+            right_remaining,
+            left_remaining,
+            left_pull,
+            (entry.1, entry.0),
+        );
+        let aligned = pair_signals(
+            left_remaining
+                .get(..left_len)
+                .context("Invalid observed left prefix")?,
+            right_remaining
+                .get(..right_len)
+                .context("Invalid observed right prefix")?,
+        )?;
+        let last_match = aligned
+            .iter()
+            .enumerate()
+            .rev()
+            .find_map(|(position, &(i, j))| Some((position, i?, j?)));
+        if let Some((position, i, j)) = last_match {
+            result.extend(
+                aligned
+                    .iter()
+                    .take(position + 1)
+                    .map(|&(i, j)| (i.map(|i| left_start + i), j.map(|j| right_start + j))),
+            );
+            // Resume at the observed common successor; X/Y→C can establish a new drifting B prefix.
+            entry = (
+                left_remaining.get(i).context("Missing left match")?.time_ms,
+                right_remaining
+                    .get(j)
+                    .context("Missing right match")?
+                    .time_ms,
+            );
+            left_start += i + 1;
+            right_start += j + 1;
+        } else {
+            result.extend(
+                aligned
+                    .into_iter()
+                    .map(|(i, j)| (i.map(|i| left_start + i), j.map(|j| right_start + j))),
+            );
+            // Retain excluded suffixes as source evidence, rather than deleting their occurrences.
+            result.extend((left_len..left_remaining.len()).map(|i| (Some(left_start + i), None)));
+            result
+                .extend((right_len..right_remaining.len()).map(|i| (None, Some(right_start + i))));
+            return Ok(result);
+        }
+    }
+}
+
 fn slot(
     left: Option<&Signal>,
     right: Option<&Signal>,
@@ -216,17 +341,40 @@ fn section(
     after_anchor: Option<usize>,
     before_anchor_times: Option<(i64, i64)>,
 ) -> Result<Segment> {
-    let slots = pairs(left, right)?
+    // Before any shared cast, elapsed time starts at the collected fight boundary.
+    // Each matched signal refines that boundary, e.g. 10s→15s completes after a 19s→20s wipe.
+    let mut censor_reference = Some(before_anchor_times.unwrap_or((0, 0)));
+    let aligned = if after_anchor.is_none() {
+        observed_pairs(
+            left,
+            right,
+            left_pull,
+            right_pull,
+            censor_reference.context("Missing entry")?,
+            pairs,
+        )?
+    } else {
+        pairs(left, right)?
+    };
+    let slots = aligned
         .into_iter()
         .map(|(i, j)| {
-            slot(
-                i.and_then(|index| left.get(index)),
-                j.and_then(|index| right.get(index)),
+            let left_signal = i.and_then(|index| left.get(index));
+            let right_signal = j.and_then(|index| right.get(index));
+            let result = slot(
+                left_signal,
+                right_signal,
                 left_pull,
                 right_pull,
                 after_anchor.is_some(),
-                before_anchor_times,
-            )
+                censor_reference,
+            );
+            if let (Some(a), Some(b)) = (left_signal, right_signal)
+                && a.key == b.key
+            {
+                censor_reference = Some((a.time_ms, b.time_ms));
+            }
+            result
         })
         .collect();
     Ok(Segment {
@@ -240,27 +388,22 @@ fn section(
 fn align_segments(left_pull: &Pull, right_pull: &Pull) -> Result<Vec<Segment>> {
     let left = signals(left_pull);
     let right = signals(right_pull);
-    let left_anchors = boss_anchors(&left);
-    let right_anchors = boss_anchors(&right);
-    let anchor_pairs = paired_keys(
-        &left_anchors
-            .iter()
-            .filter_map(|&i| left.get(i))
-            .map(|s| s.key.clone())
-            .collect::<Vec<_>>(),
-        &right_anchors
-            .iter()
-            .filter_map(|&i| right.get(i))
-            .map(|s| s.key.clone())
-            .collect::<Vec<_>>(),
-    )?;
+    // An identical opening boss signal corrects pull-start offset before finding repeat anchors.
+    let entry = match (left.first(), right.first()) {
+        (Some(a), Some(b)) if a.key == b.key && a.key.role.ends_with("/Boss") => {
+            (a.time_ms, b.time_ms)
+        }
+        _ => (0, 0),
+    };
+    // Keep helper context when bounding boss candidates; A→helpers→B differs from an early A→B wipe.
+    let anchor_pairs = observed_pairs(&left, &right, left_pull, right_pull, entry, boss_pairs)?;
     let matched: Vec<_> = anchor_pairs
         .into_iter()
-        .filter_map(|(left, right)| Some((*left_anchors.get(left?)?, *right_anchors.get(right?)?)))
+        .filter_map(|(left, right)| Some((left?, right?)))
         .collect();
     let mut segments = Vec::new();
     let (mut left_start, mut right_start, mut before_anchor) = (0, 0, None);
-    let mut before_anchor_times = None;
+    let mut before_anchor_times = Some(entry);
     for (anchor_number, &(li, rj)) in matched.iter().enumerate() {
         let mut segment = section(
             left.get(left_start..li)
@@ -286,7 +429,10 @@ fn align_segments(left_pull: &Pull, right_pull: &Pull) -> Result<Vec<Segment>> {
         left_start = li + 1;
         right_start = rj + 1;
         before_anchor = Some(anchor_number);
-        before_anchor_times = Some((left[li].time_ms, right[rj].time_ms));
+        before_anchor_times = Some((
+            left.get(li).context("Missing left anchor")?.time_ms,
+            right.get(rj).context("Missing right anchor")?.time_ms,
+        ));
     }
     segments.push(section(
         left.get(left_start..).context("Invalid left suffix")?,
@@ -318,7 +464,7 @@ fn segment_relation(slots: &[Slot]) -> &'static str {
     }
 }
 
-fn compare(left_pull: &Pull, right_pull: &Pull) -> Result<Comparison> {
+pub(super) fn compare(left_pull: &Pull, right_pull: &Pull) -> Result<Comparison> {
     let segments = align_segments(left_pull, right_pull)?;
     let reversed = align_segments(right_pull, left_pull)?;
     // Only correspondence changes count: independent exclusive paths may interleave differently.
@@ -398,6 +544,14 @@ pub fn align(paths: &[impl AsRef<Path>]) -> Result<AlignmentReport> {
     }
     Ok(AlignmentReport {
         group: group.key,
+        inputs: pulls
+            .iter()
+            .map(|pull| AlignmentInput {
+                file: pull.file.clone(),
+                game_version: pull.game_version,
+                log_version: pull.log_version,
+            })
+            .collect(),
         implementation: "similar 3 Myers/LCS",
         comparisons,
     })
@@ -419,6 +573,8 @@ mod tests {
             file: file.into(),
             report: file.into(),
             revision: 1,
+            game_version: 1,
+            log_version: 76,
             fight: 1,
             name: "Synthetic".into(),
             kill,
@@ -600,5 +756,93 @@ mod tests {
         assert_eq!(signals[0].key.instances, 2);
         assert_eq!(signals[0].event_indices, [0, 2]);
         assert_eq!(signals[0].instance_ids, [2, 20]);
+    }
+
+    #[test]
+    fn wipe_during_first_cast_uses_the_observed_start_as_its_time_reference() {
+        let left = pull(
+            "a",
+            true,
+            40000,
+            &[
+                (10000, 1, "NPC/Boss", 1, "begincast"),
+                (15000, 1, "NPC/Boss", 1, "cast"),
+                (30000, 1, "NPC/Boss", 2, "cast"),
+            ],
+        );
+        let right = pull("b", false, 20000, &[(19000, 1, "NPC/Boss", 1, "begincast")]);
+        let comparison = compare(&left, &right).unwrap();
+        let slots: Vec<_> = comparison.segments.iter().flat_map(|s| &s.slots).collect();
+        assert_eq!(slots[0].evidence, "matched");
+        assert_eq!(slots[1].evidence, "rightUnobservedAfterWipe");
+        assert_eq!(slots[2].evidence, "rightUnobservedAfterWipe");
+    }
+
+    #[test]
+    fn observation_limit_preserves_an_opening_start_when_pull_offsets_differ() {
+        // The 20s opening is the same observed start as 10s, despite the other pull ending at 11s.
+        let left = pull("a", false, 11000, &[(10000, 1, "NPC/Boss", 1, "begincast")]);
+        let right = pull(
+            "b",
+            true,
+            30000,
+            &[
+                (20000, 1, "NPC/Boss", 1, "begincast"),
+                (25000, 1, "NPC/Boss", 1, "cast"),
+            ],
+        );
+        for (a, b) in [(&left, &right), (&right, &left)] {
+            let comparison = compare(a, b).unwrap();
+            let slots: Vec<_> = comparison.segments.iter().flat_map(|s| &s.slots).collect();
+            assert_eq!(slots[0].evidence, "matched");
+            assert!(slots[1].evidence.contains("UnobservedAfterWipe"));
+        }
+    }
+
+    #[test]
+    fn wipe_before_any_signal_censors_only_events_after_observation_ends() {
+        let left = pull(
+            "a",
+            true,
+            20000,
+            &[
+                (3000, 1, "NPC/Boss", 1, "cast"),
+                (10000, 1, "NPC/Boss", 2, "cast"),
+            ],
+        );
+        let right = pull("b", false, 5000, &[]);
+        let comparison = compare(&left, &right).unwrap();
+        let slots: Vec<_> = comparison.segments.iter().flat_map(|s| &s.slots).collect();
+        assert_eq!(slots[0].evidence, "observedOnlyOnOnePath");
+        assert_eq!(slots[1].evidence, "rightUnobservedAfterWipe");
+    }
+
+    #[test]
+    fn helper_divergence_prevents_matching_an_early_cast_to_a_later_boss_cast() {
+        // Boss-only A→B order must not erase the helper path between A and the later B.
+        let left = pull(
+            "a",
+            true,
+            30000,
+            &[
+                (1000, 1, "NPC/Boss", 1, "cast"),
+                (2000, 2, "NPC/NPC", 10, "cast"),
+                (5000, 2, "NPC/NPC", 11, "cast"),
+                (20000, 1, "NPC/Boss", 2, "cast"),
+            ],
+        );
+        let right = pull(
+            "b",
+            false,
+            3000,
+            &[
+                (1000, 1, "NPC/Boss", 1, "cast"),
+                (2000, 1, "NPC/Boss", 2, "cast"),
+            ],
+        );
+        let comparison = compare(&left, &right).unwrap();
+        assert!(comparison.segments.iter().flat_map(|segment| &segment.slots).all(|slot| {
+            !matches!((&slot.left, &slot.right), (Some(a), Some(_)) if a.key.ability_id == 2)
+        }));
     }
 }
