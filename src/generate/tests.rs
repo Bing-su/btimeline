@@ -4,10 +4,10 @@
 )]
 
 use super::*;
+use path_slash::PathBufExt as _;
 use proptest::prelude::*;
 use rstest::rstest;
 use serde_json::{Value, json};
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 fn multi_log(code: &str, rows: &[(i64, i64, i64, &str)], end: i64, kill: bool) -> Value {
     let mut data = sample();
@@ -34,19 +34,15 @@ fn multi_log(code: &str, rows: &[(i64, i64, i64, &str)], end: i64, kill: bool) -
 }
 
 fn with_logs(logs: &[Value], check: impl FnOnce(&Path)) {
-    with_file(&sample(), |path| {
-        let directory = path.with_extension("logs");
-        fs::create_dir(&directory).unwrap();
-        for (i, log) in logs.iter().enumerate() {
-            fs::write(
-                directory.join(format!("fight_{i}.json")),
-                serde_json::to_vec(log).unwrap(),
-            )
-            .unwrap();
-        }
-        check(&directory);
-        fs::remove_dir_all(directory).unwrap();
-    });
+    let directory = tempfile::tempdir().unwrap();
+    for (i, log) in logs.iter().enumerate() {
+        fs::write(
+            directory.path().join(format!("fight_{i}.json")),
+            serde_json::to_vec(log).unwrap(),
+        )
+        .unwrap();
+    }
+    check(directory.path());
 }
 
 fn draft_events(yaml: &str) -> Vec<Value> {
@@ -58,6 +54,18 @@ fn draft_events(yaml: &str) -> Vec<Value> {
         .filter(|e| e["kind"] == "event")
         .cloned()
         .collect()
+}
+
+fn snapshot_draft(name: &str, yaml: &str, report: &Value, input: &Path) {
+    // Preserve every provenance reference while removing the random root, e.g. /tmp/run/fight_0.json.
+    let serialized = serde_json::to_string(report).unwrap();
+    let escaped_path = serde_json::to_string(&slash_path(input)).unwrap();
+    let stable: Value =
+        serde_json::from_str(&serialized.replace(escaped_path.trim_matches('"'), "[input]"))
+            .unwrap();
+    insta::assert_snapshot!(format!("{name}_yaml"), yaml);
+    insta::assert_json_snapshot!(format!("{name}_report"), stable);
+    insta::assert_snapshot!(format!("{name}_markdown"), report::render(&stable).unwrap());
 }
 
 #[test]
@@ -87,6 +95,7 @@ fn multi_draft_merges_isolated_alternatives_and_keeps_block_timing_provenance() 
     with_logs(&[a, b], |path| {
         let selected = multi::select_group(path, Some("Unseen Fight"), None, None).unwrap();
         let (yaml, report) = multi::build(selected, GenerateMode::Raid).unwrap();
+        snapshot_draft("multi", &yaml, &report, path);
         let events = draft_events(&yaml);
         assert_eq!(events.len(), 3);
         assert_eq!(events[0]["at"], 1.5);
@@ -642,15 +651,81 @@ fn sample() -> Value {
 }
 
 fn with_file(data: &Value, check: impl FnOnce(&Path)) {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
-    let path = std::env::temp_dir().join(format!(
-        "btimeline-p2-{}-{}.json",
-        std::process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("fight.json");
     fs::write(&path, serde_json::to_vec(data).unwrap()).unwrap();
     check(&path);
-    fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn slash_paths_preserve_native_path_characters() {
+    #[cfg(not(windows))]
+    for path in ["logs/fight.json", r"logs\literal/fight.json"] {
+        // A Unix backslash is part of a filename, e.g. logs\literal is one directory.
+        assert_eq!(slash_path(Path::new(path)), path);
+    }
+    #[cfg(windows)]
+    for (native, expected) in [
+        (r"logs\fight.json", "logs/fight.json"),
+        (r"C:\logs\fight.json", "C:/logs/fight.json"),
+        (r"\\server\share\fight.json", "//server/share/fight.json"),
+        (r"\\?\C:\logs\fight.json", "//?/C:/logs/fight.json"),
+        (
+            r"\\?\UNC\server\share\fight.json",
+            "//?/UNC/server/share/fight.json",
+        ),
+    ] {
+        // Keep prefixes reopenable, e.g. //?/C:/logs/fight.json returns to an extended Windows path.
+        assert_eq!(slash_path(Path::new(native)), expected);
+        assert_eq!(std::path::PathBuf::from_slash(expected), Path::new(native));
+    }
+}
+
+#[test]
+fn reports_use_slash_paths_and_generation_can_reopen_them() {
+    with_file(&sample(), |input| {
+        let expected = format!("{}/fight.json", slash_path(input.parent().unwrap()));
+        let source = load_one(input).unwrap();
+        assert_eq!(source.pull.file, expected);
+        assert_eq!(std::path::PathBuf::from_slash(&source.pull.file), input);
+
+        // Exercise the reload and persisted provenance together, e.g. Windows logs\fight.json.
+        let output = input.with_extension("yaml");
+        generate(input, &output, GenerateMode::Raid).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(report["input"]["file"], expected);
+        assert!(
+            fs::read_to_string(output.with_extension("report.md"))
+                .unwrap()
+                .contains(&expected)
+        );
+    });
+}
+
+#[test]
+fn single_draft_uses_loaded_source_and_validates_before_serialization() {
+    with_file(&sample(), |path| {
+        let mut source = load_one(path).unwrap();
+        fs::remove_file(path).unwrap();
+        let (entries, _) = draft::build_single(&source, GenerateMode::Raid).unwrap();
+        assert_eq!(
+            draft_events(&draft::serialize_draft(entries).unwrap()).len(),
+            2
+        );
+
+        // Keep per-input validation even if a later merge could omit this ability's cast.
+        source
+            .log
+            .report
+            .master_data
+            .abilities
+            .first_mut()
+            .unwrap()
+            .name = "Bad\"Name".into();
+        draft::build_single(&source, GenerateMode::Raid).unwrap_err();
+    });
 }
 
 #[test]
@@ -1073,6 +1148,7 @@ fn generates_deterministic_draft_and_disables_excluded_cast_collision() {
         let report: Value =
             serde_json::from_slice(&fs::read(first.with_extension("report.json")).unwrap())
                 .unwrap();
+        snapshot_draft("single", &yaml, &report, input);
         assert_eq!(
             report["syncConflicts"][0]["conflictingEventIndices"],
             json!([4, 5])

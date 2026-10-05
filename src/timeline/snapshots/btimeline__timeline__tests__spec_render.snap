@@ -1,0 +1,23 @@
+---
+source: src/timeline/tests.rs
+expression: "convert(SOURCE).expect(\"valid fixture\")"
+---
+hideall "--sync--"
+# -it "Black Cat"
+# -ic "Helper"
+# -p 9441:10
+# Opening
+0.0 "--sync--" InCombat { inGameCombat: "1" } window 0,1
+100.0 label "repeat"
+#cactbot-timeline-lint-disable-sync-order
+145.0 "Mouser" Ability { id: "9441", source: "Black Cat" } duration 9.7 forcejump "repeat" # hit
+# not a sync
+150.0 "Mouser follow-up" #sync /9442/ window 1,2
+#cactbot-timeline-lint-enable-sync-order
+# Phase 1
+# -ii 9442
+# IGNORED ABILITIES
+# 9442 Mouser follow-up: Extra hit
+# ALL ENCOUNTER ABILITIES
+# 9441 Mouser
+# 9442 Mouser follow-up: Extra hit

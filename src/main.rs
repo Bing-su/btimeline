@@ -1,6 +1,7 @@
 mod cli;
 mod fflogs;
 mod generate;
+mod output;
 mod timeline;
 
 use anyhow::Result;

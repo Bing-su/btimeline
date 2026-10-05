@@ -1,0 +1,739 @@
+---
+source: src/generate/tests.rs
+expression: stable
+---
+{
+  "alignment": {
+    "implementation": "similar 3 Myers/LCS",
+    "orderSensitivePairs": []
+  },
+  "blocks": [
+    {
+      "draftEntryMs": 0,
+      "entry": "fightStart",
+      "id": 0,
+      "time": {
+        "maxMs": 0,
+        "medianMs": 0.0,
+        "minMs": 0,
+        "sampleCount": 2
+      }
+    },
+    {
+      "draftEntryMs": 1500.0,
+      "entry": "observedBossCast",
+      "id": 1,
+      "samples": [
+        {
+          "abilityId": 90001,
+          "blockEntryMs": 0,
+          "eventIndices": [
+            0
+          ],
+          "file": "[input]/fight_0.json",
+          "instanceIds": [],
+          "relativeMs": 1000,
+          "timeMs": 1000
+        },
+        {
+          "abilityId": 90001,
+          "blockEntryMs": 0,
+          "eventIndices": [
+            0
+          ],
+          "file": "[input]/fight_1.json",
+          "instanceIds": [],
+          "relativeMs": 2000,
+          "timeMs": 2000
+        }
+      ],
+      "slot": 0,
+      "time": {
+        "maxMs": 2000,
+        "medianMs": 1500.0,
+        "minMs": 1000,
+        "sampleCount": 2
+      }
+    },
+    {
+      "draftEntryMs": 4500.0,
+      "entry": "observedBossCast",
+      "id": 2,
+      "samples": [
+        {
+          "abilityId": 90004,
+          "blockEntryMs": 1000,
+          "eventIndices": [
+            3
+          ],
+          "file": "[input]/fight_0.json",
+          "instanceIds": [],
+          "relativeMs": 3000,
+          "timeMs": 4000
+        },
+        {
+          "abilityId": 90004,
+          "blockEntryMs": 2000,
+          "eventIndices": [
+            3
+          ],
+          "file": "[input]/fight_1.json",
+          "instanceIds": [],
+          "relativeMs": 3000,
+          "timeMs": 5000
+        }
+      ],
+      "slot": 2,
+      "time": {
+        "maxMs": 5000,
+        "medianMs": 4500.0,
+        "minMs": 4000,
+        "sampleCount": 2
+      }
+    }
+  ],
+  "group": {
+    "difficulty": 9,
+    "encounter": 9999
+  },
+  "inputs": [
+    {
+      "abilityNames": {
+        "90001": "Ability 90001",
+        "90002": "Ability 90002",
+        "90004": "Ability 90004"
+      },
+      "actorNames": {
+        "10": "Boss",
+        "11": "Helper"
+      },
+      "blocks": [
+        {
+          "entry": "fightStart",
+          "id": 0,
+          "time": {
+            "maxMs": 0,
+            "medianMs": 0,
+            "minMs": 0,
+            "sampleCount": 1
+          }
+        }
+      ],
+      "bossSegments": [
+        {
+          "actorId": 10,
+          "endMs": 4000,
+          "startMs": 1000
+        }
+      ],
+      "collapsedCasts": [],
+      "emittedEventIndices": [
+        0,
+        2,
+        3
+      ],
+      "endMs": 6000,
+      "group": {
+        "difficulty": 9,
+        "encounter": 9999
+      },
+      "input": {
+        "complete": true,
+        "fight": 2,
+        "file": "[input]/fight_0.json",
+        "gameVersion": 1,
+        "logVersion": 76,
+        "name": "Unseen Fight",
+        "report": "a",
+        "revision": 1
+      },
+      "kill": true,
+      "mode": "raid",
+      "occurrences": [
+        {
+          "ability_id": 90001,
+          "actor_game_id": 99901,
+          "actor_id": 10,
+          "completion_event_index": null,
+          "event_index": 0,
+          "instance": null,
+          "kind": "cast",
+          "relative_ms": 1000,
+          "role": "NPC/Boss",
+          "simultaneous": 1,
+          "start_event_index": null,
+          "start_timestamp_ms": null,
+          "timestamp_ms": 2000
+        },
+        {
+          "ability_id": 90002,
+          "actor_game_id": 99902,
+          "actor_id": 11,
+          "completion_event_index": 2,
+          "event_index": 1,
+          "instance": null,
+          "kind": "begincast",
+          "relative_ms": 1400,
+          "role": "NPC/NPC",
+          "simultaneous": 2,
+          "start_event_index": null,
+          "start_timestamp_ms": null,
+          "timestamp_ms": 2400
+        },
+        {
+          "ability_id": 90002,
+          "actor_game_id": 99902,
+          "actor_id": 11,
+          "completion_event_index": null,
+          "event_index": 2,
+          "instance": null,
+          "kind": "cast",
+          "relative_ms": 1500,
+          "role": "NPC/NPC",
+          "simultaneous": 3,
+          "start_event_index": 1,
+          "start_timestamp_ms": 2400,
+          "timestamp_ms": 2500
+        },
+        {
+          "ability_id": 90004,
+          "actor_game_id": 99901,
+          "actor_id": 10,
+          "completion_event_index": null,
+          "event_index": 3,
+          "instance": null,
+          "kind": "cast",
+          "relative_ms": 4000,
+          "role": "NPC/Boss",
+          "simultaneous": 4,
+          "start_event_index": null,
+          "start_timestamp_ms": null,
+          "timestamp_ms": 5000
+        }
+      ],
+      "slots": [
+        {
+          "block": 0,
+          "eventIndex": 0,
+          "evidence": "observed",
+          "sampleCount": 1,
+          "time": {
+            "maxMs": 1000,
+            "medianMs": 1000,
+            "minMs": 1000,
+            "sampleCount": 1
+          },
+          "timeMs": 1000
+        },
+        {
+          "block": 0,
+          "eventIndex": 2,
+          "evidence": "observed",
+          "sampleCount": 1,
+          "time": {
+            "maxMs": 1500,
+            "medianMs": 1500,
+            "minMs": 1500,
+            "sampleCount": 1
+          },
+          "timeMs": 1500
+        },
+        {
+          "block": 0,
+          "eventIndex": 3,
+          "evidence": "observed",
+          "sampleCount": 1,
+          "time": {
+            "maxMs": 4000,
+            "medianMs": 4000,
+            "minMs": 4000,
+            "sampleCount": 1
+          },
+          "timeMs": 4000
+        }
+      ],
+      "status": "draft",
+      "syncConflicts": [],
+      "validation": {
+        "cactbotParser": false,
+        "replay": false,
+        "runtime": false,
+        "schemaAndSemantic": true
+      }
+    },
+    {
+      "abilityNames": {
+        "90001": "Ability 90001",
+        "90003": "Ability 90003",
+        "90004": "Ability 90004"
+      },
+      "actorNames": {
+        "10": "Boss",
+        "11": "Helper"
+      },
+      "blocks": [
+        {
+          "entry": "fightStart",
+          "id": 0,
+          "time": {
+            "maxMs": 0,
+            "medianMs": 0,
+            "minMs": 0,
+            "sampleCount": 1
+          }
+        }
+      ],
+      "bossSegments": [
+        {
+          "actorId": 10,
+          "endMs": 5000,
+          "startMs": 2000
+        }
+      ],
+      "collapsedCasts": [],
+      "emittedEventIndices": [
+        0,
+        2,
+        3
+      ],
+      "endMs": 6000,
+      "group": {
+        "difficulty": 9,
+        "encounter": 9999
+      },
+      "input": {
+        "complete": true,
+        "fight": 2,
+        "file": "[input]/fight_1.json",
+        "gameVersion": 1,
+        "logVersion": 76,
+        "name": "Unseen Fight",
+        "report": "b",
+        "revision": 1
+      },
+      "kill": true,
+      "mode": "raid",
+      "occurrences": [
+        {
+          "ability_id": 90001,
+          "actor_game_id": 99901,
+          "actor_id": 10,
+          "completion_event_index": null,
+          "event_index": 0,
+          "instance": null,
+          "kind": "cast",
+          "relative_ms": 2000,
+          "role": "NPC/Boss",
+          "simultaneous": 1,
+          "start_event_index": null,
+          "start_timestamp_ms": null,
+          "timestamp_ms": 3000
+        },
+        {
+          "ability_id": 90003,
+          "actor_game_id": 99902,
+          "actor_id": 11,
+          "completion_event_index": 2,
+          "event_index": 1,
+          "instance": null,
+          "kind": "begincast",
+          "relative_ms": 2600,
+          "role": "NPC/NPC",
+          "simultaneous": 2,
+          "start_event_index": null,
+          "start_timestamp_ms": null,
+          "timestamp_ms": 3600
+        },
+        {
+          "ability_id": 90003,
+          "actor_game_id": 99902,
+          "actor_id": 11,
+          "completion_event_index": null,
+          "event_index": 2,
+          "instance": null,
+          "kind": "cast",
+          "relative_ms": 2701,
+          "role": "NPC/NPC",
+          "simultaneous": 3,
+          "start_event_index": 1,
+          "start_timestamp_ms": 3600,
+          "timestamp_ms": 3701
+        },
+        {
+          "ability_id": 90004,
+          "actor_game_id": 99901,
+          "actor_id": 10,
+          "completion_event_index": null,
+          "event_index": 3,
+          "instance": null,
+          "kind": "cast",
+          "relative_ms": 5000,
+          "role": "NPC/Boss",
+          "simultaneous": 4,
+          "start_event_index": null,
+          "start_timestamp_ms": null,
+          "timestamp_ms": 6000
+        }
+      ],
+      "slots": [
+        {
+          "block": 0,
+          "eventIndex": 0,
+          "evidence": "observed",
+          "sampleCount": 1,
+          "time": {
+            "maxMs": 2000,
+            "medianMs": 2000,
+            "minMs": 2000,
+            "sampleCount": 1
+          },
+          "timeMs": 2000
+        },
+        {
+          "block": 0,
+          "eventIndex": 2,
+          "evidence": "observed",
+          "sampleCount": 1,
+          "time": {
+            "maxMs": 2701,
+            "medianMs": 2701,
+            "minMs": 2701,
+            "sampleCount": 1
+          },
+          "timeMs": 2701
+        },
+        {
+          "block": 0,
+          "eventIndex": 3,
+          "evidence": "observed",
+          "sampleCount": 1,
+          "time": {
+            "maxMs": 5000,
+            "medianMs": 5000,
+            "minMs": 5000,
+            "sampleCount": 1
+          },
+          "timeMs": 5000
+        }
+      ],
+      "status": "draft",
+      "syncConflicts": [],
+      "validation": {
+        "cactbotParser": false,
+        "replay": false,
+        "runtime": false,
+        "schemaAndSemantic": true
+      }
+    }
+  ],
+  "limitations": [
+    "Unresolved or dependent paths are omitted; unobserved combinations remain unknown.",
+    "ID arrays require an isolated one-ability substitution and an observed common successor; multiple varying choices remain unresolved.",
+    "Repeats are expanded finitely; no conditional exits or encounter transitions are inferred.",
+    "Block entries are observational timing references; entry sync, replay and runtime compatibility are unverified."
+  ],
+  "mode": "raid",
+  "observedPaths": [
+    {
+      "file": "[input]/fight_0.json",
+      "occurrences": [
+        {
+          "ability_id": 90001,
+          "actor_game_id": 99901,
+          "actor_id": 10,
+          "completion_event_index": null,
+          "event_index": 0,
+          "instance": null,
+          "kind": "cast",
+          "relative_ms": 1000,
+          "role": "NPC/Boss",
+          "simultaneous": 1,
+          "start_event_index": null,
+          "start_timestamp_ms": null,
+          "timestamp_ms": 2000
+        },
+        {
+          "ability_id": 90002,
+          "actor_game_id": 99902,
+          "actor_id": 11,
+          "completion_event_index": 2,
+          "event_index": 1,
+          "instance": null,
+          "kind": "begincast",
+          "relative_ms": 1400,
+          "role": "NPC/NPC",
+          "simultaneous": 2,
+          "start_event_index": null,
+          "start_timestamp_ms": null,
+          "timestamp_ms": 2400
+        },
+        {
+          "ability_id": 90002,
+          "actor_game_id": 99902,
+          "actor_id": 11,
+          "completion_event_index": null,
+          "event_index": 2,
+          "instance": null,
+          "kind": "cast",
+          "relative_ms": 1500,
+          "role": "NPC/NPC",
+          "simultaneous": 3,
+          "start_event_index": 1,
+          "start_timestamp_ms": 2400,
+          "timestamp_ms": 2500
+        },
+        {
+          "ability_id": 90004,
+          "actor_game_id": 99901,
+          "actor_id": 10,
+          "completion_event_index": null,
+          "event_index": 3,
+          "instance": null,
+          "kind": "cast",
+          "relative_ms": 4000,
+          "role": "NPC/Boss",
+          "simultaneous": 4,
+          "start_event_index": null,
+          "start_timestamp_ms": null,
+          "timestamp_ms": 5000
+        }
+      ]
+    },
+    {
+      "file": "[input]/fight_1.json",
+      "occurrences": [
+        {
+          "ability_id": 90001,
+          "actor_game_id": 99901,
+          "actor_id": 10,
+          "completion_event_index": null,
+          "event_index": 0,
+          "instance": null,
+          "kind": "cast",
+          "relative_ms": 2000,
+          "role": "NPC/Boss",
+          "simultaneous": 1,
+          "start_event_index": null,
+          "start_timestamp_ms": null,
+          "timestamp_ms": 3000
+        },
+        {
+          "ability_id": 90003,
+          "actor_game_id": 99902,
+          "actor_id": 11,
+          "completion_event_index": 2,
+          "event_index": 1,
+          "instance": null,
+          "kind": "begincast",
+          "relative_ms": 2600,
+          "role": "NPC/NPC",
+          "simultaneous": 2,
+          "start_event_index": null,
+          "start_timestamp_ms": null,
+          "timestamp_ms": 3600
+        },
+        {
+          "ability_id": 90003,
+          "actor_game_id": 99902,
+          "actor_id": 11,
+          "completion_event_index": null,
+          "event_index": 2,
+          "instance": null,
+          "kind": "cast",
+          "relative_ms": 2701,
+          "role": "NPC/NPC",
+          "simultaneous": 3,
+          "start_event_index": 1,
+          "start_timestamp_ms": 3600,
+          "timestamp_ms": 3701
+        },
+        {
+          "ability_id": 90004,
+          "actor_game_id": 99901,
+          "actor_id": 10,
+          "completion_event_index": null,
+          "event_index": 3,
+          "instance": null,
+          "kind": "cast",
+          "relative_ms": 5000,
+          "role": "NPC/Boss",
+          "simultaneous": 4,
+          "start_event_index": null,
+          "start_timestamp_ms": null,
+          "timestamp_ms": 6000
+        }
+      ]
+    }
+  ],
+  "omittedSignals": [],
+  "outputCoverage": [
+    {
+      "file": "[input]/fight_0.json",
+      "omittedEventIndices": [],
+      "representedEventIndices": [
+        0,
+        2,
+        3
+      ]
+    },
+    {
+      "file": "[input]/fight_1.json",
+      "omittedEventIndices": [],
+      "representedEventIndices": [
+        0,
+        2,
+        3
+      ]
+    }
+  ],
+  "slots": [
+    {
+      "abilityIds": [
+        90001
+      ],
+      "absoluteTime": {
+        "maxMs": 2000,
+        "medianMs": 1500.0,
+        "minMs": 1000,
+        "sampleCount": 2
+      },
+      "atMs": 1500.0,
+      "block": 0,
+      "evidence": "observed",
+      "id": 0,
+      "samples": [
+        {
+          "abilityId": 90001,
+          "blockEntryMs": 0,
+          "eventIndices": [
+            0
+          ],
+          "file": "[input]/fight_0.json",
+          "instanceIds": [],
+          "relativeMs": 1000,
+          "timeMs": 1000
+        },
+        {
+          "abilityId": 90001,
+          "blockEntryMs": 0,
+          "eventIndices": [
+            0
+          ],
+          "file": "[input]/fight_1.json",
+          "instanceIds": [],
+          "relativeMs": 2000,
+          "timeMs": 2000
+        }
+      ],
+      "time": {
+        "maxMs": 2000,
+        "medianMs": 1500.0,
+        "minMs": 1000,
+        "sampleCount": 2
+      },
+      "unobservedAfterWipe": []
+    },
+    {
+      "abilityIds": [
+        90002,
+        90003
+      ],
+      "absoluteTime": {
+        "maxMs": 2701,
+        "medianMs": 2100.5,
+        "minMs": 1500,
+        "sampleCount": 2
+      },
+      "atMs": 2100.5,
+      "block": 1,
+      "evidence": "alternativeWithCommonSuccessor",
+      "id": 1,
+      "samples": [
+        {
+          "abilityId": 90002,
+          "blockEntryMs": 1000,
+          "eventIndices": [
+            2
+          ],
+          "file": "[input]/fight_0.json",
+          "instanceIds": [],
+          "relativeMs": 500,
+          "timeMs": 1500
+        },
+        {
+          "abilityId": 90003,
+          "blockEntryMs": 2000,
+          "eventIndices": [
+            2
+          ],
+          "file": "[input]/fight_1.json",
+          "instanceIds": [],
+          "relativeMs": 701,
+          "timeMs": 2701
+        }
+      ],
+      "time": {
+        "maxMs": 701,
+        "medianMs": 600.5,
+        "minMs": 500,
+        "sampleCount": 2
+      },
+      "unobservedAfterWipe": []
+    },
+    {
+      "abilityIds": [
+        90004
+      ],
+      "absoluteTime": {
+        "maxMs": 5000,
+        "medianMs": 4500.0,
+        "minMs": 4000,
+        "sampleCount": 2
+      },
+      "atMs": 4500.0,
+      "block": 1,
+      "evidence": "observed",
+      "id": 2,
+      "samples": [
+        {
+          "abilityId": 90004,
+          "blockEntryMs": 1000,
+          "eventIndices": [
+            3
+          ],
+          "file": "[input]/fight_0.json",
+          "instanceIds": [],
+          "relativeMs": 3000,
+          "timeMs": 4000
+        },
+        {
+          "abilityId": 90004,
+          "blockEntryMs": 2000,
+          "eventIndices": [
+            3
+          ],
+          "file": "[input]/fight_1.json",
+          "instanceIds": [],
+          "relativeMs": 3000,
+          "timeMs": 5000
+        }
+      ],
+      "time": {
+        "maxMs": 3000,
+        "medianMs": 3000.0,
+        "minMs": 3000,
+        "sampleCount": 2
+      },
+      "unobservedAfterWipe": []
+    }
+  ],
+  "status": "draft",
+  "syncConflicts": [],
+  "unobservedCombinations": "unknown",
+  "validation": {
+    "cactbotParser": false,
+    "replay": false,
+    "runtime": false,
+    "schemaAndSemantic": true
+  }
+}

@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::{Context, Result, ensure};
 use garde::Validate;
+use path_slash::PathExt as _;
 use serde::Serialize;
 
 use crate::fflogs::model::CollectedLog;
@@ -60,7 +61,27 @@ pub struct Group {
     pub pulls: Vec<Pull>,
 }
 
-fn load_one(path: &Path) -> Result<(GroupKey, Pull)> {
+// Keep normalized and raw events from one read, e.g. pairing and sync checks share source indices.
+struct Source {
+    key: GroupKey,
+    pull: Pull,
+    log: CollectedLog,
+}
+
+fn slash_path(path: &Path) -> String {
+    let path = path.to_slash_lossy();
+    // path-slash retains Windows prefixes; normalize e.g. \\server\share too, preserving Unix filenames.
+    #[cfg(windows)]
+    {
+        path.replace('\\', "/")
+    }
+    #[cfg(not(windows))]
+    {
+        path.into_owned()
+    }
+}
+
+fn load_one(path: &Path) -> Result<Source> {
     let data: CollectedLog = serde_json::from_slice(&fs::read(path)?)?;
     data.validate().context("Invalid collection")?;
     let report = &data.report;
@@ -194,10 +215,10 @@ fn load_one(path: &Path) -> Result<(GroupKey, Pull)> {
             completion_event_index: None,
         });
     }
-    Ok((
+    Ok(Source {
         key,
-        Pull {
-            file: path.display().to_string(),
+        pull: Pull {
+            file: slash_path(path),
             report: report.code.clone(),
             revision: report.revision,
             game_version: master.game_version,
@@ -209,7 +230,8 @@ fn load_one(path: &Path) -> Result<(GroupKey, Pull)> {
             occurrences,
             actors,
         },
-    ))
+        log: data,
+    })
 }
 
 pub fn inspect(paths: &[impl AsRef<Path>]) -> Result<Vec<Group>> {
@@ -218,7 +240,7 @@ pub fn inspect(paths: &[impl AsRef<Path>]) -> Result<Vec<Group>> {
     let mut identities = BTreeSet::new();
     for path in paths {
         let path = path.as_ref();
-        let (key, pull) =
+        let Source { key, pull, .. } =
             load_one(path).with_context(|| format!("Invalid input {}", path.display()))?;
         ensure!(
             identities.insert((pull.report.clone(), pull.fight)),

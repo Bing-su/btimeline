@@ -1,0 +1,183 @@
+---
+source: src/generate/tests.rs
+expression: stable
+---
+{
+  "abilityNames": {
+    "90001": "Move"
+  },
+  "actorNames": {
+    "10": "Boss",
+    "11": "Helper (A)+"
+  },
+  "blocks": [
+    {
+      "entry": "fightStart",
+      "id": 0,
+      "time": {
+        "maxMs": 0,
+        "medianMs": 0,
+        "minMs": 0,
+        "sampleCount": 1
+      }
+    }
+  ],
+  "bossSegments": [
+    {
+      "actorId": 10,
+      "endMs": 900,
+      "startMs": 100
+    }
+  ],
+  "collapsedCasts": [
+    {
+      "omittedEventIndices": [
+        5
+      ],
+      "representativeEventIndex": 0
+    }
+  ],
+  "emittedEventIndices": [
+    0,
+    2
+  ],
+  "endMs": 1000,
+  "group": {
+    "difficulty": 9,
+    "encounter": 9999
+  },
+  "input": {
+    "complete": true,
+    "fight": 2,
+    "file": "[input]",
+    "gameVersion": 1,
+    "logVersion": 76,
+    "name": "Unseen Fight",
+    "report": "new-report",
+    "revision": 1
+  },
+  "kill": true,
+  "mode": "raid",
+  "occurrences": [
+    {
+      "ability_id": 90001,
+      "actor_game_id": 99901,
+      "actor_id": 10,
+      "completion_event_index": 2,
+      "event_index": 1,
+      "instance": null,
+      "kind": "begincast",
+      "relative_ms": 100,
+      "role": "NPC/Boss",
+      "simultaneous": 1,
+      "start_event_index": null,
+      "start_timestamp_ms": null,
+      "timestamp_ms": 1100
+    },
+    {
+      "ability_id": 90001,
+      "actor_game_id": 99902,
+      "actor_id": 11,
+      "completion_event_index": null,
+      "event_index": 0,
+      "instance": 2,
+      "kind": "cast",
+      "relative_ms": 150,
+      "role": "NPC/NPC",
+      "simultaneous": 2,
+      "start_event_index": null,
+      "start_timestamp_ms": null,
+      "timestamp_ms": 1150
+    },
+    {
+      "ability_id": 90001,
+      "actor_game_id": 99902,
+      "actor_id": 11,
+      "completion_event_index": null,
+      "event_index": 5,
+      "instance": 3,
+      "kind": "cast",
+      "relative_ms": 150,
+      "role": "NPC/NPC",
+      "simultaneous": 2,
+      "start_event_index": null,
+      "start_timestamp_ms": null,
+      "timestamp_ms": 1150
+    },
+    {
+      "ability_id": 90001,
+      "actor_game_id": 99901,
+      "actor_id": 10,
+      "completion_event_index": null,
+      "event_index": 2,
+      "instance": null,
+      "kind": "cast",
+      "relative_ms": 500,
+      "role": "NPC/Boss",
+      "simultaneous": 3,
+      "start_event_index": 1,
+      "start_timestamp_ms": 1100,
+      "timestamp_ms": 1500
+    },
+    {
+      "ability_id": 90001,
+      "actor_game_id": 99901,
+      "actor_id": 10,
+      "completion_event_index": null,
+      "event_index": 3,
+      "instance": null,
+      "kind": "begincast",
+      "relative_ms": 900,
+      "role": "NPC/Boss",
+      "simultaneous": 4,
+      "start_event_index": null,
+      "start_timestamp_ms": null,
+      "timestamp_ms": 1900
+    }
+  ],
+  "slots": [
+    {
+      "block": 0,
+      "eventIndex": 0,
+      "evidence": "observed",
+      "sampleCount": 1,
+      "time": {
+        "maxMs": 150,
+        "medianMs": 150,
+        "minMs": 150,
+        "sampleCount": 1
+      },
+      "timeMs": 150
+    },
+    {
+      "block": 0,
+      "eventIndex": 2,
+      "evidence": "observed",
+      "sampleCount": 1,
+      "time": {
+        "maxMs": 500,
+        "medianMs": 500,
+        "minMs": 500,
+        "sampleCount": 1
+      },
+      "timeMs": 500
+    }
+  ],
+  "status": "draft",
+  "syncConflicts": [
+    {
+      "conflictingEventIndices": [
+        4,
+        5
+      ],
+      "eventIndex": 0,
+      "reason": "another cast matches within the default sync window"
+    }
+  ],
+  "validation": {
+    "cactbotParser": false,
+    "replay": false,
+    "runtime": false,
+    "schemaAndSemantic": true
+  }
+}

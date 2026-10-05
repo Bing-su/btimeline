@@ -1,0 +1,63 @@
+---
+source: src/generate/tests.rs
+expression: "report::render(&stable).unwrap()"
+---
+# 다중 로그 초안
+
+| 항목 | 값 |
+| --- | --- |
+| 상태 | draft |
+| 모드 | raid |
+| 입력 pull | 2 |
+| 표시할 완료 cast 행 | 3 |
+| sync 비활성화 | 0 |
+
+## 입력
+
+| 전투 | 원본 | report / fight | revision / logVersion | 종료 |
+| --- | --- | --- | --- | --- |
+| Unseen Fight | [input]/fight_0.json | a / 2 | 1 / 76 | kill (6000 ms) |
+| Unseen Fight | [input]/fight_1.json | b / 2 | 1 / 76 | kill (6000 ms) |
+
+## 검증 상태
+
+| 검사 | 결과 |
+| --- | --- |
+| Schema · semantic | 통과 |
+| 원본 재생 | 미실행 |
+| cactbot parser | 미실행 |
+| runtime | 미실행 |
+
+## 블록 진입
+
+| 블록 | 기준 | 중앙값 (ms) | min / max (ms) | 표본 |
+| ---: | --- | ---: | --- | ---: |
+| 0 | fightStart | 0.0 | 0 / 0 | 2 |
+| 1 | observedBossCast | 1500.0 | 1000 / 2000 | 2 |
+| 2 | observedBossCast | 4500.0 | 4000 / 5000 | 2 |
+
+## 슬롯 시간
+
+블록 진입 이후의 관측 밀리초 통계입니다. 원본 index·instance·wipe 미관측 참조는 JSON report에 보존합니다.
+
+| 슬롯 | 블록 | 능력 ID | 중앙값 (ms) | min / max (ms) | 표본 | 근거 |
+| ---: | ---: | --- | ---: | --- | ---: | --- |
+| 0 | 0 | 15F91 | 1500.0 | 1000 / 2000 | 2 | observed |
+| 1 | 1 | 15F92 / 15F93 | 600.5 | 500 / 701 | 2 | alternativeWithCommonSuccessor |
+| 2 | 1 | 15F94 | 3000.0 | 3000 / 3000 | 2 | observed |
+
+## sync 검토
+
+| 슬롯 | 이유 | 충돌 수 |
+| ---: | --- | ---: |
+
+## 제한
+
+| 항목 | 값 |
+| --- | --- |
+| 참조 경로에서 제외한 신호 | 0 |
+| 방향 민감한 로그 쌍 | 0 |
+| 제한 | Unresolved or dependent paths are omitted; unobserved combinations remain unknown. |
+| 제한 | ID arrays require an isolated one-ability substitution and an observed common successor; multiple varying choices remain unresolved. |
+| 제한 | Repeats are expanded finitely; no conditional exits or encounter transitions are inferred. |
+| 제한 | Block entries are observational timing references; entry sync, replay and runtime compatibility are unverified. |

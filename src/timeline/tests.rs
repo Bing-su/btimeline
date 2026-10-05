@@ -117,20 +117,7 @@ fn exported_schema_rejects_field_constraints() {
 
 #[test]
 fn spec_render() {
-    let expected = concat!(
-        "hideall \"--sync--\"\n",
-        "# -it \"Black Cat\"\n# -ic \"Helper\"\n# -p 9441:10\n",
-        "# Opening\n",
-        "0.0 \"--sync--\" InCombat { inGameCombat: \"1\" } window 0,1\n",
-        "100.0 label \"repeat\"\n",
-        "#cactbot-timeline-lint-disable-sync-order\n",
-        "145.0 \"Mouser\" Ability { id: \"9441\", source: \"Black Cat\" } duration 9.7 forcejump \"repeat\" # hit\n",
-        "# not a sync\n150.0 \"Mouser follow-up\" #sync /9442/ window 1,2\n",
-        "#cactbot-timeline-lint-enable-sync-order\n",
-        "# Phase 1\n# -ii 9442\n# IGNORED ABILITIES\n# 9442 Mouser follow-up: Extra hit\n",
-        "# ALL ENCOUNTER ABILITIES\n# 9441 Mouser\n# 9442 Mouser follow-up: Extra hit\n",
-    );
-    assert_eq!(convert(SOURCE).expect("valid fixture"), expected);
+    insta::assert_snapshot!(convert(SOURCE).expect("valid fixture"));
     convert(&SOURCE.replace("    phase: \"Phase 1\"\n", "")).unwrap();
     assert!(
         convert(&SOURCE.replace("duration: 9.7", "duration: 9.123"))

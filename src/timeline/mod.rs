@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 use std::fs;
-use std::io::Write;
 use std::path::Path;
 
 use anyhow::{Context, Result};
@@ -207,12 +206,22 @@ fn parse(source: &str) -> Result<Timeline> {
     };
     let value: Value =
         serde_saphyr::from_str_with_options(source, options).context("Invalid YAML")?;
+    from_value(value)
+}
+
+fn from_value(value: Value) -> Result<Timeline> {
     let schema = generated_schema()?;
     jsonschema::validate(&schema, &value).map_err(|e| anyhow::anyhow!("JSON Schema: {e}"))?;
     let timeline: Timeline = serde_json::from_value(value)?;
     timeline.validate().context("Semantic field validation")?;
     timeline.validate_relations()?;
     Ok(timeline)
+}
+
+// Validate generated entries through the same rules, e.g. an omitted pull still cannot hide an invalid name.
+pub(crate) fn validate_value(value: Value) -> Result<()> {
+    from_value(value)?;
+    Ok(())
 }
 
 pub fn validate_file(path: impl AsRef<Path>) -> Result<()> {
@@ -228,19 +237,7 @@ pub fn convert_file(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result
     let text = convert(
         &fs::read_to_string(input).with_context(|| format!("Reading {}", input.display()))?,
     )?;
-    let mut file = fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(output)
-        .with_context(|| {
-            format!(
-                "Creating {} (existing files are preserved)",
-                output.display()
-            )
-        })?;
-    file.write_all(text.as_bytes())?;
-    file.sync_all()?;
-    Ok(())
+    crate::output::write_new(&[(output, text.as_bytes())])
 }
 
 pub fn convert(source: &str) -> Result<String> {

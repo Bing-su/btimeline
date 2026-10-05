@@ -1,10 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    fmt::Write as _,
-    fs::{self, OpenOptions},
-    io::Write as _,
-    path::Path,
-};
+use std::{collections::BTreeMap, fmt::Write as _, fs, path::Path};
 
 use anyhow::{Context, Result};
 use serde_json::Value;
@@ -328,12 +322,5 @@ pub fn markdown_file(input: impl AsRef<Path>) -> Result<()> {
     let output = input.with_extension("md");
     let report: Value = serde_json::from_slice(&fs::read(input)?)?;
     let markdown = render(&report)?;
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&output)
-        .with_context(|| format!("Creating {}", output.display()))?;
-    file.write_all(markdown.as_bytes())?;
-    file.sync_all()?;
-    Ok(())
+    crate::output::write_new(&[(&output, markdown.as_bytes())])
 }

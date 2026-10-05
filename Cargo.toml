@@ -15,12 +15,14 @@ camino = "1"
 contracts = "0.6.10"
 garde = { version = "0.23", default-features = false, features = ["derive", "regex"] }
 jsonschema = { version = "0.58", default-features = false }
+path-slash = "0.2"
 regress = "0.12"
 schemars = "1.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde-saphyr = { version = "1.3", default-features = false, features = ["deserialize", "serialize"] }
 similar = { version = "3", default-features = false }
+tempfile = "3"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 ureq = { version = "3", features = ["json"] }
@@ -28,6 +30,7 @@ usage = { package = "usage-rs", version = "6", features = ["completions"] }
 vstd = "0.0.0-2026-10-04-0306"
 
 [dev-dependencies]
+insta = { version = "1.49", features = ["json"] }
 proptest = { version = "1.11", default-features = false, features = ["std"] }
 rstest = { version = "0.27", default-features = false }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

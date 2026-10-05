@@ -5,12 +5,13 @@ use std::{
 };
 
 use anyhow::{Context, Result, ensure};
+use path_slash::PathBufExt as _;
 use serde_json::{Value, json};
 
 use super::{
     GenerateMode, Group, Pull,
     alignment::{self, Signal, SignalKey},
-    draft, inspect,
+    draft, inspect, load_one,
 };
 use crate::fflogs::model::CollectedLog;
 
@@ -227,14 +228,9 @@ struct Input {
 }
 
 fn prepare(pull: &mut Pull, mode: GenerateMode) -> Result<Input> {
-    let path = PathBuf::from(&pull.file);
-    let (yaml, report) = draft::build_single(&path, mode)?;
-    let timeline: Value = serde_saphyr::from_str(&yaml)?;
-    let catalog = timeline
-        .get("entries")
-        .context("Missing entries")?
-        .as_array()
-        .context("Missing entries")?
+    let source = load_one(&PathBuf::from_slash(&pull.file))?;
+    let (entries, report) = draft::build_single(&source, mode)?;
+    let catalog = entries
         .iter()
         .find(|entry| entry["kind"] == "abilityCatalog")
         .context("Missing catalog")?
@@ -243,6 +239,8 @@ fn prepare(pull: &mut Pull, mode: GenerateMode) -> Result<Input> {
         .as_array()
         .context("Missing catalog abilities")?
         .clone();
+    // Align the same normalized read used for raw collision checks, e.g. if a pull was recollected.
+    *pull = source.pull;
     if mode == GenerateMode::Dungeon {
         let spans = report
             .get("bossSegments")
@@ -264,7 +262,7 @@ fn prepare(pull: &mut Pull, mode: GenerateMode) -> Result<Input> {
         .into_iter()
         .map(|s| Ok((index(&s)?, s)))
         .collect::<Result<_>>()?;
-    let log: CollectedLog = serde_json::from_slice(&fs::read(path)?)?;
+    let log = source.log;
     let actors = log
         .report
         .master_data

@@ -1,9 +1,4 @@
-use std::{
-    fs::{self, OpenOptions},
-    io::Write,
-    path::Path,
-    sync::atomic::{AtomicU64, Ordering},
-};
+use std::{fs, path::Path};
 
 use anyhow::{Result, ensure};
 use serde::Serialize;
@@ -17,7 +12,6 @@ pub(super) fn save<T: Serialize>(
     filename: &str,
     format: OutputFormat,
 ) -> Result<()> {
-    static SEQUENCE: AtomicU64 = AtomicU64::new(0);
     let dir = directory.as_ref();
     let dir = if dir.as_os_str().is_empty() {
         Path::new(".")
@@ -27,34 +21,11 @@ pub(super) fn save<T: Serialize>(
     fs::create_dir_all(dir)?;
     let target = dir.join(filename);
     ensure!(!target.is_dir(), "Output path is a directory");
-    let temp = dir.join(format!(
-        ".{filename}.{}.{}.tmp",
-        std::process::id(),
-        SEQUENCE.fetch_add(1, Ordering::Relaxed)
-    ));
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&temp)?;
-    let result = (|| -> Result<()> {
+    crate::output::write_replace(&target, |file| {
         match format {
-            OutputFormat::Json => serde_json::to_writer(&mut file, data)?,
-            OutputFormat::JsonPretty => serde_json::to_writer_pretty(&mut file, data)?,
+            OutputFormat::Json => serde_json::to_writer(file, data)?,
+            OutputFormat::JsonPretty => serde_json::to_writer_pretty(file, data)?,
         }
-        file.flush()?;
-        file.sync_all()?;
-        drop(file);
-        fs::rename(&temp, &target)?;
         Ok(())
-    })();
-    if result.is_err() {
-        {
-            #![allow(
-                clippy::let_underscore_must_use,
-                reason = "intentional ignore of remove_file result"
-            )]
-            let _ = fs::remove_file(&temp);
-        }
-    }
-    result
+    })
 }

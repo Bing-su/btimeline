@@ -115,13 +115,13 @@ async fn collects_two_pages_and_saves_raw_json() {
         json!([1])
     );
     assert!(data["collection"]["collectedAtUnixMs"].as_u64().is_some());
-    let dir = std::env::temp_dir().join(format!("btimeline-success-{}", std::process::id()));
-    save(&data, &dir, "example_1.json", OutputFormat::Json).unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let dir = directory.path();
+    save(&data, dir, "example_1.json", OutputFormat::Json).unwrap();
     assert_eq!(
         serde_json::from_slice::<Value>(&fs::read(dir.join("example_1.json")).unwrap()).unwrap(),
         data
     );
-    fs::remove_dir_all(dir).unwrap();
     let requests = server.received_requests().await.unwrap();
     assert_eq!(requests.len(), 4);
     let metadata: Value = requests[1].body_json().unwrap();
@@ -191,8 +191,8 @@ async fn failures_preserve_previous_output(
     #[case] expected: u64,
 ) {
     // Isolate parallel cases, e.g. 503 retries cannot overwrite a cursor case's output.
-    let dir = std::env::temp_dir().join(format!("btimeline-failure-{}-{name}", std::process::id()));
-    fs::create_dir_all(&dir).unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let dir = directory.path();
     let target = dir.join("example_1.json");
     fs::write(&target, "previous").unwrap();
 
@@ -205,12 +205,11 @@ async fn failures_preserve_previous_output(
         .await;
     let result = authenticate(&server)
         .collect("example", 1)
-        .and_then(|data| save(&data, &dir, "example_1.json", OutputFormat::Json));
-    assert!(result.is_err());
+        .and_then(|data| save(&data, dir, "example_1.json", OutputFormat::Json));
+    assert!(result.is_err(), "{name} must fail before replacing output");
     assert_eq!(fs::read_to_string(&target).unwrap(), "previous");
     server.verify().await;
-    assert_eq!(fs::read_dir(&dir).unwrap().count(), 1);
-    fs::remove_dir_all(dir).unwrap();
+    assert_eq!(fs::read_dir(dir).unwrap().count(), 1);
 }
 
 #[test]
@@ -365,12 +364,12 @@ async fn rejects_unsupported_retry_after_without_retrying(#[case] retry_after: &
 
 #[test]
 fn atomic_save_replaces_existing_json_and_cleans_failed_temporaries() {
-    let dir = std::env::temp_dir().join(format!("btimeline-atomic-{}", std::process::id()));
-    fs::create_dir_all(&dir).unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let dir = directory.path();
     fs::write(dir.join("pull.json"), "previous").unwrap();
     save(
         &json!({"complete":true}),
-        &dir,
+        dir,
         "pull.json",
         OutputFormat::JsonPretty,
     )
@@ -381,9 +380,8 @@ fn atomic_save_replaces_existing_json_and_cleans_failed_temporaries() {
     );
     // Reject a directory target without leaving temporary files or altering the saved pull.
     fs::create_dir(dir.join("blocked.json")).unwrap();
-    assert!(save(&json!({}), &dir, "blocked.json", OutputFormat::Json).is_err());
-    assert_eq!(fs::read_dir(&dir).unwrap().count(), 2);
-    fs::remove_dir_all(dir).unwrap();
+    assert!(save(&json!({}), dir, "blocked.json", OutputFormat::Json).is_err());
+    assert_eq!(fs::read_dir(dir).unwrap().count(), 2);
 }
 
 #[rstest]
@@ -483,7 +481,8 @@ async fn isolates_reports_with_the_same_fight_id_and_absolute_pull_times() {
         }
     }
     let client = authenticate(&server);
-    let dir = std::env::temp_dir().join(format!("btimeline-reports-{}", std::process::id()));
+    let directory = tempfile::tempdir().unwrap();
+    let dir = directory.path();
     let mut collected = Vec::new();
     for (code, origin, start) in [("reportA", 1000, 10), ("reportB", 900, 110)] {
         let data = client.collect(code, 1).unwrap();
@@ -505,7 +504,7 @@ async fn isolates_reports_with_the_same_fight_id_and_absolute_pull_times() {
             data["collection"]["requests"]["events"]["variables"]["code"],
             code
         );
-        save(&data, &dir, &format!("{code}_1.json"), OutputFormat::Json).unwrap();
+        save(&data, dir, &format!("{code}_1.json"), OutputFormat::Json).unwrap();
         collected.push(data);
     }
     assert_ne!(collected[0]["events"], collected[1]["events"]);
@@ -514,6 +513,5 @@ async fn isolates_reports_with_the_same_fight_id_and_absolute_pull_times() {
             serde_json::from_slice(&fs::read(dir.join(format!("{code}_1.json"))).unwrap()).unwrap();
         assert_eq!(&saved, expected);
     }
-    fs::remove_dir_all(dir).unwrap();
     server.verify().await;
 }

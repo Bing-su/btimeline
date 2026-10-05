@@ -1,17 +1,16 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fs::{self, OpenOptions},
-    io::Write,
-    path::Path,
+    fs,
+    path::{Path, PathBuf},
 };
 
 use anyhow::{Context, Result, ensure};
+use path_slash::PathBufExt as _;
 use serde::Serialize;
 use serde_json::{Value, json};
 use usage::ValueEnum;
 
-use super::{Occurrence, inspect};
-use crate::fflogs::model::CollectedLog;
+use super::{Occurrence, Source, load_one};
 
 const SCHEMA_HEADER: &str = "# yaml-language-server: $schema=https://raw.githubusercontent.com/Bing-su/btimeline/main/schema/btimeline-v1.schema.json\n";
 const SYNC_WINDOW_MS: i64 = 2500;
@@ -89,10 +88,11 @@ pub fn generate_selected(
 
     let group = super::multi::select_group(input, name, encounter, difficulty)?;
     let (yaml, report) = if group.pulls.len() == 1 {
-        build_single(
-            Path::new(&group.pulls.first().context("Missing pull")?.file),
-            mode,
-        )?
+        let source = load_one(&PathBuf::from_slash(
+            &group.pulls.first().context("Missing pull")?.file,
+        ))?;
+        let (entries, report) = build_single(&source, mode)?;
+        (serialize_draft(entries)?, report)
     } else {
         super::multi::build(group, mode)?
     };
@@ -101,18 +101,17 @@ pub fn generate_selected(
     if let Some(parent) = output.parent() {
         fs::create_dir_all(parent)?;
     }
-    save_outputs([
+    crate::output::write_new(&[
         (output, yaml.as_bytes()),
         (&report_path, report_bytes.as_bytes()),
         (&markdown_path, markdown.as_bytes()),
     ])
 }
 
-pub(super) fn build_single(input: &Path, mode: GenerateMode) -> Result<(String, Value)> {
-    let groups = inspect(&[input])?;
-    let group = groups.first().context("Missing input group")?;
-    let pull = group.pulls.first().context("Missing input pull")?;
-    let data: CollectedLog = serde_json::from_slice(&fs::read(input)?)?;
+// Return entries before serialization so multi-pull generation can reuse catalogs without a YAML round-trip.
+pub(super) fn build_single(source: &Source, mode: GenerateMode) -> Result<(Vec<Value>, Value)> {
+    let pull = &source.pull;
+    let data = &source.log;
     let names: BTreeMap<i64, String> = data
         .report
         .master_data
@@ -271,18 +270,19 @@ pub(super) fn build_single(input: &Path, mode: GenerateMode) -> Result<(String, 
             "evidence":"observed"}));
     }
     entries.push(json!({"kind":"abilityCatalog", "abilities":catalog}));
-    let yaml = serialize_draft(entries)?;
+    crate::timeline::validate_value(json!({"schemaVersion":1, "entries":entries}))
+        .context("Generated draft failed validation")?;
     let report: Value = json!({
         "status":"draft",
         "mode":mode,
         "bossSegments":boss_spans.into_iter().map(|(actor_id, (start, end))| json!({
             "actorId":actor_id, "startMs":start - fight.start_time, "endMs":end - fight.start_time
         })).collect::<Vec<_>>(),
-        "input":{"file":input.display().to_string(), "report":pull.report, "fight":pull.fight,
+        "input":{"file":pull.file, "report":pull.report, "fight":pull.fight,
             "name":pull.name,
             "revision":pull.revision, "gameVersion":pull.game_version, "logVersion":pull.log_version,
             "complete":data.collection.complete},
-        "group":group.key,
+        "group":source.key,
         "kill":pull.kill,
         "endMs":pull.end_ms,
         "occurrences":pull.occurrences,
@@ -297,7 +297,7 @@ pub(super) fn build_single(input: &Path, mode: GenerateMode) -> Result<(String, 
         "syncConflicts":conflicts,
         "validation":{"schemaAndSemantic":true, "replay":false, "cactbotParser":false, "runtime":false}
     });
-    Ok((yaml, report))
+    Ok((entries, report))
 }
 
 pub(super) fn serialize_draft(entries: Vec<Value>) -> Result<String> {
@@ -309,54 +309,4 @@ pub(super) fn serialize_draft(entries: Vec<Value>) -> Result<String> {
     );
     crate::timeline::convert(&yaml).context("Generated draft failed validation")?;
     Ok(yaml)
-}
-
-fn write_temp(path: &Path, bytes: &[u8]) -> Result<()> {
-    let mut file = OpenOptions::new().write(true).create_new(true).open(path)?;
-    let written = (|| -> Result<()> {
-        file.write_all(bytes)?;
-        file.sync_all()?;
-        Ok(())
-    })();
-    if written.is_err() {
-        drop(fs::remove_file(path));
-    }
-    written
-}
-
-fn save_outputs(files: [(&Path, &[u8]); 3]) -> Result<()> {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    let suffix = format!(
-        "{}.{}",
-        std::process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    );
-    let mut temps = Vec::new();
-    for (index, (path, bytes)) in files.iter().enumerate() {
-        let temp = path.with_extension(format!("{suffix}.{index}.tmp"));
-        if let Err(error) = write_temp(&temp, bytes) {
-            for created in &temps {
-                drop(fs::remove_file(created));
-            }
-            return Err(error);
-        }
-        temps.push(temp);
-    }
-    // Publish each fully written file without replacing existing work.
-    for (index, ((path, _), temp)) in files.iter().zip(&temps).enumerate() {
-        if let Err(error) = fs::hard_link(temp, path) {
-            for (created, _) in files.iter().take(index) {
-                drop(fs::remove_file(created));
-            }
-            for created in &temps {
-                drop(fs::remove_file(created));
-            }
-            return Err(error).with_context(|| format!("Creating {}", path.display()));
-        }
-    }
-    for created in &temps {
-        drop(fs::remove_file(created));
-    }
-    Ok(())
 }

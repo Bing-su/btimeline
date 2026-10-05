@@ -1,0 +1,34 @@
+---
+source: src/generate/tests.rs
+expression: "report::render(&stable).unwrap()"
+---
+# new-report · fight 2
+
+| 항목 | 값 |
+| --- | --- |
+| 전투 | Unseen Fight |
+| 원본 | [input] |
+| revision / logVersion | 1 / 76 |
+| 종료 | kill (1000 ms) |
+| 표시할 완료 cast 행 | 2 |
+| 대표 행에 묶은 동시 cast | 1 |
+| sync 비활성화 | 1 |
+
+## 검증 상태
+
+| 검사 | 결과 |
+| --- | --- |
+| Schema · semantic | 통과 |
+| 원본 재생 | 미실행 |
+| cactbot parser | 미실행 |
+| runtime | 미실행 |
+
+## sync 검토
+
+같은 조건의 다른 cast가 기본 ±2.5초 창에 들어오거나 source 이름을 안전하게 표현할 수 없어 비활성화한 행입니다. 전체 occurrence와 충돌 index는 짝이 되는 JSON report에 있습니다.
+
+같은 시각·능력·source의 cast는 대표 행으로 묶었습니다. 행 수는 원본 cast 수입니다. 대표 index로 JSON report에서 전체 참조를 확인할 수 있습니다.
+
+| 시각 (초) | 능력 | source | 대표 index | 행 수 | 최대 충돌 수 | 이유 |
+| ---: | --- | --- | ---: | ---: | ---: | --- |
+| 0.150 | Move (15F91) | Helper (A)+ | 0 | 2 | 2 | 기본 sync 창에서 다른 cast와 충돌 |
