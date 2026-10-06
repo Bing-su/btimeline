@@ -12,6 +12,22 @@ use rstest::rstest;
 use serde_json::{Value, json};
 
 use super::*;
+use crate::fflogs::model::{Ability, Event};
+
+// Reuse collected-log fields for valid fixtures, e.g. omitted optional fields stay absent in JSON.
+fn cast_event(timestamp: i64, source: i64, ability: i64, kind: &str) -> Event {
+    Event {
+        timestamp,
+        kind: kind.into(),
+        fight: Some(2),
+        source_id: Some(source),
+        target_id: None,
+        source_instance: None,
+        ability_game_id: Some(ability),
+        melee: None,
+        extra: Default::default(),
+    }
+}
 
 fn multi_log(code: &str, rows: &[(i64, i64, i64, &str)], end: i64, kill: bool) -> Value {
     let mut data = sample();
@@ -22,19 +38,424 @@ fn multi_log(code: &str, rows: &[(i64, i64, i64, &str)], end: i64, kill: bool) -
     data["report"]["fights"][0]["kill"] = json!(kill);
     data["collection"]["endTime"] = json!(1000 + end);
     data["collection"]["eventCount"] = json!(rows.len());
-    data["report"]["masterData"]["abilities"] = json!(
+    data["report"]["masterData"]["abilities"] = serde_json::to_value(
         rows.iter()
             .map(|r| r.2)
             .collect::<BTreeSet<_>>()
             .iter()
-            .map(|&id| json!({"gameID":id,"name":format!("Ability {id}"),"type":"1"}))
-            .collect::<Vec<_>>()
-    );
-    data["events"] =
-        json!(rows.iter().map(|&(at, actor, ability, kind)| json!({
-        "timestamp":1000 + at,"type":kind,"sourceID":actor,"abilityGameID":ability,"fight":2
-    })).collect::<Vec<_>>());
+            .map(|&id| Ability {
+                game_id: id,
+                name: format!("Ability {id}"),
+                kind: "1".into(),
+                extra: Default::default(),
+            })
+            .collect::<Vec<_>>(),
+    )
+    .unwrap();
+    data["events"] = serde_json::to_value(
+        rows.iter()
+            .map(|&(at, actor, ability, kind)| cast_event(1000 + at, actor, ability, kind))
+            .collect::<Vec<_>>(),
+    )
+    .unwrap();
     data
+}
+
+#[rstest]
+#[case::first_path(90002, 90005)]
+#[case::second_path(90003, 90006)]
+fn p7_branch_holdout_selects_one_path_merges_and_projects_only_its_future(
+    #[case] selector: i64,
+    #[case] successor: i64,
+) {
+    let a = [
+        (1000, 10, 90001, "cast"),
+        (5000, 11, 90002, "cast"),
+        (6000, 11, 90007, "cast"),
+        (7000, 11, 90005, "cast"),
+        (9000, 10, 90004, "cast"),
+        (11000, 10, 90008, "cast"),
+    ];
+    let b = [
+        (2000, 10, 90001, "cast"),
+        (12000, 11, 90003, "cast"),
+        (13000, 11, 90007, "cast"),
+        (14000, 11, 90006, "cast"),
+        (16000, 10, 90004, "cast"),
+        (18000, 10, 90008, "cast"),
+    ];
+    with_logs(
+        &[
+            multi_log("a", &a, 20000, true),
+            multi_log("b", &b, 20000, true),
+        ],
+        |dir| {
+            let yaml = dir.join("branch.yaml");
+            generate(dir, &yaml, GenerateMode::Raid).unwrap();
+            let report: Value =
+                serde_json::from_slice(&fs::read(yaml.with_extension("report.json")).unwrap())
+                    .unwrap();
+            assert_eq!(report["extensions"]["accepted"], true);
+            assert_eq!(report["extensions"]["forcejumpGenerated"], false);
+            // Keep public evidence keys and omission semantics, e.g. common rows have no path marker.
+            assert!(report["slots"][0].get("path").is_none());
+            assert!(report["slots"][0].get("selector").is_none());
+            assert!(report["blocks"][0].get("label").is_none());
+            assert!(report["extensions"].get("reason").is_none());
+            for check in report["extensions"]["checks"].as_array().unwrap() {
+                assert_eq!(check["passed"], true);
+                assert_eq!(check["jumps"].as_array().unwrap().len(), 2);
+                assert_eq!(check["previews"].as_array().unwrap().len(), 4);
+            }
+            let holdout = multi_log(
+                "holdout",
+                &[
+                    (1500, 10, 90001, "cast"),
+                    (9000, 11, selector, "cast"),
+                    (10000, 11, 90007, "cast"),
+                    (11000, 11, successor, "cast"),
+                    (13000, 10, 90004, "cast"),
+                    (15000, 10, 90008, "cast"),
+                ],
+                16000,
+                true,
+            );
+            // Independent evidence must not learn from the holdout, e.g. its timing falls between train paths.
+            let input = dir.join("holdout.json");
+            fs::write(&input, serde_json::to_vec(&holdout).unwrap()).unwrap();
+            let output = dir.join("branch.replay.json");
+            replay::replay_file(&yaml, &input, &output, None).unwrap();
+            let replay: Value = serde_json::from_slice(&fs::read(output).unwrap()).unwrap();
+            let run = &replay["pulls"][0]["replay"];
+            assert_eq!(run["summary"]["matches"], 6);
+            assert_eq!(run["summary"]["wrongMatches"], 0);
+            assert_eq!(run["summary"]["ambiguousMatches"], 0);
+            assert_eq!(run["jumps"].as_array().unwrap().len(), 2);
+            let timeline: Value =
+                serde_saphyr::from_str(&fs::read_to_string(&yaml).unwrap()).unwrap();
+            let previews = run["previews"].as_array().unwrap();
+            let future = &previews
+                .iter()
+                .find(|p| p["moment"] == "afterJump")
+                .unwrap()["entryIndices"];
+            let names: Vec<_> = future
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|i| {
+                    timeline["entries"][i.as_u64().unwrap() as usize]["name"]
+                        .as_str()
+                        .unwrap()
+                })
+                .collect();
+            assert!(names.contains(&format!("Ability {successor}").as_str()));
+            assert!(!names.contains(
+                &format!("Ability {}", if successor == 90005 { 90006 } else { 90005 }).as_str()
+            ));
+            assert_eq!(replay["validation"]["runtime"], false);
+            // A new selector and a new successor must fail with zero accidental path activation.
+            let unknown = multi_log(
+                "unknown",
+                &[
+                    (1500, 10, 90001, "cast"),
+                    (9000, 11, 90009, "cast"),
+                    (11000, 11, 90010, "cast"),
+                    (13000, 10, 90004, "cast"),
+                    (15000, 10, 90008, "cast"),
+                ],
+                16000,
+                true,
+            );
+            fs::write(&input, serde_json::to_vec(&unknown).unwrap()).unwrap();
+            let output = dir.join("unknown.replay.json");
+            assert!(replay::replay_file(&yaml, &input, &output, None).is_err());
+            let unknown: Value = serde_json::from_slice(&fs::read(output).unwrap()).unwrap();
+            assert_eq!(unknown["status"], "draft");
+            assert_eq!(unknown["pulls"][0]["replay"]["summary"]["wrongMatches"], 0);
+            assert_eq!(unknown["pulls"][0]["replay"]["jumps"], json!([]));
+            // A familiar selector with an unknown dependent successor cannot pass either.
+            let changed = multi_log(
+                "changed",
+                &[
+                    (1500, 10, 90001, "cast"),
+                    (9000, 11, selector, "cast"),
+                    (10000, 11, 90007, "cast"),
+                    (11000, 11, 90010, "cast"),
+                    (13000, 10, 90004, "cast"),
+                    (15000, 10, 90008, "cast"),
+                ],
+                16000,
+                true,
+            );
+            fs::write(&input, serde_json::to_vec(&changed).unwrap()).unwrap();
+            assert!(
+                replay::replay_file(&yaml, &input, dir.join("changed.replay.json"), None).is_err()
+            );
+        },
+    );
+}
+
+#[rstest]
+#[case::wipe_before_choice(1500)]
+#[case::wipe_inside_path(2500)]
+fn p7_branch_wipe_does_not_create_an_empty_path(#[case] end: i64) {
+    let a = [
+        (1000, 10, 90001, "cast"),
+        (2000, 11, 90002, "cast"),
+        (3000, 11, 90005, "cast"),
+        (4000, 10, 90004, "cast"),
+    ];
+    let b = [
+        (1000, 10, 90001, "cast"),
+        (2000, 11, 90003, "cast"),
+        (3000, 11, 90006, "cast"),
+        (4000, 10, 90004, "cast"),
+    ];
+    let wipe: Vec<_> = a.iter().filter(|r| r.0 < end).copied().collect();
+    with_logs(
+        &[
+            multi_log("a", &a, 5000, true),
+            multi_log("b", &b, 5000, true),
+            multi_log("wipe", &wipe, end, false),
+        ],
+        |dir| {
+            let yaml = dir.join("draft.yaml");
+            generate(dir, &yaml, GenerateMode::Raid).unwrap();
+            let report: Value =
+                serde_json::from_slice(&fs::read(yaml.with_extension("report.json")).unwrap())
+                    .unwrap();
+            assert_eq!(report["extensions"]["accepted"], true);
+            assert_eq!(
+                report["extensions"]["branches"][0]["paths"]
+                    .as_array()
+                    .unwrap()
+                    .len(),
+                2
+            );
+            replay::replay_file(&yaml, dir, dir.join("wipe.replay.json"), None).unwrap();
+        },
+    );
+}
+
+#[test]
+fn p7_phase_window_uses_corrected_clock_and_rejects_out_of_sample_arrival() {
+    let a = [
+        (1000, 10, 90001, "cast"),
+        (5000, 10, 90002, "cast"),
+        (6000, 10, 90003, "cast"),
+    ];
+    let b = [
+        (2000, 10, 90001, "cast"),
+        (16000, 10, 90002, "cast"),
+        (17000, 10, 90003, "cast"),
+    ];
+    with_logs(
+        &[
+            multi_log("a", &a, 20000, true),
+            multi_log("b", &b, 20000, true),
+        ],
+        |dir| {
+            let yaml = dir.join("phase.yaml");
+            generate(dir, &yaml, GenerateMode::Raid).unwrap();
+            let entries = draft_events(&fs::read_to_string(&yaml).unwrap());
+            assert_eq!(entries[1]["at"], 10.5);
+            assert_eq!(entries[1]["sync"]["window"], json!([5.0, 5.0]));
+            assert_eq!(entries[1]["jump"]["when"], "sync");
+            let report: Value =
+                serde_json::from_slice(&fs::read(yaml.with_extension("report.json")).unwrap())
+                    .unwrap();
+            assert_eq!(report["slots"][1]["clockTime"]["minMs"], 5500);
+            assert_eq!(report["slots"][1]["clockTime"]["maxMs"], 15500);
+            assert_eq!(report["extensions"]["phases"].as_array().unwrap().len(), 1);
+            for (name, arrival, passed) in [
+                ("early", 5500, true),
+                ("late", 15500, true),
+                ("outside", 15601, false),
+            ] {
+                let holdout = multi_log(
+                    name,
+                    &[
+                        (1500, 10, 90001, "cast"),
+                        (arrival, 10, 90002, "cast"),
+                        (arrival + 1000, 10, 90003, "cast"),
+                    ],
+                    20000,
+                    true,
+                );
+                let input = dir.join(format!("{name}.json"));
+                fs::write(&input, serde_json::to_vec(&holdout).unwrap()).unwrap();
+                assert_eq!(
+                    replay::replay_file(
+                        &yaml,
+                        &input,
+                        dir.join(format!("{name}.replay.json")),
+                        None
+                    )
+                    .is_ok(),
+                    passed
+                );
+            }
+        },
+    );
+}
+
+#[test]
+fn p7_raw_discriminator_collision_refuses_the_extension() {
+    let a = [
+        (1000, 10, 90001, "cast"),
+        (2000, 11, 90002, "cast"),
+        (3000, 11, 90005, "cast"),
+        (4000, 10, 90004, "cast"),
+    ];
+    let b = [
+        (1000, 10, 90001, "cast"),
+        (2000, 11, 90003, "cast"),
+        (3000, 11, 90006, "cast"),
+        (4000, 10, 90004, "cast"),
+    ];
+    let mut collision = multi_log("a", &a, 5000, true);
+    // A friendly raw event with the same visible name is outside normalized alignment but can select X.
+    let mut actor = collision["report"]["masterData"]["actors"][1].clone();
+    actor["id"] = json!(12);
+    collision["report"]["masterData"]["actors"]
+        .as_array_mut()
+        .unwrap()
+        .push(actor);
+    collision["events"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::to_value(cast_event(3000, 12, 90003, "cast")).unwrap());
+    collision["collection"]["eventCount"] = json!(5);
+    with_logs(&[collision, multi_log("b", &b, 5000, true)], |dir| {
+        let (yaml, report) = multi::build(
+            input::select_group(dir, None, None, None).unwrap(),
+            GenerateMode::Raid,
+            30.0,
+        )
+        .unwrap();
+        assert_eq!(report["extensions"]["accepted"], false);
+        // Rejected candidates expose diagnostics only, e.g. no accepted branch or phase metadata.
+        assert!(report["extensions"]["reason"].is_string());
+        assert!(report["extensions"].get("branches").is_none());
+        assert!(report["extensions"].get("phases").is_none());
+        assert!(draft_events(&yaml).iter().all(|e| e["jump"].is_null()));
+        assert!(
+            report["extensions"]["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|c| c["summary"]["ambiguousMatches"].as_u64().unwrap() > 0)
+        );
+    });
+}
+
+#[test]
+fn p7_shared_prefix_and_configured_lookahead_preserve_deterministic_blocks() {
+    let a = [
+        (1000, 10, 90001, "cast"),
+        (2000, 11, 90007, "cast"),
+        (3000, 11, 90002, "cast"),
+        (4000, 11, 90005, "cast"),
+        (5000, 10, 90004, "cast"),
+    ];
+    let b = [
+        (1000, 10, 90001, "cast"),
+        (2000, 11, 90007, "cast"),
+        (3000, 11, 90003, "cast"),
+        (4000, 11, 90006, "cast"),
+        (5000, 10, 90004, "cast"),
+    ];
+    with_logs(
+        &[
+            multi_log("a", &a, 6051, true),
+            multi_log("b", &b, 6051, true),
+        ],
+        |dir| {
+            let group = input::select_group(dir, None, None, None).unwrap();
+            let (yaml, report) = multi::build(group, GenerateMode::Raid, 60.0).unwrap();
+            assert_eq!(report["extensions"]["accepted"], true);
+            assert_eq!(report["extensions"]["lookaheadMs"], 60000);
+            assert_eq!(
+                draft_events(&yaml)
+                    .iter()
+                    .filter(|e| e["name"] == "Ability 90007")
+                    .count(),
+                1
+            );
+            let mut reversed = input::select_group(dir, None, None, None).unwrap();
+            reversed.pulls.reverse();
+            let (other_yaml, other_report) =
+                multi::build(reversed, GenerateMode::Raid, 60.0).unwrap();
+            assert_eq!(yaml, other_yaml);
+            assert_eq!(report, other_report);
+            let markdown = report::render(&report).unwrap();
+            assert!(markdown.contains("분기·페이즈 확장"));
+            assert!(markdown.contains("60000"));
+            assert!(markdown.contains("실제 runtime 표시 | 미실행"));
+            for invalid in [f64::NAN, -1.0, 3601.0] {
+                assert!(
+                    draft::generate_selected(
+                        dir,
+                        dir.join("bad.yaml"),
+                        GenerateMode::Raid,
+                        None,
+                        None,
+                        None,
+                        invalid
+                    )
+                    .is_err()
+                );
+                assert!(!dir.join("bad.yaml").exists());
+            }
+        },
+    );
+}
+
+#[test]
+fn p7_safe_common_phase_survives_a_rejected_branch() {
+    let a = [
+        (1000, 10, 90001, "cast"),
+        (2000, 11, 90002, "cast"),
+        (3000, 11, 90005, "cast"),
+        (4000, 10, 90004, "cast"),
+        (5000, 10, 90008, "cast"),
+        (6000, 10, 90009, "cast"),
+    ];
+    let b = [
+        (1000, 10, 90001, "cast"),
+        (2000, 11, 90003, "cast"),
+        (3000, 11, 90006, "cast"),
+        (4000, 10, 90004, "cast"),
+        (15000, 10, 90008, "cast"),
+        (16000, 10, 90009, "cast"),
+    ];
+    let mut collision = multi_log("a", &a, 20000, true);
+    let mut actor = collision["report"]["masterData"]["actors"][1].clone();
+    actor["id"] = json!(12);
+    collision["report"]["masterData"]["actors"]
+        .as_array_mut()
+        .unwrap()
+        .push(actor);
+    collision["events"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::to_value(cast_event(3000, 12, 90003, "cast")).unwrap());
+    collision["collection"]["eventCount"] = json!(7);
+    with_logs(&[collision, multi_log("b", &b, 20000, true)], |dir| {
+        let yaml = dir.join("phase.yaml");
+        generate(dir, &yaml, GenerateMode::Raid).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(yaml.with_extension("report.json")).unwrap()).unwrap();
+        assert_eq!(report["extensions"]["accepted"], true);
+        assert_eq!(report["extensions"]["branches"], json!([]));
+        assert_eq!(report["extensions"]["phases"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            report["extensions"]["rejectedBranchCandidate"]["accepted"],
+            false
+        );
+        assert_eq!(draft_events(&fs::read_to_string(&yaml).unwrap()).len(), 4);
+        replay::replay_file(&yaml, dir, dir.join("phase.replay.json"), None).unwrap();
+    });
 }
 
 #[rstest]
@@ -152,7 +573,11 @@ fn replay_observed_successor_keeps_interior_missing_until_jump_skips_it(
         // An explicit branch skips the missing helper, e.g. A jumps directly to the observed C.
         let mut timeline: Value =
             serde_saphyr::from_str(&fs::read_to_string(&yaml).unwrap()).unwrap();
-        timeline["entries"][1]["jump"] = json!({"to":0.4,"when":"sync"});
+        timeline["entries"][1]["jump"] = serde_json::to_value(crate::timeline::Jump {
+            to: crate::timeline::Destination::Time(0.4),
+            when: crate::timeline::JumpWhen::Sync,
+        })
+        .unwrap();
         fs::write(&yaml, serde_saphyr::to_string(&timeline).unwrap()).unwrap();
         let output = dir.join("branch.replay.json");
         replay::replay_file(&yaml, dir.join("fight_1.json"), &output, None).unwrap();
@@ -311,7 +736,7 @@ fn multi_draft_merges_isolated_alternatives_and_keeps_block_timing_provenance() 
     );
     with_logs(&[a, b], |path| {
         let selected = input::select_group(path, Some("Unseen Fight"), None, None).unwrap();
-        let (yaml, report) = multi::build(selected, GenerateMode::Raid).unwrap();
+        let (yaml, report) = multi::build(selected, GenerateMode::Raid, 30.0).unwrap();
         snapshot_draft("multi", &yaml, &report, path);
         let events = draft_events(&yaml);
         assert_eq!(events.len(), 3);
@@ -336,7 +761,8 @@ fn multi_draft_merges_isolated_alternatives_and_keeps_block_timing_provenance() 
         assert!(report["omittedSignals"].as_array().unwrap().is_empty());
         let mut reversed = input::select_group(path, None, None, None).unwrap();
         reversed.pulls.reverse();
-        let (reversed_yaml, reversed_report) = multi::build(reversed, GenerateMode::Raid).unwrap();
+        let (reversed_yaml, reversed_report) =
+            multi::build(reversed, GenerateMode::Raid, 30.0).unwrap();
         assert_eq!(yaml, reversed_yaml);
         assert_eq!(report, reversed_report);
         let output = path.join("out.yaml");
@@ -361,7 +787,7 @@ fn multi_draft_merges_isolated_alternatives_and_keeps_block_timing_provenance() 
 #[rstest]
 #[case::adjacent(false)]
 #[case::shared_intermediate(true)]
-fn dependent_paths_produce_common_draft_instead_of_independent_id_arrays(
+fn dependent_paths_compile_discriminated_blocks_instead_of_independent_id_arrays(
     #[case] intermediate: bool,
 ) {
     let mut a = vec![(1000, 10, 90001, "cast"), (2000, 11, 90002, "cast")];
@@ -381,22 +807,27 @@ fn dependent_paths_produce_common_draft_instead_of_independent_id_arrays(
             let (yaml, report) = multi::build(
                 input::select_group(path, None, None, None).unwrap(),
                 GenerateMode::Raid,
+                30.0,
             )
             .unwrap();
             let events = draft_events(&yaml);
-            assert_eq!(events.len(), if intermediate { 3 } else { 2 });
+            assert_eq!(events.len(), if intermediate { 9 } else { 7 });
             assert!(
                 events
                     .iter()
                     .all(|event| event["sync"]["fields"]["id"].is_string())
             );
-            assert_eq!(report["omittedSignals"].as_array().unwrap().len(), 2);
+            assert_eq!(report["extensions"]["accepted"], true);
+            assert_eq!(
+                report["extensions"]["branches"].as_array().unwrap().len(),
+                1
+            );
+            assert_eq!(report["validation"]["replay"], true);
             assert!(
                 report["outputCoverage"][1]["omittedEventIndices"]
                     .as_array()
                     .unwrap()
-                    .len()
-                    >= 2
+                    .is_empty()
             );
         },
     );
@@ -424,6 +855,7 @@ fn finite_repeats_keep_wipe_suffix_with_reached_sample_counts() {
         let (yaml, report) = multi::build(
             input::select_group(path, None, None, None).unwrap(),
             GenerateMode::Raid,
+            30.0,
         )
         .unwrap();
         let events = draft_events(&yaml);
@@ -468,6 +900,7 @@ fn three_pull_consensus_merges_only_the_same_position() {
         let (yaml, report) = multi::build(
             input::select_group(path, None, None, None).unwrap(),
             GenerateMode::Raid,
+            30.0,
         )
         .unwrap();
         assert_eq!(
@@ -507,6 +940,7 @@ fn directory_selection_requires_one_group_and_never_connects_encounters() {
             Some("Unseen Fight"),
             None,
             None,
+            30.0,
         )
         .unwrap();
         assert_eq!(draft_events(&fs::read_to_string(output).unwrap()).len(), 1);
@@ -569,6 +1003,7 @@ fn multi_sync_checks_alternative_ids_against_excluded_raw_casts() {
         let (yaml, report) = multi::build(
             input::select_group(path, None, None, None).unwrap(),
             GenerateMode::Raid,
+            30.0,
         )
         .unwrap();
         assert_eq!(draft_events(&yaml)[1]["sync"]["enabled"], false);
@@ -597,6 +1032,7 @@ fn multi_dungeon_keeps_helper_only_inside_boss_spans() {
             let (yaml, report) = multi::build(
                 input::select_group(path, None, None, None).unwrap(),
                 GenerateMode::Dungeon,
+                30.0,
             )
             .unwrap();
             assert_eq!(draft_events(&yaml).len(), 3);
@@ -635,6 +1071,7 @@ fn censored_pull_raw_cast_still_disables_a_later_sync() {
         let (yaml, report) = multi::build(
             input::select_group(path, None, None, None).unwrap(),
             GenerateMode::Raid,
+            30.0,
         )
         .unwrap();
         assert_eq!(draft_events(&yaml).len(), 2);
@@ -669,6 +1106,7 @@ fn simultaneous_instances_are_preserved_without_inflating_pull_sample_counts() {
         let (yaml, report) = multi::build(
             input::select_group(path, None, None, None).unwrap(),
             GenerateMode::Raid,
+            30.0,
         )
         .unwrap();
         assert_eq!(draft_events(&yaml).len(), 3);
@@ -711,6 +1149,7 @@ fn boss_block_entries_use_observed_medians_without_accumulating_interval_medians
         let (yaml, report) = multi::build(
             input::select_group(path, None, None, None).unwrap(),
             GenerateMode::Raid,
+            30.0,
         )
         .unwrap();
         assert_eq!(
@@ -718,11 +1157,13 @@ fn boss_block_entries_use_observed_medians_without_accumulating_interval_medians
                 .iter()
                 .map(|e| e["at"].as_f64().unwrap())
                 .collect::<Vec<_>>(),
-            [2.0, 8.0, 12.0]
+            [2.0, 6.0, 60.6]
         );
-        assert_eq!(report["slots"][1]["time"]["medianMs"], 4000.0);
-        assert_eq!(report["blocks"][2]["time"]["medianMs"], 8000.0);
-        assert_eq!(report["blocks"][3]["time"]["medianMs"], 12000.0);
+        assert_eq!(report["alignmentSlots"][1]["time"]["medianMs"], 4000.0);
+        assert_eq!(report["alignmentBlocks"][2]["time"]["medianMs"], 8000.0);
+        assert_eq!(report["alignmentBlocks"][3]["time"]["medianMs"], 12000.0);
+        assert_eq!(report["slots"][1]["clockTime"]["medianMs"], 6000.0);
+        assert_eq!(report["extensions"]["accepted"], true);
     });
 }
 
@@ -753,6 +1194,7 @@ fn mixed_roles_preserve_common_successors_when_interval_medians_differ() {
         let (yaml, report) = multi::build(
             input::select_group(path, None, None, None).unwrap(),
             GenerateMode::Raid,
+            30.0,
         )
         .unwrap();
         assert_eq!(
@@ -760,9 +1202,10 @@ fn mixed_roles_preserve_common_successors_when_interval_medians_differ() {
                 .iter()
                 .map(|event| event["at"].as_f64().unwrap())
                 .collect::<Vec<_>>(),
-            [9.0, 11.0, 12.0]
+            [9.0, 79.1, 140.2]
         );
         assert_eq!(report["slots"][1]["time"]["medianMs"], 10000.0);
+        assert_eq!(report["extensions"]["accepted"], true);
         assert!(report["omittedSignals"].as_array().unwrap().is_empty());
         for coverage in report["outputCoverage"].as_array().unwrap() {
             assert_eq!(coverage["representedEventIndices"], json!([0, 1, 2]));
@@ -812,7 +1255,7 @@ fn observed_common_casts_survive_wipe_when_pull_timings_drift(
                 if a.key.ability_id == 90002 && b.key.ability_id == 90002)
                     })
             );
-            let (_, report) = multi::build(group, GenerateMode::Raid).unwrap();
+            let (_, report) = multi::build(group, GenerateMode::Raid, 30.0).unwrap();
             let common = report["slots"]
                 .as_array()
                 .unwrap()
@@ -944,7 +1387,7 @@ fn multi_draft_keeps_recollected_pull_and_raw_evidence_together() {
             let bytes = serde_json::to_vec(&updated).unwrap();
             fs::write(&file, &bytes).unwrap();
 
-            let (yaml, report) = multi::build(group, GenerateMode::Raid).unwrap();
+            let (yaml, report) = multi::build(group, GenerateMode::Raid, 30.0).unwrap();
             assert_eq!(draft_events(&yaml)[0]["at"], 1.5);
             assert_eq!(report["inputs"][1]["input"]["sha256"], sha256(&bytes));
             assert_eq!(report["slots"][0]["samples"][1]["timeMs"], 2000);
@@ -1122,7 +1565,7 @@ fn wipe_on_an_early_branch_preserves_later_common_rows_without_matching_a_later_
         assert!(comparison.segments.iter().flat_map(|s| &s.slots).all(|s| {
             !matches!((&s.left,&s.right), (Some(a),Some(b)) if a.time_ms == 20000 && b.time_ms == 2000)
         }));
-        let (yaml, report) = multi::build(group, GenerateMode::Raid).unwrap();
+        let (yaml, report) = multi::build(group, GenerateMode::Raid, 30.0).unwrap();
         let events = draft_events(&yaml);
         assert!(
             events
@@ -1157,6 +1600,7 @@ fn an_initial_wipe_does_not_remove_the_entire_multi_pull_draft() {
         let (yaml, report) = multi::build(
             input::select_group(path, None, None, None).unwrap(),
             GenerateMode::Raid,
+            30.0,
         )
         .unwrap();
         assert_eq!(draft_events(&yaml).len(), 2);
@@ -1204,6 +1648,7 @@ fn encounter_and_difficulty_selectors_resolve_overlapping_names() {
             None,
             Some(123456),
             Some(10),
+            30.0,
         )
         .unwrap();
         let report: Value =

@@ -5,13 +5,13 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use itertools::Itertools;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{GenerateMode, GroupKey, Occurrence};
 
 // Keep report keys explicit while preserving source references, e.g. eventIndices stays an array.
-#[derive(Clone, Copy, Serialize)]
+#[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct TimeStatistics<T = f64> {
     pub median_ms: T,
@@ -514,6 +514,73 @@ fn render_multi(report: &Value) -> Result<String> {
             cell(reason_label(text_field(conflict, "reason")?)),
             array_field(conflict, "conflictingEvents")?.len()
         )?;
+    }
+    if let Some(extension) = report.get("extensions") {
+        writeln!(out, "\n## 분기·페이즈 확장\n\n| 항목 | 값 |\n| --- | --- |")?;
+        writeln!(out, "| 후보 채택 | {} |", extension["accepted"])?;
+        writeln!(
+            out,
+            "| 독립 lookahead (ms) | {} |",
+            extension["lookaheadMs"]
+        )?;
+        writeln!(out, "| 실제 runtime 표시 | 미실행 |")?;
+        if let Some(reason) = extension.get("reason").and_then(Value::as_str) {
+            writeln!(out, "| 거부 이유 | {} |", cell(reason))?;
+        }
+        if extension["accepted"] == true {
+            writeln!(
+                out,
+                "\n| 분기 | 경로 label | 진입 슬롯 | 가상 진입 / 합류 (ms) | window before / after (ms) |\n| ---: | --- | ---: | --- | --- |"
+            )?;
+            for branch in array_field(extension, "branches")? {
+                for path in array_field(branch, "paths")? {
+                    let selector = number_field(path, "selectorSlot")?;
+                    let slot = slots
+                        .get(usize::try_from(selector)?)
+                        .context("Missing selector slot")?;
+                    writeln!(
+                        out,
+                        "| {} | {} | {selector} | {} / {} | {} / {} |",
+                        branch["id"],
+                        cell(text_field(path, "label")?),
+                        path["entryMs"],
+                        branch["mergeMs"],
+                        slot.pointer("/windowMs/0")
+                            .context("Missing before window")?,
+                        slot.pointer("/windowMs/1")
+                            .context("Missing after window")?
+                    )?;
+                }
+            }
+            writeln!(
+                out,
+                "\n| 페이즈 label | 전환 슬롯 | 가상 진입 (ms) | 보정 시계 min / max (ms) | window before / after (ms) |\n| --- | ---: | ---: | --- | --- |"
+            )?;
+            for phase in array_field(extension, "phases")? {
+                let selector = number_field(phase, "selectorSlot")?;
+                let slot = slots
+                    .get(usize::try_from(selector)?)
+                    .context("Missing phase selector")?;
+                writeln!(
+                    out,
+                    "| {} | {selector} | {} | {} / {} | {} / {} |",
+                    cell(text_field(phase, "label")?),
+                    phase["entryMs"],
+                    slot.pointer("/clockTime/minMs")
+                        .context("Missing minimum clock")?,
+                    slot.pointer("/clockTime/maxMs")
+                        .context("Missing maximum clock")?,
+                    slot.pointer("/windowMs/0")
+                        .context("Missing before window")?,
+                    slot.pointer("/windowMs/1")
+                        .context("Missing after window")?
+                )?;
+            }
+            writeln!(
+                out,
+                "\n채택한 확장은 모든 train pull의 원본 cast/begincast로 검사했습니다. 예고 목록과 실제 jump는 JSON의 `extensions.checks[].previews`·`jumps`에 별도로 기록합니다.\n"
+            )?;
+        }
     }
     writeln!(out, "\n## 제한\n\n| 항목 | 값 |\n| --- | --- |")?;
     writeln!(

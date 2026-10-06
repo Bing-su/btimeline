@@ -8,7 +8,7 @@ use path_slash::PathBufExt as _;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::{Pull, Source, input, load_one, multi};
+use super::{GroupKey, Pull, input, load_one, multi};
 use crate::timeline::replay::{self, Evidence, Signal};
 
 // Read only the evidence fields needed by replay, e.g. timing statistics do not select source rows.
@@ -70,16 +70,15 @@ struct ReplayReport<'a> {
     policy: ReplayPolicy,
 }
 
-fn signals(source: &Source) -> Result<Vec<Signal>> {
-    let master = &source.log.report.master_data;
+pub(super) fn signals(log: &crate::fflogs::model::CollectedLog) -> Result<Vec<Signal>> {
+    let master = &log.report.master_data;
     let actors: BTreeMap<_, _> = master.actors.iter().map(|a| (a.id, &a.name)).collect();
     let abilities: BTreeMap<_, _> = master
         .abilities
         .iter()
         .map(|a| (a.game_id, &a.name))
         .collect();
-    let start = source
-        .log
+    let start = log
         .report
         .fights
         .first()
@@ -87,7 +86,7 @@ fn signals(source: &Source) -> Result<Vec<Signal>> {
         .start_time;
     let mut result = Vec::new();
     // Replay all raw casts, including excluded/friendly/melee events, to expose accidental activation.
-    for (index, event) in source.log.events.iter().enumerate() {
+    for (index, event) in log.events.iter().enumerate() {
         let log = match event.kind.as_str() {
             "cast" => "Ability",
             "begincast" => "StartsUsing",
@@ -172,11 +171,12 @@ fn after_end(
 
 // P5 correspondence is an evaluation oracle only; it never decides which sync the clock activates.
 // Holdout mappings must agree across all reached training paths, e.g. repeated IDs cannot pick a convenient row.
-fn evidence(
+pub(super) fn evidence(
     yaml: &str,
     report: &Value,
-    source: &Source,
-    peers: &BTreeMap<String, (Pull, String)>,
+    key: &GroupKey,
+    pull: &Pull,
+    peers: &BTreeMap<&str, &Pull>,
 ) -> Result<Evidence> {
     let timeline: Value = serde_saphyr::from_str(yaml)?;
     let entries: Vec<_> = timeline
@@ -197,7 +197,7 @@ fn evidence(
         "Replay evidence requires the generated event rows in their original order"
     );
     ensure!(
-        report["group"] == serde_json::to_value(&source.key)?,
+        report["group"] == serde_json::to_value(key)?,
         "Replay input group differs from generation group"
     );
     let single = report.get("input").is_some();
@@ -230,20 +230,14 @@ fn evidence(
             if !relations.contains_key(file) {
                 let peer = peers
                     .get(file)
-                    .map(|(pull, _)| pull)
+                    .copied()
                     .context("Sample file absent from generation inputs")?;
-                if !same_file(file, &source.pull.file) {
-                    relations.insert(
-                        file.to_owned(),
-                        multi::correspondence(peer, &source.pull)?.0,
-                    );
+                if !same_file(file, &pull.file) {
+                    relations.insert(file.to_owned(), multi::correspondence(peer, pull)?.0);
                 }
             }
-            let peer = peers
-                .get(file)
-                .map(|(pull, _)| pull)
-                .context("Missing evidence peer")?;
-            let known = same_file(file, &source.pull.file);
+            let peer = peers.get(file).copied().context("Missing evidence peer")?;
+            let known = same_file(file, &pull.file);
             let relation = relations.get(file);
             let matched = if known {
                 Some(index)
@@ -253,9 +247,7 @@ fn evidence(
             let censored = !known
                 && matched.is_none()
                 && match relation {
-                    Some(r) => {
-                        r.censored.contains(&index) || after_end(peer, &source.pull, index, r)?
-                    }
+                    Some(r) => r.censored.contains(&index) || after_end(peer, pull, index, r)?,
                     None => false,
                 };
             ensure!(
@@ -269,7 +261,7 @@ fn evidence(
         // Known training samples are exact evidence; other peers do not override their source index.
         let direct = samples
             .iter()
-            .find(|sample| same_file(&sample.file, &source.pull.file));
+            .find(|sample| same_file(&sample.file, &pull.file));
         if let Some(sample) = direct {
             let index = *sample
                 .event_indices
@@ -295,6 +287,41 @@ fn evidence(
             }
         }
     }
+    // An oracle-selected path only audits activation; absent siblings must still fail if they match.
+    // Example: the shared merge cast belongs to the chosen X→A path, not also to Y→B.
+    if let Some(branches) = report
+        .pointer("/extensions/branches")
+        .and_then(Value::as_array)
+    {
+        for branch in branches {
+            let paths = branch["paths"].as_array().context("Missing branch paths")?;
+            let selected: Vec<_> = paths
+                .iter()
+                .filter(|path| {
+                    path["selectorSlot"]
+                        .as_u64()
+                        .and_then(|i| entries.get(i as usize))
+                        .is_some_and(|entry| result.expected.contains_key(entry))
+                })
+                .collect();
+            if let [chosen] = selected.as_slice() {
+                for path in paths.iter().filter(|path| *path != *chosen) {
+                    for slot in path["slots"].as_array().context("Missing path slots")? {
+                        let entry = *entries
+                            .get(slot.as_u64().context("Invalid path slot")? as usize)
+                            .context("Missing path entry")?;
+                        result.expected.remove(&entry);
+                        result.censored.remove(&entry);
+                        result.missing.remove(&entry);
+                        result.inactive.insert(entry);
+                    }
+                }
+            }
+        }
+    }
+    result.lookahead_ms = report
+        .pointer("/extensions/lookaheadMs")
+        .and_then(Value::as_i64);
     Ok(result)
 }
 
@@ -393,12 +420,16 @@ pub(crate) fn replay_file(
                 "Replay input changed after evidence inspection"
             );
         }
-        let signals = signals(&source)?;
+        let signals = signals(&source.log)?;
         if report.get("mode").and_then(Value::as_str) == Some("dungeon") {
             let draft = super::draft::build_single(&source, super::GenerateMode::Dungeon)?;
             input::filter_boss_spans(&mut source.pull, &draft.report)?;
         }
-        let evidence = evidence(&yaml, &report, &source, &peers)?;
+        let peer_pulls = peers
+            .iter()
+            .map(|(file, (pull, _))| (file.as_str(), pull))
+            .collect();
+        let evidence = evidence(&yaml, &report, &source.key, &source.pull, &peer_pulls)?;
         let represented: BTreeSet<_> = evidence.expected.values().flatten().copied().collect();
         let replay = replay::run(&yaml, &signals, source.pull.end_ms, &evidence)?;
         pulls.push(ReplayPull {
@@ -454,7 +485,7 @@ pub(crate) fn replay_file(
             supported_signals: ["Ability", "StartsUsing"],
             coverage: "Only represented rows are validated; disabled syncs and unrepresented casts are reported separately.",
             unsupported: "ACT raw regex, unavailable network fields and simultaneous exit/forcejump priority remain unverified",
-            lookahead: "not executed; display needs actual runtime verification",
+            lookahead: "independent projection before/after sync jumps; actual runtime display not executed",
         },
     };
     let mut markdown = String::from(

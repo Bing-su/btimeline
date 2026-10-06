@@ -55,17 +55,24 @@ def main [binary: path = 'target/debug/btimeline'] {
             error make {msg: 'successful train-only evaluation failed'}
         }
 
-        # Opposite timing drift makes active median syncs fail; absent holdout must not hide the failure.
+        # Competing branches and a rogue transition reject P7 recovery; absent holdout must not hide failure.
         let failing_rows = ([[1000 10000] [5000 6000]] | enumerate | each {|item|
             let code = $'train-only-($item.index)'
             let log = (open $rows.0.file
                 | update report.code $code
                 | update collection.reportCode $code
-                | update collection.eventCount 2
-                | update report.masterData.abilities [{gameID: 46376, name: Opening, type: '1'} {gameID: 46377, name: Late, type: '1'}]
-                | update events ($item.item | enumerate | each {|event|
+                | update report.masterData.actors [{id: 10, name: 'Synthetic Boss', gameID: 99001, type: NPC, subType: Boss} {id: 11, name: 'Synthetic Boss', gameID: 99002, type: Player, subType: Player}]
+                | update report.masterData.abilities ([46376 46377 46378 46379 46380 46381] | each {|id| {gameID: $id, name: $'Ability ($id)', type: '1'}})
+                | update events (($item.item | enumerate | each {|event|
                     {timestamp: (1000 + $event.item), type: cast, sourceID: 10, abilityGameID: (46376 + $event.index), fight: 1}
-                }))
+                }) | append [
+                    {timestamp: (1100 + $item.item.0), type: cast, sourceID: 10, abilityGameID: (46378 + $item.index), fight: 1}
+                    {timestamp: (1200 + $item.item.0), type: cast, sourceID: 10, abilityGameID: (46380 + $item.index), fight: 1}
+                    {timestamp: (1100 + $item.item.0), type: cast, sourceID: 11, abilityGameID: (46379 - $item.index), fight: 1}
+                ] | append (if $item.index == 0 {
+                    [{timestamp: (4000 + $item.item.0), type: cast, sourceID: 11, abilityGameID: 46377, fight: 1}]
+                } else { [] }))
+                | update collection.eventCount {|log| $log.events | length })
             let path = ($directory | path join $'($code).json')
             $log | to json | save $path
             $rows.0 | update file $path | update sha256 (open --raw $path | hash sha256)

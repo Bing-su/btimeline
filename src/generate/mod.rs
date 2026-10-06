@@ -89,6 +89,7 @@ fn slash_path(path: &Path) -> String {
 mod alignment;
 mod draft;
 mod multi;
+mod phase;
 pub(crate) mod replay;
 mod report;
 pub use alignment::align;

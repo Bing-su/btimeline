@@ -151,20 +151,20 @@ pub(crate) enum FieldPattern {
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Jump {
-    to: Destination,
-    when: JumpWhen,
+    pub to: Destination,
+    pub when: JumpWhen,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(untagged)]
-enum Destination {
+pub(crate) enum Destination {
     Label(String),
     Time(#[schemars(range(min = 0.0), extend("multipleOf" = 0.1))] f64),
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
-enum JumpWhen {
+pub(crate) enum JumpWhen {
     Sync,
     Always,
 }

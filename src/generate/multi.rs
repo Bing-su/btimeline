@@ -8,19 +8,8 @@ use serde_json::Value;
 
 use super::alignment::{self, Signal, SignalKey};
 use super::report::{
-    Alignment,
-    ConflictingEvent,
-    MultiBlock,
-    MultiConflict,
-    MultiReport,
-    MultiSlot,
-    ObservedPath,
-    OmittedSignal,
-    OutputCoverage,
-    Sample,
-    SensitivePair,
-    TimeStatistics,
-    Validation,
+    Alignment, ConflictingEvent, MultiBlock, MultiConflict, MultiReport, MultiSlot, ObservedPath,
+    OmittedSignal, OutputCoverage, Sample, SensitivePair, TimeStatistics, Validation,
 };
 use super::{GenerateMode, Group, Pull, draft, input, load_one};
 use crate::fflogs::model::CollectedLog;
@@ -147,7 +136,7 @@ pub(super) fn correspondence(left: &Pull, right: &Pull) -> Result<(Correspondenc
     Ok((result, comparison.order_sensitive))
 }
 
-fn statistics(mut times: Vec<i64>) -> Result<TimeStatistics> {
+pub(super) fn statistics(mut times: Vec<i64>) -> Result<TimeStatistics> {
     ensure!(!times.is_empty(), "No timing samples");
     times.sort();
     let middle = times.len() / 2;
@@ -166,13 +155,13 @@ fn statistics(mut times: Vec<i64>) -> Result<TimeStatistics> {
     })
 }
 
-struct Input {
-    pull: Pull,
-    log: CollectedLog,
+pub(super) struct Input {
+    pub pull: Pull,
+    pub log: CollectedLog,
     report: Value,
-    signals: BTreeMap<usize, Signal>,
+    pub signals: BTreeMap<usize, Signal>,
     catalog: Vec<Ability>,
-    actors: BTreeMap<i64, String>,
+    pub actors: BTreeMap<i64, String>,
 }
 
 fn prepare(file: &str, mode: GenerateMode) -> Result<Input> {
@@ -207,7 +196,7 @@ fn prepare(file: &str, mode: GenerateMode) -> Result<Input> {
     })
 }
 
-pub(super) fn build(group: Group, mode: GenerateMode) -> Result<(String, Value)> {
+pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<(String, Value)> {
     let Group { key, mut pulls } = group;
     pulls.sort_by(|a, b| (&a.report, a.fight, &a.file).cmp(&(&b.report, b.fight, &b.file)));
     // Own each pull beside its raw evidence; sorting/filtering cannot desynchronize parallel lists.
@@ -630,11 +619,11 @@ pub(super) fn build(group: Group, mode: GenerateMode) -> Result<(String, Value)>
         ],
         validation: Validation::default(),
     })?;
-    Ok((yaml, report))
+    super::phase::expand(yaml, report, &inputs, lookahead)
 }
 
 // Preserve scalar patterns for one value and arrays for alternatives, e.g. ^A$ versus [^A$, ^B$].
-fn field_pattern(mut patterns: Vec<String>) -> Result<FieldPattern> {
+pub(super) fn field_pattern(mut patterns: Vec<String>) -> Result<FieldPattern> {
     if patterns.len() == 1 {
         Ok(FieldPattern::One(
             patterns.pop().context("Missing field pattern")?,

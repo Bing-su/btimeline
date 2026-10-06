@@ -2,7 +2,7 @@
 
 P0 산출물: [평가 계약과 검증 체크리스트](evaluation-contract.md), [고정 평가 입력](evaluation-inputs.csv).
 
-작성일: 2026-09-26. 근거는 [연구 결과](timeline-research.md), [SPEC v1](../SPEC.md), 현재 Rust 수집기와 Python 감사 코드다. 이 문서는 단계별 구현 계획이다. P1–P3 단일 파일 생성·검증·변환, P4 다중 로그 정렬, P5 디렉터리 그룹 선택·다중 로그 초안, P6 독립 재생·고정 holdout 평가 도구가 구현되었고 P7 이후는 제안이다. P4 실험과 제한은 [정렬 결과](p4-alignment.md), P6 검사 범위와 실행 결과는 [재생 결과](p6-replay.md)에 정리했다. 도구 구현과 모든 입력·경로의 검증 통과는 구분한다.
+작성일: 2026-09-26. 근거는 [연구 결과](timeline-research.md), [SPEC v1](../SPEC.md), 현재 Rust 수집기와 Python 감사 코드다. 이 문서는 단계별 구현 계획이다. P1–P3 단일 파일 생성·검증·변환, P4 다중 로그 정렬, P5 디렉터리 그룹 선택·다중 로그 초안, P6 독립 재생·고정 holdout 평가 도구, P7 판별 가능한 분기·관측 전환 window 생성이 구현되었고 P8은 제안이다. P4 실험과 제한은 [정렬 결과](p4-alignment.md), P6 검사 범위와 실행 결과는 [재생 결과](p6-replay.md), P7 생성 정책과 표시 검증 한계는 [분기·페이즈 결과](p7-branches.md)에 정리했다. 도구 구현과 모든 입력·경로의 검증 통과는 구분한다.
 
 첫 목표는 **지원 형식의 임의 FFLogs 전투 로그에서 편집 가능한 YAML 초안과 원본 재생 결과를 생성하는 것**이다. 단일 로그부터 시작해 동일 전투의 여러 pull, 관측 가능한 분기·전환·반복으로 확장한다. 현재 내려받은 R12S, Dancing Mad, Clyteum 로그는 회귀 사례이며 지원 대상의 목록이 아니다.
 
@@ -75,6 +75,7 @@ P3의 표시 행은 원본 밀리초 시각·actor ID·ability ID가 같은 완�
 btimeline generate logs/example/fight_4.json -o out/single-draft.yaml
 btimeline generate logs/example/fight_4.json --mode dungeon -o out/dungeon-draft.yaml
 btimeline generate logs/example --name "Example Fight" -o out/fight-draft.yaml
+btimeline generate logs/example --lookahead 30 -o out/branch-draft.yaml
 btimeline validate out/fight-draft.yaml
 btimeline convert out/fight-draft.yaml -o out/fight.txt
 btimeline replay out/fight-draft.yaml logs/example -o out/fight.replay.json

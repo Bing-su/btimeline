@@ -10,13 +10,7 @@ use serde_json::Value;
 use usage::ValueEnum;
 
 use super::report::{
-    BossSegment,
-    CollapsedCast,
-    ReportInput,
-    SingleBlock,
-    SingleReport,
-    SingleSlot,
-    TimeStatistics,
+    BossSegment, CollapsedCast, ReportInput, SingleBlock, SingleReport, SingleSlot, TimeStatistics,
     Validation,
 };
 use super::{Occurrence, Source, input, load_one};
@@ -76,7 +70,7 @@ pub fn generate(
     output: impl AsRef<Path>,
     mode: GenerateMode,
 ) -> Result<()> {
-    generate_selected(input, output, mode, None, None, None)
+    generate_selected(input, output, mode, None, None, None, 30.0)
 }
 
 pub fn generate_selected(
@@ -86,7 +80,12 @@ pub fn generate_selected(
     name: Option<&str>,
     encounter: Option<i64>,
     difficulty: Option<i64>,
+    lookahead: f64,
 ) -> Result<()> {
+    ensure!(
+        lookahead.is_finite() && (0.0..=3600.0).contains(&lookahead),
+        "Lookahead must be between 0 and 3600 seconds"
+    );
     let input = input.as_ref();
     let output = output.as_ref();
     let report_path = output.with_extension("report.json");
@@ -104,7 +103,7 @@ pub fn generate_selected(
         let draft = build_single(&source, mode)?;
         (serialize_draft(draft.entries)?, draft.report)
     } else {
-        super::multi::build(group, mode)?
+        super::multi::build(group, mode, lookahead)?
     };
     let report_bytes = format!("{}\n", serde_json::to_string_pretty(&report)?);
     let markdown = super::report::render(&report)?;

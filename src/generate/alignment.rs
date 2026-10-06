@@ -385,8 +385,18 @@ fn section(
 }
 
 fn align_segments(left_pull: &Pull, right_pull: &Pull) -> Result<Vec<Segment>> {
-    let left = signals(left_pull);
-    let right = signals(right_pull);
+    let mut left = signals(left_pull);
+    let mut right = signals(right_pull);
+    // Keep simultaneous helpers on the same side of each anchor: A+H equals H+A.
+    // Preserve helper-only path context and raw replay order.
+    // ponytail: normalize single-anchor batches; multiple anchors need bundle-aware segmentation.
+    for signals in [&mut left, &mut right] {
+        for batch in signals.chunk_by_mut(|a, b| a.time_ms == b.time_ms) {
+            if batch.iter().filter(|s| is_boss_cast(s)).count() == 1 {
+                batch.sort_by(|a, b| a.key.cmp(&b.key));
+            }
+        }
+    }
     // An identical opening boss signal corrects pull-start offset before finding repeat anchors.
     let entry = match (left.first(), right.first()) {
         (Some(a), Some(b)) if a.key == b.key && a.key.role.ends_with("/Boss") => {
@@ -748,6 +758,62 @@ mod tests {
             comparison.segments[1].slots[0].evidence,
             "observedOnlyOnOnePath"
         );
+    }
+
+    #[test]
+    fn simultaneous_anchor_order_preserves_repeated_helper_correspondence() {
+        // Reordered A+H batches must keep each Grand Cross with its own round, in both directions.
+        let boss = "NPC/Boss";
+        let helper = "NPC/NPC";
+        let left = pull(
+            "a",
+            true,
+            4000,
+            &[
+                (500, 2, helper, 20, "begincast"),
+                (1000, 1, boss, 1, "cast"),
+                (1000, 2, helper, 10, "cast"),
+                (1400, 2, helper, 20, "cast"),
+                (1500, 2, helper, 20, "begincast"),
+                (2000, 1, boss, 1, "cast"),
+                (2000, 2, helper, 10, "cast"),
+                (2400, 2, helper, 20, "cast"),
+                (3500, 1, boss, 2, "cast"),
+            ],
+        );
+        let right = pull(
+            "b",
+            false,
+            3000,
+            &[
+                (600, 2, helper, 20, "begincast"),
+                (1100, 2, helper, 10, "cast"),
+                (1100, 1, boss, 1, "cast"),
+                (1500, 2, helper, 20, "cast"),
+                (1600, 2, helper, 20, "begincast"),
+                (2100, 2, helper, 10, "cast"),
+                (2100, 1, boss, 1, "cast"),
+                (2500, 2, helper, 20, "cast"),
+            ],
+        );
+        for (a, b) in [(&left, &right), (&right, &left)] {
+            let comparison = compare(a, b).unwrap();
+            assert!(!comparison.order_sensitive);
+            let slots: Vec<_> = comparison.segments.iter().flat_map(|s| &s.slots).collect();
+            assert_eq!(slots.len(), left.occurrences.len());
+            for slot in slots {
+                match (&slot.left, &slot.right) {
+                    (Some(x), Some(y)) => {
+                        assert_eq!(x.key, y.key);
+                        assert_eq!((x.time_ms - y.time_ms).abs(), 100);
+                        // Retain provenance from each original input order.
+                        assert_eq!(a.occurrences[x.event_indices[0]].relative_ms, x.time_ms);
+                        assert_eq!(b.occurrences[y.event_indices[0]].relative_ms, y.time_ms);
+                    }
+                    _ => assert!(slot.evidence.contains("UnobservedAfterWipe")),
+                }
+            }
+        }
     }
 
     #[test]

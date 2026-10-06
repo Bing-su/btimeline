@@ -120,6 +120,9 @@ pub struct GenerateCommand {
     /// Select the difficulty when an encounter has multiple groups.
     #[usage(long)]
     difficulty: Option<i64>,
+    /// Independent preview horizon used to separate virtual blocks, e.g. --lookahead 30.
+    #[usage(long, default = "30")]
+    lookahead: f64,
 }
 impl Run for GenerateCommand {
     type Output = Result<()>;
@@ -131,6 +134,7 @@ impl Run for GenerateCommand {
             self.name.as_deref(),
             self.encounter,
             self.difficulty,
+            self.lookahead,
         )
     }
 }

@@ -18,6 +18,8 @@ pub(crate) struct Evidence {
     pub expected: BTreeMap<usize, BTreeSet<usize>>,
     pub censored: BTreeSet<usize>,
     pub missing: BTreeSet<usize>,
+    pub inactive: BTreeSet<usize>,
+    pub lookahead_ms: Option<i64>,
 }
 
 #[derive(Default, Serialize)]
@@ -101,9 +103,21 @@ pub(crate) struct Replay {
     pub passed: bool,
     pub summary: Summary,
     pub rows: Vec<Row>,
-    jumps: Vec<JumpTrace>,
+    pub(crate) jumps: Vec<JumpTrace>,
     final_clock_ms: i64,
     reset_clock_ms: i64,
+    pub(crate) previews: Vec<Preview>,
+}
+
+// This independent projection audits visible rows separately from sync activation, e.g. after a jump.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct Preview {
+    source_ms: i64,
+    clock_ms: i64,
+    moment: &'static str,
+    horizon_ms: i64,
+    entry_indices: Vec<usize>,
 }
 
 struct Predicate {
@@ -295,6 +309,27 @@ pub(crate) fn run(
     let mut last_expected_entry = None;
     let mut stopped = false;
     let mut skipped = BTreeSet::new();
+    let horizon_ms = evidence.lookahead_ms.unwrap_or(30_000);
+    ensure!(
+        (0..=3_600_000).contains(&horizon_ms),
+        "Invalid preview horizon"
+    );
+    let mut previews = Vec::new();
+    let preview = |rows: &[Row], source_ms, clock_ms, moment| Preview {
+        source_ms,
+        clock_ms,
+        moment,
+        horizon_ms,
+        entry_indices: rows
+            .iter()
+            .filter(|row| {
+                row.at_ms >= clock_ms
+                    && row.at_ms <= clock_ms + horizon_ms
+                    && !timeline.hide_names.contains(&row.name)
+            })
+            .map(|row| row.entry_index)
+            .collect(),
+    };
     // Include a final tick so a scheduled forcejump cannot disappear just because no cast follows it.
     for signal in signals.iter().map(Some).chain(std::iter::once(None)) {
         let at = signal.map_or(end_ms, |s| s.at_ms);
@@ -406,7 +441,7 @@ pub(crate) fn run(
         clock += remaining;
         elapsed = at;
         let Some(signal) = signal else { break };
-        let candidates: Vec<_> = predicates
+        let mut candidates: Vec<_> = predicates
             .iter()
             .zip(&rows)
             .enumerate()
@@ -421,6 +456,38 @@ pub(crate) fn run(
             })
             .map(|(i, _)| i)
             .collect();
+        // Do not choose a branch by raw tie order, e.g. X and Y complete at the same millisecond.
+        // Check simultaneous signals before a jump moves the clock out of its sibling's window.
+        if candidates
+            .iter()
+            .any(|i| destinations.get(*i).is_some_and(Option::is_some))
+        {
+            let concurrent: BTreeSet<_> = signals
+                .iter()
+                .filter(|s| s.at_ms == signal.at_ms)
+                .flat_map(|s| {
+                    predicates
+                        .iter()
+                        .zip(&rows)
+                        .enumerate()
+                        .filter(|(i, (pred, row))| {
+                            !spent.contains(i)
+                                && destinations.get(*i).is_some_and(Option::is_some)
+                                && pred.as_ref().is_some_and(|p| {
+                                    p.enabled
+                                        && p.matches(s)
+                                        && clock >= row.at_ms - p.window[0]
+                                        && clock <= row.at_ms + p.window[1]
+                                })
+                        })
+                        .map(|(i, _)| i)
+                })
+                .collect();
+            if concurrent.len() > 1 {
+                summary.ambiguous_matches += 1;
+                candidates.clear();
+            }
+        }
         if candidates.len() > 1 {
             summary.ambiguous_matches += 1;
         }
@@ -460,7 +527,8 @@ pub(crate) fn run(
         if !expected
             && (!row.expected_event_indices.is_empty()
                 || evidence.censored.contains(&row.entry_index)
-                || evidence.missing.contains(&row.entry_index))
+                || evidence.missing.contains(&row.entry_index)
+                || evidence.inactive.contains(&row.entry_index))
         {
             summary.wrong_matches += 1;
         }
@@ -497,6 +565,10 @@ pub(crate) fn run(
         });
         summary.matches += 1;
         let from = row.at_ms;
+        if destinations.get(*i).is_some_and(Option::is_some) {
+            previews.push(preview(&rows, signal.at_ms, clock, "beforeJump"));
+            previews.push(preview(&rows, signal.at_ms, to, "afterJump"));
+        }
         skipped.extend(
             rows.iter()
                 .enumerate()
@@ -527,6 +599,7 @@ pub(crate) fn run(
         if row.expected_event_indices.is_empty()
             && !evidence.censored.contains(&row.entry_index)
             && !evidence.missing.contains(&row.entry_index)
+            && !evidence.inactive.contains(&row.entry_index)
             && (!skipped.contains(&i) || !row.matches.is_empty())
         {
             summary.unverified += 1;
@@ -542,7 +615,9 @@ pub(crate) fn run(
             }
         } else if !row.window_miss_event_indices.is_empty() {
             "windowMiss"
-        } else if row.expected_event_indices.is_empty() && skipped.contains(&i) {
+        } else if row.expected_event_indices.is_empty()
+            && (skipped.contains(&i) || evidence.inactive.contains(&row.entry_index))
+        {
             // A branch can intentionally omit an oracle gap, e.g. A jumps over B to the observed C.
             "notVisited"
         } else if evidence.censored.contains(&row.entry_index) {
@@ -579,6 +654,7 @@ pub(crate) fn run(
         jumps,
         final_clock_ms: clock,
         reset_clock_ms: 0,
+        previews,
     })
 }
 
@@ -619,6 +695,7 @@ mod tests {
                 .collect(),
             censored: censored.iter().copied().collect(),
             missing: BTreeSet::new(),
+            ..Default::default()
         };
         run(
             &json!({"schemaVersion":1,"entries":entries}).to_string(),
