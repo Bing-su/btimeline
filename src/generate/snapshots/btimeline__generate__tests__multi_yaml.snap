@@ -3,39 +3,41 @@ source: src/generate/tests.rs
 expression: yaml
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Bing-su/btimeline/main/schema/btimeline-v1.schema.json
+schemaVersion: 1
 entries:
 - kind: note
   text: >-
     Draft from 2 compatible FFLogs pulls; common rows and alternatives with an
     observed common successor. Repeats are finite; unresolved paths are omitted. No
     encounter transitions or replay validation.
-- at: 1.5
-  kind: event
+- kind: event
+  at: 1.5
   name: Ability 90001
   sync:
+    log: Ability
     fields:
       id: ^15F91$
       source: ^Boss$
-    log: Ability
-- at: 2.1
-  kind: event
+- kind: event
+  at: 2.1
   name: Ability 90002 / Ability 90003
   sync:
+    log: Ability
     fields:
       id:
       - ^15F92$
       - ^15F93$
       source: ^Helper$
-    log: Ability
-- at: 4.5
-  kind: event
+- kind: event
+  at: 4.5
   name: Ability 90004
   sync:
+    log: Ability
     fields:
       id: ^15F94$
       source: ^Boss$
-    log: Ability
-- abilities:
+- kind: abilityCatalog
+  abilities:
   - id: 15F91
     name: Ability 90001
   - id: 15F92
@@ -44,5 +46,3 @@ entries:
     name: Ability 90004
   - id: 15F93
     name: Ability 90003
-  kind: abilityCatalog
-schemaVersion: 1

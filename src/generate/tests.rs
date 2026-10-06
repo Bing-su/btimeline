@@ -3,6 +3,9 @@
     reason = "test fixtures use unwrap to fail at the source"
 )]
 
+use std::collections::BTreeSet;
+use std::fs;
+
 use path_slash::PathBufExt as _;
 use proptest::prelude::*;
 use rstest::rstest;
@@ -307,7 +310,7 @@ fn multi_draft_merges_isolated_alternatives_and_keeps_block_timing_provenance() 
         true,
     );
     with_logs(&[a, b], |path| {
-        let selected = multi::select_group(path, Some("Unseen Fight"), None, None).unwrap();
+        let selected = input::select_group(path, Some("Unseen Fight"), None, None).unwrap();
         let (yaml, report) = multi::build(selected, GenerateMode::Raid).unwrap();
         snapshot_draft("multi", &yaml, &report, path);
         let events = draft_events(&yaml);
@@ -331,7 +334,7 @@ fn multi_draft_merges_isolated_alternatives_and_keeps_block_timing_provenance() 
         assert_eq!(report["unobservedCombinations"], "unknown");
         assert_eq!(report["validation"]["replay"], false);
         assert!(report["omittedSignals"].as_array().unwrap().is_empty());
-        let mut reversed = multi::select_group(path, None, None, None).unwrap();
+        let mut reversed = input::select_group(path, None, None, None).unwrap();
         reversed.pulls.reverse();
         let (reversed_yaml, reversed_report) = multi::build(reversed, GenerateMode::Raid).unwrap();
         assert_eq!(yaml, reversed_yaml);
@@ -376,7 +379,7 @@ fn dependent_paths_produce_common_draft_instead_of_independent_id_arrays(
         ],
         |path| {
             let (yaml, report) = multi::build(
-                multi::select_group(path, None, None, None).unwrap(),
+                input::select_group(path, None, None, None).unwrap(),
                 GenerateMode::Raid,
             )
             .unwrap();
@@ -419,7 +422,7 @@ fn finite_repeats_keep_wipe_suffix_with_reached_sample_counts() {
     );
     with_logs(&[a, b], |path| {
         let (yaml, report) = multi::build(
-            multi::select_group(path, None, None, None).unwrap(),
+            input::select_group(path, None, None, None).unwrap(),
             GenerateMode::Raid,
         )
         .unwrap();
@@ -463,7 +466,7 @@ fn three_pull_consensus_merges_only_the_same_position() {
         .collect::<Vec<_>>();
     with_logs(&logs, |path| {
         let (yaml, report) = multi::build(
-            multi::select_group(path, None, None, None).unwrap(),
+            input::select_group(path, None, None, None).unwrap(),
             GenerateMode::Raid,
         )
         .unwrap();
@@ -488,12 +491,12 @@ fn directory_selection_requires_one_group_and_never_connects_encounters() {
     b["report"]["fights"][0]["encounterID"] = json!(123456);
     b["report"]["fights"][0]["name"] = json!("Another New Encounter");
     with_logs(&[a, b.clone()], |path| {
-        let error = multi::select_group(path, None, None, None)
+        let error = input::select_group(path, None, None, None)
             .unwrap_err()
             .to_string();
         assert!(error.contains("--name") && error.contains("Another New Encounter"));
-        multi::select_group(path, Some("Missing"), None, None).unwrap_err();
-        let selected = multi::select_group(path, Some("Unseen Fight"), None, None).unwrap();
+        input::select_group(path, Some("Missing"), None, None).unwrap_err();
+        let selected = input::select_group(path, Some("Unseen Fight"), None, None).unwrap();
         assert_eq!(selected.pulls.len(), 1);
         assert_eq!(selected.key.encounter, 9999);
         let output = path.join("selected.yaml");
@@ -512,7 +515,7 @@ fn directory_selection_requires_one_group_and_never_connects_encounters() {
     with_logs(
         &[multi_log("a", &[(1000, 10, 90001, "cast")], 5000, true), b],
         |path| {
-            multi::select_group(path, Some("Unseen Fight"), None, None).unwrap_err();
+            input::select_group(path, Some("Unseen Fight"), None, None).unwrap_err();
         },
     );
 }
@@ -564,7 +567,7 @@ fn multi_sync_checks_alternative_ids_against_excluded_raw_casts() {
     b["collection"]["eventCount"] = json!(4);
     with_logs(&[a, b], |path| {
         let (yaml, report) = multi::build(
-            multi::select_group(path, None, None, None).unwrap(),
+            input::select_group(path, None, None, None).unwrap(),
             GenerateMode::Raid,
         )
         .unwrap();
@@ -592,7 +595,7 @@ fn multi_dungeon_keeps_helper_only_inside_boss_spans() {
         ],
         |path| {
             let (yaml, report) = multi::build(
-                multi::select_group(path, None, None, None).unwrap(),
+                input::select_group(path, None, None, None).unwrap(),
                 GenerateMode::Dungeon,
             )
             .unwrap();
@@ -630,7 +633,7 @@ fn censored_pull_raw_cast_still_disables_a_later_sync() {
     b["events"][1]["melee"] = json!(true);
     with_logs(&[a, b], |path| {
         let (yaml, report) = multi::build(
-            multi::select_group(path, None, None, None).unwrap(),
+            input::select_group(path, None, None, None).unwrap(),
             GenerateMode::Raid,
         )
         .unwrap();
@@ -664,7 +667,7 @@ fn simultaneous_instances_are_preserved_without_inflating_pull_sample_counts() {
     b["collection"]["reportCode"] = json!("b");
     with_logs(&[a, b], |path| {
         let (yaml, report) = multi::build(
-            multi::select_group(path, None, None, None).unwrap(),
+            input::select_group(path, None, None, None).unwrap(),
             GenerateMode::Raid,
         )
         .unwrap();
@@ -706,7 +709,7 @@ fn boss_block_entries_use_observed_medians_without_accumulating_interval_medians
     .collect::<Vec<_>>();
     with_logs(&logs, |path| {
         let (yaml, report) = multi::build(
-            multi::select_group(path, None, None, None).unwrap(),
+            input::select_group(path, None, None, None).unwrap(),
             GenerateMode::Raid,
         )
         .unwrap();
@@ -748,7 +751,7 @@ fn mixed_roles_preserve_common_successors_when_interval_medians_differ() {
     .collect::<Vec<_>>();
     with_logs(&logs, |path| {
         let (yaml, report) = multi::build(
-            multi::select_group(path, None, None, None).unwrap(),
+            input::select_group(path, None, None, None).unwrap(),
             GenerateMode::Raid,
         )
         .unwrap();
@@ -797,7 +800,7 @@ fn observed_common_casts_survive_wipe_when_pull_timings_drift(
             multi_log("b", &b, 20000, false),
         ],
         |path| {
-            let group = multi::select_group(path, None, None, None).unwrap();
+            let group = input::select_group(path, None, None, None).unwrap();
             let comparison = alignment::compare(&group.pulls[0], &group.pulls[1]).unwrap();
             assert!(
                 comparison
@@ -919,13 +922,57 @@ fn reports_use_slash_paths_and_generation_can_reopen_them() {
 }
 
 #[test]
+fn multi_draft_keeps_recollected_pull_and_raw_evidence_together() {
+    let rows = [(1000, 10, 90001, "cast")];
+    with_logs(
+        &[
+            multi_log("a", &rows, 5000, true),
+            multi_log("b", &rows, 5000, true),
+        ],
+        |path| {
+            let group = input::select_group(path, None, None, None).unwrap();
+            // Recollection moves the common cast; normalization, medians and hashes must share the new read.
+            let file = path.join("fight_1.json");
+            let mut updated = multi_log(
+                "b",
+                &[(2000, 10, 90001, "cast"), (2200, 10, 90001, "cast")],
+                5000,
+                true,
+            );
+            // The excluded melee cast must still disable a sync from the same recollected raw log.
+            updated["events"][1]["melee"] = json!(true);
+            let bytes = serde_json::to_vec(&updated).unwrap();
+            fs::write(&file, &bytes).unwrap();
+
+            let (yaml, report) = multi::build(group, GenerateMode::Raid).unwrap();
+            assert_eq!(draft_events(&yaml)[0]["at"], 1.5);
+            assert_eq!(report["inputs"][1]["input"]["sha256"], sha256(&bytes));
+            assert_eq!(report["slots"][0]["samples"][1]["timeMs"], 2000);
+            assert_eq!(draft_events(&yaml)[0]["sync"]["enabled"], false);
+            assert_eq!(
+                report["syncConflicts"][0]["conflictingEvents"],
+                json!([{"file":slash_path(&file), "eventIndex":1}])
+            );
+            assert_eq!(
+                report["observedPaths"][1]["occurrences"],
+                report["inputs"][1]["occurrences"]
+            );
+            assert_eq!(
+                report["observedPaths"][1]["occurrences"][0]["relative_ms"],
+                2000
+            );
+        },
+    );
+}
+
+#[test]
 fn single_draft_uses_loaded_source_and_validates_before_serialization() {
     with_file(&sample(), |path| {
         let mut source = load_one(path).unwrap();
         fs::remove_file(path).unwrap();
-        let (entries, _) = draft::build_single(&source, GenerateMode::Raid).unwrap();
+        let draft = draft::build_single(&source, GenerateMode::Raid).unwrap();
         assert_eq!(
-            draft_events(&draft::serialize_draft(entries).unwrap()).len(),
+            draft_events(&draft::serialize_draft(draft.entries).unwrap()).len(),
             2
         );
 
@@ -1070,7 +1117,7 @@ fn wipe_on_an_early_branch_preserves_later_common_rows_without_matching_a_later_
         ),
     ];
     with_logs(&logs, |path| {
-        let group = multi::select_group(path, None, None, None).unwrap();
+        let group = input::select_group(path, None, None, None).unwrap();
         let comparison = alignment::compare(&group.pulls[0], &group.pulls[2]).unwrap();
         assert!(comparison.segments.iter().flat_map(|s| &s.slots).all(|s| {
             !matches!((&s.left,&s.right), (Some(a),Some(b)) if a.time_ms == 20000 && b.time_ms == 2000)
@@ -1108,7 +1155,7 @@ fn an_initial_wipe_does_not_remove_the_entire_multi_pull_draft() {
     let b = multi_log("b", &[(19000, 10, 90001, "begincast")], 20000, false);
     with_logs(&[a, b], |path| {
         let (yaml, report) = multi::build(
-            multi::select_group(path, None, None, None).unwrap(),
+            input::select_group(path, None, None, None).unwrap(),
             GenerateMode::Raid,
         )
         .unwrap();
@@ -1137,18 +1184,18 @@ fn encounter_and_difficulty_selectors_resolve_overlapping_names() {
     c["collection"]["reportCode"] = json!("c");
     c["report"]["fights"][0]["difficulty"] = json!(10);
     with_logs(&[a, b, c], |path| {
-        let error = multi::select_group(path, None, None, None)
+        let error = input::select_group(path, None, None, None)
             .unwrap_err()
             .to_string();
         assert!(error.contains("--encounter 9999 --difficulty 9"));
         assert!(error.contains("--encounter 123456 --difficulty 10"));
-        multi::select_group(path, Some("Unseen Fight"), None, None).unwrap_err();
-        multi::select_group(path, None, Some(123456), None).unwrap_err();
-        let selected = multi::select_group(path, None, Some(123456), Some(10)).unwrap();
+        input::select_group(path, Some("Unseen Fight"), None, None).unwrap_err();
+        input::select_group(path, None, Some(123456), None).unwrap_err();
+        let selected = input::select_group(path, None, Some(123456), Some(10)).unwrap();
         assert_eq!(selected.key.encounter, 123456);
         assert_eq!(selected.key.difficulty, 10);
         assert_eq!(selected.pulls.len(), 1);
-        multi::select_group(path, Some("Missing"), Some(123456), Some(10)).unwrap_err();
+        input::select_group(path, Some("Missing"), Some(123456), Some(10)).unwrap_err();
         let output = path.join("selected.yaml");
         draft::generate_selected(
             path,

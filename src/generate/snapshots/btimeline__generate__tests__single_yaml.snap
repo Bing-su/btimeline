@@ -3,31 +3,31 @@ source: src/generate/tests.rs
 expression: yaml
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Bing-su/btimeline/main/schema/btimeline-v1.schema.json
+schemaVersion: 1
 entries:
 - kind: note
   text: >-
     Draft from FFLogs report new-report fight 2 revision 1 logVersion 76; times are
     relative to fight start.
-- at: 0.2
-  kind: event
+- kind: event
+  at: 0.2
   name: Move
-  note: "Sync disabled: another cast matches within the default sync window; source event 0"
   sync:
-    enabled: false
+    log: Ability
     fields:
       id: ^15F91$
       source: ^Helper \(A\)\+$
-    log: Ability
-- at: 0.5
-  kind: event
+    enabled: false
+  note: "Sync disabled: another cast matches within the default sync window; source event 0"
+- kind: event
+  at: 0.5
   name: Move
   sync:
+    log: Ability
     fields:
       id: ^15F91$
       source: ^Boss$
-    log: Ability
-- abilities:
+- kind: abilityCatalog
+  abilities:
   - id: 15F91
     name: Move
-  kind: abilityCatalog
-schemaVersion: 1

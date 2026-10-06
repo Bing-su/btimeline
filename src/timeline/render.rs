@@ -1,6 +1,7 @@
 use std::fmt::Write as _;
 
 use anyhow::Result;
+use itertools::Itertools;
 
 use super::{Ability, Destination, Entry, FieldPattern, Jump, JumpWhen, Sync, Timeline};
 
@@ -30,7 +31,6 @@ fn field_pattern(value: &FieldPattern) -> String {
             "[{}]",
             v.iter()
                 .map(|s| serde_json::Value::from(s.as_str()).to_string())
-                .collect::<Vec<_>>()
                 .join(", ")
         ),
     }
@@ -43,7 +43,6 @@ fn render_sync(sync: &Sync) -> String {
             sync.fields
                 .iter()
                 .map(|(k, v)| format!("{k}: {}", field_pattern(v)))
-                .collect::<Vec<_>>()
                 .join(", ")
         ),
         Sync::Regex(sync) => format!("sync /{}/", sync.regex),
@@ -142,18 +141,10 @@ impl Timeline {
                     phase_starts,
                 } => {
                     if let Some(names) = targetable {
-                        writeln!(
-                            out,
-                            "# -it {}",
-                            names.iter().map(|n| quote(n)).collect::<Vec<_>>().join(" ")
-                        )?;
+                        writeln!(out, "# -it {}", names.iter().map(|n| quote(n)).join(" "))?;
                     }
                     if let Some(names) = ignored_combatants {
-                        writeln!(
-                            out,
-                            "# -ic {}",
-                            names.iter().map(|n| quote(n)).collect::<Vec<_>>().join(" ")
-                        )?;
+                        writeln!(out, "# -ic {}", names.iter().map(|n| quote(n)).join(" "))?;
                     }
                     if let Some(starts) = phase_starts {
                         writeln!(
@@ -162,7 +153,6 @@ impl Timeline {
                             starts
                                 .iter()
                                 .map(|p| format!("{}:{}", p.ability_id, number(p.at)))
-                                .collect::<Vec<_>>()
                                 .join(" ")
                         )?;
                     }
@@ -182,11 +172,7 @@ impl Timeline {
                         writeln!(
                             out,
                             "# -ii {}",
-                            ignored
-                                .iter()
-                                .map(|a| a.id.as_str())
-                                .collect::<Vec<_>>()
-                                .join(" ")
+                            ignored.iter().map(|a| a.id.as_str()).join(" ")
                         )?;
                         writeln!(out, "# IGNORED ABILITIES")?;
                         for ability in ignored {

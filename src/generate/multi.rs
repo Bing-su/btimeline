@@ -1,81 +1,30 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::{Context, Result, ensure};
+use itertools::Itertools;
 use path_slash::PathBufExt as _;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use super::alignment::{self, Signal, SignalKey};
-use super::{GenerateMode, Group, Pull, draft, inspect, load_one};
+use super::report::{
+    Alignment,
+    ConflictingEvent,
+    MultiBlock,
+    MultiConflict,
+    MultiReport,
+    MultiSlot,
+    ObservedPath,
+    OmittedSignal,
+    OutputCoverage,
+    Sample,
+    SensitivePair,
+    TimeStatistics,
+    Validation,
+};
+use super::{GenerateMode, Group, Pull, draft, input, load_one};
 use crate::fflogs::model::CollectedLog;
-
-pub(super) fn select_group(
-    input: &Path,
-    name: Option<&str>,
-    encounter: Option<i64>,
-    difficulty: Option<i64>,
-) -> Result<Group> {
-    let mut paths = Vec::new();
-    let mut pending = vec![input.to_path_buf()];
-    // Do not follow directory symlinks: a log tree must not recurse through a cycle.
-    while let Some(path) = pending.pop() {
-        if path.is_dir() {
-            for entry in fs::read_dir(&path)? {
-                let entry = entry?;
-                let kind = entry.file_type()?;
-                if kind.is_dir()
-                    || (kind.is_file()
-                        && entry.path().extension().is_some_and(|e| e == "json")
-                        && !entry
-                            .file_name()
-                            .to_string_lossy()
-                            .ends_with(".report.json"))
-                {
-                    pending.push(entry.path());
-                }
-            }
-        } else {
-            paths.push(path);
-        }
-    }
-    paths.sort();
-    let groups = inspect(&paths)?;
-    let choices = groups
-        .iter()
-        .map(|group| {
-            format!(
-                "{} (--encounter {} --difficulty {}, {} pulls)",
-                group
-                    .pulls
-                    .iter()
-                    .map(|p| p.name.as_str())
-                    .collect::<BTreeSet<_>>()
-                    .into_iter()
-                    .collect::<Vec<_>>()
-                    .join(" / "),
-                group.key.encounter,
-                group.key.difficulty,
-                group.pulls.len()
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(", ");
-    let mut selected: Vec<_> = groups
-        .into_iter()
-        .filter(|group| {
-            name.is_none_or(|name| group.pulls.iter().any(|pull| pull.name == name))
-                && encounter.is_none_or(|id| group.key.encounter == id)
-                && difficulty.is_none_or(|id| group.key.difficulty == id)
-        })
-        .collect();
-    ensure!(
-        selected.len() == 1,
-        "Select exactly one compatible group with --name or --encounter / --difficulty (matched {}); available: {choices}",
-        selected.len()
-    );
-    selected.pop().context("Missing selected group")
-}
+use crate::timeline::{Ability, Entry, FieldPattern, LogType, NetworkSync, Sync};
 
 #[derive(Default)]
 pub(super) struct Correspondence {
@@ -198,7 +147,7 @@ pub(super) fn correspondence(left: &Pull, right: &Pull) -> Result<(Correspondenc
     Ok((result, comparison.order_sensitive))
 }
 
-fn statistics(mut times: Vec<i64>) -> Result<Value> {
+fn statistics(mut times: Vec<i64>) -> Result<TimeStatistics> {
     ensure!(!times.is_empty(), "No timing samples");
     times.sort();
     let middle = times.len() / 2;
@@ -209,51 +158,34 @@ fn statistics(mut times: Vec<i64>) -> Result<Value> {
     } else {
         hi as f64
     };
-    Ok(
-        json!({"medianMs":median, "minMs":times.first(), "maxMs":times.last(), "sampleCount":times.len()}),
-    )
+    Ok(TimeStatistics {
+        median_ms: median,
+        min_ms: *times.first().context("Missing minimum")?,
+        max_ms: *times.last().context("Missing maximum")?,
+        sample_count: times.len(),
+    })
 }
 
 struct Input {
+    pull: Pull,
     log: CollectedLog,
     report: Value,
     signals: BTreeMap<usize, Signal>,
-    catalog: Vec<Value>,
+    catalog: Vec<Ability>,
     actors: BTreeMap<i64, String>,
 }
 
-fn prepare(pull: &mut Pull, mode: GenerateMode) -> Result<Input> {
-    let source = load_one(&PathBuf::from_slash(&pull.file))?;
-    let (entries, report) = draft::build_single(&source, mode)?;
-    let catalog = entries
-        .iter()
-        .find(|entry| entry["kind"] == "abilityCatalog")
-        .context("Missing catalog")?
-        .get("abilities")
-        .context("Missing catalog abilities")?
-        .as_array()
-        .context("Missing catalog abilities")?
-        .clone();
+fn prepare(file: &str, mode: GenerateMode) -> Result<Input> {
+    let source = load_one(&PathBuf::from_slash(file))?;
+    let draft::SingleDraft {
+        catalog, report, ..
+    } = draft::build_single(&source, mode)?;
     // Align the same normalized read used for raw collision checks, e.g. if a pull was recollected.
-    *pull = source.pull;
+    let mut pull = source.pull;
     if mode == GenerateMode::Dungeon {
-        let spans = report
-            .get("bossSegments")
-            .context("Missing boss segments")?
-            .as_array()
-            .context("Missing boss segments")?;
-        pull.occurrences.retain(|row| {
-            spans.iter().any(|span| {
-                span["startMs"]
-                    .as_i64()
-                    .is_some_and(|start| row.relative_ms >= start)
-                    && span["endMs"]
-                        .as_i64()
-                        .is_some_and(|end| row.relative_ms <= end)
-            })
-        });
+        input::filter_boss_spans(&mut pull, &report)?;
     }
-    let signals = alignment::signals(pull)
+    let signals = alignment::signals(&pull)
         .into_iter()
         .map(|s| Ok((index(&s)?, s)))
         .collect::<Result<_>>()?;
@@ -266,6 +198,7 @@ fn prepare(pull: &mut Pull, mode: GenerateMode) -> Result<Input> {
         .map(|actor| (actor.id, actor.name.clone()))
         .collect();
     Ok(Input {
+        pull,
         log,
         report,
         signals,
@@ -274,43 +207,46 @@ fn prepare(pull: &mut Pull, mode: GenerateMode) -> Result<Input> {
     })
 }
 
-pub(super) fn build(mut group: Group, mode: GenerateMode) -> Result<(String, Value)> {
-    group
-        .pulls
-        .sort_by(|a, b| (&a.report, a.fight, &a.file).cmp(&(&b.report, b.fight, &b.file)));
-    let mut inputs = Vec::new();
-    for pull in &mut group.pulls {
-        inputs.push(prepare(pull, mode)?);
-    }
+pub(super) fn build(group: Group, mode: GenerateMode) -> Result<(String, Value)> {
+    let Group { key, mut pulls } = group;
+    pulls.sort_by(|a, b| (&a.report, a.fight, &a.file).cmp(&(&b.report, b.fight, &b.file)));
+    // Own each pull beside its raw evidence; sorting/filtering cannot desynchronize parallel lists.
+    let inputs = pulls
+        .into_iter()
+        .map(|pull| prepare(&pull.file, mode))
+        .collect::<Result<Vec<_>>>()?;
     // The longest observed path provides positions, never permission to emit its exclusive branches.
-    let reference = group
-        .pulls
+    let reference = inputs
         .iter()
         .enumerate()
-        .max_by_key(|(i, pull)| (pull.occurrences.len(), std::cmp::Reverse(*i)))
+        .max_by_key(|(i, input)| (input.pull.occurrences.len(), std::cmp::Reverse(*i)))
         .map(|(i, _)| i)
         .context("Missing reference pull")?;
     let mut relations = BTreeMap::new();
     let mut sensitive = Vec::new();
     // ponytail: reuse P4 pair evidence; an indexed graph is appropriate only for substantially larger groups.
-    for (a, left) in group.pulls.iter().enumerate() {
-        for (b, right) in group.pulls.iter().enumerate().skip(a + 1) {
-            let (forward, order_sensitive) = correspondence(left, right)?;
-            let (backward, _) = correspondence(right, left)?;
-            relations.insert((a, b), forward);
-            relations.insert((b, a), backward);
-            if order_sensitive {
-                sensitive.push(json!({"left":left.file, "right":right.file}));
-            }
+    for [(a, left), (b, right)] in inputs.iter().enumerate().array_combinations() {
+        let (forward, order_sensitive) = correspondence(&left.pull, &right.pull)?;
+        let (backward, _) = correspondence(&right.pull, &left.pull)?;
+        relations.insert((a, b), forward);
+        relations.insert((b, a), backward);
+        if order_sensitive {
+            sensitive.push(SensitivePair {
+                left: &left.pull.file,
+                right: &right.pull.file,
+            });
         }
     }
     let reference_signals = &inputs
         .get(reference)
         .context("Missing reference input")?
         .signals;
-    let mut entries = vec![json!({"kind":"note", "text":format!(
-        "Draft from {} compatible FFLogs pulls; common rows and alternatives with an observed common successor. Repeats are finite; unresolved paths are omitted. No encounter transitions or replay validation.", group.pulls.len()
-    )})];
+    let mut entries = vec![Entry::Note {
+        text: format!(
+            "Draft from {} compatible FFLogs pulls; common rows and alternatives with an observed common successor. Repeats are finite; unresolved paths are omitted. No encounter transitions or replay validation.",
+            inputs.len()
+        ),
+    }];
     let mut slots = Vec::new();
     let mut omitted = Vec::new();
     let mut conflicts = Vec::new();
@@ -328,15 +264,21 @@ pub(super) fn build(mut group: Group, mode: GenerateMode) -> Result<(String, Val
                 .or_insert_with(|| entry.1.clone());
         }
     }
-    let mut blocks = vec![
-        json!({"id":0, "entry":"fightStart", "draftEntryMs":0, "time":statistics(vec![0; inputs.len()])?}),
-    ];
+    let mut blocks = vec![MultiBlock {
+        id: 0,
+        entry: "fightStart",
+        draft_entry_ms: 0.into(),
+        time: statistics(vec![0; inputs.len()])?,
+        slot: None,
+        samples: None,
+    }];
     let mut anchor_indices: Option<Vec<Option<usize>>> = None;
     let mut block_id = 0;
     let mut previous_at = 0.0_f64;
-    let mut ordered: Vec<_> = reference_signals.iter().collect();
-    ordered.sort_by_key(|(index, s)| (s.time_ms, **index));
-    for (&event_index, signal) in ordered {
+    for (&event_index, signal) in reference_signals
+        .iter()
+        .sorted_by_key(|(index, signal)| (signal.time_ms, **index))
+    {
         let mut samples = Vec::new();
         let mut censored = Vec::new();
         let mut valid = true;
@@ -367,7 +309,7 @@ pub(super) fn build(mut group: Group, mode: GenerateMode) -> Result<(String, Val
             }
         }
         // Every observed pair must agree on the same occurrence, including repeat positions.
-        for (position, &(a, left)) in samples.iter().enumerate() {
+        for &(a, left) in &samples {
             let left_index = index(left)?;
             for &missing in &censored {
                 if !relations
@@ -377,19 +319,32 @@ pub(super) fn build(mut group: Group, mode: GenerateMode) -> Result<(String, Val
                     valid = false;
                 }
             }
-            for &(b, right) in samples.iter().skip(position + 1) {
-                let right_index = index(right)?;
-                if !relations
-                    .get(&(a, b))
-                    .is_some_and(|r| r.matched.get(&left_index) == Some(&right_index))
-                {
-                    valid = false;
-                }
+        }
+        for [&(a, left), &(b, right)] in samples.iter().array_combinations() {
+            let left_index = index(left)?;
+            let right_index = index(right)?;
+            if !relations
+                .get(&(a, b))
+                .is_some_and(|r| r.matched.get(&left_index) == Some(&right_index))
+            {
+                valid = false;
             }
         }
         if !valid {
-            omitted.push(json!({"file":group.pulls.get(reference).context("Missing reference")?.file,
-                "eventIndices":signal.event_indices, "reason":"no direction-independent group consensus or dependent/unresolved path", "evidence":"unknown"}));
+            omitted.push(OmittedSignal {
+                file: Some(
+                    &inputs
+                        .get(reference)
+                        .context("Missing reference")?
+                        .pull
+                        .file,
+                ),
+                event_indices: &signal.event_indices,
+                reason: "no direction-independent group consensus or dependent/unresolved path",
+                evidence: "unknown",
+                samples: None,
+                time: None,
+            });
             continue;
         }
         if signal.key.kind != "cast" {
@@ -431,31 +386,47 @@ pub(super) fn build(mut group: Group, mode: GenerateMode) -> Result<(String, Val
                         .clone(),
                 );
             }
-            source_refs.push(json!({"file":group.pulls.get(i).context("Missing sample pull")?.file,
-                "eventIndices":sample.event_indices, "instanceIds":sample.instance_ids, "abilityId":sample.key.ability_id,
-                "timeMs":sample.time_ms, "blockEntryMs":entry_ms, "relativeMs":sample.time_ms - entry_ms}));
+            source_refs.push(Sample {
+                file: &input.pull.file,
+                event_indices: &sample.event_indices,
+                instance_ids: &sample.instance_ids,
+                ability_id: sample.key.ability_id,
+                time_ms: sample.time_ms,
+                block_entry_ms: entry_ms,
+                relative_ms: sample.time_ms - entry_ms,
+            });
         }
         if !valid {
-            omitted.push(json!({"eventIndices":signal.event_indices, "reason":"block entry unobserved", "evidence":"unknown"}));
+            omitted.push(OmittedSignal {
+                file: None,
+                event_indices: &signal.event_indices,
+                reason: "block entry unobserved",
+                evidence: "unknown",
+                samples: None,
+                time: None,
+            });
             continue;
         }
         let timing = statistics(relative_times)?;
         let absolute = statistics(samples.iter().map(|(_, s)| s.time_ms).collect())?;
         // Use fight-relative medians for every role to preserve order with the same reached pulls.
         // For A→helper→B, median(A)+median(helper−A) can exceed median(B); keep intervals in the report.
-        let at_ms = absolute
-            .get("medianMs")
-            .and_then(Value::as_f64)
-            .context("Missing slot median")?;
+        let at_ms = absolute.median_ms;
         let at = (at_ms / 100.0).round() / 10.0;
         if at < previous_at {
             // A changing reached-pull subset can invert medians even though each observed path is ordered.
-            omitted.push(json!({"eventIndices":signal.event_indices, "samples":source_refs, "time":timing,
-                "reason":"timing medians violate order after the reached sample set changes", "evidence":"unknown"}));
+            omitted.push(OmittedSignal {
+                file: None,
+                event_indices: &signal.event_indices,
+                samples: Some(source_refs),
+                time: Some(timing),
+                reason: "timing medians violate order after the reached sample set changes",
+                evidence: "unknown",
+            });
             continue;
         }
         previous_at = at;
-        let names = ids
+        let name = ids
             .iter()
             .map(|id| {
                 catalog
@@ -463,17 +434,10 @@ pub(super) fn build(mut group: Group, mode: GenerateMode) -> Result<(String, Val
                     .and_then(Value::as_str)
                     .context("Missing catalog name")
             })
-            .collect::<Result<Vec<_>>>()?;
+            .process_results(|mut names| names.join(" / "))?;
         let patterns: Vec<_> = ids.iter().map(|id| format!("^{id:X}$")).collect();
-        let mut fields = serde_json::Map::new();
-        fields.insert(
-            "id".into(),
-            if patterns.len() == 1 {
-                json!(patterns.first())
-            } else {
-                json!(patterns)
-            },
-        );
+        let mut fields = BTreeMap::new();
+        fields.insert("id".into(), field_pattern(patterns)?);
         let invalid_source = sources
             .iter()
             .any(|name| name.contains(['#', '"', '\r', '\n']));
@@ -482,14 +446,7 @@ pub(super) fn build(mut group: Group, mode: GenerateMode) -> Result<(String, Val
                 .iter()
                 .map(|source| format!("^{}$", regress::escape(source)))
                 .collect();
-            fields.insert(
-                "source".into(),
-                if patterns.len() == 1 {
-                    json!(patterns.first())
-                } else {
-                    json!(patterns)
-                },
-            );
+            fields.insert("source".into(), field_pattern(patterns)?);
         }
         let mut collisions = Vec::new();
         let mut outside_window = false;
@@ -524,7 +481,10 @@ pub(super) fn build(mut group: Group, mode: GenerateMode) -> Result<(String, Val
                         .min(((event.timestamp - start) as f64 - observed_ms).abs())
                         <= 2500.0
                 {
-                    collisions.push(json!({"file":group.pulls.get(i).context("Missing collision pull")?.file, "eventIndex":j}));
+                    collisions.push(ConflictingEvent {
+                        file: &input.pull.file,
+                        event_index: j,
+                    });
                 }
             }
         }
@@ -537,31 +497,49 @@ pub(super) fn build(mut group: Group, mode: GenerateMode) -> Result<(String, Val
         } else {
             None
         };
-        let sync = match reason {
-            Some(_) => json!({"log":"Ability", "fields":fields, "enabled":false}),
-            None => json!({"log":"Ability", "fields":fields}),
-        };
-        let mut entry = serde_json::Map::from_iter([
-            ("kind".into(), json!("event")),
-            ("at".into(), json!(at)),
-            ("name".into(), json!(names.join(" / "))),
-            ("sync".into(), sync),
-        ]);
         if let Some(reason) = reason {
-            entry.insert(
-                "note".into(),
-                json!(format!(
+            conflicts.push(MultiConflict {
+                slot: slots.len(),
+                reason,
+                conflicting_events: collisions,
+            });
+        }
+        entries.push(Entry::Event {
+            at,
+            name,
+            duration: None,
+            jump: None,
+            sync: Some(Sync::Network(NetworkSync {
+                log: LogType::Ability,
+                fields,
+                enabled: reason.is_none(),
+                window: None,
+            })),
+            note: reason.map(|reason| {
+                format!(
                     "Sync disabled: {reason}; see slot {} in report",
                     slots.len()
-                )),
-            );
-            conflicts
-                .push(json!({"slot":slots.len(), "reason":reason, "conflictingEvents":collisions}));
-        }
-        entries.push(Value::Object(entry));
-        slots.push(json!({"id":slots.len(), "block":block_id, "atMs":at_ms, "time":timing, "absoluteTime":absolute,
-            "abilityIds":ids, "samples":source_refs, "unobservedAfterWipe":censored.iter().filter_map(|&i| group.pulls.get(i).map(|p| &p.file)).collect::<Vec<_>>(),
-            "evidence":if ids.len() > 1 { "alternativeWithCommonSuccessor" } else { "observed" }}));
+                )
+            }),
+        });
+        slots.push(MultiSlot {
+            id: slots.len(),
+            block: block_id,
+            at_ms,
+            time: timing,
+            absolute_time: absolute,
+            ability_ids: ids.iter().copied().collect(),
+            samples: source_refs.clone(),
+            unobserved_after_wipe: censored
+                .iter()
+                .filter_map(|&i| inputs.get(i).map(|input| input.pull.file.as_str()))
+                .collect(),
+            evidence: if ids.len() > 1 {
+                "alternativeWithCommonSuccessor"
+            } else {
+                "observed"
+            },
+        });
         if signal.key.role.ends_with("/Boss") && ids.len() == 1 {
             block_id = blocks.len();
             let mut anchors = vec![None; inputs.len()];
@@ -569,10 +547,15 @@ pub(super) fn build(mut group: Group, mode: GenerateMode) -> Result<(String, Val
                 *anchors.get_mut(i).context("Missing anchor position")? = Some(index(sample)?);
             }
             anchor_indices = Some(anchors);
-            blocks.push(
-                json!({"id":block_id, "entry":"observedBossCast", "slot":slots.len() - 1,
-                "draftEntryMs":at_ms, "time":absolute, "samples":source_refs}),
-            );
+            blocks.push(MultiBlock {
+                id: block_id,
+                entry: "observedBossCast",
+                slot: Some(slots.len() - 1),
+                draft_entry_ms: serde_json::Number::from_f64(at_ms)
+                    .context("Invalid block time")?,
+                time: absolute,
+                samples: Some(source_refs),
+            });
         }
     }
     // Reuse P3's mode-filtered first-seen catalogs so unfinished casts keep their provenance too.
@@ -580,45 +563,83 @@ pub(super) fn build(mut group: Group, mode: GenerateMode) -> Result<(String, Val
     let mut seen = BTreeSet::new();
     for input in &inputs {
         for ability in &input.catalog {
-            if seen.insert(
-                ability["id"]
-                    .as_str()
-                    .context("Missing catalog ID")?
-                    .to_owned(),
-            ) {
+            if seen.insert(ability.id.clone()) {
                 abilities.push(ability.clone());
             }
         }
     }
-    entries.push(json!({"kind":"abilityCatalog", "abilities":abilities}));
-    let output_coverage = inputs.iter().enumerate().map(|(i, input)| {
-        let file = &group.pulls.get(i).context("Missing coverage pull")?.file;
-        let mut represented = BTreeSet::new();
-        for slot in &slots {
-            for sample in slot["samples"].as_array().context("Missing samples")? {
-                if sample["file"].as_str() == Some(file) {
-                    for event in sample["eventIndices"].as_array().context("Missing event indices")? {
-                        represented.insert(event.as_u64().context("Invalid event index")?);
+    entries.push(Entry::AbilityCatalog {
+        abilities,
+        phase: None,
+    });
+    let output_coverage = inputs
+        .iter()
+        .map(|input| {
+            let file = &input.pull.file;
+            let mut represented = BTreeSet::new();
+            for slot in &slots {
+                for sample in &slot.samples {
+                    if sample.file == file {
+                        represented.extend(sample.event_indices.iter().copied());
                     }
                 }
             }
-        }
-        let omitted_events = input.signals.values().filter(|s| s.key.kind == "cast")
-            .flat_map(|s| &s.event_indices).filter(|&&index| !represented.contains(&(index as u64))).copied().collect::<Vec<_>>();
-        Ok(json!({"file":file,"representedEventIndices":represented,"omittedEventIndices":omitted_events}))
-    }).collect::<Result<Vec<_>>>()?;
+            let omitted_events = input
+                .signals
+                .values()
+                .filter(|s| s.key.kind == "cast")
+                .flat_map(|s| &s.event_indices)
+                .filter(|&&index| !represented.contains(&index))
+                .copied()
+                .collect_vec();
+            OutputCoverage {
+                file,
+                represented_event_indices: represented,
+                omitted_event_indices: omitted_events,
+            }
+        })
+        .collect();
     let yaml = draft::serialize_draft(entries)?;
-    let report = json!({"status":"draft", "mode":mode, "group":group.key,
-        "inputs":inputs.iter().map(|input| &input.report).collect::<Vec<_>>(),
-        "blocks":blocks, "slots":slots, "syncConflicts":conflicts, "omittedSignals":omitted,
-        "outputCoverage":output_coverage,
-        "observedPaths":group.pulls.iter().map(|p| json!({"file":p.file,"occurrences":p.occurrences})).collect::<Vec<_>>(),
-        "unobservedCombinations":"unknown",
-        "alignment":{"implementation":"similar 3 Myers/LCS", "orderSensitivePairs":sensitive},
-        "limitations":["Unresolved or dependent paths are omitted; unobserved combinations remain unknown.",
+    let report = serde_json::to_value(MultiReport {
+        status: "draft",
+        mode,
+        group: key,
+        inputs: inputs.iter().map(|input| &input.report).collect(),
+        blocks,
+        slots,
+        sync_conflicts: conflicts,
+        omitted_signals: omitted,
+        output_coverage,
+        observed_paths: inputs
+            .iter()
+            .map(|input| ObservedPath {
+                file: &input.pull.file,
+                occurrences: &input.pull.occurrences,
+            })
+            .collect(),
+        unobserved_combinations: "unknown",
+        alignment: Alignment {
+            implementation: "similar 3 Myers/LCS",
+            order_sensitive_pairs: sensitive,
+        },
+        limitations: [
+            "Unresolved or dependent paths are omitted; unobserved combinations remain unknown.",
             "ID arrays require an isolated one-ability substitution and an observed common successor; multiple varying choices remain unresolved.",
             "Repeats are expanded finitely; no conditional exits or encounter transitions are inferred.",
-            "Block entries are observational timing references; entry sync, replay and runtime compatibility are unverified."],
-        "validation":{"schemaAndSemantic":true,"replay":false,"cactbotParser":false,"runtime":false}});
+            "Block entries are observational timing references; entry sync, replay and runtime compatibility are unverified.",
+        ],
+        validation: Validation::default(),
+    })?;
     Ok((yaml, report))
+}
+
+// Preserve scalar patterns for one value and arrays for alternatives, e.g. ^A$ versus [^A$, ^B$].
+fn field_pattern(mut patterns: Vec<String>) -> Result<FieldPattern> {
+    if patterns.len() == 1 {
+        Ok(FieldPattern::One(
+            patterns.pop().context("Missing field pattern")?,
+        ))
+    } else {
+        Ok(FieldPattern::Many(patterns))
+    }
 }

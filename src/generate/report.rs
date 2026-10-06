@@ -4,7 +4,224 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use itertools::Itertools;
+use serde::Serialize;
 use serde_json::Value;
+
+use super::{GenerateMode, GroupKey, Occurrence};
+
+// Keep report keys explicit while preserving source references, e.g. eventIndices stays an array.
+#[derive(Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct TimeStatistics<T = f64> {
+    pub median_ms: T,
+    pub min_ms: i64,
+    pub max_ms: i64,
+    pub sample_count: usize,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct Validation {
+    pub schema_and_semantic: bool,
+    pub replay: bool,
+    pub cactbot_parser: bool,
+    pub runtime: bool,
+}
+
+impl Default for Validation {
+    fn default() -> Self {
+        Self {
+            schema_and_semantic: true,
+            replay: false,
+            cactbot_parser: false,
+            runtime: false,
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct BossSegment {
+    pub actor_id: i64,
+    pub start_ms: i64,
+    pub end_ms: i64,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct ReportInput<'a> {
+    pub file: &'a str,
+    pub sha256: &'a str,
+    pub report: &'a str,
+    pub fight: i64,
+    pub name: &'a str,
+    pub revision: i64,
+    pub game_version: i64,
+    pub log_version: i64,
+    pub complete: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct CollapsedCast {
+    pub representative_event_index: usize,
+    pub omitted_event_indices: Vec<usize>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct SingleSlot {
+    pub event_index: usize,
+    pub sample_count: usize,
+    pub time_ms: i64,
+    pub block: usize,
+    pub time: TimeStatistics<i64>,
+    pub evidence: &'static str,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct SingleBlock {
+    pub id: usize,
+    pub entry: &'static str,
+    pub time: TimeStatistics<i64>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct SingleReport<'a> {
+    pub status: &'static str,
+    pub mode: GenerateMode,
+    pub boss_segments: Vec<BossSegment>,
+    pub input: ReportInput<'a>,
+    pub group: &'a GroupKey,
+    pub kill: bool,
+    pub end_ms: i64,
+    pub occurrences: &'a [Occurrence],
+    pub actor_names: BTreeMap<i64, String>,
+    pub ability_names: BTreeMap<i64, String>,
+    pub emitted_event_indices: Vec<usize>,
+    pub collapsed_casts: Vec<CollapsedCast>,
+    pub slots: Vec<SingleSlot>,
+    pub blocks: Vec<SingleBlock>,
+    pub sync_conflicts: Vec<super::draft::SyncConflict>,
+    pub validation: Validation,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct Sample<'a> {
+    pub file: &'a str,
+    pub event_indices: &'a [usize],
+    pub instance_ids: &'a [i64],
+    pub ability_id: i64,
+    pub time_ms: i64,
+    pub block_entry_ms: i64,
+    pub relative_ms: i64,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct MultiBlock<'a> {
+    pub id: usize,
+    pub entry: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub slot: Option<usize>,
+    pub draft_entry_ms: serde_json::Number,
+    pub time: TimeStatistics,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub samples: Option<Vec<Sample<'a>>>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct MultiSlot<'a> {
+    pub id: usize,
+    pub block: usize,
+    pub at_ms: f64,
+    pub time: TimeStatistics,
+    pub absolute_time: TimeStatistics,
+    pub ability_ids: Vec<i64>,
+    pub samples: Vec<Sample<'a>>,
+    pub unobserved_after_wipe: Vec<&'a str>,
+    pub evidence: &'static str,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct OmittedSignal<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file: Option<&'a str>,
+    pub event_indices: &'a [usize],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub samples: Option<Vec<Sample<'a>>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time: Option<TimeStatistics>,
+    pub reason: &'static str,
+    pub evidence: &'static str,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct ConflictingEvent<'a> {
+    pub file: &'a str,
+    pub event_index: usize,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct MultiConflict<'a> {
+    pub slot: usize,
+    pub reason: &'static str,
+    pub conflicting_events: Vec<ConflictingEvent<'a>>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct OutputCoverage<'a> {
+    pub file: &'a str,
+    pub represented_event_indices: std::collections::BTreeSet<usize>,
+    pub omitted_event_indices: Vec<usize>,
+}
+
+#[derive(Serialize)]
+pub(super) struct ObservedPath<'a> {
+    pub file: &'a str,
+    pub occurrences: &'a [Occurrence],
+}
+
+#[derive(Serialize)]
+pub(super) struct SensitivePair<'a> {
+    pub left: &'a str,
+    pub right: &'a str,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct Alignment<'a> {
+    pub implementation: &'static str,
+    pub order_sensitive_pairs: Vec<SensitivePair<'a>>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct MultiReport<'a> {
+    pub status: &'static str,
+    pub mode: GenerateMode,
+    pub group: GroupKey,
+    pub inputs: Vec<&'a Value>,
+    pub blocks: Vec<MultiBlock<'a>>,
+    pub slots: Vec<MultiSlot<'a>>,
+    pub sync_conflicts: Vec<MultiConflict<'a>>,
+    pub omitted_signals: Vec<OmittedSignal<'a>>,
+    pub output_coverage: Vec<OutputCoverage<'a>>,
+    pub observed_paths: Vec<ObservedPath<'a>>,
+    pub unobserved_combinations: &'static str,
+    pub alignment: Alignment<'a>,
+    pub limitations: [&'static str; 4],
+    pub validation: Validation,
+}
 
 fn text_field<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
     value
@@ -271,8 +488,7 @@ fn render_multi(report: &Value) -> Result<String> {
                     .map(|id| format!("{id:X}"))
                     .context("Missing ability ID")
             })
-            .collect::<Result<Vec<_>>>()?
-            .join(" / ");
+            .process_results(|mut ids| ids.join(" / "))?;
         writeln!(
             out,
             "| {} | {} | {} | {} | {} / {} | {} | {} |",

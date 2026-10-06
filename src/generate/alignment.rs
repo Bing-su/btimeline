@@ -3,6 +3,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result, ensure};
 use contracts::{debug_ensures, ensures};
+use itertools::Itertools;
 use serde::Serialize;
 use similar::{Algorithm, DiffTag, capture_diff_slices};
 
@@ -165,8 +166,8 @@ fn paired_keys(
 
 fn pairs(left: &[Signal], right: &[Signal]) -> Result<Vec<(Option<usize>, Option<usize>)>> {
     paired_keys(
-        &left.iter().map(|s| s.key.clone()).collect::<Vec<_>>(),
-        &right.iter().map(|s| s.key.clone()).collect::<Vec<_>>(),
+        &left.iter().map(|s| s.key.clone()).collect_vec(),
+        &right.iter().map(|s| s.key.clone()).collect_vec(),
     )
 }
 
@@ -178,12 +179,12 @@ fn boss_pairs(left: &[Signal], right: &[Signal]) -> Result<Vec<(Option<usize>, O
             .iter()
             .filter_map(|&i| left.get(i))
             .map(|s| s.key.clone())
-            .collect::<Vec<_>>(),
+            .collect_vec(),
         &right_anchors
             .iter()
             .filter_map(|&i| right.get(i))
             .map(|s| s.key.clone())
-            .collect::<Vec<_>>(),
+            .collect_vec(),
     )
     .map(|aligned| {
         aligned
@@ -486,17 +487,15 @@ pub(super) fn compare(left_pull: &Pull, right_pull: &Pull) -> Result<Comparison>
             ))
         })
         .collect();
-    let mut counts = BTreeMap::new();
-    for signal in signals(left_pull)
+    let repeated_anchor_keys: Vec<SignalKey> = signals(left_pull)
         .into_iter()
         .chain(signals(right_pull))
         .filter(is_boss_cast)
-    {
-        *counts.entry(signal.key).or_insert(0usize) += 1;
-    }
-    let repeated_anchor_keys: Vec<SignalKey> = counts
+        .counts_by(|signal| signal.key)
         .into_iter()
         .filter_map(|(key, count)| (count > 2).then_some(key))
+        // counts_by uses a hash map; sort keys to keep reports independent of hash iteration order.
+        .sorted()
         .collect();
     let matched_anchor_count = segments.len().saturating_sub(1);
     let mut segments = segments;
@@ -535,10 +534,8 @@ pub fn align(paths: &[impl AsRef<Path>]) -> Result<AlignmentReport> {
     pulls.sort_by(|a, b| (&a.report, a.fight, &a.file).cmp(&(&b.report, b.fight, &b.file)));
     let mut comparisons = Vec::new();
     // ponytail: all pairs preserve path evidence; use an indexed graph if groups become large.
-    for (index, left) in pulls.iter().enumerate() {
-        for right in pulls.iter().skip(index + 1) {
-            comparisons.push(compare(left, right)?);
-        }
+    for [left, right] in pulls.iter().array_combinations() {
+        comparisons.push(compare(left, right)?);
     }
     Ok(AlignmentReport {
         group: group.key,
@@ -643,6 +640,27 @@ mod tests {
         );
         assert_eq!(middle[0].left.as_ref().unwrap().key.kind, "begincast");
         assert_eq!(middle[2].right.as_ref().unwrap().key.kind, "begincast");
+    }
+
+    #[test]
+    fn repeated_anchor_keys_are_sorted_after_counting() {
+        let rows = [30, 10, 20, 30, 20, 10, 40]
+            .into_iter()
+            .enumerate()
+            .map(|(i, id)| ((i as i64 + 1) * 100, 1, "NPC/Boss", id, "cast"))
+            .collect_vec();
+        let left = pull("a", true, 800, &rows);
+        let right = pull("b", true, 800, &rows);
+        let comparison = compare(&left, &right).unwrap();
+        // Encounter order starts with 30; the report sorts repeated keys and excludes the single 40.
+        assert_eq!(
+            comparison
+                .repeated_anchor_keys
+                .iter()
+                .map(|key| key.ability_id)
+                .collect_vec(),
+            [10, 20, 30]
+        );
     }
 
     #[test]

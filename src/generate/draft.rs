@@ -3,19 +3,31 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, ensure};
+use itertools::Itertools;
 use path_slash::PathBufExt as _;
 use serde::Serialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 use usage::ValueEnum;
 
-use super::{Occurrence, Source, load_one};
+use super::report::{
+    BossSegment,
+    CollapsedCast,
+    ReportInput,
+    SingleBlock,
+    SingleReport,
+    SingleSlot,
+    TimeStatistics,
+    Validation,
+};
+use super::{Occurrence, Source, input, load_one};
+use crate::timeline::{Ability, Entry, FieldPattern, LogType, NetworkSync, Sync, Timeline};
 
 const SCHEMA_HEADER: &str = "# yaml-language-server: $schema=https://raw.githubusercontent.com/Bing-su/btimeline/main/schema/btimeline-v1.schema.json\n";
 const SYNC_WINDOW_MS: i64 = 2500;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct SyncConflict {
+pub(super) struct SyncConflict {
     event_index: usize,
     conflicting_event_indices: Vec<usize>,
     reason: &'static str,
@@ -84,13 +96,13 @@ pub fn generate_selected(
         "Output already exists"
     );
 
-    let group = super::multi::select_group(input, name, encounter, difficulty)?;
+    let group = input::select_group(input, name, encounter, difficulty)?;
     let (yaml, report) = if group.pulls.len() == 1 {
         let source = load_one(&PathBuf::from_slash(
             &group.pulls.first().context("Missing pull")?.file,
         ))?;
-        let (entries, report) = build_single(&source, mode)?;
-        (serialize_draft(entries)?, report)
+        let draft = build_single(&source, mode)?;
+        (serialize_draft(draft.entries)?, draft.report)
     } else {
         super::multi::build(group, mode)?
     };
@@ -106,8 +118,16 @@ pub fn generate_selected(
     ])
 }
 
-// Return entries before serialization so multi-pull generation can reuse catalogs without a YAML round-trip.
-pub(super) fn build_single(source: &Source, mode: GenerateMode) -> Result<(Vec<Value>, Value)> {
+// Keep computed catalogs available to multi-pull generation without inspecting serialized entries.
+#[derive(Debug)]
+pub(super) struct SingleDraft {
+    pub entries: Vec<Entry>,
+    pub catalog: Vec<Ability>,
+    pub report: Value,
+}
+
+// Validate each input before consensus can omit its rows, e.g. an invalid ability name still fails.
+pub(super) fn build_single(source: &Source, mode: GenerateMode) -> Result<SingleDraft> {
     let pull = &source.pull;
     let data = &source.log;
     let names: BTreeMap<i64, String> = data
@@ -164,9 +184,8 @@ pub(super) fn build_single(source: &Source, mode: GenerateMode) -> Result<(Vec<V
     };
     let mut catalog = Vec::new();
     let mut catalog_ids = BTreeSet::new();
-    let mut sorted_events: Vec<_> = data.events.iter().collect();
-    sorted_events.sort_by_key(|event| event.timestamp);
-    for event in sorted_events {
+    // Preserve source order at equal timestamps so first-seen catalog entries stay deterministic.
+    for event in data.events.iter().sorted_by_key(|event| event.timestamp) {
         if !in_boss_span(event.timestamp)
             || !matches!(event.kind.as_str(), "begincast" | "cast")
             || !event.source_id.is_some_and(|id| enemies.contains(&id))
@@ -178,14 +197,21 @@ pub(super) fn build_single(source: &Source, mode: GenerateMode) -> Result<(Vec<V
         };
         if catalog_ids.insert(id) {
             let name = abilities.get(&id).context("Missing catalog ability")?;
-            catalog.push(json!({"id":format!("{id:X}"), "name":name}));
+            catalog.push(Ability {
+                id: format!("{id:X}"),
+                name: name.clone(),
+                note: None,
+                ignored: false,
+            });
         }
     }
 
-    let mut entries = vec![json!({"kind":"note", "text":format!(
-        "Draft from FFLogs report {} fight {} revision {} logVersion {}; times are relative to fight start.",
-        pull.report, pull.fight, pull.revision, data.report.master_data.log_version
-    )})];
+    let mut entries = vec![Entry::Note {
+        text: format!(
+            "Draft from FFLogs report {} fight {} revision {} logVersion {}; times are relative to fight start.",
+            pull.report, pull.fight, pull.revision, data.report.master_data.log_version
+        ),
+    }];
     let mut conflicts = Vec::new();
     let mut used = BTreeMap::new();
     let mut collapsed: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
@@ -227,83 +253,131 @@ pub(super) fn build_single(source: &Source, mode: GenerateMode) -> Result<(Vec<V
         } else {
             None
         };
-        let mut fields = serde_json::Map::new();
-        fields.insert("id".into(), json!(format!("^{:X}$", row.ability_id)));
+        let mut fields = BTreeMap::new();
+        fields.insert(
+            "id".into(),
+            FieldPattern::One(format!("^{:X}$", row.ability_id)),
+        );
         if !invalid_source {
             fields.insert(
                 "source".into(),
-                json!(format!("^{}$", regress::escape(source))),
+                FieldPattern::One(format!("^{}$", regress::escape(source))),
             );
         }
-        let mut sync = json!({"log":"Ability", "fields":fields});
         if let Some(reason) = reason {
-            sync.as_object_mut()
-                .context("Missing sync object")?
-                .insert("enabled".into(), json!(false));
             conflicts.push(SyncConflict {
                 event_index: row.event_index,
                 conflicting_event_indices: matching,
                 reason,
             });
         }
-        let mut event = json!({"kind":"event", "at":rounded_seconds(row.relative_ms),
-            "name":name, "sync":sync});
-        if let Some(reason) = reason {
-            event
-                .as_object_mut()
-                .context("Missing event object")?
-                .insert(
-                    "note".into(),
-                    json!(format!(
-                        "Sync disabled: {reason}; source event {}",
-                        row.event_index
-                    )),
-                );
-        }
-        entries.push(event);
+        entries.push(Entry::Event {
+            at: rounded_seconds(row.relative_ms),
+            name: name.clone(),
+            duration: None,
+            sync: Some(Sync::Network(NetworkSync {
+                log: LogType::Ability,
+                fields,
+                enabled: reason.is_none(),
+                window: None,
+            })),
+            jump: None,
+            note: reason
+                .map(|reason| format!("Sync disabled: {reason}; source event {}", row.event_index)),
+        });
         emitted.push(row.event_index);
-        slots.push(json!({"eventIndex":row.event_index, "sampleCount":1,
-            "timeMs":row.relative_ms, "block":0,
-            "time":{"medianMs":row.relative_ms, "minMs":row.relative_ms, "maxMs":row.relative_ms, "sampleCount":1},
-            "evidence":"observed"}));
+        slots.push(SingleSlot {
+            event_index: row.event_index,
+            sample_count: 1,
+            time_ms: row.relative_ms,
+            block: 0,
+            time: TimeStatistics {
+                median_ms: row.relative_ms,
+                min_ms: row.relative_ms,
+                max_ms: row.relative_ms,
+                sample_count: 1,
+            },
+            evidence: "observed",
+        });
     }
-    entries.push(json!({"kind":"abilityCatalog", "abilities":catalog}));
-    crate::timeline::validate_value(json!({"schemaVersion":1, "entries":entries}))
-        .context("Generated draft failed validation")?;
-    let report: Value = json!({
-        "status":"draft",
-        "mode":mode,
-        "bossSegments":boss_spans.into_iter().map(|(actor_id, (start, end))| json!({
-            "actorId":actor_id, "startMs":start - fight.start_time, "endMs":end - fight.start_time
-        })).collect::<Vec<_>>(),
-        "input":{"file":pull.file, "sha256":source.sha256, "report":pull.report, "fight":pull.fight,
-            "name":pull.name,
-            "revision":pull.revision, "gameVersion":pull.game_version, "logVersion":pull.log_version,
-            "complete":data.collection.complete},
-        "group":source.key,
-        "kill":pull.kill,
-        "endMs":pull.end_ms,
-        "occurrences":pull.occurrences,
-        "actorNames":names,
-        "abilityNames":abilities,
-        "emittedEventIndices":emitted,
-        "collapsedCasts":collapsed.into_iter().map(|(representative, omitted)| json!({
-            "representativeEventIndex":representative, "omittedEventIndices":omitted
-        })).collect::<Vec<_>>(),
-        "slots":slots,
-        "blocks":[{"id":0,"entry":"fightStart","time":{"medianMs":0,"minMs":0,"maxMs":0,"sampleCount":1}}],
-        "syncConflicts":conflicts,
-        "validation":{"schemaAndSemantic":true, "replay":false, "cactbotParser":false, "runtime":false}
+    entries.push(Entry::AbilityCatalog {
+        abilities: catalog.clone(),
+        phase: None,
     });
-    Ok((entries, report))
+    let timeline = Timeline {
+        schema_version: 1,
+        hide_names: Vec::new(),
+        entries,
+    };
+    crate::timeline::validate_value(serde_json::to_value(&timeline)?)
+        .context("Generated draft failed validation")?;
+    let report = serde_json::to_value(SingleReport {
+        status: "draft",
+        mode,
+        boss_segments: boss_spans
+            .into_iter()
+            .map(|(actor_id, (start, end))| BossSegment {
+                actor_id,
+                start_ms: start - fight.start_time,
+                end_ms: end - fight.start_time,
+            })
+            .collect(),
+        input: ReportInput {
+            file: &pull.file,
+            sha256: &source.sha256,
+            report: &pull.report,
+            fight: pull.fight,
+            name: &pull.name,
+            revision: pull.revision,
+            game_version: pull.game_version,
+            log_version: pull.log_version,
+            complete: data.collection.complete,
+        },
+        group: &source.key,
+        kill: pull.kill,
+        end_ms: pull.end_ms,
+        occurrences: &pull.occurrences,
+        actor_names: names,
+        ability_names: abilities,
+        emitted_event_indices: emitted,
+        collapsed_casts: collapsed
+            .into_iter()
+            .map(
+                |(representative_event_index, omitted_event_indices)| CollapsedCast {
+                    representative_event_index,
+                    omitted_event_indices,
+                },
+            )
+            .collect(),
+        slots,
+        blocks: vec![SingleBlock {
+            id: 0,
+            entry: "fightStart",
+            time: TimeStatistics {
+                median_ms: 0,
+                min_ms: 0,
+                max_ms: 0,
+                sample_count: 1,
+            },
+        }],
+        sync_conflicts: conflicts,
+        validation: Validation::default(),
+    })?;
+    Ok(SingleDraft {
+        entries: timeline.entries,
+        catalog,
+        report,
+    })
 }
 
-pub(super) fn serialize_draft(entries: Vec<Value>) -> Result<String> {
+pub(super) fn serialize_draft(entries: Vec<Entry>) -> Result<String> {
     let yaml = format!(
         "{SCHEMA_HEADER}{}",
-        serde_saphyr::to_string(&json!({
-            "schemaVersion":1, "entries":entries
-        }))?
+        serde_saphyr::to_string(&Timeline {
+            schema_version: 1,
+            hide_names: Vec::new(),
+            entries
+        })?
     );
     crate::timeline::convert(&yaml).context("Generated draft failed validation")?;
     Ok(yaml)

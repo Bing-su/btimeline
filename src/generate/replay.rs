@@ -5,10 +5,70 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, ensure};
 use path_slash::PathBufExt as _;
-use serde_json::{Value, json};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
-use super::{Pull, Source, load_one, multi};
+use super::{Pull, Source, input, load_one, multi};
 use crate::timeline::replay::{self, Evidence, Signal};
+
+// Read only the evidence fields needed by replay, e.g. timing statistics do not select source rows.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EvidenceSample {
+    file: String,
+    event_indices: Vec<usize>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReplayPull<'a> {
+    file: &'a str,
+    sha256: String,
+    report: &'a str,
+    fight: i64,
+    revision: i64,
+    log_version: i64,
+    end_ms: i64,
+    termination: &'static str,
+    unrepresented_event_indices: Vec<usize>,
+    unfinished_starts: Vec<usize>,
+    replay: replay::Replay,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReplayValidation {
+    #[serde(flatten)]
+    validation: super::report::Validation,
+    replay_executed: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReplayPolicy {
+    clock: &'static str,
+    window: &'static str,
+    ambiguity: &'static str,
+    supported_signals: [&'static str; 2],
+    coverage: &'static str,
+    unsupported: &'static str,
+    lookahead: &'static str,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReplayReport<'a> {
+    status: &'static str,
+    tool_version: &'static str,
+    timeline: String,
+    timeline_sha256: String,
+    evidence_sha256: String,
+    evidence: String,
+    group: &'a super::GroupKey,
+    pulls: &'a [ReplayPull<'a>],
+    validation: ReplayValidation,
+    policy: ReplayPolicy,
+}
 
 fn signals(source: &Source) -> Result<Vec<Signal>> {
     let master = &source.log.report.master_data;
@@ -145,23 +205,28 @@ fn evidence(
     let mut result = Evidence::default();
     for (&entry, slot) in entries.iter().zip(slots) {
         let samples = if single {
-            vec![
-                json!({"file":report.pointer("/input/file").context("Missing generation file")?, "eventIndices":[slot["eventIndex"]]}),
-            ]
+            vec![EvidenceSample {
+                file: report
+                    .pointer("/input/file")
+                    .and_then(Value::as_str)
+                    .context("Missing generation file")?
+                    .to_owned(),
+                event_indices: vec![
+                    serde_json::from_value(slot["eventIndex"].clone())
+                        .context("Missing sample event index")?,
+                ],
+            }]
         } else {
-            slot["samples"]
-                .as_array()
+            serde_json::from_value::<Vec<EvidenceSample>>(slot["samples"].clone())
                 .context("Missing slot samples")?
-                .clone()
         };
         let mut outcomes = Vec::new();
         for sample in &samples {
-            let file = sample["file"].as_str().context("Missing sample file")?;
-            let index = sample["eventIndices"]
-                .as_array()
-                .and_then(|indices| indices.first())
-                .and_then(Value::as_u64)
-                .context("Missing sample event index")? as usize;
+            let file = sample.file.as_str();
+            let index = *sample
+                .event_indices
+                .first()
+                .context("Missing sample event index")?;
             if !relations.contains_key(file) {
                 let peer = peers
                     .get(file)
@@ -202,17 +267,14 @@ fn evidence(
             outcomes.push((matched, censored));
         }
         // Known training samples are exact evidence; other peers do not override their source index.
-        let direct = samples.iter().find(|sample| {
-            sample["file"]
-                .as_str()
-                .is_some_and(|file| same_file(file, &source.pull.file))
-        });
+        let direct = samples
+            .iter()
+            .find(|sample| same_file(&sample.file, &source.pull.file));
         if let Some(sample) = direct {
-            let index = sample["eventIndices"]
-                .as_array()
-                .and_then(|a| a.first())
-                .and_then(Value::as_u64)
-                .context("Missing direct index")? as usize;
+            let index = *sample
+                .event_indices
+                .first()
+                .context("Missing direct index")?;
             result.expected.insert(entry, BTreeSet::from([index]));
         } else {
             let matches: BTreeSet<_> = outcomes.iter().filter_map(|(index, _)| *index).collect();
@@ -274,28 +336,11 @@ fn load_peers(report: &Value) -> Result<BTreeMap<String, (Pull, String)>> {
         );
         let mut pull = pull;
         if report.get("mode").and_then(Value::as_str) == Some("dungeon") {
-            filter_boss_spans(&mut pull, item)?;
+            input::filter_boss_spans(&mut pull, item)?;
         }
         peers.insert(file.to_owned(), (pull, source.sha256));
     }
     Ok(peers)
-}
-
-fn filter_boss_spans(pull: &mut Pull, report: &Value) -> Result<()> {
-    let spans = report["bossSegments"]
-        .as_array()
-        .context("Missing boss segments")?;
-    pull.occurrences.retain(|row| {
-        spans.iter().any(|span| {
-            span["startMs"]
-                .as_i64()
-                .is_some_and(|at| row.relative_ms >= at)
-                && span["endMs"]
-                    .as_i64()
-                    .is_some_and(|at| row.relative_ms <= at)
-        })
-    });
-    Ok(())
 }
 
 pub(crate) fn replay_file(
@@ -319,7 +364,7 @@ pub(crate) fn replay_file(
     let report_bytes = fs::read(&report_path)
         .with_context(|| format!("Reading replay evidence {}", report_path.display()))?;
     let report: Value = serde_json::from_slice(&report_bytes)?;
-    let group = multi::select_group(
+    let group = input::select_group(
         input.as_ref(),
         None,
         Some(
@@ -350,64 +395,89 @@ pub(crate) fn replay_file(
         }
         let signals = signals(&source)?;
         if report.get("mode").and_then(Value::as_str) == Some("dungeon") {
-            let (_, spans) = super::draft::build_single(&source, super::GenerateMode::Dungeon)?;
-            filter_boss_spans(&mut source.pull, &spans)?;
+            let draft = super::draft::build_single(&source, super::GenerateMode::Dungeon)?;
+            input::filter_boss_spans(&mut source.pull, &draft.report)?;
         }
         let evidence = evidence(&yaml, &report, &source, &peers)?;
         let represented: BTreeSet<_> = evidence.expected.values().flatten().copied().collect();
         let replay = replay::run(&yaml, &signals, source.pull.end_ms, &evidence)?;
-        pulls.push(json!({"file":pull.file,"sha256":source.sha256,"report":pull.report,"fight":pull.fight,
-            "revision":pull.revision,"logVersion":pull.log_version,"endMs":pull.end_ms,
-            "termination":if pull.kill {"kill"} else {"wipe"},
-            "unrepresentedEventIndices":source.pull.occurrences.iter().filter(|row| row.kind == "cast" && !represented.contains(&row.event_index)).map(|row| row.event_index).collect::<Vec<_>>(),
-            "unfinishedStarts":pull.occurrences.iter().filter(|row| row.kind == "begincast" && row.completion_event_index.is_none()).map(|row| row.event_index).collect::<Vec<_>>(),
-            "replay":replay}));
+        pulls.push(ReplayPull {
+            file: &pull.file,
+            sha256: source.sha256,
+            report: &pull.report,
+            fight: pull.fight,
+            revision: pull.revision,
+            log_version: pull.log_version,
+            end_ms: pull.end_ms,
+            termination: if pull.kill { "kill" } else { "wipe" },
+            unrepresented_event_indices: source
+                .pull
+                .occurrences
+                .iter()
+                .filter(|row| row.kind == "cast" && !represented.contains(&row.event_index))
+                .map(|row| row.event_index)
+                .collect(),
+            unfinished_starts: pull
+                .occurrences
+                .iter()
+                .filter(|row| row.kind == "begincast" && row.completion_event_index.is_none())
+                .map(|row| row.event_index)
+                .collect(),
+            replay,
+        });
     }
-    let passed = pulls
-        .iter()
-        .all(|pull| pull.pointer("/replay/passed").and_then(Value::as_bool) == Some(true));
-    let result = json!({"status":if passed {"internally_validated"} else {"draft"},
-        "toolVersion":env!("CARGO_PKG_VERSION"),"timeline":super::slash_path(timeline),
-        "timelineSha256":super::sha256(yaml.as_bytes()),"evidenceSha256":super::sha256(&report_bytes),
-        "evidence":super::slash_path(&report_path),"group":group.key,"pulls":pulls,
-        "validation":{"schemaAndSemantic":true,"replayExecuted":true,"replay":passed,"cactbotParser":false,"runtime":false},
-        "policy":{"clock":"independent zero at each fight start; sync corrections apply only after unique active matches",
-            "window":"inclusive boundaries; absent window is +/-2500 ms",
-            "ambiguity":"multiple active matches are reported, never resolved by entry order",
-            "supportedSignals":["Ability", "StartsUsing"],
-            "coverage":"Only represented rows are validated; disabled syncs and unrepresented casts are reported separately.",
-            "unsupported":"ACT raw regex, unavailable network fields and simultaneous exit/forcejump priority remain unverified",
-            "lookahead":"not executed; display needs actual runtime verification"}});
+    let passed = pulls.iter().all(|pull| pull.replay.passed);
+    let result = ReplayReport {
+        status: if passed {
+            "internally_validated"
+        } else {
+            "draft"
+        },
+        tool_version: env!("CARGO_PKG_VERSION"),
+        timeline: super::slash_path(timeline),
+        timeline_sha256: super::sha256(yaml.as_bytes()),
+        evidence_sha256: super::sha256(&report_bytes),
+        evidence: super::slash_path(&report_path),
+        group: &group.key,
+        pulls: &pulls,
+        validation: ReplayValidation {
+            validation: super::report::Validation {
+                replay: passed,
+                ..Default::default()
+            },
+            replay_executed: true,
+        },
+        policy: ReplayPolicy {
+            clock: "independent zero at each fight start; sync corrections apply only after unique active matches",
+            window: "inclusive boundaries; absent window is +/-2500 ms",
+            ambiguity: "multiple active matches are reported, never resolved by entry order",
+            supported_signals: ["Ability", "StartsUsing"],
+            coverage: "Only represented rows are validated; disabled syncs and unrepresented casts are reported separately.",
+            unsupported: "ACT raw regex, unavailable network fields and simultaneous exit/forcejump priority remain unverified",
+            lookahead: "not executed; display needs actual runtime verification",
+        },
+    };
     let mut markdown = String::from(
         "# 재생 결과\n\n| 원본 | 종료 | 통과 | 오매칭 | 모호 | jump 오류 | 의존성 위반 | window 미검출 | 누락 | 종료 잘림 | 미지원 | 미검증 | 최대 시간 오차 (ms) |\n| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n",
     );
     for pull in &pulls {
-        let s = pull
-            .pointer("/replay/summary")
-            .context("Missing replay summary")?;
+        let s = &pull.replay.summary;
         writeln!(
             markdown,
             "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
-            pull["file"]
-                .as_str()
-                .context("Missing file")?
-                .replace('|', "\\|")
-                .replace(['\r', '\n'], " "),
-            pull["termination"]
-                .as_str()
-                .context("Missing termination")?,
-            pull.pointer("/replay/passed")
-                .context("Missing replay result")?,
-            s["wrongMatches"],
-            s["ambiguousMatches"],
-            s["wrongJumps"],
-            s["dependencyViolations"],
-            s["windowMisses"],
-            s["missing"],
-            s["censored"],
-            s["unsupported"],
-            s["unverified"],
-            s["maxAbsErrorMs"]
+            pull.file.replace('|', "\\|").replace(['\r', '\n'], " "),
+            pull.termination,
+            pull.replay.passed,
+            s.wrong_matches,
+            s.ambiguous_matches,
+            s.wrong_jumps,
+            s.dependency_violations,
+            s.window_misses,
+            s.missing,
+            s.censored,
+            s.unsupported,
+            s.unverified,
+            s.max_abs_error_ms
         )?;
     }
     markdown.push_str("\n행별 대응·시각·종료 잘림은 JSON의 `pulls[].replay.rows`에 기록합니다. cactbot parser/runtime과 lookahead 표시는 미실행입니다.\n");

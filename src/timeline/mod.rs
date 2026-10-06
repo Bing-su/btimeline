@@ -18,15 +18,16 @@ mod tests;
 #[derive(Debug, Deserialize, Serialize, JsonSchema, Validate)]
 #[garde(allow_unvalidated)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct Timeline {
+pub(crate) struct Timeline {
     #[schemars(extend("const" = 1))]
-    schema_version: u8,
-    #[serde(default)]
+    pub schema_version: u8,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(extend("default" = []))]
     #[garde(inner(pattern(r#"^[^"\r\n]+$"#)))]
     #[schemars(extend("uniqueItems" = true))]
-    hide_names: Vec<String>,
+    pub hide_names: Vec<String>,
     #[garde(dive)]
-    entries: Vec<Entry>,
+    pub entries: Vec<Entry>,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema, Validate)]
@@ -37,7 +38,7 @@ struct Timeline {
     rename_all_fields = "camelCase",
     deny_unknown_fields
 )]
-enum Entry {
+pub(crate) enum Entry {
     Event {
         #[garde(range(min = 0.0), custom(garde_time))]
         #[schemars(extend("multipleOf" = 0.1))]
@@ -46,11 +47,15 @@ enum Entry {
         name: String,
         #[garde(inner(custom(garde_duration)))]
         #[schemars(extend("exclusiveMinimum" = 0))]
+        #[serde(skip_serializing_if = "Option::is_none")]
         duration: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         sync: Option<Sync>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         jump: Option<Jump>,
         #[garde(inner(pattern(r"^[^\r]+$")))]
         #[schemars(pattern(r"^[^\r]+$"))]
+        #[serde(skip_serializing_if = "Option::is_none")]
         note: Option<String>,
     },
     Label {
@@ -84,19 +89,20 @@ enum Entry {
         abilities: Vec<Ability>,
         #[garde(inner(pattern(r"^[^\r\n]+$")))]
         #[schemars(pattern(r"^[^\r\n]+$"))]
+        #[serde(skip_serializing_if = "Option::is_none")]
         phase: Option<String>,
     },
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(untagged)]
-enum Sync {
+pub(crate) enum Sync {
     Network(NetworkSync),
     Regex(RegexSync),
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
-enum LogType {
+pub(crate) enum LogType {
     Ability,
     StartsUsing,
     InCombat,
@@ -112,19 +118,21 @@ enum LogType {
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct NetworkSync {
-    log: LogType,
+pub(crate) struct NetworkSync {
+    pub log: LogType,
     #[schemars(extend("minProperties" = 1))]
-    fields: BTreeMap<String, FieldPattern>,
-    #[serde(default = "yes")]
-    enabled: bool,
+    pub fields: BTreeMap<String, FieldPattern>,
+    #[serde(default = "yes", skip_serializing_if = "enabled_by_default")]
+    #[schemars(extend("default" = true))]
+    pub enabled: bool,
     #[schemars(extend("items" = {"type": "number", "minimum": 0, "multipleOf": 0.1}))]
-    window: Option<[f64; 2]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub window: Option<[f64; 2]>,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct RegexSync {
+pub(crate) struct RegexSync {
     #[schemars(pattern(r#"^[^#"\r\n/]*$"#))]
     regex: String,
     #[serde(default = "yes")]
@@ -135,14 +143,14 @@ struct RegexSync {
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(untagged)]
-enum FieldPattern {
+pub(crate) enum FieldPattern {
     One(#[schemars(pattern(r#"^[^#"\r\n]*$"#))] String),
     Many(#[schemars(length(min = 1), inner(pattern(r#"^[^#"\r\n]*$"#)))] Vec<String>),
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct Jump {
+pub(crate) struct Jump {
     to: Destination,
     when: JumpWhen,
 }
@@ -164,7 +172,7 @@ enum JumpWhen {
 #[derive(Debug, Deserialize, Serialize, JsonSchema, Validate)]
 #[garde(allow_unvalidated)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct PhaseStart {
+pub(crate) struct PhaseStart {
     #[garde(pattern(r"^[0-9A-F]+$"))]
     ability_id: String,
     #[garde(range(min = 0.0), custom(garde_time))]
@@ -172,23 +180,30 @@ struct PhaseStart {
     at: f64,
 }
 
-#[derive(Debug, Deserialize, Serialize, JsonSchema, Validate)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema, Validate)]
 #[garde(allow_unvalidated)]
 #[serde(deny_unknown_fields)]
-struct Ability {
+pub(crate) struct Ability {
     #[garde(pattern(r"^[0-9A-F]+$"))]
-    id: String,
+    pub id: String,
     #[garde(pattern(r"^[^\r\n]+$"))]
-    name: String,
+    pub name: String,
     #[garde(inner(pattern(r"^[^\r\n]+$")))]
     #[schemars(pattern(r"^[^\r\n]+$"))]
-    note: Option<String>,
-    #[serde(default)]
-    ignored: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[schemars(extend("default" = false))]
+    pub ignored: bool,
 }
 
 fn yes() -> bool {
     true
+}
+
+// Omit default sync settings in drafts, e.g. an active sync needs no explicit enabled: true.
+fn enabled_by_default(enabled: &bool) -> bool {
+    *enabled
 }
 
 pub fn export_schema(path: impl AsRef<Path>) -> Result<()> {
@@ -251,6 +266,29 @@ fn one_decimal(value: f64) -> bool {
 }
 
 fn generated_schema() -> Result<Value> {
+    // Describe log-specific field constraints with typed keywords, e.g. Map permits regionName.
+    #[derive(Serialize)]
+    struct Condition {
+        r#if: Properties<ConstLog>,
+        then: Properties<FieldNames>,
+    }
+    #[derive(Serialize)]
+    struct Properties<T> {
+        properties: BTreeMap<&'static str, T>,
+    }
+    #[derive(Serialize)]
+    struct ConstLog {
+        r#const: LogType,
+    }
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct FieldNames {
+        property_names: EnumConstraint,
+    }
+    #[derive(Serialize)]
+    struct EnumConstraint {
+        r#enum: &'static [&'static str],
+    }
     let mut schema = serde_json::to_value(schema_for!(Timeline))?;
     // An absent optional field is valid; an explicit null would silently become None.
     fn forbid_null(value: &mut Value) {
@@ -287,11 +325,21 @@ fn generated_schema() -> Result<Value> {
     let conditions: Result<Vec<Value>> = logs
         .into_iter()
         .map(|name| {
-            let log: LogType = serde_json::from_value(name.clone())?;
-            Ok(serde_json::json!({
-                "if": {"properties": {"log": {"const": name}}},
-                "then": {"properties": {"fields": {"propertyNames": {"enum": validation::known_fields(&log)}}}}
-            }))
+            let log: LogType = serde_json::from_value(name)?;
+            let fields = validation::known_fields(&log);
+            Ok(serde_json::to_value(Condition {
+                r#if: Properties {
+                    properties: BTreeMap::from([("log", ConstLog { r#const: log })]),
+                },
+                then: Properties {
+                    properties: BTreeMap::from([(
+                        "fields",
+                        FieldNames {
+                            property_names: EnumConstraint { r#enum: fields },
+                        },
+                    )]),
+                },
+            })?)
         })
         .collect();
     schema

@@ -5,11 +5,11 @@ use backon::{BlockingRetryable, ExponentialBuilder};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use garde::Validate;
-use serde::Deserialize;
-use serde_json::{Value, json};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tracing::info;
 
-use super::model::CollectedLog;
+use super::model::{CollectedLog, Collection};
 
 pub(super) const TOKEN_URL: &str = "https://www.fflogs.com/oauth/token";
 pub(super) const API_URL: &str = "https://www.fflogs.com/api/v2/client";
@@ -50,6 +50,35 @@ query TimelineEvents($code: String!, $fightIDs: [Int]!, $start: Float!, $end: Fl
 struct Token {
     access_token: String,
     token_type: String,
+}
+
+// Share the wire shape with saved provenance, e.g. omitted fight selection is serialized as null.
+#[derive(Serialize)]
+struct Query<'a, V> {
+    query: &'a str,
+    variables: V,
+}
+
+#[derive(Serialize)]
+struct MetadataVariables<'a> {
+    code: &'a str,
+    #[serde(rename = "fightIDs")]
+    fight_ids: Option<[i64; 1]>,
+}
+
+#[derive(Serialize)]
+struct EventVariables<'a> {
+    code: &'a str,
+    #[serde(rename = "fightIDs")]
+    fight_ids: [i64; 1],
+    start: f64,
+    end: f64,
+}
+
+#[derive(Serialize)]
+struct CollectionRequests<'a> {
+    metadata: Query<'a, MetadataVariables<'a>>,
+    events: Query<'a, EventVariables<'a>>,
 }
 
 pub(super) struct Client {
@@ -106,8 +135,8 @@ impl Client {
         })
     }
 
-    fn query(&self, query: &str, variables: Value) -> Result<Value> {
-        let body = json!({"query": query, "variables": variables});
+    fn query(&self, query: &str, variables: impl Serialize) -> Result<Value> {
+        let body = Query { query, variables };
         let retry_after = std::rc::Rc::new(std::cell::Cell::new(None));
         let sleep_delay = retry_after.clone();
         // Queries are read-only: backon retries transient failures twice, never auth or GraphQL errors.
@@ -191,7 +220,10 @@ impl Client {
         validate_selection(code, fight_id)?;
         let report = self.query(
             METADATA,
-            json!({"code": code, "fightIDs": fight_id.map(|id| vec![id])}),
+            MetadataVariables {
+                code,
+                fight_ids: fight_id.map(|id| [id]),
+            },
         )?;
         ensure!(
             report
@@ -251,14 +283,19 @@ impl Client {
             start.is_finite() && end.is_finite() && start >= 0.0 && end >= start,
             "Invalid fight time range"
         );
-        *report.get_mut("fights").context("Invalid fights array")? = json!([fight]);
+        *report.get_mut("fights").context("Invalid fights array")? = Value::Array(vec![fight]);
         let mut cursor = start;
         let mut events = Vec::new();
         let mut page_starts = Vec::new();
         loop {
             let page = self.query(
                 EVENTS,
-                json!({"code": code, "fightIDs": [fight_id], "start": cursor, "end": end}),
+                EventVariables {
+                    code,
+                    fight_ids: [fight_id],
+                    start: cursor,
+                    end,
+                },
             )?;
             let page = page.get("events").context("Missing event page")?;
             let rows = page
@@ -290,19 +327,44 @@ impl Client {
         );
         // Keep provenance with raw data so one atomic save commits both, without credentials.
         let collected_at = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
-        let data: CollectedLog = serde_json::from_value(json!({"report": report, "events": events, "collection": {
-            "schemaVersion": 1,
-            "toolVersion": env!("CARGO_PKG_VERSION"),
-            "collectedAtUnixMs": u64::try_from(collected_at)?,
-            "reportCode": code, "fightID": fight_id,
-            "pageCount": page_starts.len(), "pageStartTimes": page_starts, "eventCount": events.len(),
-            "complete": true, "nextPageTimestamp": null,
-            "startTime": start, "endTime": end,
-            "requests": {
-                "metadata": {"query": METADATA, "variables": {"code": code, "fightIDs": metadata_fight_id.map(|id| vec![id])}},
-                "events": {"query": EVENTS, "variables": {"code": code, "fightIDs": [fight_id], "start": start, "end": end}}
-            }
-        }})).context("Invalid collected log")?;
+        let data = CollectedLog {
+            collection: Collection {
+                schema_version: 1,
+                tool_version: env!("CARGO_PKG_VERSION").into(),
+                collected_at_unix_ms: u64::try_from(collected_at)?,
+                report_code: code.into(),
+                fight_id,
+                page_count: page_starts.len(),
+                page_start_times: page_starts,
+                event_count: events.len(),
+                complete: true,
+                next_page_timestamp: None,
+                start_time: start,
+                end_time: end,
+                requests: serde_json::to_value(CollectionRequests {
+                    metadata: Query {
+                        query: METADATA,
+                        variables: MetadataVariables {
+                            code,
+                            fight_ids: metadata_fight_id.map(|id| [id]),
+                        },
+                    },
+                    events: Query {
+                        query: EVENTS,
+                        variables: EventVariables {
+                            code,
+                            fight_ids: [fight_id],
+                            start,
+                            end,
+                        },
+                    },
+                })?,
+                extra: Default::default(),
+            },
+            report: serde_json::from_value(report).context("Invalid collected log")?,
+            events: serde_json::from_value(Value::Array(events))
+                .context("Invalid collected log")?,
+        };
         data.validate().context("Invalid collected log")?;
         Ok(data)
     }
