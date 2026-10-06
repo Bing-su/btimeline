@@ -3,14 +3,14 @@
     reason = "test fixtures use unwrap to fail at the source"
 )]
 
-use super::*;
+use std::fs;
+
 use rstest::{fixture, rstest};
 use serde_json::json;
-use std::fs;
-use wiremock::{
-    Mock, MockBuilder, MockServer, ResponseTemplate,
-    matchers::{body_partial_json, body_string_contains, header, method, path},
-};
+use wiremock::matchers::{body_partial_json, body_string_contains, header, method, path};
+use wiremock::{Mock, MockBuilder, MockServer, ResponseTemplate};
+
+use super::*;
 
 fn token() -> (u16, Value) {
     (

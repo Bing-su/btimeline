@@ -1,18 +1,13 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fs,
-    path::{Path, PathBuf},
-};
+use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, ensure};
 use path_slash::PathBufExt as _;
 use serde_json::{Value, json};
 
-use super::{
-    GenerateMode, Group, Pull,
-    alignment::{self, Signal, SignalKey},
-    draft, inspect, load_one,
-};
+use super::alignment::{self, Signal, SignalKey};
+use super::{GenerateMode, Group, Pull, draft, inspect, load_one};
 use crate::fflogs::model::CollectedLog;
 
 pub(super) fn select_group(

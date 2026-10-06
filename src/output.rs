@@ -1,8 +1,6 @@
-use std::{
-    fs::{self, File},
-    io::Write,
-    path::Path,
-};
+use std::fs::{self, File};
+use std::io::Write;
+use std::path::Path;
 
 use anyhow::{Context, Result};
 use tempfile::NamedTempFile;

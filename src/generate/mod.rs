@@ -1,19 +1,16 @@
 mod pairing;
 
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fs,
-    path::Path,
-};
+use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
+use std::path::Path;
 
 use anyhow::{Context, Result, ensure};
 use garde::Validate;
+use pairing::{PendingStart, start_for};
 use path_slash::PathExt as _;
 use serde::Serialize;
 
 use crate::fflogs::model::CollectedLog;
-
-use pairing::{PendingStart, start_for};
 
 // Align equivalent FFLogs segments; an encounter ID can identify one checkpoint segment of a battle.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]

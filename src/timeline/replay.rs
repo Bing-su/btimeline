@@ -584,8 +584,9 @@ pub(crate) fn run(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     fn signal(index: usize, at_ms: i64, id: &str) -> Signal {
         Signal {

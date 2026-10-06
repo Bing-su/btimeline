@@ -2,13 +2,14 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result, anyhow, ensure};
 use backon::{BlockingRetryable, ExponentialBuilder};
-use base64::{Engine, engine::general_purpose::STANDARD};
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use garde::Validate;
 use serde::Deserialize;
 use serde_json::{Value, json};
+use tracing::info;
 
 use super::model::CollectedLog;
-use tracing::info;
 
 pub(super) const TOKEN_URL: &str = "https://www.fflogs.com/oauth/token";
 pub(super) const API_URL: &str = "https://www.fflogs.com/api/v2/client";

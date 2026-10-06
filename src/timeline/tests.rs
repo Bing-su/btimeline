@@ -1,7 +1,7 @@
-use super::*;
-
 use proptest::prelude::*;
 use rstest::rstest;
+
+use super::*;
 
 const SOURCE: &str = r#"# yaml-language-server: $schema=https://raw.githubusercontent.com/Bing-su/btimeline/main/schema/btimeline-v1.schema.json
 schemaVersion: 1

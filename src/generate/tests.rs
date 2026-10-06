@@ -3,11 +3,12 @@
     reason = "test fixtures use unwrap to fail at the source"
 )]
 
-use super::*;
 use path_slash::PathBufExt as _;
 use proptest::prelude::*;
 use rstest::rstest;
 use serde_json::{Value, json};
+
+use super::*;
 
 fn multi_log(code: &str, rows: &[(i64, i64, i64, &str)], end: i64, kill: bool) -> Value {
     let mut data = sample();

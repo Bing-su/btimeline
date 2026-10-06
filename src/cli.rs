@@ -1,6 +1,5 @@
-use camino::Utf8PathBuf;
-
 use anyhow::Result;
+use camino::Utf8PathBuf;
 use usage::{Args, Cli, Run, Subcommands};
 
 use crate::fflogs::FFLogsCommand;

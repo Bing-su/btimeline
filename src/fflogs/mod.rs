@@ -2,18 +2,15 @@ mod client;
 pub(crate) mod model;
 mod storage;
 
-use std::{
-    collections::BTreeSet,
-    io::{self, Write},
-};
+use std::collections::BTreeSet;
+use std::io::{self, Write};
 
 use anyhow::{Context, Result, ensure};
 use camino::Utf8PathBuf;
-use serde_json::Value;
-use usage::{Args, Run, ValueEnum};
-
 use client::{API_URL, Client, TOKEN_URL};
+use serde_json::Value;
 use storage::save;
+use usage::{Args, Run, ValueEnum};
 
 #[derive(Clone, Copy, ValueEnum)]
 enum OutputFormat {
