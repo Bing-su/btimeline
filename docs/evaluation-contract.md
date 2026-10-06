@@ -48,18 +48,20 @@
 
 ## 검증 체크리스트
 
-| 주장 / 게이트                                         | 확인 방법                                                                                                                                    | 현재 상태                                 |
-| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| 입력 파일의 수집 완료·참조·시간 범위·능력 사전        | 감사 출력의 `complete`, cursor, eventCount, `out_of_fight`, `missing_cast_abilities`; P2에서 오류 거부                                       | 기존 224개 감사 통과, 새 입력 검사 미구현 |
-| 같은 pull 후보가 학습과 평가에 동시에 없음            | 고정 목록의 `candidate_group`별 split 단일값 검사                                                                                            | P0 목록에서 확인                          |
-| 목록에 잘못된 입력이 섞이지 않음                      | `freeze_evaluation_inputs.nu`의 완료 상태·파일 해시·후보 멤버·그룹 검사와 합성 오류 입력 검사(`nu scripts/test_freeze_evaluation_inputs.nu`) | P0 검사 통과                              |
-| 새 전투에 같은 입력·생성 규칙 적용                    | 현재 세 전투에 없는 ID·이름의 합성 입력, 이후 확보한 실제 로그의 별도 holdout                                                                | 미검증                                    |
-| YAML 구조·시간·jump·regex·출력 안전성                 | P1 Schema·semantic 테스트와 fixture 정확 비교                                                                                                | 미구현                                    |
-| 104 시작·초기화된 105 단독 시작, 반복 B528, kill/wipe | P6 원본 신호 재생과 경로별 결과                                                                                                              | 미검증                                    |
-| 동시 sync 선택 순서와 window 경계                     | 실제 cactbot parser/runtime의 같은 신호·경계 fixture                                                                                         | 미검증                                    |
-| 같은 시각 exit sync와 forcejump 우선순위              | 실제 런타임의 충돌 fixture                                                                                                                   | 미검증                                    |
-| 리셋 후 타임라인 시계와 105 진입                      | 실제 런타임의 리셋·재진입 실행                                                                                                               | 미검증                                    |
-| 분기 lookahead 예고와 실제 표시                       | 실제 런타임 표시 검사                                                                                                                        | 미검증                                    |
-| 공식 런타임 호환                                      | parser gate 방침 결정 후 파싱과 위 런타임 검사                                                                                               | 보류                                      |
+| 주장 / 게이트                                         | 확인 방법                                                                                                                                    | 현재 상태                                                     |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 입력 파일의 수집 완료·참조·시간 범위·능력 사전        | 감사 출력의 `complete`, cursor, eventCount, `out_of_fight`, `missing_cast_abilities`; P2에서 오류 거부                                       | P2 검사 구현, P6에서 고정 목록을 다시 검사                    |
+| 같은 pull 후보가 학습과 평가에 동시에 없음            | 고정 목록의 `candidate_group`별 split 단일값 검사                                                                                            | P0 목록에서 확인                                              |
+| 목록에 잘못된 입력이 섞이지 않음                      | `freeze_evaluation_inputs.nu`의 완료 상태·파일 해시·후보 멤버·그룹 검사와 합성 오류 입력 검사(`nu scripts/test_freeze_evaluation_inputs.nu`) | P0 검사 통과                                                  |
+| 새 전투에 같은 입력·생성 규칙 적용                    | 현재 세 전투에 없는 ID·이름의 합성 입력, 이후 확보한 실제 로그의 별도 holdout                                                                | 합성 생성·재생 통과, 새 실제 전투 범용 성능은 미검증          |
+| YAML 구조·시간·jump·regex·출력 안전성                 | P1 Schema·semantic 테스트와 fixture 정확 비교                                                                                                | Rust 회귀 검사 통과                                           |
+| 104 시작·초기화된 105 단독 시작, 반복 B528, kill/wipe | P6 원본 신호 재생과 경로별 결과                                                                                                              | [P6 독립 재생](p6-replay.md); 연결 진입·실제 runtime은 미검증 |
+| 동시 sync 선택 순서와 window 경계                     | 실제 cactbot parser/runtime의 같은 신호·경계 fixture                                                                                         | 미검증                                                        |
+| 같은 시각 exit sync와 forcejump 우선순위              | 실제 런타임의 충돌 fixture                                                                                                                   | 미검증                                                        |
+| 리셋 후 타임라인 시계와 105 진입                      | 실제 런타임의 리셋·재진입 실행                                                                                                               | 미검증                                                        |
+| 분기 lookahead 예고와 실제 표시                       | 실제 런타임 표시 검사                                                                                                                        | 미검증                                                        |
+| 공식 런타임 호환                                      | parser gate 방침 결정 후 파싱과 위 런타임 검사                                                                                               | 보류                                                          |
 
 검증 결과에는 실행 도구·버전, 입력 SHA-256, 대상 경로, 통과/실패/미실행을 남긴다. 미실행은 통과로 간주하지 않는다.
+
+P6 재현은 `nu scripts/evaluate_replay.nu docs/evaluation-inputs.csv out/p6-evaluation --binary target/release/btimeline`으로 실행한다. CSV의 후보 묶음과 분할은 재계산하지 않고 동결된 값을 검사·사용한다. 결과의 `evaluation.json`은 manifest·입력·생성 YAML·생성 report의 SHA-256, train/holdout별 표본·report 수·오류·시간 오차를 보존한다. `nu scripts/test_evaluate_replay.nu target/release/btimeline`은 합성 입력으로 holdout 누출·해시 변경·후보 분할 충돌·덮어쓰기 거부를 검사한다.

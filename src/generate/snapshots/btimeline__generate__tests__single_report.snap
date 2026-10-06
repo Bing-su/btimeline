@@ -54,7 +54,8 @@ expression: stable
     "logVersion": 76,
     "name": "Unseen Fight",
     "report": "new-report",
-    "revision": 1
+    "revision": 1,
+    "sha256": "2ddc575bef0f34b0fecbecb70824895dd78288780b8f2cea59e40829e53063e1"
   },
   "kill": true,
   "mode": "raid",

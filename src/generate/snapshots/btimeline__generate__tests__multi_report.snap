@@ -145,7 +145,8 @@ expression: stable
         "logVersion": 76,
         "name": "Unseen Fight",
         "report": "a",
-        "revision": 1
+        "revision": 1,
+        "sha256": "ff674210e22d69b25900da054bee8710a9e3a716fb05a556e23d95d65d1f9584"
       },
       "kill": true,
       "mode": "raid",
@@ -309,7 +310,8 @@ expression: stable
         "logVersion": 76,
         "name": "Unseen Fight",
         "report": "b",
-        "revision": 1
+        "revision": 1,
+        "sha256": "37773f950799dd0e69a783f0278e85c1af5817bcf328d0109b56e29d08d6f887"
       },
       "kill": true,
       "mode": "raid",

@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 mod render;
+pub(crate) mod replay;
 mod validation;
 
 #[cfg(test)]

@@ -278,7 +278,7 @@ pub(super) fn build_single(source: &Source, mode: GenerateMode) -> Result<(Vec<V
         "bossSegments":boss_spans.into_iter().map(|(actor_id, (start, end))| json!({
             "actorId":actor_id, "startMs":start - fight.start_time, "endMs":end - fight.start_time
         })).collect::<Vec<_>>(),
-        "input":{"file":pull.file, "report":pull.report, "fight":pull.fight,
+        "input":{"file":pull.file, "sha256":source.sha256, "report":pull.report, "fight":pull.fight,
             "name":pull.name,
             "revision":pull.revision, "gameVersion":pull.game_version, "logVersion":pull.log_version,
             "complete":data.collection.complete},

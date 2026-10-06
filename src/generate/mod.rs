@@ -66,6 +66,16 @@ struct Source {
     key: GroupKey,
     pull: Pull,
     log: CollectedLog,
+    sha256: String,
+}
+
+// Bind evidence to the bytes actually parsed, e.g. an added friendly cast invalidates the old hash too.
+fn sha256(bytes: &[u8]) -> String {
+    ring::digest::digest(&ring::digest::SHA256, bytes)
+        .as_ref()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 fn slash_path(path: &Path) -> String {
@@ -82,7 +92,9 @@ fn slash_path(path: &Path) -> String {
 }
 
 fn load_one(path: &Path) -> Result<Source> {
-    let data: CollectedLog = serde_json::from_slice(&fs::read(path)?)?;
+    let bytes = fs::read(path)?;
+    let sha256 = sha256(&bytes);
+    let data: CollectedLog = serde_json::from_slice(&bytes)?;
     data.validate().context("Invalid collection")?;
     let report = &data.report;
     let events = &data.events;
@@ -231,6 +243,7 @@ fn load_one(path: &Path) -> Result<Source> {
             actors,
         },
         log: data,
+        sha256,
     })
 }
 
@@ -272,6 +285,7 @@ pub fn inspect(paths: &[impl AsRef<Path>]) -> Result<Vec<Group>> {
 mod alignment;
 mod draft;
 mod multi;
+pub(crate) mod replay;
 mod report;
 pub use alignment::align;
 #[cfg(test)]

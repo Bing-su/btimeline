@@ -19,6 +19,7 @@ pub enum MainCommands {
     Align(AlignCommand),
     Generate(GenerateCommand),
     ReportMarkdown(ReportMarkdownCommand),
+    Replay(ReplayCommand),
 }
 
 #[derive(Cli)]
@@ -139,6 +140,32 @@ impl Run for GenerateCommand {
 pub struct ReportMarkdownCommand {
     #[usage(arg)]
     input: Utf8PathBuf,
+}
+
+#[derive(Args)]
+pub struct ReplayCommand {
+    /// Generated YAML timeline, e.g. out/fight.yaml.
+    #[usage(arg)]
+    timeline: Utf8PathBuf,
+    /// One collected fight or a directory of compatible pulls.
+    #[usage(arg)]
+    input: Utf8PathBuf,
+    #[usage(short = 'o', long)]
+    output: Utf8PathBuf,
+    /// Generation evidence; defaults to the YAML's .report.json sibling.
+    #[usage(long)]
+    report: Option<Utf8PathBuf>,
+}
+impl Run for ReplayCommand {
+    type Output = Result<()>;
+    fn run(self) -> Self::Output {
+        crate::generate::replay::replay_file(
+            self.timeline,
+            self.input,
+            self.output,
+            self.report.as_deref().map(|path| path.as_std_path()),
+        )
+    }
 }
 impl Run for ReportMarkdownCommand {
     type Output = Result<()>;

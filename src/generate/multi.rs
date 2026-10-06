@@ -83,9 +83,9 @@ pub(super) fn select_group(
 }
 
 #[derive(Default)]
-struct Correspondence {
-    matched: BTreeMap<usize, usize>,
-    censored: BTreeSet<usize>,
+pub(super) struct Correspondence {
+    pub matched: BTreeMap<usize, usize>,
+    pub censored: BTreeSet<usize>,
 }
 
 fn index(signal: &Signal) -> Result<usize> {
@@ -127,7 +127,7 @@ fn alternatives(left: &[&Signal], right: &[&Signal]) -> bool {
     changes.len() == 1
 }
 
-fn correspondence(left: &Pull, right: &Pull) -> Result<(Correspondence, bool)> {
+pub(super) fn correspondence(left: &Pull, right: &Pull) -> Result<(Correspondence, bool)> {
     let comparison = alignment::compare(left, right)?;
     let mut result = Correspondence::default();
     let (mut left_gap, mut right_gap) = (Vec::new(), Vec::new());

@@ -33,6 +33,219 @@ fn multi_log(code: &str, rows: &[(i64, i64, i64, &str)], end: i64, kill: bool) -
     data
 }
 
+#[rstest]
+#[case(false)]
+#[case(true)]
+fn replay_generated_unknown_encounter_and_holdout_preserves_termination(#[case] kill: bool) {
+    let training = multi_log(
+        "train",
+        &[
+            (1000, 10, 90001, "cast"),
+            (5000, 10, 90001, "cast"),
+            (9000, 10, 90002, "cast"),
+        ],
+        10000,
+        true,
+    );
+    let holdout = multi_log(
+        "holdout",
+        &[
+            (1100, 10, 90001, "cast"),
+            (5100, 10, 90001, "cast"),
+            (5500, 10, 90002, "begincast"),
+        ],
+        6000,
+        kill,
+    );
+    with_logs(&[training, holdout], |dir| {
+        let yaml = dir.join("draft.yaml");
+        generate(dir.join("fight_0.json"), &yaml, GenerateMode::Raid).unwrap();
+        let before = fs::read(&yaml).unwrap();
+        let output = dir.join("replay.json");
+        replay::replay_file(&yaml, dir.join("fight_1.json"), &output, None).unwrap();
+        let report: Value = serde_json::from_slice(&fs::read(&output).unwrap()).unwrap();
+        assert_eq!(report["status"], "internally_validated");
+        assert_eq!(
+            report["pulls"][0]["termination"],
+            if kill { "kill" } else { "wipe" }
+        );
+        assert_eq!(report["pulls"][0]["replay"]["summary"]["matches"], 2);
+        assert_eq!(report["pulls"][0]["replay"]["summary"]["censored"], 1);
+        assert_eq!(report["pulls"][0]["unfinishedStarts"], json!([2]));
+        assert_eq!(report["validation"]["cactbotParser"], false);
+        assert_eq!(fs::read(&yaml).unwrap(), before);
+        assert!(replay::replay_file(&yaml, dir.join("fight_1.json"), &output, None).is_err());
+    });
+}
+
+#[test]
+fn replay_retains_failure_report_and_rejects_changed_evidence() {
+    let training = multi_log(
+        "train",
+        &[(1000, 10, 90001, "cast"), (5000, 10, 90002, "cast")],
+        10000,
+        true,
+    );
+    let holdout = multi_log(
+        "holdout",
+        &[(1000, 10, 90001, "cast"), (9000, 10, 90002, "cast")],
+        10000,
+        true,
+    );
+    with_logs(&[training, holdout], |dir| {
+        let yaml = dir.join("draft.yaml");
+        generate(dir.join("fight_0.json"), &yaml, GenerateMode::Raid).unwrap();
+        let output = dir.join("failure.json");
+        assert!(replay::replay_file(&yaml, dir.join("fight_1.json"), &output, None).is_err());
+        let result: Value = serde_json::from_slice(&fs::read(&output).unwrap()).unwrap();
+        assert_eq!(result["validation"]["replayExecuted"], true);
+        assert_eq!(result["validation"]["replay"], false);
+        assert_eq!(result["pulls"][0]["replay"]["summary"]["windowMisses"], 1);
+        assert!(output.with_extension("md").exists());
+        let source = dir.join("fight_0.json");
+        let mut changed: Value = serde_json::from_slice(&fs::read(&source).unwrap()).unwrap();
+        changed["report"]["revision"] = json!(2);
+        fs::write(&source, serde_json::to_vec(&changed).unwrap()).unwrap();
+        let rejected = dir.join("rejected.json");
+        assert!(replay::replay_file(&yaml, dir.join("fight_1.json"), &rejected, None).is_err());
+        assert!(!rejected.exists());
+    });
+}
+
+#[rstest]
+#[case(false, 500)]
+#[case(true, 250)]
+fn replay_observed_successor_keeps_interior_missing_until_jump_skips_it(
+    #[case] kill: bool,
+    #[case] end: i64,
+) {
+    let training = multi_log(
+        "train",
+        &[
+            (100, 10, 90001, "cast"),
+            (300, 11, 90002, "cast"),
+            (400, 10, 90003, "cast"),
+        ],
+        500,
+        true,
+    );
+    let holdout = multi_log(
+        "holdout",
+        &[(100, 10, 90001, "cast"), (200, 10, 90003, "cast")],
+        end,
+        kill,
+    );
+    with_logs(&[training, holdout], |dir| {
+        let yaml = dir.join("draft.yaml");
+        generate(dir.join("fight_0.json"), &yaml, GenerateMode::Raid).unwrap();
+        let output = dir.join("missing.replay.json");
+        assert!(replay::replay_file(&yaml, dir.join("fight_1.json"), &output, None).is_err());
+        let result: Value = serde_json::from_slice(&fs::read(output).unwrap()).unwrap();
+        assert_eq!(result["status"], "draft");
+        assert_eq!(result["pulls"][0]["replay"]["summary"]["missing"], 1);
+        assert_eq!(result["pulls"][0]["replay"]["summary"]["censored"], 0);
+
+        // An explicit branch skips the missing helper, e.g. A jumps directly to the observed C.
+        let mut timeline: Value =
+            serde_saphyr::from_str(&fs::read_to_string(&yaml).unwrap()).unwrap();
+        timeline["entries"][1]["jump"] = json!({"to":0.4,"when":"sync"});
+        fs::write(&yaml, serde_saphyr::to_string(&timeline).unwrap()).unwrap();
+        let output = dir.join("branch.replay.json");
+        replay::replay_file(&yaml, dir.join("fight_1.json"), &output, None).unwrap();
+        let result: Value = serde_json::from_slice(&fs::read(output).unwrap()).unwrap();
+        assert_eq!(result["status"], "internally_validated");
+        assert_eq!(
+            result["pulls"][0]["replay"]["rows"][1]["status"],
+            "notVisited"
+        );
+        assert_eq!(result["pulls"][0]["replay"]["summary"]["missing"], 0);
+        assert_eq!(result["pulls"][0]["replay"]["summary"]["matches"], 2);
+    });
+}
+
+#[test]
+fn replay_multi_pull_sync_and_disabled_rows_use_original_indices() {
+    let a = multi_log(
+        "a",
+        &[
+            (1000, 10, 90001, "cast"),
+            (5000, 10, 90002, "cast"),
+            (5500, 10, 90002, "cast"),
+        ],
+        6000,
+        true,
+    );
+    let b = multi_log(
+        "b",
+        &[
+            (1100, 10, 90001, "cast"),
+            (5100, 10, 90002, "cast"),
+            (5600, 10, 90002, "cast"),
+        ],
+        6100,
+        true,
+    );
+    with_logs(&[a, b], |dir| {
+        let yaml = dir.join("draft.yaml");
+        generate(dir, &yaml, GenerateMode::Raid).unwrap();
+        let output = dir.join("result.replay.json");
+        replay::replay_file(&yaml, dir, &output, None).unwrap();
+        let result: Value = serde_json::from_slice(&fs::read(output).unwrap()).unwrap();
+        assert_eq!(result["pulls"].as_array().unwrap().len(), 2);
+        for pull in result["pulls"].as_array().unwrap() {
+            assert_eq!(pull["replay"]["rows"][1]["status"], "observedWithoutSync");
+            assert_eq!(pull["replay"]["summary"]["matches"], 1);
+            assert_eq!(pull["replay"]["resetClockMs"], 0);
+        }
+    });
+}
+
+#[test]
+fn replay_dungeon_holdout_uses_mode_filtered_correspondence_and_all_raw_signals() {
+    let rows = [
+        (500, 11, 90003, "cast"),
+        (1000, 10, 90001, "cast"),
+        (2000, 11, 90003, "cast"),
+        (3000, 10, 90002, "cast"),
+        (5000, 11, 90003, "cast"),
+    ];
+    with_logs(
+        &[
+            multi_log("a", &rows, 6000, true),
+            multi_log("b", &rows, 6000, true),
+            multi_log("holdout", &rows, 6000, true),
+        ],
+        |dir| {
+            let train = dir.join("train");
+            fs::create_dir(&train).unwrap();
+            for i in 0..2 {
+                fs::copy(
+                    dir.join(format!("fight_{i}.json")),
+                    train.join(format!("fight_{i}.json")),
+                )
+                .unwrap();
+            }
+            let yaml = dir.join("dungeon.yaml");
+            generate(&train, &yaml, GenerateMode::Dungeon).unwrap();
+            let output = dir.join("dungeon.replay.json");
+            replay::replay_file(&yaml, dir.join("fight_2.json"), &output, None).unwrap();
+            let result: Value = serde_json::from_slice(&fs::read(output).unwrap()).unwrap();
+            assert_eq!(result["validation"]["replay"], true);
+            assert_eq!(
+                result["pulls"][0]["replay"]["rows"]
+                    .as_array()
+                    .unwrap()
+                    .len(),
+                3
+            );
+            assert_eq!(
+                result["pulls"][0]["replay"]["rows"][1]["status"],
+                "observedWithoutSync"
+            );
+        },
+    );
+}
+
 fn with_logs(logs: &[Value], check: impl FnOnce(&Path)) {
     let directory = tempfile::tempdir().unwrap();
     for (i, log) in logs.iter().enumerate() {

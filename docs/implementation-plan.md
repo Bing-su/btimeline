@@ -2,7 +2,7 @@
 
 P0 산출물: [평가 계약과 검증 체크리스트](evaluation-contract.md), [고정 평가 입력](evaluation-inputs.csv).
 
-작성일: 2026-09-26. 근거는 [연구 결과](timeline-research.md), [SPEC v1](../SPEC.md), 현재 Rust 수집기와 Python 감사 코드다. 이 문서는 단계별 구현 계획이다. P1–P3 단일 파일 생성·검증·변환, P4 다중 로그 정렬, P5 디렉터리 그룹 선택·다중 로그 초안은 구현되었고 P6 이후는 제안이다. P4 실험과 제한은 [정렬 결과](p4-alignment.md)에 정리했다. 연구의 224개 표본 집계는 기존 감사 결과이며 이번 계획 작성에서 재집계하지 않았다.
+작성일: 2026-09-26. 근거는 [연구 결과](timeline-research.md), [SPEC v1](../SPEC.md), 현재 Rust 수집기와 Python 감사 코드다. 이 문서는 단계별 구현 계획이다. P1–P3 단일 파일 생성·검증·변환, P4 다중 로그 정렬, P5 디렉터리 그룹 선택·다중 로그 초안, P6 독립 재생·고정 holdout 평가 도구가 구현되었고 P7 이후는 제안이다. P4 실험과 제한은 [정렬 결과](p4-alignment.md), P6 검사 범위와 실행 결과는 [재생 결과](p6-replay.md)에 정리했다. 도구 구현과 모든 입력·경로의 검증 통과는 구분한다.
 
 첫 목표는 **지원 형식의 임의 FFLogs 전투 로그에서 편집 가능한 YAML 초안과 원본 재생 결과를 생성하는 것**이다. 단일 로그부터 시작해 동일 전투의 여러 pull, 관측 가능한 분기·전환·반복으로 확장한다. 현재 내려받은 R12S, Dancing Mad, Clyteum 로그는 회귀 사례이며 지원 대상의 목록이 아니다.
 
@@ -77,19 +77,23 @@ btimeline generate logs/example/fight_4.json --mode dungeon -o out/dungeon-draft
 btimeline generate logs/example --name "Example Fight" -o out/fight-draft.yaml
 btimeline validate out/fight-draft.yaml
 btimeline convert out/fight-draft.yaml -o out/fight.txt
+btimeline replay out/fight-draft.yaml logs/example -o out/fight.replay.json
+nu scripts/evaluate_replay.nu docs/evaluation-inputs.csv out/p6-evaluation --binary target/release/btimeline
 ```
 
 생성되는 `draft.yaml`의 첫 줄은 `# yaml-language-server: $schema=https://raw.githubusercontent.com/Bing-su/btimeline/main/schema/btimeline-v1.schema.json`로 고정한다. 편집기에서 이 저장소의 공개 v1 스키마를 참조하도록 하기 위한 지시문이다.
 
-| 계약          | 동작                                                                                                                                                                               |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 전투 선택     | 입력에서 호환 그룹을 발견하고 둘 이상이면 명시적 선택을 요구. 이름은 표시·선택용이며 ID/이름 하드코딩 없이 처리. 연속 전투 연결은 별도 근거가 있을 때만 허용                       |
-| 생성 저장     | 지정한 `fight-draft.yaml`과 짝이 되는 `.report.json`과 검토용 `.report.md`. 기존 파일을 덮어쓰지 않음. 모두 검증·임시 기록 후 저장하고 여러 파일 전체가 원자적이라고 주장하지 않음 |
-| 변환 저장     | 새 `.txt` 파일. 검증 실패 시 출력하지 않음. 기존 출력 덮어쓰기 정책은 기본 거부                                                                                                    |
-| 생성 모드     | 기본 `raid`는 전체 구간 출력. `--mode dungeon`은 보스 구간만 생성. report에 모드·actor별 관측 시작/종료 시각 기록                                                                  |
-| 결정성        | 입력을 고정 순서로 처리하고 동일 시각 source order 유지. 원본 millisecond 유지, YAML 출력 직전에만 반올림                                                                          |
-| 작성자 수정   | 수정 YAML을 validate/convert에 다시 입력. 기존 notes/catalog를 보존. 자동 재생성 병합은 범위 밖                                                                                    |
-| parser 미해결 | Schema·semantic 성공과 parser 미실행을 구분. parser 미검증 결과를 전체 검증 성공으로 표시하지 않음                                                                                 |
+| 계약          | 동작                                                                                                                                                                                                                                                                                                 |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 전투 선택     | 입력에서 호환 그룹을 발견하고 둘 이상이면 명시적 선택을 요구. 이름은 표시·선택용이며 ID/이름 하드코딩 없이 처리. 연속 전투 연결은 별도 근거가 있을 때만 허용                                                                                                                                         |
+| 생성 저장     | 지정한 `fight-draft.yaml`과 짝이 되는 `.report.json`과 검토용 `.report.md`. 기존 파일을 덮어쓰지 않음. 모두 검증·임시 기록 후 저장하고 여러 파일 전체가 원자적이라고 주장하지 않음                                                                                                                   |
+| 변환 저장     | 새 `.txt` 파일. 검증 실패 시 출력하지 않음. 기존 출력 덮어쓰기 정책은 기본 거부                                                                                                                                                                                                                      |
+| 생성 모드     | 기본 `raid`는 전체 구간 출력. `--mode dungeon`은 보스 구간만 생성. report에 모드·actor별 관측 시작/종료 시각 기록                                                                                                                                                                                    |
+| 결정성        | 입력을 고정 순서로 처리하고 동일 시각 source order 유지. 원본 millisecond 유지, YAML 출력 직전에만 반올림                                                                                                                                                                                            |
+| 작성자 수정   | 수정 YAML을 validate/convert에 다시 입력. 기존 notes/catalog를 보존. 자동 재생성 병합은 범위 밖                                                                                                                                                                                                      |
+| parser 미해결 | Schema·semantic 성공과 parser 미실행을 구분. parser 미검증 결과를 전체 검증 성공으로 표시하지 않음                                                                                                                                                                                                   |
+| P6 재생       | `replay YAML INPUT -o REPORT.json`은 생성 report의 슬롯 대응을 평가 근거로 사용한다. 기본 근거 파일은 YAML의 `.report.json`이며 `--report`로 지정할 수 있다. event 행의 원래 순서를 유지해야 한다. 새 JSON·Markdown에 파일·entry index별 결과를 저장하고 실패 시에도 진단을 보존한 뒤 실패 종료한다. |
+| P6 holdout    | 고정 CSV의 SHA-256·전투 참조·후보 묶음의 분할을 먼저 검사한다. train만으로 초안을 생성하고 train/holdout 재생을 분리한다. 중복 후보 묶음을 모두 제외한 보조 평가도 별도로 실행하며 holdout 없는 그룹은 미실행으로 표시한다.                                                                          |
 
 report에는 입력 파일·report/fight/revision/logVersion·수집 완료 상태, occurrence 참조, 역할/능력 매핑, 슬롯별 표본수·시간 통계, observed/unknown 등 조합 근거 상태, 종료 잘림, sync 충돌·비활성 이유, 재생 오류·시간 오차·검증 실행 여부를 기록한다. 입력에 없는 값은 확인된 값처럼 채우지 않는다.
 
