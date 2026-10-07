@@ -182,15 +182,14 @@ pub(super) fn evidence(
     if report.pointer("/repeats/accepted").and_then(Value::as_bool) == Some(true) {
         return super::repeat::fold_evidence(yaml, report, key, pull, log, peers);
     }
-    let timeline: Value = serde_saphyr::from_str(yaml)?;
+    let timeline: crate::timeline::Timeline = serde_saphyr::from_str(yaml)?;
     let entries: Vec<_> = timeline
-        .get("entries")
-        .context("Missing entries")?
-        .as_array()
-        .context("Missing entries")?
+        .entries
         .iter()
         .enumerate()
-        .filter(|(_, entry)| entry["kind"] == "event")
+        .filter(|(_, entry)| {
+            matches!(entry, crate::timeline::Entry::Event { .. }) && !entry.is_combat_start()
+        })
         .map(|(i, _)| i)
         .collect();
     let slots = report["slots"]
@@ -366,7 +365,10 @@ fn load_peers(report: &Value) -> Result<BTreeMap<String, (Pull, String)>> {
             "Generation evidence changed or crosses groups: {file}"
         );
         let mut pull = pull;
-        if report.get("mode").and_then(Value::as_str) == Some("dungeon") {
+        if matches!(
+            report.get("mode").and_then(Value::as_str),
+            Some("dungeon" | "alliance")
+        ) {
             input::filter_boss_spans(&mut pull, item)?;
         }
         peers.insert(file.to_owned(), (pull, source.sha256));
@@ -425,7 +427,10 @@ pub(crate) fn replay_file(
             );
         }
         let signals = signals(&source.log)?;
-        if report.get("mode").and_then(Value::as_str) == Some("dungeon") {
+        if matches!(
+            report.get("mode").and_then(Value::as_str),
+            Some("dungeon" | "alliance")
+        ) {
             let draft = super::draft::build_single(&source, super::GenerateMode::Dungeon)?;
             input::filter_boss_spans(&mut source.pull, &draft.report)?;
         }
@@ -490,8 +495,8 @@ pub(crate) fn replay_file(
             replay_executed: true,
         },
         policy: ReplayPolicy {
-            clock: "independent zero at each fight start; sync corrections apply only after unique active matches",
-            window: "inclusive boundaries; absent window is +/-2500 ms",
+            clock: "fight start assumes the declared InCombat entry signal; raw cast replay starts independently at zero and audits unique sync corrections",
+            window: "lower boundary inclusive, upper boundary exclusive; absent window is +/-2500 ms",
             ambiguity: "multiple active matches are reported, never resolved by entry order",
             supported_signals: ["Ability", "StartsUsing"],
             coverage: "Only represented rows are validated; disabled syncs and unrepresented casts are reported separately.",

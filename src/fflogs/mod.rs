@@ -180,6 +180,7 @@ impl FFLogsCommand {
 
 impl Run for FFLogsCommand {
     type Output = Result<()>;
+
     fn run(self) -> Result<()> {
         self.validate()?;
         let client =

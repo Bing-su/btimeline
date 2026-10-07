@@ -84,12 +84,14 @@ impl Sync {
             Self::Regex(s) => s.enabled,
         }
     }
+
     pub(super) fn window(&self) -> Option<[f64; 2]> {
         match self {
             Self::Network(s) => s.window,
             Self::Regex(s) => s.window,
         }
     }
+
     fn validate(&self) -> Result<()> {
         match self {
             Self::Network(sync) => {

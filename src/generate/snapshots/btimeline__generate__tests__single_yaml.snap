@@ -4,7 +4,23 @@ expression: yaml
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Bing-su/btimeline/main/schema/btimeline-v1.schema.json
 schemaVersion: 1
+hideNames:
+- --Reset--
+- --sync--
 entries:
+- kind: event
+  at: 0.0
+  name: --sync--
+  sync:
+    log: InCombat
+    fields:
+      inGameCombat: "1"
+    window:
+    - 0.0
+    - 1.0
+  note: >-
+    Fight start assumes the InCombat entry signal; verify the offset against an ACT
+    capture.
 - kind: note
   text: >-
     Draft from FFLogs report new-report fight 2 revision 1 logVersion 76; times are
@@ -15,8 +31,8 @@ entries:
   sync:
     log: Ability
     fields:
-      id: ^15F91$
-      source: ^Helper \(A\)\+$
+      id: 15F91
+      source: Helper \(A\)\+
     enabled: false
   note: "Sync disabled: another cast matches within the default sync window; source event 0"
 - kind: event
@@ -25,8 +41,8 @@ entries:
   sync:
     log: Ability
     fields:
-      id: ^15F91$
-      source: ^Boss$
+      id: 15F91
+      source: Boss
 - kind: abilityCatalog
   abilities:
   - id: 15F91

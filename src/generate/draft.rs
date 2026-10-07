@@ -21,9 +21,18 @@ use super::report::{
 };
 use super::{Occurrence, Source, input, load_one};
 use crate::fflogs::model::CollectedLog;
-use crate::timeline::{Ability, Entry, FieldPattern, LogType, NetworkSync, Sync, Timeline};
+use crate::timeline::{
+    Ability,
+    Entry,
+    FieldPattern,
+    LogType,
+    NetworkSync,
+    ResetEvent,
+    Sync,
+    Timeline,
+};
 
-const SCHEMA_HEADER: &str = "# yaml-language-server: $schema=https://raw.githubusercontent.com/Bing-su/btimeline/main/schema/btimeline-v1.schema.json\n";
+pub(super) const SCHEMA_HEADER: &str = "# yaml-language-server: $schema=https://raw.githubusercontent.com/Bing-su/btimeline/main/schema/btimeline-v1.schema.json\n";
 const SYNC_WINDOW_MS: i64 = 2500;
 
 #[derive(Serialize)]
@@ -67,8 +76,20 @@ fn same_signal(
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum GenerateMode {
+    Alliance,
     Dungeon,
     Raid,
+}
+
+impl GenerateMode {
+    // Share mode defaults across draft paths, e.g. alliance needs both wipe and area-clear resets.
+    pub(super) fn reset_on(self) -> Vec<ResetEvent> {
+        match self {
+            Self::Raid => vec![ResetEvent::Wipe],
+            Self::Dungeon => vec![ResetEvent::AreaClear],
+            Self::Alliance => vec![ResetEvent::Wipe, ResetEvent::AreaClear],
+        }
+    }
 }
 
 #[cfg(test)]
@@ -108,7 +129,13 @@ pub fn generate_selected(
             &group.pulls.first().context("Missing pull")?.file,
         ))?;
         let draft = build_single(&source, mode)?;
-        (serialize_draft(draft.entries)?, draft.report)
+        let (yaml, mut report) = super::sections::separate(
+            serialize_draft(draft.entries, mode.reset_on())?,
+            draft.report,
+            lookahead,
+        )?;
+        super::sections::check(&yaml, &mut report, &[(&source.pull, &source.log)])?;
+        (yaml, report)
     } else {
         super::multi::build(group, mode, lookahead)?
     };
@@ -184,7 +211,7 @@ pub(super) fn build_single(source: &Source, mode: GenerateMode) -> Result<Single
         .chain(fight.enemy_players.iter().flatten().copied())
         .collect();
     let boss_spans = boss_spans(data, &enemies);
-    if mode == GenerateMode::Dungeon {
+    if mode != GenerateMode::Raid {
         ensure!(!boss_spans.is_empty(), "No observed boss segment");
     }
     let in_boss_span = |at: i64| {
@@ -267,13 +294,10 @@ pub(super) fn build_single(source: &Source, mode: GenerateMode) -> Result<Single
         let mut fields = BTreeMap::new();
         fields.insert(
             "id".into(),
-            FieldPattern::One(format!("^{:X}$", row.ability_id)),
+            FieldPattern::One(format!("{:X}", row.ability_id)),
         );
         if !invalid_source {
-            fields.insert(
-                "source".into(),
-                FieldPattern::One(format!("^{}$", regress::escape(source))),
-            );
+            fields.insert("source".into(), FieldPattern::One(regress::escape(source)));
         }
         if let Some(reason) = reason {
             conflicts.push(SyncConflict {
@@ -317,7 +341,8 @@ pub(super) fn build_single(source: &Source, mode: GenerateMode) -> Result<Single
     });
     let timeline = Timeline {
         schema_version: 1,
-        hide_names: Vec::new(),
+        reset_on: mode.reset_on(),
+        hide_names: crate::timeline::default_hide_names(),
         entries,
     };
     crate::timeline::validate_value(serde_json::to_value(&timeline)?)
@@ -381,12 +406,32 @@ pub(super) fn build_single(source: &Source, mode: GenerateMode) -> Result<Single
     })
 }
 
-pub(super) fn serialize_draft(entries: Vec<Entry>) -> Result<String> {
+pub(super) fn serialize_draft(
+    mut entries: Vec<Entry>,
+    reset_on: Vec<ResetEvent>,
+) -> Result<String> {
+    // FFLogs times start at fight entry; the consumer starts its stopped clock on the 260 combat line.
+    // Regenerate one lifecycle row after compilation, e.g. P7/P8 slots still describe only raw casts.
+    entries.retain(|entry| !entry.is_combat_start());
+    entries.insert(0, Entry::Event {
+        at: 0.0,
+        name: "--sync--".into(),
+        duration: None,
+        sync: Some(Sync::Network(NetworkSync {
+            log: LogType::InCombat,
+            fields: BTreeMap::from([("inGameCombat".into(), FieldPattern::One("1".into()))]),
+            enabled: true,
+            window: Some([0.0, 1.0]),
+        })),
+        jump: None,
+        note: Some("Fight start assumes the InCombat entry signal; verify the offset against an ACT capture.".into()),
+    });
     let yaml = format!(
         "{SCHEMA_HEADER}{}",
         serde_saphyr::to_string(&Timeline {
             schema_version: 1,
-            hide_names: Vec::new(),
+            reset_on,
+            hide_names: crate::timeline::default_hide_names(),
             entries
         })?
     );

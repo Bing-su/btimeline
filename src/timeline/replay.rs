@@ -85,7 +85,7 @@ pub(crate) struct Row {
 pub(crate) struct Observation {
     event_index: usize,
     source_ms: i64,
-    clock_ms: i64,
+    pub(crate) clock_ms: i64,
     error_ms: i64,
 }
 
@@ -109,6 +109,9 @@ pub(crate) struct Replay {
     final_clock_ms: i64,
     reset_clock_ms: i64,
     pub(crate) previews: Vec<Preview>,
+    // Lifecycle evidence comes from the fight boundary, not a fabricated FFLogs event index.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    combat_start_entry: Option<usize>,
 }
 
 // This independent projection audits visible rows separately from sync activation, e.g. after a jump.
@@ -123,8 +126,7 @@ pub(crate) struct Preview {
 }
 
 struct Predicate {
-    log: String,
-    fields: BTreeMap<String, Vec<regress::Regex>>,
+    regex: Option<regress::Regex>,
     window: [i64; 2],
     supported: bool,
     enabled: bool,
@@ -135,40 +137,51 @@ fn ms(seconds: f64) -> i64 {
 }
 
 fn predicate(sync: &Sync) -> Result<Predicate> {
-    let mut fields = BTreeMap::new();
-    let (log, supported) = match sync {
+    let mut regex = None;
+    let supported = match sync {
         Sync::Network(sync) => {
-            let log = format!("{:?}", sync.log);
             let supported_fields: &[&str] = match sync.log {
                 LogType::Ability | LogType::StartsUsing => &["id", "source", "name", "target"],
                 _ => &[],
             };
-            for (key, value) in &sync.fields {
-                let patterns = match value {
-                    FieldPattern::One(pattern) => vec![pattern.as_str()],
-                    FieldPattern::Many(patterns) => patterns.iter().map(String::as_str).collect(),
-                };
-                fields.insert(
-                    key.clone(),
-                    patterns
-                        .into_iter()
-                        .map(|pattern| regress::Regex::with_flags(pattern, "i"))
-                        .collect::<Result<_, _>>()?,
-                );
-            }
             let supported = !supported_fields.is_empty()
                 && sync
                     .fields
                     .keys()
                     .all(|key| supported_fields.contains(&key.as_str()));
-            (log, supported)
+            if supported {
+                // Match the consumer's capture:false embedding, e.g. scalar Boss|Other is not grouped.
+                let mut pattern = if matches!(sync.log, LogType::Ability) {
+                    r"^2[12]\|".to_owned()
+                } else {
+                    r"^20\|".to_owned()
+                };
+                let last = CAST_FIELDS
+                    .iter()
+                    .rposition(|key| sync.fields.contains_key(*key))
+                    .context("Missing replay field")?;
+                for key in CAST_FIELDS.iter().take(last + 1) {
+                    match sync.fields.get(*key) {
+                        Some(FieldPattern::One(value)) => pattern.push_str(value),
+                        Some(FieldPattern::Many(values)) if values.len() == 1 => {
+                            pattern.push_str(values.first().context("Empty field pattern")?);
+                        }
+                        Some(FieldPattern::Many(values)) => {
+                            pattern.push_str(&format!("(?:{})", values.join("|")));
+                        }
+                        None => pattern.push_str("[^|]*"),
+                    }
+                    pattern.push_str(r"\|");
+                }
+                regex = Some(regress::Regex::with_flags(&pattern, "i")?);
+            }
+            supported
         }
         // FFLogs has no ACT raw lines; regex syncs must remain unverified rather than fabricated.
-        Sync::Regex(_) => (String::new(), false),
+        Sync::Regex(_) => false,
     };
     Ok(Predicate {
-        log,
-        fields,
+        regex,
         supported,
         enabled: sync.enabled(),
         window: sync.window().unwrap_or([2.5, 2.5]).map(ms),
@@ -178,15 +191,33 @@ fn predicate(sync: &Sync) -> Result<Predicate> {
 impl Predicate {
     fn matches(&self, signal: &Signal) -> bool {
         self.supported
-            && self.log == signal.log
-            && self.fields.iter().all(|(key, patterns)| {
-                signal
-                    .fields
-                    .get(key)
-                    .is_some_and(|value| patterns.iter().any(|p| p.find(value).is_some()))
+            && self.regex.as_ref().is_some_and(|regex| {
+                // Unknown ACT fields stay empty and unconstrained, e.g. sourceId is not a supported predicate.
+                let mut line = match signal.log {
+                    "Ability" => "21|",
+                    "StartsUsing" => "20|",
+                    _ => return false,
+                }
+                .to_owned();
+                for key in CAST_FIELDS {
+                    line.push_str(signal.fields.get(key).map_or("", String::as_str));
+                    line.push('|');
+                }
+                regex.find(&line).is_some()
             })
     }
 }
+
+// Both cast channels share these network positions, e.g. source precedes id and ability name.
+const CAST_FIELDS: [&str; 7] = [
+    "timestamp",
+    "sourceId",
+    "source",
+    "id",
+    "name",
+    "targetId",
+    "target",
+];
 
 // The clock chooses syncs without consulting correspondence. Evidence only audits that choice afterward.
 // Example: an excluded cast with the same ID/source produces wrongMatches, not an oracle-selected match.
@@ -246,7 +277,15 @@ pub(crate) fn run(
     let mut destinations = Vec::new();
     let mut always = Vec::new();
     let mut summary = Summary::default();
+    let mut combat_start_entry = None;
     for (entry_index, entry) in timeline.entries.iter().enumerate() {
+        if entry.is_combat_start() {
+            ensure!(
+                combat_start_entry.replace(entry_index).is_none(),
+                "Duplicate combat-start sync"
+            );
+            continue;
+        }
         let Entry::Event {
             at,
             name,
@@ -374,7 +413,7 @@ pub(crate) fn run(
                                     p.enabled
                                         && p.matches(signal)
                                         && from >= row.at_ms - p.window[0]
-                                        && from <= row.at_ms + p.window[1]
+                                        && from < row.at_ms + p.window[1]
                                 })
                         })
                 })
@@ -394,7 +433,7 @@ pub(crate) fn run(
                                     p.enabled
                                         && signal.is_some_and(|s| p.matches(s))
                                         && from >= row.at_ms - p.window[0]
-                                        && from <= row.at_ms + p.window[1]
+                                        && from < row.at_ms + p.window[1]
                                 })
                         })
                 {
@@ -453,7 +492,7 @@ pub(crate) fn run(
                         p.enabled
                             && p.matches(signal)
                             && clock >= row.at_ms - p.window[0]
-                            && clock <= row.at_ms + p.window[1]
+                            && clock < row.at_ms + p.window[1]
                     })
             })
             .map(|(i, _)| i)
@@ -479,7 +518,7 @@ pub(crate) fn run(
                                     p.enabled
                                         && p.matches(s)
                                         && clock >= row.at_ms - p.window[0]
-                                        && clock <= row.at_ms + p.window[1]
+                                        && clock < row.at_ms + p.window[1]
                                 })
                         })
                         .map(|(i, _)| i)
@@ -660,6 +699,7 @@ pub(crate) fn run(
         final_clock_ms: clock,
         reset_clock_ms: 0,
         previews,
+        combat_start_entry,
     })
 }
 
@@ -683,7 +723,7 @@ mod tests {
 
     fn event(at: f64, id: &str) -> serde_json::Value {
         json!({"kind":"event", "at":at, "name":id,
-            "sync":{"log":"Ability", "fields":{"id":format!("^{id}$"),"source":"^New Boss$"}}})
+            "sync":{"log":"Ability", "fields":{"id":id,"source":"New Boss"}}})
     }
 
     fn play(
@@ -713,10 +753,10 @@ mod tests {
 
     #[rstest::rstest]
     #[case(7500, true)]
-    #[case(12500, true)]
+    #[case(12500, false)]
     #[case(7499, false)]
     #[case(12501, false)]
-    fn inclusive_window_and_clock_error(#[case] at: i64, #[case] passed: bool) {
+    fn half_open_window_and_clock_error(#[case] at: i64, #[case] passed: bool) {
         let result = play(
             vec![event(10.0, "B528")],
             &[signal(0, at, "B528")],
@@ -727,6 +767,78 @@ mod tests {
         assert_eq!(result.passed, passed);
         assert_eq!(result.summary.window_misses, usize::from(!passed));
         assert_eq!(result.summary.max_abs_error_ms, (at - 10000).abs());
+    }
+
+    // Network fields occupy complete delimited values, e.g. Boss cannot match Other Boss.
+    #[test]
+    fn network_patterns_use_embedded_field_boundaries() {
+        for (pattern, source, passed) in [
+            ("New Boss", "New Boss", true),
+            ("New Boss", "Other New Boss", false),
+            ("^New Boss$", "New Boss", false),
+        ] {
+            let mut entry = event(1.0, "A");
+            entry["sync"]["fields"]["source"] = json!(pattern);
+            let mut observed = signal(0, 1000, "A");
+            observed.fields.insert("source".into(), source.into());
+            let result = play(vec![entry], &[observed], &[(0, &[0])], &[], 2000);
+            assert_eq!(result.passed, passed, "pattern={pattern}, source={source}");
+        }
+    }
+
+    // A scalar alternative leaks across fields in cactbot, e.g. Boss|Unused also accepts BossExtra.
+    #[test]
+    fn scalar_alternation_exposes_excluded_casts() {
+        for pattern in [json!("New Boss|Unused"), json!(["New Boss|Unused"])] {
+            let mut entry = event(1.0, "A");
+            entry["sync"]["fields"]["source"] = pattern;
+            let mut excluded = signal(0, 900, "B");
+            excluded
+                .fields
+                .insert("source".into(), "New BossExtra".into());
+            let result = play(
+                vec![entry],
+                &[excluded, signal(1, 1000, "A")],
+                &[(0, &[1])],
+                &[],
+                2000,
+            );
+            assert!(!result.passed);
+            assert_eq!(result.summary.wrong_matches, 1);
+            // A bare alternative can bypass the type prefix too, e.g. an Ability regex matching 20.
+            let mut cross_channel = signal(0, 900, "A");
+            cross_channel.log = "StartsUsing";
+            cross_channel
+                .fields
+                .insert("source".into(), "Unused".into());
+            let mut entry = event(1.0, "A");
+            entry["sync"]["fields"]["source"] = json!("New Boss|Unused");
+            let result = play(
+                vec![entry],
+                &[cross_channel, signal(1, 1000, "A")],
+                &[(0, &[1])],
+                &[],
+                2000,
+            );
+            assert!(!result.passed);
+            assert_eq!(result.summary.wrong_matches, 1);
+        }
+        let mut entry = event(1.0, "A");
+        entry["sync"]["fields"]["source"] = json!(["New Boss", "Unused"]);
+        let mut excluded = signal(0, 900, "B");
+        excluded
+            .fields
+            .insert("source".into(), "New BossExtra".into());
+        assert!(
+            play(
+                vec![entry],
+                &[excluded, signal(1, 1000, "A")],
+                &[(0, &[1])],
+                &[],
+                2000
+            )
+            .passed
+        );
     }
 
     #[test]

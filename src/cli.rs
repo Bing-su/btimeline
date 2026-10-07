@@ -35,6 +35,7 @@ pub struct ValidateCommand {
 }
 impl Run for ValidateCommand {
     type Output = Result<()>;
+
     fn run(self) -> Self::Output {
         crate::timeline::validate_file(self.input)?;
         tracing::info!(
@@ -53,6 +54,7 @@ pub struct ConvertCommand {
 }
 impl Run for ConvertCommand {
     type Output = Result<()>;
+
     fn run(self) -> Self::Output {
         crate::timeline::convert_file(self.input, self.output)
     }
@@ -65,6 +67,7 @@ pub struct ExportSchemaCommand {
 }
 impl Run for ExportSchemaCommand {
     type Output = Result<()>;
+
     fn run(self) -> Self::Output {
         crate::timeline::export_schema(self.output)
     }
@@ -78,6 +81,7 @@ pub struct InspectInputsCommand {
 }
 impl Run for InspectInputsCommand {
     type Output = Result<()>;
+
     fn run(self) -> Self::Output {
         let groups = crate::generate::inspect(&self.inputs)?;
         serde_json::to_writer_pretty(std::io::stdout().lock(), &groups)?;
@@ -94,6 +98,7 @@ pub struct AlignCommand {
 }
 impl Run for AlignCommand {
     type Output = Result<()>;
+
     fn run(self) -> Self::Output {
         let report = crate::generate::align(&self.inputs)?;
         serde_json::to_writer_pretty(std::io::stdout().lock(), &report)?;
@@ -108,7 +113,7 @@ pub struct GenerateCommand {
     input: Utf8PathBuf,
     #[usage(short = 'o', long)]
     output: Utf8PathBuf,
-    /// Generation mode: dungeon keeps boss encounters; raid keeps the full fight.
+    /// Generation mode: raid keeps the full fight; dungeon/alliance keep boss encounters and area resets.
     #[usage(long, value_enum, default = "raid")]
     mode: GenerateMode,
     /// Select one compatible group by its exact fight name, e.g. --name "Example Fight".
@@ -126,6 +131,7 @@ pub struct GenerateCommand {
 }
 impl Run for GenerateCommand {
     type Output = Result<()>;
+
     fn run(self) -> Self::Output {
         crate::generate::generate_selected(
             self.input,
@@ -161,6 +167,7 @@ pub struct ReplayCommand {
 }
 impl Run for ReplayCommand {
     type Output = Result<()>;
+
     fn run(self) -> Self::Output {
         crate::generate::replay::replay_file(
             self.timeline,
@@ -172,6 +179,7 @@ impl Run for ReplayCommand {
 }
 impl Run for ReportMarkdownCommand {
     type Output = Result<()>;
+
     fn run(self) -> Self::Output {
         crate::generate::markdown_file(self.input)
     }
@@ -182,11 +190,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn generate_defaults_to_raid_and_accepts_dungeon() {
+    fn generate_defaults_to_raid_and_accepts_boss_modes() {
         for (mode, expected) in [
             (None, GenerateMode::Raid),
             (Some("raid"), GenerateMode::Raid),
             (Some("dungeon"), GenerateMode::Dungeon),
+            (Some("alliance"), GenerateMode::Alliance),
         ] {
             let mut args = vec!["generate", "input.json", "-o", "out.yaml"];
             if let Some(mode) = mode {

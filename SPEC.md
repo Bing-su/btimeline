@@ -26,7 +26,7 @@
 | Field           | Type                             | Required | Meaning                                                                                                  |
 | --------------- | -------------------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
 | `schemaVersion` | integer, exactly `1`             | yes      | Format version                                                                                           |
-| `hideNames`     | unique array of nonempty strings | no       | Names emitted as `hideall` commands; defaults to `[]`                                                    |
+| `hideNames`     | unique array of nonempty strings | no       | Names emitted as `hideall` commands; defaults to `["--Reset--", "--sync--"]`; `[]` disables hiding       |
 | `entries`       | ordered array of entries         | yes      | Timeline, annotations, and ability catalogs; order controls comment placement and equal-time event order |
 
 ### Entries

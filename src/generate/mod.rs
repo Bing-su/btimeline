@@ -1,5 +1,6 @@
 mod input;
 mod pairing;
+mod sections;
 
 use std::collections::BTreeMap;
 use std::path::Path;

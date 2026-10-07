@@ -182,7 +182,7 @@ fn prepare(file: &str, mode: GenerateMode) -> Result<Input> {
     } = draft::build_single(&source, mode)?;
     // Align the same normalized read used for raw collision checks, e.g. if a pull was recollected.
     let mut pull = source.pull;
-    if mode == GenerateMode::Dungeon {
+    if mode != GenerateMode::Raid {
         input::filter_boss_spans(&mut pull, &report)?;
     }
     let signals = alignment::signals(&pull)
@@ -284,7 +284,7 @@ fn cast_sync<'a>(
     let mut fields = BTreeMap::new();
     fields.insert(
         "id".into(),
-        field_pattern(ids.iter().map(|id| format!("^{id:X}$")).collect())?,
+        field_pattern(ids.iter().map(|id| format!("{id:X}")).collect())?,
     );
     let invalid_source = sources
         .iter()
@@ -292,7 +292,7 @@ fn cast_sync<'a>(
     if !invalid_source {
         let patterns = sources
             .iter()
-            .map(|source| format!("^{}$", regress::escape(source)))
+            .map(|source| regress::escape(source))
             .collect();
         fields.insert("source".into(), field_pattern(patterns)?);
     }
@@ -311,7 +311,9 @@ fn cast_sync<'a>(
             .context("Missing fight")?
             .start_time;
         let representative = sample.map(index).transpose()?;
-        outside_window |= sample.is_some_and(|s| (s.time_ms as f64 - at * 1000.0).abs() > 2500.0);
+        outside_window |= sample.is_some_and(|s| {
+            (s.time_ms as f64) < at * 1000.0 - 2500.0 || (s.time_ms as f64) >= at * 1000.0 + 2500.0
+        });
         let observed_ms =
             sample.map_or(at * 1000.0, |s| draft::rounded_seconds(s.time_ms) * 1000.0);
         for (event_index, event) in input.log.events.iter().enumerate() {
@@ -637,7 +639,7 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
         .iter()
         .map(|input| output_coverage(input, &slots))
         .collect();
-    let yaml = draft::serialize_draft(entries)?;
+    let yaml = draft::serialize_draft(entries, mode.reset_on())?;
     let report = serde_json::to_value(MultiReport {
         status: "draft",
         mode,
@@ -669,10 +671,20 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
         validation: Validation::default(),
     })?;
     let (yaml, report) = super::phase::expand(yaml, report, &inputs, lookahead)?;
-    super::repeat::compress(yaml, report, &inputs, lookahead)
+    let (yaml, report) = super::repeat::compress(yaml, report, &inputs, lookahead)?;
+    let (yaml, mut report) = super::sections::separate(yaml, report, lookahead)?;
+    super::sections::check(
+        &yaml,
+        &mut report,
+        &inputs
+            .iter()
+            .map(|input| (&input.pull, &input.log))
+            .collect::<Vec<_>>(),
+    )?;
+    Ok((yaml, report))
 }
 
-// Preserve scalar patterns for one value and arrays for alternatives, e.g. ^A$ versus [^A$, ^B$].
+// Preserve scalar patterns for one value and arrays for alternatives, e.g. A versus [A, B].
 pub(super) fn field_pattern(mut patterns: Vec<String>) -> Result<FieldPattern> {
     if patterns.len() == 1 {
         Ok(FieldPattern::One(

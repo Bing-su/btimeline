@@ -21,13 +21,39 @@ mod tests;
 pub(crate) struct Timeline {
     #[schemars(extend("const" = 1))]
     pub schema_version: u8,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[schemars(extend("default" = []))]
+    // Select lifecycle resets, e.g. [areaClear] between dungeon bosses or [] to disable resets.
+    #[serde(default = "default_reset_on", skip_serializing_if = "default_resets")]
+    #[schemars(extend("default" = ["wipe"], "uniqueItems" = true))]
+    pub reset_on: Vec<ResetEvent>,
+    // Keep explicit overrides when serializing, e.g. [] disables hiding both lifecycle names.
+    #[serde(default = "default_hide_names")]
+    #[schemars(extend("default" = ["--Reset--", "--sync--"]))]
     #[garde(inner(pattern(r#"^[^"\r\n]+$"#)))]
     #[schemars(extend("uniqueItems" = true))]
     pub hide_names: Vec<String>,
     #[garde(dive)]
     pub entries: Vec<Entry>,
+}
+
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum ResetEvent {
+    Wipe,
+    AreaClear,
+}
+
+fn default_reset_on() -> Vec<ResetEvent> {
+    vec![ResetEvent::Wipe]
+}
+
+// Share hidden lifecycle names with generated drafts, e.g. omit reset and combat-start rows from bars.
+pub(crate) fn default_hide_names() -> Vec<String> {
+    vec!["--Reset--".into(), "--sync--".into()]
+}
+
+// Omit only the default, e.g. [] must stay explicit so a disabled reset survives serialization.
+fn default_resets(reset_on: &[ResetEvent]) -> bool {
+    reset_on == [ResetEvent::Wipe]
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema, Validate)]
@@ -92,6 +118,18 @@ pub(crate) enum Entry {
         #[serde(skip_serializing_if = "Option::is_none")]
         phase: Option<String>,
     },
+}
+
+impl Entry {
+    // Recognize only the generated lifecycle row, e.g. other InCombat conditions still require evidence.
+    pub(crate) fn is_combat_start(&self) -> bool {
+        matches!(self, Self::Event {
+            at: 0.0, duration: None, jump: None,
+            sync: Some(Sync::Network(NetworkSync {
+                log: LogType::InCombat, fields, enabled: true, window: Some([0.0, 1.0]),
+            })), ..
+        } if fields.len() == 1 && matches!(fields.get("inGameCombat"), Some(FieldPattern::One(value)) if value == "1"))
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]

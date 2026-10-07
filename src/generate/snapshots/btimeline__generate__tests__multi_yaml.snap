@@ -4,7 +4,23 @@ expression: yaml
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Bing-su/btimeline/main/schema/btimeline-v1.schema.json
 schemaVersion: 1
+hideNames:
+- --Reset--
+- --sync--
 entries:
+- kind: event
+  at: 0.0
+  name: --sync--
+  sync:
+    log: InCombat
+    fields:
+      inGameCombat: "1"
+    window:
+    - 0.0
+    - 1.0
+  note: >-
+    Fight start assumes the InCombat entry signal; verify the offset against an ACT
+    capture.
 - kind: note
   text: >-
     Draft from 2 compatible FFLogs pulls; common rows and alternatives with an
@@ -16,8 +32,8 @@ entries:
   sync:
     log: Ability
     fields:
-      id: ^15F91$
-      source: ^Boss$
+      id: 15F91
+      source: Boss
 - kind: event
   at: 2.1
   name: Ability 90002 / Ability 90003
@@ -25,17 +41,17 @@ entries:
     log: Ability
     fields:
       id:
-      - ^15F92$
-      - ^15F93$
-      source: ^Helper$
+      - 15F92
+      - 15F93
+      source: Helper
 - kind: event
   at: 4.5
   name: Ability 90004
   sync:
     log: Ability
     fields:
-      id: ^15F94$
-      source: ^Boss$
+      id: 15F94
+      source: Boss
 - kind: abilityCatalog
   abilities:
   - id: 15F91

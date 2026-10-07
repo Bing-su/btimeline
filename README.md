@@ -9,6 +9,32 @@
 
 Runtime contracts for P4 grouping and wipe handling use [contracts](https://github.com/x52dev/contracts).
 
+Generated drafts include an `InCombat` entry sync. See [input-to-cactbot verification](docs/cactbot-e2e.md) for the consumer checks, fixes, and ACT capture assumptions.
+
+Converted cactbot timelines begin with the selected reset rows; both use `window 0,1000000 jump 0`.
+
+| Generation mode  | Scope                  | Reset rows                                     |
+| ---------------- | ---------------------- | ---------------------------------------------- |
+| `raid` (default) | Full fight             | Wipe (`ActorControl`, command `4000000F`)      |
+| `dungeon`        | Observed boss segments | Area clear (`SystemLogMessage`, id `7DE`) only |
+| `alliance`       | Same as `dungeon`      | Wipe and area clear                            |
+
+Example: `btimeline generate logs/example --mode alliance -o draft.yaml`. Hand-written YAML can select the same resets with `resetOn`:
+
+| `resetOn`           | Reset behavior                                  |
+| ------------------- | ----------------------------------------------- |
+| Omitted or `[wipe]` | Wipe only (default; raid drafts omit the field) |
+| `[areaClear]`       | Area clear only (dungeon drafts)                |
+| `[wipe, areaClear]` | Wipe and area clear (alliance drafts)           |
+| `[]`                | No automatic reset                              |
+
+| Multiple boss sections (`dungeon` / `alliance`) | Behavior                                                                                                           |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Timeline clock                                  | Separate ranges on a 1000-second grid, with room for observed duration and lookahead                               |
+| Entry sync                                      | First safe cast in each section has a window reaching back to zero, so it can select its boss after area clear     |
+| Evidence                                        | `bossSections` records offsets and entry indices; `bossSectionChecks` audits all raw training casts after rebasing |
+| Overlapping bosses                              | Share one section; existing single-section P7/P8 clocks remain unchanged                                           |
+
 ## Multi-pull alignment (P4)
 
 `btimeline align FILE FILE [FILE ...]` prints pairwise boss-anchor segments, ordered signal slots, repeated-anchor candidates, divergent paths, and wipe-censored suffixes as JSON. See [P4 alignment results](docs/p4-alignment.md).

@@ -3,7 +3,17 @@ use std::fmt::Write as _;
 use anyhow::Result;
 use itertools::Itertools;
 
-use super::{Ability, Destination, Entry, FieldPattern, Jump, JumpWhen, Sync, Timeline};
+use super::{
+    Ability,
+    Destination,
+    Entry,
+    FieldPattern,
+    Jump,
+    JumpWhen,
+    ResetEvent,
+    Sync,
+    Timeline,
+};
 
 fn number(value: f64) -> String {
     if value.fract() == 0.0 {
@@ -84,6 +94,19 @@ fn ability_line(out: &mut String, ability: &Ability) -> Result<()> {
 impl Timeline {
     pub(super) fn render(&self) -> Result<String> {
         let mut out = String::new();
+        // Keep selected resets before timeline content, e.g. dungeon uses only the area-clear row.
+        if self.reset_on.contains(&ResetEvent::Wipe) {
+            writeln!(
+                out,
+                "0.0 \"--Reset--\" ActorControl {{ command: \"4000000F\" }} window 0,1000000 jump 0"
+            )?;
+        }
+        if self.reset_on.contains(&ResetEvent::AreaClear) {
+            writeln!(
+                out,
+                "0.0 \"--Reset--\" SystemLogMessage {{ id: \"7DE\" }} window 0,1000000 jump 0"
+            )?;
+        }
         for name in &self.hide_names {
             writeln!(out, "hideall {}", quote(name))?;
         }

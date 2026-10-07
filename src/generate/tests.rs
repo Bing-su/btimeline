@@ -13,6 +13,7 @@ use serde_json::{Value, json};
 
 use super::*;
 use crate::fflogs::model::{Ability, Event};
+use crate::timeline::{ResetEvent, Timeline};
 
 // Reuse collected-log fields for valid fixtures, e.g. omitted optional fields stay absent in JSON.
 fn cast_event(timestamp: i64, source: i64, ability: i64, kind: &str) -> Event {
@@ -78,9 +79,14 @@ fn repeat_log(code: &str, width: usize, kill: bool) -> Value {
 }
 
 #[rstest]
-#[case::single_cast(1)]
-#[case::boss_and_helper(2)]
-fn p8_conditional_repeat_preserves_rounds_exit_and_holdout(#[case] width: usize) {
+#[case::single_cast(1, GenerateMode::Raid)]
+#[case::boss_and_helper(2, GenerateMode::Raid)]
+#[case::alliance(2, GenerateMode::Alliance)]
+#[case::dungeon(2, GenerateMode::Dungeon)]
+fn p8_conditional_repeat_preserves_rounds_exit_and_holdout(
+    #[case] width: usize,
+    #[case] mode: GenerateMode,
+) {
     let clear = repeat_log("clear", width, true);
     let wipe = repeat_log("wipe", width, false);
     let mut truncated = repeat_log("early-wipe", width, false);
@@ -92,7 +98,7 @@ fn p8_conditional_repeat_preserves_rounds_exit_and_holdout(#[case] width: usize)
     truncated["collection"]["endTime"] = json!(18000);
     with_logs(&[clear.clone(), wipe, truncated], |dir| {
         let yaml = dir.join("repeat.yaml");
-        generate(dir, &yaml, GenerateMode::Raid).unwrap();
+        generate(dir, &yaml, mode).unwrap();
         let report: Value =
             serde_json::from_slice(&fs::read(yaml.with_extension("report.json")).unwrap()).unwrap();
         assert_eq!(report["repeats"]["accepted"], true, "{}", report["repeats"]);
@@ -117,9 +123,18 @@ fn p8_conditional_repeat_preserves_rounds_exit_and_holdout(#[case] width: usize)
             }
         }
         let repeat_yaml = fs::read_to_string(&yaml).unwrap();
+        let timeline: Timeline = serde_saphyr::from_str(&repeat_yaml).unwrap();
+        assert_eq!(
+            timeline.reset_on.contains(&ResetEvent::AreaClear),
+            mode != GenerateMode::Raid
+        );
+        assert_eq!(
+            timeline.reset_on.contains(&ResetEvent::Wipe),
+            mode != GenerateMode::Dungeon
+        );
         let (same_yaml, same_report) = multi::build(
             input::select_group(dir, None, None, None).unwrap(),
-            GenerateMode::Raid,
+            mode,
             30.0,
         )
         .unwrap();
@@ -583,8 +598,13 @@ fn p7_branch_wipe_does_not_create_an_empty_path(#[case] end: i64) {
     );
 }
 
-#[test]
-fn p7_phase_window_uses_corrected_clock_and_rejects_out_of_sample_arrival() {
+#[rstest]
+#[case::raid(GenerateMode::Raid)]
+#[case::alliance(GenerateMode::Alliance)]
+#[case::dungeon(GenerateMode::Dungeon)]
+fn p7_phase_window_uses_corrected_clock_and_rejects_out_of_sample_arrival(
+    #[case] mode: GenerateMode,
+) {
     let a = [
         (1000, 10, 90001, "cast"),
         (5000, 10, 90002, "cast"),
@@ -602,10 +622,20 @@ fn p7_phase_window_uses_corrected_clock_and_rejects_out_of_sample_arrival() {
         ],
         |dir| {
             let yaml = dir.join("phase.yaml");
-            generate(dir, &yaml, GenerateMode::Raid).unwrap();
+            generate(dir, &yaml, mode).unwrap();
+            let timeline: Timeline =
+                serde_saphyr::from_str(&fs::read_to_string(&yaml).unwrap()).unwrap();
+            assert_eq!(
+                timeline.reset_on.contains(&ResetEvent::AreaClear),
+                mode != GenerateMode::Raid
+            );
+            assert_eq!(
+                timeline.reset_on.contains(&ResetEvent::Wipe),
+                mode != GenerateMode::Dungeon
+            );
             let entries = draft_events(&fs::read_to_string(&yaml).unwrap());
             assert_eq!(entries[1]["at"], 10.5);
-            assert_eq!(entries[1]["sync"]["window"], json!([5.0, 5.0]));
+            assert_eq!(entries[1]["sync"]["window"], json!([5.0, 5.1]));
             assert_eq!(entries[1]["jump"]["when"], "sync");
             let report: Value =
                 serde_json::from_slice(&fs::read(yaml.with_extension("report.json")).unwrap())
@@ -919,7 +949,7 @@ fn replay_observed_successor_keeps_interior_missing_until_jump_skips_it(
         // An explicit branch skips the missing helper, e.g. A jumps directly to the observed C.
         let mut timeline: Value =
             serde_saphyr::from_str(&fs::read_to_string(&yaml).unwrap()).unwrap();
-        timeline["entries"][1]["jump"] = serde_json::to_value(crate::timeline::Jump {
+        timeline["entries"][2]["jump"] = serde_json::to_value(crate::timeline::Jump {
             to: crate::timeline::Destination::Time(0.4),
             when: crate::timeline::JumpWhen::Sync,
         })
@@ -975,8 +1005,12 @@ fn replay_multi_pull_sync_and_disabled_rows_use_original_indices() {
     });
 }
 
-#[test]
-fn replay_dungeon_holdout_uses_mode_filtered_correspondence_and_all_raw_signals() {
+#[rstest]
+#[case::dungeon(GenerateMode::Dungeon)]
+#[case::alliance(GenerateMode::Alliance)]
+fn replay_boss_mode_holdout_uses_filtered_correspondence_and_all_raw_signals(
+    #[case] mode: GenerateMode,
+) {
     let rows = [
         (500, 11, 90003, "cast"),
         (1000, 10, 90001, "cast"),
@@ -1001,7 +1035,7 @@ fn replay_dungeon_holdout_uses_mode_filtered_correspondence_and_all_raw_signals(
                 .unwrap();
             }
             let yaml = dir.join("dungeon.yaml");
-            generate(&train, &yaml, GenerateMode::Dungeon).unwrap();
+            generate(&train, &yaml, mode).unwrap();
             let output = dir.join("dungeon.replay.json");
             replay::replay_file(&yaml, dir.join("fight_2.json"), &output, None).unwrap();
             let result: Value = serde_json::from_slice(&fs::read(output).unwrap()).unwrap();
@@ -1039,9 +1073,35 @@ fn draft_events(yaml: &str) -> Vec<Value> {
         .as_array()
         .unwrap()
         .iter()
-        .filter(|e| e["kind"] == "event")
+        .filter(|e| e["kind"] == "event" && e["sync"]["log"] != "InCombat")
         .cloned()
         .collect()
+}
+
+// Exercise the consumer's stopped state, e.g. a 16s opening needs a separate combat-start sync.
+#[test]
+fn generated_draft_declares_combat_start_and_embedded_field_patterns() {
+    with_file(&sample(), |input| {
+        let output = input.with_extension("yaml");
+        generate(input, &output, GenerateMode::Raid).unwrap();
+        let yaml = fs::read_to_string(&output).unwrap();
+        let timeline: Value = serde_saphyr::from_str(&yaml).unwrap();
+        assert_eq!(timeline["entries"][0]["at"], 0.0);
+        assert_eq!(timeline["entries"][0]["sync"]["log"], "InCombat");
+        assert_eq!(
+            timeline["entries"][0]["sync"]["fields"]["inGameCombat"],
+            "1"
+        );
+        assert_eq!(timeline["entries"][0]["sync"]["window"], json!([0.0, 1.0]));
+        let text = crate::timeline::convert(&yaml).unwrap();
+        assert!(text.contains("0.0 \"--sync--\" InCombat { inGameCombat: \"1\" } window 0,1"));
+        assert!(text.contains("Ability { id: \"15F91\", source: \"Boss\" }"));
+        let replay_output = input.with_extension("replay.json");
+        replay::replay_file(&output, input, &replay_output, None).unwrap();
+        let report: Value = serde_json::from_slice(&fs::read(replay_output).unwrap()).unwrap();
+        assert_eq!(report["pulls"][0]["replay"]["combatStartEntry"], 0);
+        assert_eq!(report["pulls"][0]["replay"]["summary"]["matches"], 2);
+    });
 }
 
 fn snapshot_draft(name: &str, yaml: &str, report: &Value, input: &Path) {
@@ -1089,10 +1149,7 @@ fn multi_draft_merges_isolated_alternatives_and_keeps_block_timing_provenance() 
         assert_eq!(events[0]["at"], 1.5);
         assert_eq!(events[1]["at"], 2.1);
         assert_eq!(events[2]["at"], 4.5);
-        assert_eq!(
-            events[1]["sync"]["fields"]["id"],
-            json!(["^15F92$", "^15F93$"])
-        );
+        assert_eq!(events[1]["sync"]["fields"]["id"], json!(["15F92", "15F93"]));
         assert_eq!(
             report["slots"][1]["time"],
             json!({"medianMs":600.5,"minMs":500,"maxMs":701,"sampleCount":2})
@@ -1360,8 +1417,10 @@ fn multi_sync_checks_alternative_ids_against_excluded_raw_casts() {
     });
 }
 
-#[test]
-fn multi_dungeon_keeps_helper_only_inside_boss_spans() {
+#[rstest]
+#[case::dungeon(GenerateMode::Dungeon)]
+#[case::alliance(GenerateMode::Alliance)]
+fn multi_boss_mode_keeps_helper_only_inside_boss_spans(#[case] mode: GenerateMode) {
     let rows = [
         (100, 11, 90002, "cast"),
         (1000, 10, 90001, "cast"),
@@ -1377,11 +1436,23 @@ fn multi_dungeon_keeps_helper_only_inside_boss_spans() {
         |path| {
             let (yaml, report) = multi::build(
                 input::select_group(path, None, None, None).unwrap(),
-                GenerateMode::Dungeon,
+                mode,
                 30.0,
             )
             .unwrap();
             assert_eq!(draft_events(&yaml).len(), 3);
+            assert_eq!(
+                crate::timeline::convert(&yaml)
+                    .unwrap()
+                    .contains("ActorControl"),
+                mode != GenerateMode::Dungeon
+            );
+            assert_eq!(
+                crate::timeline::convert(&yaml)
+                    .unwrap()
+                    .contains("SystemLogMessage { id: \"7DE\" }"),
+                mode != GenerateMode::Raid
+            );
             assert_eq!(report["inputs"][0]["bossSegments"][0]["startMs"], 1000);
             assert_eq!(
                 report["inputs"][0]["occurrences"].as_array().unwrap().len(),
@@ -1503,7 +1574,7 @@ fn boss_block_entries_use_observed_medians_without_accumulating_interval_medians
                 .iter()
                 .map(|e| e["at"].as_f64().unwrap())
                 .collect::<Vec<_>>(),
-            [2.0, 6.0, 60.6]
+            [2.0, 6.0, 60.7]
         );
         assert_eq!(report["alignmentSlots"][1]["time"]["medianMs"], 4000.0);
         assert_eq!(report["alignmentBlocks"][2]["time"]["medianMs"], 8000.0);
@@ -1761,7 +1832,8 @@ fn single_draft_uses_loaded_source_and_validates_before_serialization() {
         fs::remove_file(path).unwrap();
         let draft = draft::build_single(&source, GenerateMode::Raid).unwrap();
         assert_eq!(
-            draft_events(&draft::serialize_draft(draft.entries).unwrap()).len(),
+            draft_events(&draft::serialize_draft(draft.entries, vec![ResetEvent::Wipe]).unwrap())
+                .len(),
             2
         );
 
@@ -1916,7 +1988,7 @@ fn wipe_on_an_early_branch_preserves_later_common_rows_without_matching_a_later_
         assert!(
             events
                 .iter()
-                .any(|e| e["at"] == 5.0 && e["sync"]["fields"]["id"] == "^15F94$")
+                .any(|e| e["at"] == 5.0 && e["sync"]["fields"]["id"] == "15F94")
         );
         let common = report["slots"]
             .as_array()
@@ -2178,13 +2250,13 @@ fn generates_deterministic_draft_and_disables_excluded_cast_collision() {
             .as_array()
             .unwrap()
             .iter()
-            .filter(|entry| entry["kind"] == "event")
+            .filter(|entry| entry["kind"] == "event" && entry["sync"]["log"] != "InCombat")
             .collect();
         assert_eq!(events.len(), 2);
         assert_eq!(events[0]["at"], json!(0.2));
         assert_eq!(
             events[0]["sync"]["fields"]["source"],
-            json!(r"^Helper \(A\)\+$")
+            json!(r"Helper \(A\)\+")
         );
         assert_eq!(events[0]["sync"]["enabled"], json!(false));
         assert_eq!(events[1]["at"], json!(0.5));
@@ -2259,7 +2331,7 @@ fn sync_conflicts_use_the_displayed_rounded_time() {
             .as_array()
             .unwrap()
             .iter()
-            .filter(|entry| entry["kind"] == "event")
+            .filter(|entry| entry["kind"] == "event" && entry["sync"]["log"] != "InCombat")
             .collect();
         assert_eq!(events[0]["at"], json!(5.1));
         assert_eq!(events[0]["sync"]["enabled"], false);
@@ -2314,18 +2386,21 @@ fn dungeon_keeps_mechanics_inside_boss_segments() {
     }
     with_file(&without_boss, |input| {
         let output = input.with_extension("no-boss.yaml");
-        assert!(
-            generate(input, &output, GenerateMode::Dungeon)
-                .unwrap_err()
-                .to_string()
-                .contains("No observed boss segment")
-        );
-        assert!(!output.exists());
+        for mode in [GenerateMode::Dungeon, GenerateMode::Alliance] {
+            assert!(
+                generate(input, &output, mode)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("No observed boss segment")
+            );
+            assert!(!output.exists());
+        }
     });
     with_file(&data, |input| {
         for (mode, expected) in [
             (GenerateMode::Raid, vec![0, 1, 2, 4, 5, 6, 8]),
             (GenerateMode::Dungeon, vec![1, 2, 5, 6]),
+            (GenerateMode::Alliance, vec![1, 2, 5, 6]),
         ] {
             let output = input.with_extension(if mode == GenerateMode::Dungeon {
                 "dungeon.yaml"
@@ -2333,6 +2408,19 @@ fn dungeon_keeps_mechanics_inside_boss_segments() {
                 "raid.yaml"
             });
             generate(input, &output, mode).unwrap();
+            let yaml = fs::read_to_string(&output).unwrap();
+            assert_eq!(
+                crate::timeline::convert(&yaml)
+                    .unwrap()
+                    .contains("SystemLogMessage { id: \"7DE\" }"),
+                mode != GenerateMode::Raid
+            );
+            assert_eq!(
+                crate::timeline::convert(&yaml)
+                    .unwrap()
+                    .contains("ActorControl"),
+                mode != GenerateMode::Dungeon
+            );
             let report: Value =
                 serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
                     .unwrap();
@@ -2353,5 +2441,108 @@ fn dungeon_keeps_mechanics_inside_boss_segments() {
                 fs::remove_file(path).unwrap();
             }
         }
+    });
+}
+
+// Section entries must survive a consumer reset, e.g. boss 2 can start from clock zero after 7DE.
+#[rstest]
+#[case::single_dungeon(GenerateMode::Dungeon, false, false)]
+#[case::multi_alliance(GenerateMode::Alliance, true, false)]
+#[case::omitted_first_boss(GenerateMode::Dungeon, false, true)]
+fn boss_sections_have_separate_clocks_and_wide_entries(
+    #[case] mode: GenerateMode,
+    #[case] multi: bool,
+    #[case] omit_first: bool,
+) {
+    let mut log = sample();
+    log["report"]["endTime"] = json!(9000);
+    log["report"]["fights"][0]["endTime"] = json!(9000);
+    log["collection"]["endTime"] = json!(9000);
+    log["report"]["masterData"]["abilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"gameID":90002,"name":"Later Move","type":"1"}));
+    log["report"]["masterData"]["actors"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"id":12,"name":"Second Boss","gameID":99903,"type":"NPC","subType":"Boss"}));
+    log["report"]["fights"][0]["enemyNPCs"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"id":12,"gameID":99903}));
+    log["events"] = json!([
+        {"timestamp":2000,"type":"cast","sourceID":10,"abilityGameID":90001,"fight":2},
+        {"timestamp":4000,"type":"cast","sourceID":10,"abilityGameID":90002,"fight":2},
+        {"timestamp":6000,"type":"cast","sourceID":12,"abilityGameID":90001,"fight":2},
+        {"timestamp":8000,"type":"cast","sourceID":12,"abilityGameID":90002,"fight":2}
+    ]);
+    log["collection"]["eventCount"] = json!(4);
+    if omit_first {
+        for event in log["events"].as_array_mut().unwrap().iter_mut().take(2) {
+            event["melee"] = json!(true);
+        }
+    }
+    let mut peer = log.clone();
+    peer["report"]["code"] = json!("peer");
+    peer["collection"]["reportCode"] = json!("peer");
+    let logs = if multi { vec![log, peer] } else { vec![log] };
+    with_logs(&logs, |dir| {
+        let output = dir.join("sections.yaml");
+        generate(dir, &output, mode).unwrap();
+        let yaml = fs::read_to_string(&output).unwrap();
+        let events = draft_events(&yaml);
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        for (slot, event) in report["slots"].as_array().unwrap().iter().zip(&events) {
+            if let Some(at) = slot.get("atMs") {
+                assert_eq!(at.as_f64().unwrap(), event["at"].as_f64().unwrap() * 1000.0);
+            }
+        }
+        assert_eq!(
+            events
+                .iter()
+                .map(|event| event["at"].as_f64().unwrap())
+                .collect::<Vec<_>>(),
+            if omit_first {
+                vec![1000.0, 1002.0]
+            } else {
+                vec![1000.0, 1002.0, 2000.0, 2002.0]
+            }
+        );
+        assert_eq!(events[0]["sync"]["window"], json!([1000.0, 2.5]));
+        let opening = if omit_first { 0 } else { 2 };
+        let at = if omit_first { 1000.0 } else { 2000.0 };
+        assert_eq!(events[opening]["sync"]["window"], json!([at, 2.5]));
+        replay::replay_file(&output, dir, dir.join("sections.replay.json"), None).unwrap();
+        // The second entry remains active after zero reset, e.g. replay just its raw boss casts.
+        let source = load_one(&dir.join("fight_0.json")).unwrap();
+        let signals = replay::signals(&source.log)
+            .unwrap()
+            .into_iter()
+            .filter(|signal| signal.at_ms >= 5000)
+            .collect::<Vec<_>>();
+        let entry =
+            serde_json::from_value::<crate::timeline::Entry>(events[opening].clone()).unwrap();
+        let result = crate::timeline::replay::run(
+            &serde_saphyr::to_string(&Timeline {
+                schema_version: 1,
+                reset_on: vec![],
+                hide_names: vec![],
+                entries: vec![entry],
+            })
+            .unwrap(),
+            &signals[..1],
+            source.pull.end_ms,
+            &crate::timeline::replay::Evidence {
+                expected: BTreeMap::from([(0, BTreeSet::from([signals[0].index]))]),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(
+            result.passed,
+            "the second entry must be reachable from zero"
+        );
     });
 }

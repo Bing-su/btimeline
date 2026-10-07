@@ -92,7 +92,8 @@ fn place(entry: &mut Entry, slot: &mut Value, clocks: Vec<i64>) -> Result<i64> {
     let timing = statistics(clocks)?;
     let at = (timing.median_ms / 100.0).round() as i64 * 100;
     let before = (((at - timing.min_ms).max(0) + 99) / 100 * 100).max(2500);
-    let after = (((timing.max_ms - at).max(0) + 99) / 100 * 100).max(2500);
+    // Keep the latest observation strictly inside the window, e.g. +5s needs an upper edge at 5.1s.
+    let after = (((timing.max_ms - at).max(0) / 100 + 1) * 100).max(2500);
     let Entry::Event {
         at: entry_at,
         sync: Some(Sync::Network(sync)),
@@ -142,7 +143,7 @@ pub(super) fn fold_evidence(
             .entries
             .iter()
             .enumerate()
-            .filter(|(_, entry)| matches!(entry, Entry::Event { .. }))
+            .filter(|(_, entry)| matches!(entry, Entry::Event { .. }) && !entry.is_combat_start())
             .map(|(index, _)| index)
             .collect::<Vec<_>>()
     };
@@ -541,6 +542,9 @@ fn compile(
     let mut events = Vec::new();
     let mut other = Vec::new();
     for entry in timeline.entries {
+        if entry.is_combat_start() {
+            continue;
+        }
         if matches!(entry, Entry::Event { .. }) {
             events.push(entry);
         } else {
@@ -800,7 +804,7 @@ fn compile(
             .into_iter()
             .filter(|entry| matches!(entry, Entry::AbilityCatalog { .. })),
     );
-    let compiled_yaml = draft::serialize_draft(rows)?;
+    let compiled_yaml = draft::serialize_draft(rows, timeline.reset_on)?;
     let mut result = report.clone();
     for (index, slot) in compiled_slots.iter_mut().enumerate() {
         slot["id"] = index.into();

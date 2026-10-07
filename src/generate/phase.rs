@@ -92,12 +92,12 @@ struct Phase {
 }
 
 #[derive(Serialize)]
-struct ReplayCheck {
-    file: String,
-    passed: bool,
-    summary: crate::timeline::replay::Summary,
-    jumps: Vec<crate::timeline::replay::JumpTrace>,
-    previews: Vec<crate::timeline::replay::Preview>,
+pub(super) struct ReplayCheck {
+    pub file: String,
+    pub passed: bool,
+    pub summary: crate::timeline::replay::Summary,
+    pub jumps: Vec<crate::timeline::replay::JumpTrace>,
+    pub previews: Vec<crate::timeline::replay::Preview>,
 }
 
 // Preserve rejection diagnostics without accepted-only fields, e.g. branches are absent on failure.
@@ -315,7 +315,8 @@ impl<'a> Compiler<'a> {
         let at = (timing.median_ms / 100.0).round() as i64 * 100;
         // Round outward at SPEC precision, e.g. 51ms of drift requires a 0.1s window.
         let before = (((at - timing.min_ms).max(0) + 99) / 100 * 100).max(2500);
-        let after = (((timing.max_ms - at).max(0) + 99) / 100 * 100).max(2500);
+        // The consumer excludes the upper edge, e.g. an observation at +5s needs window after 5.1s.
+        let after = (((timing.max_ms - at).max(0) / 100 + 1) * 100).max(2500);
         let Entry::Event {
             at: entry_at,
             sync,
@@ -413,16 +414,11 @@ impl<'a> Compiler<'a> {
         let fields = BTreeMap::from([
             (
                 "id".into(),
-                field_pattern(ids.iter().map(|id| format!("^{id:X}$")).collect())?,
+                field_pattern(ids.iter().map(|id| format!("{id:X}")).collect())?,
             ),
             (
                 "source".into(),
-                field_pattern(
-                    names
-                        .iter()
-                        .map(|s| format!("^{}$", regress::escape(s)))
-                        .collect(),
-                )?,
+                field_pattern(names.iter().map(|s| regress::escape(s)).collect())?,
             ),
         ]);
         let times = statistics(samples.iter().map(|(_, s)| s.time_ms).collect())?;
@@ -526,7 +522,7 @@ impl<'a> Compiler<'a> {
             {
                 let at_ms = (*at * 1000.0).round() as i64;
                 let before = (((at_ms - envelope.min_ms).max(0) + 99) / 100 * 100).max(2500);
-                let after = (((envelope.max_ms - at_ms).max(0) + 99) / 100 * 100).max(2500);
+                let after = (((envelope.max_ms - at_ms).max(0) / 100 + 1) * 100).max(2500);
                 sync.window = Some([before as f64 / 1000.0, after as f64 / 1000.0]);
                 let slot = slot.as_mut().context("Missing selector slot")?;
                 slot.window_ms = Some([before, after]);
@@ -641,6 +637,9 @@ fn compile(
     let mut events = Vec::new();
     let mut other = Vec::new();
     for entry in timeline.entries {
+        if entry.is_combat_start() {
+            continue;
+        }
         if matches!(entry, Entry::Event { .. }) {
             events.push(entry);
         } else {
@@ -874,7 +873,7 @@ fn compile(
             .into_iter()
             .filter(|entry| matches!(entry, Entry::AbilityCatalog { .. })),
     );
-    let compiled_yaml = match draft::serialize_draft(entries) {
+    let compiled_yaml = match draft::serialize_draft(entries, timeline.reset_on) {
         Ok(yaml) => yaml,
         Err(error) => {
             let mut report = report;

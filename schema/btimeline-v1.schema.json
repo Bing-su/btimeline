@@ -570,6 +570,10 @@
       "required": ["regex"],
       "type": "object"
     },
+    "ResetEvent": {
+      "enum": ["wipe", "areaClear"],
+      "type": "string"
+    },
     "Sync": {
       "anyOf": [
         {
@@ -591,10 +595,18 @@
       "type": "array"
     },
     "hideNames": {
-      "default": [],
+      "default": ["--Reset--", "--sync--"],
       "items": {
         "pattern": "^[^\"\\r\\n]+$",
         "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "resetOn": {
+      "default": ["wipe"],
+      "items": {
+        "$ref": "#/$defs/ResetEvent"
       },
       "type": "array",
       "uniqueItems": true

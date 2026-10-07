@@ -47,6 +47,14 @@ entries:
 fn exported_schema_rejects_field_constraints() {
     use serde_json::json;
     let schema = generated_schema().expect("generated schema");
+    assert_eq!(
+        schema.pointer("/properties/resetOn/default"),
+        Some(&json!(["wipe"]))
+    );
+    assert_eq!(
+        schema.pointer("/properties/hideNames/default"),
+        Some(&json!(["--Reset--", "--sync--"]))
+    );
     let entry = |entry: Value| json!({"schemaVersion": 1, "entries": [entry]});
     jsonschema::validate(&schema, &entry(json!({"kind": "note", "text": "ok"}))).unwrap();
     for at in [0.1, 1.3, 145.1, 6553.5] {
@@ -60,6 +68,7 @@ fn exported_schema_rejects_field_constraints() {
         );
     }
     for invalid in [
+        json!({"schemaVersion": 1, "resetOn": ["wipe", "wipe"], "entries": []}),
         json!({"schemaVersion": 1, "hideNames": ["same", "same"], "entries": []}),
         entry(json!({"kind": "event", "at": 1.01, "name": "name"})),
         entry(json!({"kind": "event", "at": -1, "name": "name"})),
@@ -126,7 +135,59 @@ fn spec_render() {
     );
 }
 
+// Preserve hiding defaults and overrides across conversion and serialization, e.g. [] shows all rows.
+#[test]
+fn hide_names_defaults_and_overrides_round_trip() {
+    for (setting, expected) in [
+        ("", "hideall \"--Reset--\"\nhideall \"--sync--\"\n"),
+        (
+            "hideNames: [\"--Reset--\", \"--sync--\"]\n",
+            "hideall \"--Reset--\"\nhideall \"--sync--\"\n",
+        ),
+        ("hideNames: []\n", ""),
+        ("hideNames: [Hidden]\n", "hideall \"Hidden\"\n"),
+    ] {
+        let source = format!("schemaVersion: 1\nresetOn: []\n{setting}entries: []\n");
+        assert_eq!(convert(&source).unwrap(), expected);
+        let serialized = serde_saphyr::to_string(&parse(&source).unwrap()).unwrap();
+        assert_eq!(convert(&serialized).unwrap(), expected);
+    }
+}
+
+// Preserve lifecycle resets before directives, e.g. hideNames must not displace the first line.
+#[test]
+fn reset_lines_precede_timeline_content() {
+    let wipe = "0.0 \"--Reset--\" ActorControl { command: \"4000000F\" } window 0,1000000 jump 0\n";
+    let clear = "0.0 \"--Reset--\" SystemLogMessage { id: \"7DE\" } window 0,1000000 jump 0\n";
+    for (setting, expected) in [
+        ("", wipe.to_owned()),
+        ("resetOn: [wipe]\n", wipe.to_owned()),
+        ("resetOn: [wipe, areaClear]\n", format!("{wipe}{clear}")),
+        ("resetOn: [areaClear, wipe]\n", format!("{wipe}{clear}")),
+        ("resetOn: [areaClear]\n", clear.to_owned()),
+        ("resetOn: []\n", String::new()),
+    ] {
+        let source = format!("schemaVersion: 1\n{setting}hideNames: [Hidden]\nentries: []\n");
+        assert_eq!(
+            convert(&source).unwrap(),
+            format!("{expected}hideall \"Hidden\"\n")
+        );
+        // Preserve reset choices through serialization, e.g. [] cannot turn back into [wipe].
+        let timeline = parse(&source).unwrap();
+        let serialized = serde_saphyr::to_string(&timeline).unwrap();
+        assert_eq!(convert(&serialized).unwrap(), convert(&source).unwrap());
+        assert_eq!(
+            serialized.contains("resetOn:"),
+            timeline.reset_on != [ResetEvent::Wipe]
+        );
+    }
+}
+
 #[rstest]
+#[case::unknown_reset("schemaVersion: 1", "schemaVersion: 1\nresetOn: [unknown]")]
+#[case::duplicate_reset("schemaVersion: 1", "schemaVersion: 1\nresetOn: [wipe, wipe]")]
+#[case::null_reset("schemaVersion: 1", "schemaVersion: 1\nresetOn: null")]
+#[case::scalar_reset("schemaVersion: 1", "schemaVersion: 1\nresetOn: wipe")]
 #[case::version("schemaVersion: 1", "schemaVersion: 2")]
 #[case::duplicate_key("schemaVersion: 1", "schemaVersion: 1\nschemaVersion: 1")]
 #[case::unknown_field("name: repeat", "name: repeat\n    bogus: true")]
@@ -190,8 +251,7 @@ entries:
     name: Tick
 ");
         let rendered = convert(&source).expect("valid tenth must convert");
-        prop_assert_eq!(rendered, format!(r#"{seconds}.{tenth} "Tick"
-"#));
+        prop_assert_eq!(rendered.lines().last().unwrap(), format!(r#"{seconds}.{tenth} "Tick""#));
     }
 
     #[test]
