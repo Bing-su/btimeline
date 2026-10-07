@@ -8,8 +8,19 @@ use serde_json::Value;
 
 use super::alignment::{self, Signal, SignalKey};
 use super::report::{
-    Alignment, ConflictingEvent, MultiBlock, MultiConflict, MultiReport, MultiSlot, ObservedPath,
-    OmittedSignal, OutputCoverage, Sample, SensitivePair, TimeStatistics, Validation,
+    Alignment,
+    ConflictingEvent,
+    MultiBlock,
+    MultiConflict,
+    MultiReport,
+    MultiSlot,
+    ObservedPath,
+    OmittedSignal,
+    OutputCoverage,
+    Sample,
+    SensitivePair,
+    TimeStatistics,
+    Validation,
 };
 use super::{GenerateMode, Group, Pull, draft, input, load_one};
 use crate::fflogs::model::CollectedLog;
@@ -196,6 +207,184 @@ fn prepare(file: &str, mode: GenerateMode) -> Result<Input> {
     })
 }
 
+struct Consensus<'a> {
+    samples: Vec<(usize, &'a Signal)>,
+    censored: Vec<usize>,
+}
+
+// Require all observed pairs to agree, e.g. a repeated cast must occupy the same position in every pull.
+fn consensus_samples<'a>(
+    inputs: &'a [Input],
+    relations: &BTreeMap<(usize, usize), Correspondence>,
+    reference: usize,
+    event_index: usize,
+) -> Result<Option<Consensus<'a>>> {
+    let mut samples = Vec::new();
+    let mut censored = Vec::new();
+    let mut valid = true;
+    for (i, input) in inputs.iter().enumerate() {
+        let matched = if i == reference {
+            Some(event_index)
+        } else {
+            relations
+                .get(&(reference, i))
+                .and_then(|relation| relation.matched.get(&event_index))
+                .copied()
+        };
+        if let Some(index) = matched {
+            samples.push((
+                i,
+                input
+                    .signals
+                    .get(&index)
+                    .context("Missing aligned signal")?,
+            ));
+        } else if relations
+            .get(&(reference, i))
+            .is_some_and(|relation| relation.censored.contains(&event_index))
+        {
+            censored.push(i);
+        } else {
+            valid = false;
+        }
+    }
+    for &(a, left) in &samples {
+        let left_index = index(left)?;
+        for &missing in &censored {
+            if !relations
+                .get(&(a, missing))
+                .is_some_and(|relation| relation.censored.contains(&left_index))
+            {
+                valid = false;
+            }
+        }
+    }
+    for [&(a, left), &(b, right)] in samples.iter().array_combinations() {
+        let left_index = index(left)?;
+        let right_index = index(right)?;
+        if !relations
+            .get(&(a, b))
+            .is_some_and(|relation| relation.matched.get(&left_index) == Some(&right_index))
+        {
+            valid = false;
+        }
+    }
+    Ok(valid.then_some(Consensus { samples, censored }))
+}
+
+// Check raw casts before enabling the sync, e.g. an omitted helper can still activate a boss row.
+fn cast_sync<'a>(
+    inputs: &'a [Input],
+    samples: &[(usize, &Signal)],
+    ids: &BTreeSet<i64>,
+    sources: &BTreeSet<String>,
+    at: f64,
+    slot: usize,
+) -> Result<(NetworkSync, Option<MultiConflict<'a>>)> {
+    let mut fields = BTreeMap::new();
+    fields.insert(
+        "id".into(),
+        field_pattern(ids.iter().map(|id| format!("^{id:X}$")).collect())?,
+    );
+    let invalid_source = sources
+        .iter()
+        .any(|name| name.contains(['#', '"', '\r', '\n']));
+    if !invalid_source {
+        let patterns = sources
+            .iter()
+            .map(|source| format!("^{}$", regress::escape(source)))
+            .collect();
+        fields.insert("source".into(), field_pattern(patterns)?);
+    }
+    let mut collisions = Vec::new();
+    let mut outside_window = false;
+    for (i, input) in inputs.iter().enumerate() {
+        let sample = samples
+            .iter()
+            .find(|&&(position, _)| position == i)
+            .map(|&(_, sample)| sample);
+        let start = input
+            .log
+            .report
+            .fights
+            .first()
+            .context("Missing fight")?
+            .start_time;
+        let representative = sample.map(index).transpose()?;
+        outside_window |= sample.is_some_and(|s| (s.time_ms as f64 - at * 1000.0).abs() > 2500.0);
+        let observed_ms =
+            sample.map_or(at * 1000.0, |s| draft::rounded_seconds(s.time_ms) * 1000.0);
+        for (event_index, event) in input.log.events.iter().enumerate() {
+            let source_matches = event
+                .source_id
+                .and_then(|actor| input.actors.get(&actor))
+                .is_some_and(|name| sources.contains(name));
+            if event.kind == "cast"
+                && event.ability_game_id.is_some_and(|id| ids.contains(&id))
+                && source_matches
+                && Some(event_index) != representative
+                && ((event.timestamp - start) as f64 - at * 1000.0)
+                    .abs()
+                    .min(((event.timestamp - start) as f64 - observed_ms).abs())
+                    <= 2500.0
+            {
+                collisions.push(ConflictingEvent {
+                    file: &input.pull.file,
+                    event_index,
+                });
+            }
+        }
+    }
+    let reason = if invalid_source {
+        Some("source name cannot be rendered safely as a sync")
+    } else if !collisions.is_empty() {
+        Some("another cast matches within the default sync window")
+    } else if outside_window {
+        Some("observed cast falls outside the draft sync window")
+    } else {
+        None
+    };
+    Ok((
+        NetworkSync {
+            log: LogType::Ability,
+            fields,
+            enabled: reason.is_none(),
+            window: None,
+        },
+        reason.map(|reason| MultiConflict {
+            slot,
+            reason,
+            conflicting_events: collisions,
+        }),
+    ))
+}
+
+// Trace coverage to raw indices, e.g. collapsed instances all count as represented by one row.
+fn output_coverage<'a>(input: &'a Input, slots: &[MultiSlot<'_>]) -> OutputCoverage<'a> {
+    let file = &input.pull.file;
+    let mut represented = BTreeSet::new();
+    for slot in slots {
+        for sample in &slot.samples {
+            if sample.file == file {
+                represented.extend(sample.event_indices.iter().copied());
+            }
+        }
+    }
+    let omitted_events = input
+        .signals
+        .values()
+        .filter(|signal| signal.key.kind == "cast")
+        .flat_map(|signal| &signal.event_indices)
+        .filter(|&&index| !represented.contains(&index))
+        .copied()
+        .collect();
+    OutputCoverage {
+        file,
+        represented_event_indices: represented,
+        omitted_event_indices: omitted_events,
+    }
+}
+
 pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<(String, Value)> {
     let Group { key, mut pulls } = group;
     pulls.sort_by(|a, b| (&a.report, a.fight, &a.file).cmp(&(&b.report, b.fight, &b.file)));
@@ -268,58 +457,9 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
         .iter()
         .sorted_by_key(|(index, signal)| (signal.time_ms, **index))
     {
-        let mut samples = Vec::new();
-        let mut censored = Vec::new();
-        let mut valid = true;
-        for (i, input) in inputs.iter().enumerate() {
-            let matched = if i == reference {
-                Some(event_index)
-            } else {
-                relations
-                    .get(&(reference, i))
-                    .and_then(|r| r.matched.get(&event_index))
-                    .copied()
-            };
-            if let Some(index) = matched {
-                samples.push((
-                    i,
-                    input
-                        .signals
-                        .get(&index)
-                        .context("Missing aligned signal")?,
-                ));
-            } else if relations
-                .get(&(reference, i))
-                .is_some_and(|r| r.censored.contains(&event_index))
-            {
-                censored.push(i);
-            } else {
-                valid = false;
-            }
-        }
-        // Every observed pair must agree on the same occurrence, including repeat positions.
-        for &(a, left) in &samples {
-            let left_index = index(left)?;
-            for &missing in &censored {
-                if !relations
-                    .get(&(a, missing))
-                    .is_some_and(|r| r.censored.contains(&left_index))
-                {
-                    valid = false;
-                }
-            }
-        }
-        for [&(a, left), &(b, right)] in samples.iter().array_combinations() {
-            let left_index = index(left)?;
-            let right_index = index(right)?;
-            if !relations
-                .get(&(a, b))
-                .is_some_and(|r| r.matched.get(&left_index) == Some(&right_index))
-            {
-                valid = false;
-            }
-        }
-        if !valid {
+        let Some(Consensus { samples, censored }) =
+            consensus_samples(&inputs, &relations, reference, event_index)?
+        else {
             omitted.push(OmittedSignal {
                 file: Some(
                     &inputs
@@ -335,7 +475,7 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
                 time: None,
             });
             continue;
-        }
+        };
         if signal.key.kind != "cast" {
             continue;
         }
@@ -343,6 +483,7 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
         let mut source_refs = Vec::new();
         let mut ids = BTreeSet::new();
         let mut sources = BTreeSet::new();
+        let mut block_observed = true;
         for &(i, sample) in &samples {
             let input = inputs.get(i).context("Missing sample input")?;
             let entry_ms = match &anchor_indices {
@@ -355,7 +496,7 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
                 None => Some(0),
             };
             let Some(entry_ms) = entry_ms else {
-                valid = false;
+                block_observed = false;
                 continue;
             };
             relative_times.push(sample.time_ms - entry_ms);
@@ -385,7 +526,7 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
                 relative_ms: sample.time_ms - entry_ms,
             });
         }
-        if !valid {
+        if !block_observed {
             omitted.push(OmittedSignal {
                 file: None,
                 event_indices: &signal.event_indices,
@@ -424,86 +565,17 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
                     .context("Missing catalog name")
             })
             .process_results(|mut names| names.join(" / "))?;
-        let patterns: Vec<_> = ids.iter().map(|id| format!("^{id:X}$")).collect();
-        let mut fields = BTreeMap::new();
-        fields.insert("id".into(), field_pattern(patterns)?);
-        let invalid_source = sources
-            .iter()
-            .any(|name| name.contains(['#', '"', '\r', '\n']));
-        if !invalid_source {
-            let patterns: Vec<_> = sources
-                .iter()
-                .map(|source| format!("^{}$", regress::escape(source)))
-                .collect();
-            fields.insert("source".into(), field_pattern(patterns)?);
-        }
-        let mut collisions = Vec::new();
-        let mut outside_window = false;
-        for (i, input) in inputs.iter().enumerate() {
-            let sample = samples
-                .iter()
-                .find(|&&(position, _)| position == i)
-                .map(|&(_, sample)| sample);
-            let start = input
-                .log
-                .report
-                .fights
-                .first()
-                .context("Missing fight")?
-                .start_time;
-            let representative = sample.map(index).transpose()?;
-            outside_window |=
-                sample.is_some_and(|s| (s.time_ms as f64 - at * 1000.0).abs() > 2500.0);
-            let observed_ms =
-                sample.map_or(at * 1000.0, |s| draft::rounded_seconds(s.time_ms) * 1000.0);
-            for (j, event) in input.log.events.iter().enumerate() {
-                let source_matches = event
-                    .source_id
-                    .and_then(|actor| input.actors.get(&actor))
-                    .is_some_and(|name| sources.contains(name));
-                if event.kind == "cast"
-                    && event.ability_game_id.is_some_and(|id| ids.contains(&id))
-                    && source_matches
-                    && Some(j) != representative
-                    && ((event.timestamp - start) as f64 - at * 1000.0)
-                        .abs()
-                        .min(((event.timestamp - start) as f64 - observed_ms).abs())
-                        <= 2500.0
-                {
-                    collisions.push(ConflictingEvent {
-                        file: &input.pull.file,
-                        event_index: j,
-                    });
-                }
-            }
-        }
-        let reason = if invalid_source {
-            Some("source name cannot be rendered safely as a sync")
-        } else if !collisions.is_empty() {
-            Some("another cast matches within the default sync window")
-        } else if outside_window {
-            Some("observed cast falls outside the draft sync window")
-        } else {
-            None
-        };
-        if let Some(reason) = reason {
-            conflicts.push(MultiConflict {
-                slot: slots.len(),
-                reason,
-                conflicting_events: collisions,
-            });
+        let (sync, conflict) = cast_sync(&inputs, &samples, &ids, &sources, at, slots.len())?;
+        let reason = conflict.as_ref().map(|conflict| conflict.reason);
+        if let Some(conflict) = conflict {
+            conflicts.push(conflict);
         }
         entries.push(Entry::Event {
             at,
             name,
             duration: None,
             jump: None,
-            sync: Some(Sync::Network(NetworkSync {
-                log: LogType::Ability,
-                fields,
-                enabled: reason.is_none(),
-                window: None,
-            })),
+            sync: Some(Sync::Network(sync)),
             note: reason.map(|reason| {
                 format!(
                     "Sync disabled: {reason}; see slot {} in report",
@@ -563,30 +635,7 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
     });
     let output_coverage = inputs
         .iter()
-        .map(|input| {
-            let file = &input.pull.file;
-            let mut represented = BTreeSet::new();
-            for slot in &slots {
-                for sample in &slot.samples {
-                    if sample.file == file {
-                        represented.extend(sample.event_indices.iter().copied());
-                    }
-                }
-            }
-            let omitted_events = input
-                .signals
-                .values()
-                .filter(|s| s.key.kind == "cast")
-                .flat_map(|s| &s.event_indices)
-                .filter(|&&index| !represented.contains(&index))
-                .copied()
-                .collect_vec();
-            OutputCoverage {
-                file,
-                represented_event_indices: represented,
-                omitted_event_indices: omitted_events,
-            }
-        })
+        .map(|input| output_coverage(input, &slots))
         .collect();
     let yaml = draft::serialize_draft(entries)?;
     let report = serde_json::to_value(MultiReport {

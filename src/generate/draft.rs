@@ -10,10 +10,17 @@ use serde_json::Value;
 use usage::ValueEnum;
 
 use super::report::{
-    BossSegment, CollapsedCast, ReportInput, SingleBlock, SingleReport, SingleSlot, TimeStatistics,
+    BossSegment,
+    CollapsedCast,
+    ReportInput,
+    SingleBlock,
+    SingleReport,
+    SingleSlot,
+    TimeStatistics,
     Validation,
 };
 use super::{Occurrence, Source, input, load_one};
+use crate::fflogs::model::CollectedLog;
 use crate::timeline::{Ability, Entry, FieldPattern, LogType, NetworkSync, Sync, Timeline};
 
 const SCHEMA_HEADER: &str = "# yaml-language-server: $schema=https://raw.githubusercontent.com/Bing-su/btimeline/main/schema/btimeline-v1.schema.json\n";
@@ -125,6 +132,31 @@ pub(super) struct SingleDraft {
     pub report: Value,
 }
 
+// Include every boss interaction in the span, e.g. damage to a boss can precede its first cast.
+fn boss_spans(data: &CollectedLog, enemies: &BTreeSet<i64>) -> BTreeMap<i64, (i64, i64)> {
+    let boss_ids: BTreeSet<i64> = data
+        .report
+        .master_data
+        .actors
+        .iter()
+        .filter(|actor| actor.sub_type == "Boss" && enemies.contains(&actor.id))
+        .map(|actor| actor.id)
+        .collect();
+    let mut spans = BTreeMap::new();
+    for event in &data.events {
+        for id in [event.source_id, event.target_id].into_iter().flatten() {
+            if boss_ids.contains(&id) {
+                let span = spans
+                    .entry(id)
+                    .or_insert((event.timestamp, event.timestamp));
+                span.0 = span.0.min(event.timestamp);
+                span.1 = span.1.max(event.timestamp);
+            }
+        }
+    }
+    spans
+}
+
 // Validate each input before consensus can omit its rows, e.g. an invalid ability name still fails.
 pub(super) fn build_single(source: &Source, mode: GenerateMode) -> Result<SingleDraft> {
     let pull = &source.pull;
@@ -151,27 +183,7 @@ pub(super) fn build_single(source: &Source, mode: GenerateMode) -> Result<Single
         .map(|enemy| enemy.id)
         .chain(fight.enemy_players.iter().flatten().copied())
         .collect();
-    let boss_ids: BTreeSet<i64> = data
-        .report
-        .master_data
-        .actors
-        .iter()
-        .filter(|actor| actor.sub_type == "Boss" && enemies.contains(&actor.id))
-        .map(|actor| actor.id)
-        .collect();
-    let mut boss_spans = BTreeMap::<i64, (i64, i64)>::new();
-    // Record boss boundaries for the report and the optional output filter.
-    for event in &data.events {
-        for id in [event.source_id, event.target_id].into_iter().flatten() {
-            if boss_ids.contains(&id) {
-                let span = boss_spans
-                    .entry(id)
-                    .or_insert((event.timestamp, event.timestamp));
-                span.0 = span.0.min(event.timestamp);
-                span.1 = span.1.max(event.timestamp);
-            }
-        }
-    }
+    let boss_spans = boss_spans(data, &enemies);
     if mode == GenerateMode::Dungeon {
         ensure!(!boss_spans.is_empty(), "No observed boss segment");
     }
