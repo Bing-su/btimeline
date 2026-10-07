@@ -1,5 +1,5 @@
-amends "package://github.com/jdx/hk/releases/download/v2.1.0/hk@2.1.0#/Config.pkl"
-import "package://github.com/jdx/hk/releases/download/v2.1.0/hk@2.1.0#/Builtins.pkl"
+amends "package://github.com/jdx/hk/releases/download/v2.5.0/hk@2.5.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.5.0/hk@2.5.0#/Builtins.pkl"
 // Using a coding agent? See https://hk.jdx.dev/agents
 
 local linters = new Mapping {
@@ -11,7 +11,20 @@ local linters = new Mapping {
         types = List("json", "yaml", "markdown")
     }
     ["tombi-format"] = Builtins.tombi_format
-    ["cargo_fmt"] = Builtins.cargo_fmt
+    ["cargo_fmt"] = (Builtins.cargo_fmt) {
+        check = new CommandSpec {
+            command = "cargo +nightly fmt --check --manifest-path {{workspace_indicator}}"
+            effect = "read"
+        }
+        check_list_files = new CommandSpec {
+            command = "cargo +nightly fmt --check --manifest-path {{workspace_indicator}} -- --files-with-diff"
+            effect = "read"
+        }
+        fix = new CommandSpec {
+            command = "cargo +nightly fmt --manifest-path {{workspace_indicator}}"
+            effect = "write"
+        }
+    }
 }
 
 steps = linters
