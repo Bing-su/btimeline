@@ -619,7 +619,8 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
         ],
         validation: Validation::default(),
     })?;
-    super::phase::expand(yaml, report, &inputs, lookahead)
+    let (yaml, report) = super::phase::expand(yaml, report, &inputs, lookahead)?;
+    super::repeat::compress(yaml, report, &inputs, lookahead)
 }
 
 // Preserve scalar patterns for one value and arrays for alternatives, e.g. ^A$ versus [^A$, ^B$].

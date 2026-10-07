@@ -176,8 +176,12 @@ pub(super) fn evidence(
     report: &Value,
     key: &GroupKey,
     pull: &Pull,
+    log: &crate::fflogs::model::CollectedLog,
     peers: &BTreeMap<&str, &Pull>,
 ) -> Result<Evidence> {
+    if report.pointer("/repeats/accepted").and_then(Value::as_bool) == Some(true) {
+        return super::repeat::fold_evidence(yaml, report, key, pull, log, peers);
+    }
     let timeline: Value = serde_saphyr::from_str(yaml)?;
     let entries: Vec<_> = timeline
         .get("entries")
@@ -429,7 +433,14 @@ pub(crate) fn replay_file(
             .iter()
             .map(|(file, (pull, _))| (file.as_str(), pull))
             .collect();
-        let evidence = evidence(&yaml, &report, &source.key, &source.pull, &peer_pulls)?;
+        let evidence = evidence(
+            &yaml,
+            &report,
+            &source.key,
+            &source.pull,
+            &source.log,
+            &peer_pulls,
+        )?;
         let represented: BTreeSet<_> = evidence.expected.values().flatten().copied().collect();
         let replay = replay::run(&yaml, &signals, source.pull.end_ms, &evidence)?;
         pulls.push(ReplayPull {

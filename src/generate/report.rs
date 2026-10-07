@@ -582,6 +582,40 @@ fn render_multi(report: &Value) -> Result<String> {
             )?;
         }
     }
+    if let Some(repeats) = report.get("repeats") {
+        writeln!(out, "\n## 반복 압축\n\n| 항목 | 값 |\n| --- | --- |")?;
+        writeln!(out, "| 후보 채택 | {} |", repeats["accepted"])?;
+        writeln!(out, "| 독립 lookahead (ms) | {} |", repeats["lookaheadMs"])?;
+        writeln!(out, "| 실제 parser/runtime | 미실행 |")?;
+        writeln!(
+            out,
+            "\n| 원본 | 시작 위치 | 블록 길이 | 최대 회차 | 간격 min / max (ms) | 출구 offset min / max (ms) | 채택 | 이유 |\n| --- | ---: | ---: | ---: | --- | --- | --- | --- |"
+        )?;
+        for candidate in array_field(repeats, "candidates")? {
+            writeln!(
+                out,
+                "| {} | {} | {} | {} | {} / {} | {} / {} | {} | {} |",
+                cell(text_field(candidate, "referenceFile")?),
+                candidate["start"],
+                candidate["width"],
+                candidate["rounds"],
+                candidate.pointer("/period/minMs").unwrap_or(&Value::Null),
+                candidate.pointer("/period/maxMs").unwrap_or(&Value::Null),
+                candidate
+                    .pointer("/exitOffset/minMs")
+                    .unwrap_or(&Value::Null),
+                candidate
+                    .pointer("/exitOffset/maxMs")
+                    .unwrap_or(&Value::Null),
+                candidate["accepted"],
+                cell(text_field(candidate, "reason")?)
+            )?;
+        }
+        writeln!(
+            out,
+            "\n회차별 원본 index·역할·instance·시작/완료·targetability와 출구는 JSON의 `repeats.candidates`에 보존합니다. 채택한 후보의 원본 재생·jump·예고는 `repeats.checks`에 기록합니다. 근거가 부족한 후보는 유한 행을 유지합니다.\n"
+        )?;
+    }
     writeln!(out, "\n## 제한\n\n| 항목 | 값 |\n| --- | --- |")?;
     writeln!(
         out,

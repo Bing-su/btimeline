@@ -1,0 +1,103 @@
+# P8 조건부 반복 압축
+
+`btimeline generate LOG_DIRECTORY --lookahead 30 -o draft.yaml`의 다중 pull 경로에서 P7 다음에 반복 후보를 검사한다. 전투명·encounter·능력 ID의 사전 목록 없이 인접한 반복 블록을 탐색하며, 출구 근거와 독립 재생이 통과한 후보만 SPEC v1 label/sync jump로 압축한다. 단일 파일은 기존 직선 초안을 유지한다.
+
+## 생성 정책
+
+| 항목 | 정책 / 예시 |
+| --- | --- |
+| 후보 탐색 | 인접한 같은 actor game ID·능력 ID 순서의 최소 블록과 최대 관측 회차를 찾는다. 후보 발견은 압축 허가가 아니다. |
+| 관측 문맥 | 각 위치의 전체 SignalKey(역할·start/cast·동시 개수·instance 개수), 실제 instance 목록, 시작/완료 대응 여부, 정규화된 적 actor의 최신 targetability 상태를 비교한다. 동일 시각의 상태 변경은 원본 event 순서를 따르며 cast 이후 변경은 제외한다. 마지막 회차도 출구·종료까지의 시작/helper 신호를 이전 회차의 접두부와 비교한다. 출구 완료에 대응하는 시작 신호는 출구 문맥으로 구분한다. |
+| 위치 대응 | 모든 회차와 직후 출구가 방향 독립적인 그룹 대응을 가진 연속 출력 슬롯이어야 한다. 대응 불확실성·생략한 경로는 압축하지 않는다. |
+| 출구 근거 | 서로 다른 report 둘 이상에서 실제 출구 완료를 관측하고, 도달한 wipe와 clear가 모두 있어야 한다. kill/wipe 종료 자체는 출구 신호가 아니다. |
+| 판별 | 첫 반복 능력이 내부에 다시 나오거나 출구 ID가 내부와 같으면 유지한다. 실제 활성 sync의 안전성은 source까지 포함한 raw 재생으로 검사한다. |
+| 압축 이득 | event 행이 줄어드는 후보만 채택한다. 단일 cast 두 회차는 그대로 유지한다. |
+| 진입 | 첫 회차 A 완료가 `repeat-0`으로 sync jump한다. `A,B → A,B → A,B → E`는 초기 A와, 반복 내부 B·다음 A·출구 E로 출력한다. |
+| 계속·출구 | 다음 회차 A 완료가 같은 label로 돌아간다. E 완료는 `repeat-exit-0`으로 이동한다. 두 경로 모두 sync에만 반응하며 forcejump는 생성하지 않는다. |
+| 시간 | 이전 활성 sync 이후의 실제 간격으로 보정 시계의 median/min/max를 계산하고 0.1초로 최종 반올림한다. 관측 범위를 포함하도록 window를 바깥쪽으로 올림한다. 기본 ±2.5초는 최소 여유다. |
+| 출구 순서 | 출구가 다음 회차보다 빨리 올 수 있다. E +8초·A +10초라면 E를 먼저 배치하고 event와 근거 슬롯을 함께 정렬한다. |
+| 출구 부재 | 반복·출구 label 사이를 최대 관측 pull 길이 + lookahead + 여유보다 멀리 배치한다. 표본 범위 안에서 자연 시계 진행으로 후속 블록에 진입하지 않는다. |
+| 안전 검사 | 아군·melee·동시 instance 등 제외된 raw cast/begincast도 재생한다. 오매칭·모호함·잘못된 jump·의존성 위반·window 미검출·누락·미검증이 하나라도 있으면 원래 유한 초안을 반환한다. |
+| 범위 | 그룹당 독립 반복 하나를 채택한다. 최대 관측 회차를 늘리는 무한 반복 추론, 서로 다른 출구 회차 수, 중첩 반복, 기존 분기·페이즈 jump와의 합성은 유한 행으로 유지한다. 미평가 후보와 검사 후 거부한 후보를 구분한다. |
+| 종료 잘림 | 학습 wipe 접미부와 holdout의 시전 중 clear를 종료 이후 미관측으로 기록한다. 출력에 이미 대응할 수 없는 clear 접미부 때문에 그룹 합의가 깨지면 유한 행을 유지한다. |
+| 저장·결정성 | 기존 생성·validate·convert·신규 파일 저장 정책을 그대로 사용한다. 반복 후보가 없는 그룹의 출력은 유지한다. |
+
+## 근거와 재생
+
+| JSON 위치 | 의미 |
+| --- | --- |
+| `repeats.accepted`, `candidates[].evaluated/accepted/reason` | 최종 채택, 실제 검사 여부, 후보별 거부·미평가 이유 |
+| `candidates[].referenceFile/start/width/rounds` | 참조 원본과 cast 위치, 최소 블록 길이, 최대 관측 회차 |
+| `candidates[].roundEventIndices`, `exitEventIndices` | 참조 회차와 직후 신호의 실제 원본 index. 판별 불가한 후속도 출구 후보로만 기록한다. |
+| `candidates[].contexts`, `observations` | 비교한 문맥과 입력별 회차 진입 시각·종료·출구 index. 대응 단계에서 거부한 후보에는 없을 수 있다. |
+| `candidates[].period`, `exitOffset` | 회차 진입 간격과 마지막 진입→출구의 median/min/max/표본수 |
+| `slots[].repeatContext`, `samples` | 압축 위치의 문맥과 모든 회차의 원본 참조. body/continue sample의 상대 시각은 회차 진입을 기준으로 기록한다. |
+| `repeats.finiteYaml/finiteEvidence/slotMapping` | 압축 전의 유한 타임라인·대응 근거·원래 슬롯→압축 슬롯 매핑. 같은 반복 ID의 원본 회차를 합쳐 숨기지 않는다. |
+| `finiteBlocks`, `blocks` | 기존 관측 블록과 최종 반복·출구 블록을 구분한다. |
+| `repeats.checks`, `candidates[].checks` | 채택·재생 거부 후보의 파일별 원본 재생 집계, 실제 jump, jump 전/후 독립 lookahead 목록 |
+| `validation` | 채택한 후보는 train 재생을 기록한다. 초안 상태는 `draft`, parser/runtime은 false다. |
+
+`replay`는 보존한 유한 모델의 독립 대응 결과를 압축 슬롯으로 모아 평가한다. 어느 회차든 대응이 불확실하거나 누락되면 나머지 회차의 성공이나 출구 jump로 숨기지 않는다. 압축 슬롯당 여러 원본 event index를 유지하고, holdout에서 instance·시작/완료·targetability 문맥이 달라지면 실패한다. 문맥과 대응 근거는 활성 sync를 선택하는 데 사용하지 않는다.
+
+## 검증 범위
+
+| 검사 | 확인한 범위 |
+| --- | --- |
+| 두 신규 encounter 합성 사례 | 단일 cast 3회와 boss/helper 블록 3회 각각에 clear·wipe 출구, 중간 wipe, 독립 holdout, 실제 계속·출구 jump, 회차·간격 통계, 결정성 검사 |
+| 출구 순서 | 출구가 계속 신호보다 먼저 배치될 때 슬롯 매핑과 재생 통과 |
+| 음성 사례 | 출구 부재, clear만 있는 입력, 다른 instance, targetability 변화, 제외된 melee 경쟁 신호에서 유한 행 유지·이유 보고 |
+| 종료 | 반복 중 holdout clear의 미래 회차·출구를 미관측으로 처리 |
+| holdout 문맥 | ID·시각이 같아도 instance가 달라지면 실패 종료·진단 파일 보존 |
+| 실제 parser/runtime·UI | 미실행. 독립 replay/lookahead 투영과 실제 cactbot 동작은 구분한다. |
+
+현재 실제 로그에서 압축이 거부되는 결과는 정책의 일부다. 실제 압축 성공을 주장하려면 동일 반복 위치·출구 완료를 clear와 wipe에서 확보하고 별도 holdout으로 검사해야 한다.
+
+## 2026-10-06 실행 근거
+
+| 검사 | 결과 |
+| --- | --- |
+| `cargo test` | 166개 통과. P8 합성 회귀 9개 포함 |
+| `cargo clippy --all-targets -- -D warnings` | 통과 |
+| `cargo fmt --check`, `git diff --check` | 통과 |
+| `cargo build --release` | 통과 |
+| `nu scripts/test_evaluate_replay.nu target/release/btimeline` | 통과 |
+| `nu scripts/test_freeze_evaluation_inputs.nu` | 통과 |
+| 고정 224개 입력 평가 | 최종 binary의 기본·중복 후보 제외 총 8개 그룹 train/holdout 통과. 종료 코드 0 |
+
+최종 평가 재현 명령은 다음과 같다. 기존 출력은 덮어쓰지 않으므로 재실행할 때 새 디렉터리를 사용한다.
+
+```sh
+nu scripts/evaluate_replay.nu docs/evaluation-inputs.csv target/p8-evaluation-final --binary target/release/btimeline
+```
+
+| 재현 근거 | 값 |
+| --- | --- |
+| manifest SHA-256 | `5c4b88f769925be4d83f1401ffb60e5e2a5686f1f73070538a6908e8633b02c3` |
+| 최종 binary SHA-256 | `5833857ded8576627ff585561647550e6e1c08b10f4c728a333b69dd5fb19618` |
+| 독립 lookahead | 30초 |
+
+| 기본 평가 | train / holdout | 반복 후보 | 압축 채택 | train / holdout match | 재생 |
+| --- | ---: | ---: | --- | ---: | --- |
+| Clyteum · 4551/10 | 12 / 3 | 13 | 없음 · 기존 P7 초안 유지 | 288 / 72 | 통과 |
+| Dancing Mad · 1085/100 | 40 / 10 | 46 | 없음 · 기존 P7 초안 유지 | 1160 / 272 | 통과 |
+| R12S · 104/101 | 36 / 9 | 18 | 없음 · 기존 유한 초안 유지 | 829 / 248 | 통과 |
+| R12S · 105/101 | 91 / 23 | 8 | 없음 · 기존 유한 초안 유지 | 1792 / 545 | 통과 |
+
+실제 후보는 방향 독립적인 회차·출구 대응 부족, 내부와 구분되지 않는 출구 등으로 거부됐다. 이 결과는 관측한 회귀 입력의 안전성 검사이며 실제 반복 압축 성공이나 무한 반복·전체 기믹 복원에 대한 근거가 아니다. 상세 원본·행별 결과는 `target/p8-evaluation-final`의 생성 및 재생 report에 보존한다.
+
+## 2026-10-07 검토 보완
+
+| 회귀 사례 | 보완 결과 |
+| --- | --- |
+| 3회 학습 후 1·2회에서 조기 출구 | jump로 건너뛴 압축 행도 원래 회차의 누락으로 실패하고 진단 파일을 저장한다. |
+| cast와 동일 시각의 targetability 변경 | 원본 순서상 cast 이전 변경은 반영하고 이후 변경은 제외한다. 두 순서 모두 검사한다. |
+| 회차별 추가 helper 시작 | 첫·중간·마지막 회차와 마지막 body 이후의 추가 신호를 거부한다. 종료 잘림은 접두부로 허용한다. |
+| 출구의 paired 시작 | 반복 body와 구분하며 정상 출구 압축·재생을 유지한다. |
+| `cargo test` | 175개 통과. 이번 보완 회귀 9개 포함 |
+| Clippy·format·diff 검사 | 통과 |
+| release 빌드·평가 스크립트 회귀·고정 입력 검사 | 통과 |
+| 고정 224개 입력 재평가 | 기본·중복 후보 제외 8개 그룹 모두 train/holdout 통과. 종료 코드 0 |
+
+보완 binary SHA-256은 `ed5a10007356aac4ca8f07c5f431af331d132e9908bee173136924f3305a9a4d`다. 앞의 2026-10-06 평가와 binary 해시는 당시 실행 근거다. 실제 parser/runtime·UI 검증은 미실행이다.
+
+재평가 산출물은 `target/p8-review-fixes-20261007/evaluation.json`과 `evaluation.md` 및 그룹별 생성·재생 report에 보존한다.

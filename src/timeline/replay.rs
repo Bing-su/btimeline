@@ -18,6 +18,8 @@ pub(crate) struct Evidence {
     pub expected: BTreeMap<usize, BTreeSet<usize>>,
     pub censored: BTreeSet<usize>,
     pub missing: BTreeSet<usize>,
+    // Preserve mandatory finite evidence, e.g. an exit jump cannot hide missing repeat rounds.
+    pub required_missing: BTreeSet<usize>,
     pub inactive: BTreeSet<usize>,
     pub lookahead_ms: Option<i64>,
 }
@@ -607,7 +609,10 @@ pub(crate) fn run(
         if row.status == "unsupportedSync" {
             continue;
         }
-        row.status = if !row.matches.is_empty() {
+        row.status = if evidence.required_missing.contains(&row.entry_index) {
+            summary.missing += 1;
+            "missingExpectedSignal"
+        } else if !row.matches.is_empty() {
             if row.matches.iter().all(|m| m.expected) {
                 "matched"
             } else {

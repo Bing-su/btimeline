@@ -6,12 +6,12 @@ use std::path::Path;
 
 use input::load_one;
 use path_slash::PathExt as _;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::fflogs::model::CollectedLog;
 
 // Align equivalent FFLogs segments; an encounter ID can identify one checkpoint segment of a battle.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct GroupKey {
     encounter: i64,
     difficulty: i64,
@@ -90,6 +90,7 @@ mod alignment;
 mod draft;
 mod multi;
 mod phase;
+mod repeat;
 pub(crate) mod replay;
 mod report;
 pub use alignment::align;

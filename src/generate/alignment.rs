@@ -4,12 +4,12 @@ use std::path::Path;
 use anyhow::{Context, Result, ensure};
 use contracts::{debug_ensures, ensures};
 use itertools::Itertools;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use similar::{Algorithm, DiffTag, capture_diff_slices};
 
 use super::{GroupKey, Pull, inspect};
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct SignalKey {
     pub actor_game_id: i64,

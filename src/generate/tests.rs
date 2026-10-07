@@ -61,6 +61,352 @@ fn multi_log(code: &str, rows: &[(i64, i64, i64, &str)], end: i64, kill: bool) -
     data
 }
 
+// Three observed rounds make a real saving, e.g. A,B repeated becomes entry A plus B/continue A.
+fn repeat_log(code: &str, width: usize, kill: bool) -> Value {
+    let mut rows = vec![(1000, 10, 91000, "cast")];
+    for round in 0..3 {
+        rows.push((5000 + round * 10000, 10, 91001, "cast"));
+        if width == 2 {
+            rows.push((8000 + round * 10000, 11, 91002, "cast"));
+        }
+    }
+    rows.extend([(38000, 10, 91003, "cast"), (42000, 10, 91004, "cast")]);
+    let mut log = multi_log(code, &rows, 45000, kill);
+    log["report"]["fights"][0]["encounterID"] = json!(99000 + width);
+    log["report"]["fights"][0]["name"] = json!(format!("Unknown Repeat {width}"));
+    log
+}
+
+#[rstest]
+#[case::single_cast(1)]
+#[case::boss_and_helper(2)]
+fn p8_conditional_repeat_preserves_rounds_exit_and_holdout(#[case] width: usize) {
+    let clear = repeat_log("clear", width, true);
+    let wipe = repeat_log("wipe", width, false);
+    let mut truncated = repeat_log("early-wipe", width, false);
+    let count = if width == 2 { 4 } else { 3 };
+    truncated["events"].as_array_mut().unwrap().truncate(count);
+    truncated["collection"]["eventCount"] = json!(count);
+    truncated["report"]["endTime"] = json!(18000);
+    truncated["report"]["fights"][0]["endTime"] = json!(18000);
+    truncated["collection"]["endTime"] = json!(18000);
+    with_logs(&[clear.clone(), wipe, truncated], |dir| {
+        let yaml = dir.join("repeat.yaml");
+        generate(dir, &yaml, GenerateMode::Raid).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(yaml.with_extension("report.json")).unwrap()).unwrap();
+        assert_eq!(report["repeats"]["accepted"], true, "{}", report["repeats"]);
+        assert_eq!(report["validation"]["replay"], true);
+        assert_eq!(report["validation"]["runtime"], false);
+        assert_eq!(report["slots"].as_array().unwrap().len(), width + 4);
+        assert_eq!(
+            report["repeats"]["candidates"][0]["period"]["medianMs"],
+            10000.0
+        );
+        assert_eq!(
+            report["repeats"]["candidates"][0]["exitOffset"]["medianMs"],
+            13000.0
+        );
+        for check in report["repeats"]["checks"].as_array().unwrap() {
+            assert_eq!(check["passed"], true);
+            if check["file"].as_str().unwrap().ends_with("2.json") {
+                assert!(check["summary"]["censored"].as_u64().unwrap() > 0);
+            } else {
+                assert_eq!(check["summary"]["matches"], width * 3 + 3);
+                assert_eq!(check["jumps"].as_array().unwrap().len(), 4);
+            }
+        }
+        let repeat_yaml = fs::read_to_string(&yaml).unwrap();
+        let (same_yaml, same_report) = multi::build(
+            input::select_group(dir, None, None, None).unwrap(),
+            GenerateMode::Raid,
+            30.0,
+        )
+        .unwrap();
+        assert_eq!(same_yaml, repeat_yaml);
+        assert_eq!(same_report, report);
+        let holdout = dir.join("holdout.json");
+        fs::write(
+            &holdout,
+            serde_json::to_vec(&repeat_log("holdout", width, true)).unwrap(),
+        )
+        .unwrap();
+        let output = dir.join("holdout.replay.json");
+        replay::replay_file(&yaml, &holdout, &output, None).unwrap();
+        let result: Value = serde_json::from_slice(&fs::read(output).unwrap()).unwrap();
+        assert_eq!(result["pulls"][0]["unrepresentedEventIndices"], json!([]));
+        assert_eq!(
+            result["pulls"][0]["replay"]["summary"]["matches"],
+            width * 3 + 3
+        );
+        // A clear during the second round truncates future repeats and exit rather than inventing them.
+        let mut early = repeat_log("early-holdout", width, true);
+        early["events"].as_array_mut().unwrap().truncate(count);
+        early["collection"]["eventCount"] = json!(count);
+        early["report"]["endTime"] = json!(18000);
+        early["report"]["fights"][0]["endTime"] = json!(18000);
+        early["collection"]["endTime"] = json!(18000);
+        fs::write(&holdout, serde_json::to_vec(&early).unwrap()).unwrap();
+        replay::replay_file(&yaml, &holdout, dir.join("early.replay.json"), None).unwrap();
+        // Replaying a changed helper instance must fail even when IDs and timing remain identical.
+        let mut changed = repeat_log("changed", width, true);
+        changed["events"][2]["sourceInstance"] = json!(99);
+        fs::write(&holdout, serde_json::to_vec(&changed).unwrap()).unwrap();
+        assert!(
+            replay::replay_file(&yaml, &holdout, dir.join("changed.replay.json"), None).is_err()
+        );
+    });
+}
+
+#[test]
+fn p8_exit_before_continuation_keeps_sorted_slot_evidence() {
+    let mut clear = repeat_log("clear", 2, true);
+    let mut wipe = repeat_log("wipe", 2, false);
+    for log in [&mut clear, &mut wipe] {
+        log["events"][7]["timestamp"] = json!(34000);
+    }
+    with_logs(&[clear, wipe], |dir| {
+        let (yaml, report) = multi::build(
+            input::select_group(dir, None, None, None).unwrap(),
+            GenerateMode::Raid,
+            30.0,
+        )
+        .unwrap();
+        assert_eq!(report["repeats"]["accepted"], true, "{}", report["repeats"]);
+        let events = draft_events(&yaml);
+        let exit = events
+            .iter()
+            .position(|event| event["jump"]["to"] == "repeat-exit-0")
+            .unwrap();
+        let continuation = events
+            .iter()
+            .rposition(|event| event["jump"]["to"] == "repeat-0")
+            .unwrap();
+        assert!(exit < continuation);
+        assert_eq!(report["slots"][exit]["abilityIds"], json!([91003]));
+        assert_eq!(report["slots"][continuation]["abilityIds"], json!([91001]));
+        for check in report["repeats"]["checks"].as_array().unwrap() {
+            assert_eq!(check["passed"], true);
+        }
+    });
+}
+
+// Preserve finite failures across exit jumps, e.g. one observed round cannot stand in for three.
+#[rstest]
+#[case(1)]
+#[case(2)]
+fn p8_early_exit_cannot_hide_missing_rounds(#[case] rounds: usize) {
+    let mut clear = repeat_log("clear", 1, true);
+    let mut wipe = repeat_log("wipe", 1, false);
+    for log in [&mut clear, &mut wipe] {
+        log["events"][4]["timestamp"] = json!(34000);
+        log["events"][5]["timestamp"] = json!(38000);
+    }
+    with_logs(&[clear.clone(), wipe], |dir| {
+        let yaml = dir.join("repeat.yaml");
+        generate(dir, &yaml, GenerateMode::Raid).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(yaml.with_extension("report.json")).unwrap()).unwrap();
+        assert_eq!(report["repeats"]["accepted"], true);
+        let mut holdout = clear;
+        holdout["report"]["code"] = json!("holdout");
+        holdout["collection"]["reportCode"] = json!("holdout");
+        holdout["events"]
+            .as_array_mut()
+            .unwrap()
+            .drain(1 + rounds..4);
+        let exit = 1 + rounds;
+        let shift = (3 - rounds) * 10000;
+        holdout["events"][exit]["timestamp"] = json!(34000 - shift);
+        holdout["events"][exit + 1]["timestamp"] = json!(38000 - shift);
+        holdout["collection"]["eventCount"] = json!(holdout["events"].as_array().unwrap().len());
+        let input = dir.join("holdout.json");
+        fs::write(&input, serde_json::to_vec(&holdout).unwrap()).unwrap();
+        let output = dir.join("holdout.replay.json");
+        assert!(replay::replay_file(&yaml, &input, &output, None).is_err());
+        let result: Value = serde_json::from_slice(&fs::read(output).unwrap()).unwrap();
+        assert!(
+            result["pulls"][0]["replay"]["summary"]["missing"]
+                .as_u64()
+                .unwrap()
+                > 0
+        );
+    });
+}
+
+// Respect source order at equal timestamps, e.g. an update after A cannot change A's context.
+#[rstest]
+#[case::after_cast(false)]
+#[case::before_cast(true)]
+fn p8_holdout_targetability_uses_state_before_cast(#[case] update_before_cast: bool) {
+    let mut clear = repeat_log("clear", 2, true);
+    let mut wipe = repeat_log("wipe", 2, false);
+    for log in [&mut clear, &mut wipe] {
+        log["events"].as_array_mut().unwrap().push(json!({"timestamp":1000,"fight":2,"type":"targetabilityupdate","sourceID":10,"targetID":10,"targetable":1}));
+        log["collection"]["eventCount"] = json!(10);
+    }
+    with_logs(&[clear.clone(), wipe], |dir| {
+        let yaml = dir.join("repeat.yaml");
+        generate(dir, &yaml, GenerateMode::Raid).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(yaml.with_extension("report.json")).unwrap()).unwrap();
+        assert_eq!(report["repeats"]["accepted"], true);
+        let mut holdout = clear;
+        holdout["report"]["code"] = json!("holdout");
+        holdout["collection"]["reportCode"] = json!("holdout");
+        holdout["events"].as_array_mut().unwrap().extend([
+            json!({"timestamp":15999,"fight":2,"type":"targetabilityupdate","sourceID":10,"targetID":10,"targetable":0}),
+            json!({"timestamp":16000,"fight":2,"type":"targetabilityupdate","sourceID":10,"targetID":10,"targetable":1}),
+        ]);
+        if update_before_cast {
+            let events = holdout["events"].as_array_mut().unwrap();
+            let update = events.pop().unwrap();
+            events.insert(3, update);
+        }
+        holdout["collection"]["eventCount"] = json!(12);
+        let input = dir.join("holdout.json");
+        fs::write(&input, serde_json::to_vec(&holdout).unwrap()).unwrap();
+        let output = dir.join("holdout.replay.json");
+        assert_eq!(
+            replay::replay_file(&yaml, &input, &output, None).is_ok(),
+            update_before_cast
+        );
+        assert!(output.exists());
+    });
+}
+
+// Inspect the final body too, e.g. a new helper start between its A and B invalidates compression.
+#[rstest]
+#[case(0, 8000)]
+#[case(1, 8000)]
+#[case(2, 8000)]
+#[case(2, 10000)]
+fn p8_each_round_rejects_additional_helper_start(#[case] round: i64, #[case] at: i64) {
+    let clear = repeat_log("clear", 2, true);
+    let mut wipe = repeat_log("wipe", 2, false);
+    wipe["events"].as_array_mut().unwrap().push(json!({"timestamp":at + round * 10000,"fight":2,"type":"begincast","sourceID":11,"abilityGameID":91004}));
+    wipe["collection"]["eventCount"] = json!(10);
+    with_logs(&[clear, wipe], |dir| {
+        let (_, report) = multi::build(
+            input::select_group(dir, None, None, None).unwrap(),
+            GenerateMode::Raid,
+            30.0,
+        )
+        .unwrap();
+        assert_eq!(report["repeats"]["accepted"], false);
+        assert!(
+            report["repeats"]["candidates"][0]["reason"]
+                .as_str()
+                .unwrap()
+                .contains("order")
+        );
+    });
+}
+
+// Keep the exit's own start distinct, e.g. E begins after the final B and then completes normally.
+#[test]
+fn p8_final_round_allows_paired_exit_start() {
+    let mut clear = repeat_log("clear", 2, true);
+    let mut wipe = repeat_log("wipe", 2, false);
+    for log in [&mut clear, &mut wipe] {
+        log["events"].as_array_mut().unwrap().push(json!({"timestamp":36000,"fight":2,"type":"begincast","sourceID":10,"abilityGameID":91003}));
+        log["collection"]["eventCount"] = json!(10);
+    }
+    with_logs(&[clear, wipe], |dir| {
+        let (_, report) = multi::build(
+            input::select_group(dir, None, None, None).unwrap(),
+            GenerateMode::Raid,
+            30.0,
+        )
+        .unwrap();
+        assert_eq!(report["repeats"]["accepted"], true, "{}", report["repeats"]);
+    });
+}
+
+#[test]
+fn p8_disabled_suffix_diagnostic_uses_compressed_slot() {
+    let mut clear = repeat_log("clear", 2, true);
+    let mut wipe = repeat_log("wipe", 2, false);
+    for log in [&mut clear, &mut wipe] {
+        log["events"].as_array_mut().unwrap().push(json!({"timestamp":42900,"fight":2,"type":"cast","sourceID":10,"abilityGameID":91004,"melee":true}));
+        log["collection"]["eventCount"] = json!(10);
+    }
+    with_logs(&[clear, wipe], |dir| {
+        let (yaml, report) = multi::build(
+            input::select_group(dir, None, None, None).unwrap(),
+            GenerateMode::Raid,
+            30.0,
+        )
+        .unwrap();
+        assert_eq!(report["repeats"]["accepted"], true, "{}", report["repeats"]);
+        let events = draft_events(&yaml);
+        let suffix = events.len() - 1;
+        assert_eq!(report["syncConflicts"][0]["slot"], suffix);
+        assert!(
+            events.last().unwrap()["note"]
+                .as_str()
+                .unwrap()
+                .contains(&format!("see slot {suffix}"))
+        );
+        assert_eq!(events.last().unwrap()["sync"]["enabled"], false);
+    });
+}
+
+#[rstest]
+#[case::no_exit("exit")]
+#[case::only_clears("clears")]
+#[case::changed_instance("instance")]
+#[case::changed_targetability("targetability")]
+#[case::raw_competitor("competitor")]
+fn p8_rejected_repeat_keeps_finite_rows_and_reports_reason(#[case] scenario: &str) {
+    let mut a = repeat_log("a", 2, true);
+    let mut b = repeat_log("b", 2, false);
+    match scenario {
+        "exit" => {
+            for log in [&mut a, &mut b] {
+                log["events"].as_array_mut().unwrap().truncate(7);
+                log["collection"]["eventCount"] = json!(7);
+            }
+        }
+        "clears" => b["report"]["fights"][0]["kill"] = true.into(),
+        "instance" => b["events"][4]["sourceInstance"] = json!(2),
+        "targetability" => {
+            b["events"].as_array_mut().unwrap().push(json!({"timestamp":20000,"fight":2,"type":"targetabilityupdate","sourceID":10,"targetID":10,"targetable":0}));
+            b["collection"]["eventCount"] = json!(10);
+        }
+        "competitor" => {
+            // An excluded melee cast still competes with the active repeat selector in raw replay.
+            b["events"].as_array_mut().unwrap().push(json!({"timestamp":15900,"fight":2,"type":"cast","sourceID":10,"abilityGameID":91001,"melee":true}));
+            b["collection"]["eventCount"] = json!(10);
+        }
+        _ => assert!(scenario.is_empty(), "unknown repeat scenario"),
+    }
+    with_logs(&[a, b], |dir| {
+        let (yaml, report) = multi::build(
+            input::select_group(dir, None, None, None).unwrap(),
+            GenerateMode::Raid,
+            30.0,
+        )
+        .unwrap();
+        assert_eq!(
+            report["repeats"]["accepted"], false,
+            "{}",
+            report["repeats"]
+        );
+        assert!(
+            !report["repeats"]["candidates"][0]["reason"]
+                .as_str()
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            draft_events(&yaml)
+                .iter()
+                .all(|entry| entry.get("jump").is_none())
+        );
+    });
+}
+
 #[rstest]
 #[case::first_path(90002, 90005)]
 #[case::second_path(90003, 90006)]

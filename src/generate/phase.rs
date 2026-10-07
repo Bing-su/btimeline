@@ -147,7 +147,7 @@ fn common_prefix(paths: &Paths<'_>) -> usize {
 }
 
 // Check JSON evidence objects before updates, e.g. a slot must never become a scalar silently.
-fn put(field: impl Serialize, value: &mut Value, key: &str) -> Result<()> {
+pub(super) fn put(field: impl Serialize, value: &mut Value, key: &str) -> Result<()> {
     value
         .as_object_mut()
         .context("Expected evidence object")?
@@ -176,7 +176,7 @@ fn time(entry: &Entry) -> f64 {
     }
 }
 
-fn sample_index(slot: &Value, file: &str) -> Option<usize> {
+pub(super) fn sample_index(slot: &Value, file: &str) -> Option<usize> {
     slot["samples"]
         .as_array()?
         .iter()
@@ -956,6 +956,7 @@ fn compile(
             &compiled_report,
             &group,
             &input.pull,
+            &input.log,
             &peers,
         )?;
         let result = crate::timeline::replay::run(
