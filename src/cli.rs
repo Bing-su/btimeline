@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, ensure};
 use camino::Utf8PathBuf;
 use usage::{Args, Cli, Run, Subcommands};
 
@@ -17,6 +17,8 @@ pub enum MainCommands {
     InspectInputs(InspectInputsCommand),
     Align(AlignCommand),
     Generate(GenerateCommand),
+    /// Generate a YAML draft, validate it, and replay its input logs, e.g. prepare logs/fight -o out/fight.yaml.
+    Prepare(PrepareCommand),
     ReportMarkdown(ReportMarkdownCommand),
     Replay(ReplayCommand),
 }
@@ -142,6 +144,46 @@ impl Run for GenerateCommand {
             self.difficulty,
             self.lookahead,
         )
+    }
+}
+
+#[derive(Args)]
+pub struct PrepareCommand {
+    #[usage(flatten)]
+    generate: GenerateCommand,
+    /// Also convert the validated draft to sibling cactbot text, e.g. out/fight.txt (default: false).
+    #[usage(long)]
+    convert: bool,
+}
+impl Run for PrepareCommand {
+    type Output = Result<()>;
+
+    fn run(self) -> Self::Output {
+        let timeline = self.generate.output.clone();
+        let input = self.generate.input.clone();
+        let replay = timeline.with_extension("replay.json");
+        let text = timeline.with_extension("txt");
+        // Check later outputs before generation, e.g. an existing replay must not leave a new draft.
+        for path in [&replay, &replay.with_extension("md")] {
+            ensure!(!path.exists(), "Output already exists: {path}");
+        }
+        if self.convert {
+            ensure!(
+                timeline != text,
+                "YAML and text outputs must differ; use -o draft.yaml"
+            );
+            ensure!(!text.exists(), "Output already exists: {text}");
+        }
+        self.generate.run()?;
+        crate::timeline::validate_file(&timeline)?;
+        crate::generate::replay::replay_file(&timeline, input, &replay, None)?;
+        if self.convert {
+            crate::timeline::convert_file(&timeline, text)?;
+        }
+        tracing::info!(
+            "[Prepare] YAML validation and input replay passed; cactbot parser/runtime not checked"
+        );
+        Ok(())
     }
 }
 

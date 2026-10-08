@@ -1067,6 +1067,159 @@ fn with_logs(logs: &[Value], check: impl FnOnce(&Path)) {
     check(directory.path());
 }
 
+// Exercise CLI parsing and execution together, e.g. prepare must forward group selection to generation.
+fn prepare(input: &Path, output: &Path, options: &[&str]) -> anyhow::Result<()> {
+    use std::ffi::OsStr;
+
+    use usage::Run;
+
+    let mut args = vec![
+        OsStr::new("prepare"),
+        input.as_os_str(),
+        OsStr::new("-o"),
+        output.as_os_str(),
+    ];
+    args.extend(options.iter().map(OsStr::new));
+    crate::cli::MainCli::parse_from(&args)
+        .map_err(|error| anyhow::anyhow!("{error:?}"))?
+        .command
+        .run()
+}
+
+#[rstest]
+#[case::single_default(None, false, false)]
+#[case::multiple_raid(Some("raid"), true, false)]
+#[case::multiple_dungeon(Some("dungeon"), true, false)]
+#[case::multiple_alliance(Some("alliance"), true, false)]
+#[case::single_converted(None, false, true)]
+#[case::multiple_converted(Some("alliance"), true, true)]
+fn prepare_generates_validated_yaml_and_replay_reports(
+    #[case] mode: Option<&str>,
+    #[case] multiple: bool,
+    #[case] convert: bool,
+) {
+    let a = multi_log("a", &[(1000, 10, 90001, "cast")], 5000, true);
+    let b = multi_log("b", &[(1100, 10, 90001, "cast")], 5000, false);
+    let mut unrelated = multi_log("other", &[(1000, 10, 90001, "cast")], 5000, true);
+    unrelated["report"]["fights"][0]["encounterID"] = json!(10000);
+    with_logs(&[a, b, unrelated], |dir| {
+        let input = if multiple {
+            dir.to_path_buf()
+        } else {
+            dir.join("fight_0.json")
+        };
+        let output = dir.join("out/draft.yaml");
+        let mut options = vec![
+            "--name",
+            "Unseen Fight",
+            "--encounter",
+            "9999",
+            "--difficulty",
+            "9",
+            "--lookahead",
+            "45",
+        ];
+        if let Some(mode) = mode {
+            options.extend(["--mode", mode]);
+        }
+        if convert {
+            options.push("--convert");
+        }
+        prepare(&input, &output, &options).unwrap();
+        crate::timeline::validate_file(&output).unwrap();
+        let timeline: Timeline =
+            serde_saphyr::from_str(&fs::read_to_string(&output).unwrap()).unwrap();
+        assert_eq!(
+            timeline.reset_on,
+            match mode {
+                Some("dungeon") => vec![ResetEvent::AreaClear],
+                Some("alliance") => vec![ResetEvent::Wipe, ResetEvent::AreaClear],
+                _ => vec![ResetEvent::Wipe],
+            }
+        );
+        for extension in ["report.json", "report.md", "replay.json", "replay.md"] {
+            assert!(output.with_extension(extension).exists());
+        }
+        let result: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("replay.json")).unwrap())
+                .unwrap();
+        assert_eq!(result["status"], "internally_validated");
+        assert_eq!(result["validation"]["replay"], true);
+        assert_eq!(result["validation"]["runtime"], false);
+        assert_eq!(
+            result["pulls"].as_array().unwrap().len(),
+            if multiple { 2 } else { 1 }
+        );
+        let text = output.with_extension("txt");
+        if convert {
+            assert_eq!(
+                fs::read_to_string(text).unwrap(),
+                crate::timeline::convert(&fs::read_to_string(&output).unwrap()).unwrap()
+            );
+        } else {
+            assert!(!text.exists());
+        }
+    });
+}
+
+#[test]
+fn prepare_preserves_existing_outputs_before_generating() {
+    for extension in [
+        "yaml",
+        "report.json",
+        "report.md",
+        "replay.json",
+        "replay.md",
+    ] {
+        with_file(&sample(), |input| {
+            let output = input.with_file_name("draft.yaml");
+            let existing = output.with_extension(extension);
+            fs::write(&existing, "previous").unwrap();
+            assert!(prepare(input, &output, &[]).is_err());
+            assert_eq!(fs::read_to_string(&existing).unwrap(), "previous");
+            assert_eq!(fs::read_dir(input.parent().unwrap()).unwrap().count(), 2);
+        });
+    }
+}
+
+#[rstest]
+#[case::default(false)]
+#[case::convert(true)]
+fn prepare_preserves_existing_text(#[case] convert: bool) {
+    with_file(&sample(), |input| {
+        let output = input.with_file_name("draft.yaml");
+        let text = output.with_extension("txt");
+        fs::write(&text, "previous").unwrap();
+        let result = prepare(input, &output, if convert { &["--convert"] } else { &[] });
+        assert_eq!(result.is_err(), convert);
+        assert_eq!(output.exists(), !convert);
+        assert_eq!(fs::read_to_string(&text).unwrap(), "previous");
+        if convert {
+            assert_eq!(fs::read_dir(input.parent().unwrap()).unwrap().count(), 2);
+        }
+    });
+}
+
+#[test]
+fn prepare_rejects_colliding_yaml_and_text_paths() {
+    with_file(&sample(), |input| {
+        let output = input.with_file_name("draft.txt");
+        assert!(prepare(input, &output, &["--convert"]).is_err());
+        assert_eq!(fs::read_dir(input.parent().unwrap()).unwrap().count(), 1);
+    });
+}
+
+#[test]
+fn prepare_rejects_invalid_input_without_outputs() {
+    let mut invalid = sample();
+    invalid["collection"]["complete"] = json!(false);
+    with_file(&invalid, |input| {
+        let output = input.with_file_name("draft.yaml");
+        assert!(prepare(input, &output, &[]).is_err());
+        assert_eq!(fs::read_dir(input.parent().unwrap()).unwrap().count(), 1);
+    });
+}
+
 fn draft_events(yaml: &str) -> Vec<Value> {
     let timeline: Value = serde_saphyr::from_str(yaml).unwrap();
     timeline["entries"]

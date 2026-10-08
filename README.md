@@ -1,5 +1,26 @@
 # btimeline
 
+## Generate and validate a draft
+
+`prepare` runs `generate`, YAML schema/semantic validation, and raw-log replay in order. It accepts the same options as `generate`, including group selection and generation mode. The boolean `--convert` flag defaults to false; add it to convert to cactbot text after validation and replay succeed.
+
+```sh
+btimeline prepare logs/example --mode raid -o out/example.yaml
+btimeline prepare logs/example --mode raid --convert -o out/example.yaml
+btimeline prepare logs/example --name "Example Fight" --encounter 105 --difficulty 101 -o out/selected.yaml
+```
+
+| Output                | Purpose                        |
+| --------------------- | ------------------------------ |
+| `example.yaml`        | Editable timeline draft        |
+| `example.report.json` | Detailed generation evidence   |
+| `example.report.md`   | Readable generation report     |
+| `example.replay.json` | Detailed input replay results  |
+| `example.replay.md`   | Readable input replay report   |
+| `example.txt`         | Cactbot text, with `--convert` |
+
+Use a new output name for each run; existing outputs are not overwritten. With `--convert`, the YAML output must differ from the sibling `.txt` path, and existing text is checked before generation. Keep outputs outside the input log directory. A replay failure returns an error and retains the draft and diagnostic reports for inspection. Successful input replay checks the logs used to generate the draft; it does not establish holdout or cactbot runtime compatibility. The separate `convert` command remains available for edited drafts.
+
 ## Verification
 
 | Check                    | Command              | Toolchain                                                                                        |
