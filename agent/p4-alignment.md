@@ -27,7 +27,7 @@ btimeline align logs/clyteum/AVxmgdNytFPBwLRH_31.json logs/clyteum/BTxgcVRnWMpDr
 | Dancing Mad · `4cnjwGdZq9PbKVMN_1` / `_2`               |              2 |            0 |                   0 |              1 | 아니오    |
 | R12S · `4kz6WLqPGAJ2p8xg_1` / `_10`                     |             33 |            9 |                  17 |              0 | 예        |
 
-세 Clyteum pull의 모든 세 쌍을 출력하고 CLI 입력 순서를 역전한 JSON이 바이트 단위로 같음을 확인했다. 합성 테스트는 대안 시작/완료 순서와 공통 후속, 반복 회차, wipe 접미부, 교차된 동시 instance를 검사한다. wipe 접미부 사후조건은 `contracts`가 항상 검사하고 신호·정렬 개수 조건은 debug 빌드에서 검사한다. cast 시작점의 최신 대응은 `cargo verus verify`로 증명한다.
+세 Clyteum pull의 모든 세 쌍을 출력하고 CLI 입력 순서를 역전한 JSON이 바이트 단위로 같음을 확인했다. 합성 테스트는 대안 시작/완료 순서와 공통 후속, 반복 회차, wipe 접미부, 교차된 동시 instance를 검사한다. wipe 접미부 사후조건은 `contracts`가 항상 검사하고 신호·정렬 개수 조건은 debug 빌드에서 검사한다. cast 시작점의 마지막 일치 항목 선택과 나머지 목록 보존은 `cargo test generate::pairing::tests`의 경계값·속성 테스트로 검사한다. 로그 입력 테스트는 취소, instance 분리, 중복 완료, 같은 시각의 원본 순서를 검사한다.
 
 ## 다음 단계에 전달하는 한계
 

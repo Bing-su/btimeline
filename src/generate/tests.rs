@@ -2444,6 +2444,97 @@ fn canceled_start_stays_unfinished_after_same_ability_restarts() {
     });
 }
 
+// Keep cancellation local to one identity, e.g. restarting instance 1 must not discard instance 2.
+#[rstest]
+#[case::unknown_instance(None)]
+#[case::known_instance(Some(1))]
+fn cast_pairing_keeps_interleaved_identities_and_consumes_starts_once(
+    #[case] instance: Option<i64>,
+) {
+    let mut data = multi_log(
+        "interleaved",
+        &[
+            (100, 10, 90001, "begincast"),
+            (110, 10, 90001, "begincast"),
+            (120, 11, 90001, "begincast"),
+            (130, 10, 90002, "begincast"),
+            (140, 10, 90001, "begincast"),
+            (150, 10, 90001, "cast"),
+            (160, 11, 90001, "cast"),
+            (170, 10, 90002, "cast"),
+            (180, 10, 90001, "cast"),
+            (190, 10, 90001, "cast"),
+        ],
+        1000,
+        true,
+    );
+    for (event, instance) in data["events"].as_array_mut().unwrap().iter_mut().zip([
+        instance,
+        Some(2),
+        instance,
+        instance,
+        instance,
+        Some(2),
+        instance,
+        instance,
+        instance,
+        instance,
+    ]) {
+        event["sourceInstance"] = json!(instance);
+    }
+    with_file(&data, |path| {
+        let groups = inspect(&[path]).unwrap();
+        let rows = &groups[0].pulls[0].occurrences;
+        assert_eq!(rows.len(), 10);
+        assert_eq!(rows[0].completion_event_index, None);
+        assert_eq!(rows[9].start_event_index, None);
+        assert_eq!(rows[9].start_timestamp_ms, None);
+        for (start, completion) in [(1, 5), (2, 6), (3, 7), (4, 8)] {
+            assert_eq!(rows[start].completion_event_index, Some(completion));
+            assert_eq!(rows[completion].start_event_index, Some(start));
+            assert_eq!(
+                rows[completion].start_timestamp_ms,
+                Some(rows[start].timestamp_ms)
+            );
+        }
+    });
+}
+
+// Equal timestamps retain source order, e.g. a completion before its start must stay unpaired.
+#[rstest]
+#[case::start_first(false)]
+#[case::completion_first(true)]
+fn cast_pairing_respects_source_order_at_equal_timestamps(#[case] completion_first: bool) {
+    let mut data = multi_log(
+        "equal-time",
+        &[(100, 10, 90001, "begincast"), (100, 10, 90001, "cast")],
+        1000,
+        true,
+    );
+    if completion_first {
+        data["events"].as_array_mut().unwrap().reverse();
+    }
+    with_file(&data, |path| {
+        let groups = inspect(&[path]).unwrap();
+        let rows = &groups[0].pulls[0].occurrences;
+        assert_eq!(
+            rows.iter().map(|row| row.event_index).collect::<Vec<_>>(),
+            [0, 1]
+        );
+        assert_eq!(
+            rows[0].completion_event_index,
+            (!completion_first).then_some(1)
+        );
+        assert_eq!(rows[1].start_event_index, (!completion_first).then_some(0));
+        assert_eq!(
+            rows[1].start_timestamp_ms,
+            (!completion_first).then_some(1100)
+        );
+        assert_eq!(rows[0].start_event_index, None);
+        assert_eq!(rows[1].completion_event_index, None);
+    });
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(32))]
 
