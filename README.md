@@ -23,6 +23,12 @@ Use a new output name for each run; existing outputs are not overwritten. With `
 
 ## Verification
 
+Input loading, pairwise alignment, and independent pull replay use Rayon workers. Reports retain input order. Set `RAYON_NUM_THREADS` to limit CPU and memory use, for example:
+
+```sh
+RAYON_NUM_THREADS=4 btimeline prepare logs/example -o out/example.yaml
+```
+
 | Check                    | Command              | Toolchain                                                                                        |
 | ------------------------ | -------------------- | ------------------------------------------------------------------------------------------------ |
 | Cast start pairing proof | `cargo verus verify` | [Verus 0.2026.09.27.3cf1832](https://github.com/verus-lang/verus/releases), Rust 1.98.1 (stable) |

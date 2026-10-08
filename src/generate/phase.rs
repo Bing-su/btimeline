@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context, Result, ensure};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -948,30 +949,35 @@ fn compile(
         encounter: *key.get("encounter").context("Missing encounter")?,
         difficulty: *key.get("difficulty").context("Missing difficulty")?,
     };
-    let mut checks = Vec::new();
-    for input in inputs {
-        let evidence = replay::evidence(
-            &compiled_yaml,
-            &compiled_report,
-            &group,
-            &input.pull,
-            &input.log,
-            &peers,
-        )?;
-        let result = crate::timeline::replay::run(
-            &compiled_yaml,
-            &replay::signals(&input.log)?,
-            input.pull.end_ms,
-            &evidence,
-        )?;
-        checks.push(ReplayCheck {
-            file: input.pull.file.clone(),
-            passed: result.passed,
-            summary: result.summary,
-            jumps: result.jumps,
-            previews: result.previews,
-        });
-    }
+    // Audit independent pull clocks concurrently and retain the sorted input order in checks.
+    let checks = inputs
+        .par_iter()
+        .map(|input| {
+            let evidence = replay::evidence(
+                &compiled_yaml,
+                &compiled_report,
+                &group,
+                &input.pull,
+                &input.log,
+                &peers,
+            )?;
+            let result = crate::timeline::replay::run(
+                &compiled_yaml,
+                &replay::signals(&input.log)?,
+                input.pull.end_ms,
+                &evidence,
+            )?;
+            Ok::<_, anyhow::Error>(ReplayCheck {
+                file: input.pull.file.clone(),
+                passed: result.passed,
+                summary: result.summary,
+                jumps: result.jumps,
+                previews: result.previews,
+            })
+        })
+        .collect::<Vec<_>>()
+        .into_iter()
+        .collect::<Result<Vec<_>>>()?;
     if checks.iter().any(|check| !check.passed) {
         let mut report = report;
         put(

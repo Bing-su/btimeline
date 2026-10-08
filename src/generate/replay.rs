@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, ensure};
 use path_slash::PathBufExt as _;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -204,6 +205,12 @@ pub(super) fn evidence(
         "Replay input group differs from generation group"
     );
     let single = report.get("input").is_some();
+    // Resolve path aliases once per pull, e.g. relative and absolute names still share exact evidence.
+    let known_files: BTreeSet<_> = peers
+        .keys()
+        .copied()
+        .filter(|file| same_file(file, &pull.file))
+        .collect();
     let mut relations = BTreeMap::new();
     let mut result = Evidence::default();
     for (&entry, slot) in entries.iter().zip(slots) {
@@ -235,12 +242,12 @@ pub(super) fn evidence(
                     .get(file)
                     .copied()
                     .context("Sample file absent from generation inputs")?;
-                if !same_file(file, &pull.file) {
+                if !known_files.contains(file) {
                     relations.insert(file.to_owned(), multi::correspondence(peer, pull)?.0);
                 }
             }
             let peer = peers.get(file).copied().context("Missing evidence peer")?;
-            let known = same_file(file, &pull.file);
+            let known = known_files.contains(file);
             let relation = relations.get(file);
             let matched = if known {
                 Some(index)
@@ -264,7 +271,7 @@ pub(super) fn evidence(
         // Known training samples are exact evidence; other peers do not override their source index.
         let direct = samples
             .iter()
-            .find(|sample| same_file(&sample.file, &pull.file));
+            .find(|sample| known_files.contains(sample.file.as_str()));
         if let Some(sample) = direct {
             let index = *sample
                 .event_indices
@@ -338,42 +345,45 @@ fn load_peers(report: &Value) -> Result<BTreeMap<String, (Pull, String)>> {
             .iter()
             .collect()
     };
-    let mut peers = BTreeMap::new();
-    for item in inputs {
-        let input = &item["input"];
-        let file = input["file"]
-            .as_str()
-            .context("Missing generation input file")?;
-        let source = load_one(&PathBuf::from_slash(file))?;
-        if let Some(hash) = input.get("sha256") {
+    // Validate peer bytes concurrently, then retain input-order errors and duplicate-key behavior.
+    let loaded = inputs
+        .into_par_iter()
+        .map(|item| {
+            let input = &item["input"];
+            let file = input["file"]
+                .as_str()
+                .context("Missing generation input file")?;
+            let source = load_one(&PathBuf::from_slash(file))?;
+            if let Some(hash) = input.get("sha256") {
+                ensure!(
+                    hash == &source.sha256,
+                    "Generation input bytes changed: {file}"
+                );
+            }
+            let pull = source.pull;
             ensure!(
-                hash == &source.sha256,
-                "Generation input bytes changed: {file}"
+                report["group"] == serde_json::to_value(&source.key)?
+                    && input["report"] == pull.report
+                    && input["fight"] == pull.fight
+                    && input["revision"] == pull.revision
+                    && input["logVersion"] == pull.log_version
+                    && input["gameVersion"] == pull.game_version
+                    && item["endMs"] == pull.end_ms
+                    && item["kill"] == pull.kill
+                    && item["occurrences"] == serde_json::to_value(&pull.occurrences)?,
+                "Generation evidence changed or crosses groups: {file}"
             );
-        }
-        let pull = source.pull;
-        ensure!(
-            report["group"] == serde_json::to_value(&source.key)?
-                && input["report"] == pull.report
-                && input["fight"] == pull.fight
-                && input["revision"] == pull.revision
-                && input["logVersion"] == pull.log_version
-                && input["gameVersion"] == pull.game_version
-                && item["endMs"] == pull.end_ms
-                && item["kill"] == pull.kill
-                && item["occurrences"] == serde_json::to_value(&pull.occurrences)?,
-            "Generation evidence changed or crosses groups: {file}"
-        );
-        let mut pull = pull;
-        if matches!(
-            report.get("mode").and_then(Value::as_str),
-            Some("dungeon" | "alliance")
-        ) {
-            input::filter_boss_spans(&mut pull, item)?;
-        }
-        peers.insert(file.to_owned(), (pull, source.sha256));
-    }
-    Ok(peers)
+            let mut pull = pull;
+            if matches!(
+                report.get("mode").and_then(Value::as_str),
+                Some("dungeon" | "alliance")
+            ) {
+                input::filter_boss_spans(&mut pull, item)?;
+            }
+            Ok::<_, anyhow::Error>((file.to_owned(), (pull, source.sha256)))
+        })
+        .collect::<Vec<_>>();
+    loaded.into_iter().collect()
 }
 
 pub(crate) fn replay_file(
@@ -414,65 +424,71 @@ pub(crate) fn replay_file(
         ),
     )?;
     let peers = load_peers(&report)?;
-    let mut pulls = Vec::new();
-    for pull in &group.pulls {
-        let mut source = load_one(&PathBuf::from_slash(&pull.file))?;
-        if let Some((_, hash)) = peers
-            .values()
-            .find(|(peer, _)| same_file(&peer.file, &source.pull.file))
-        {
-            ensure!(
-                hash == &source.sha256,
-                "Replay input changed after evidence inspection"
-            );
-        }
-        let signals = signals(&source.log)?;
-        if matches!(
-            report.get("mode").and_then(Value::as_str),
-            Some("dungeon" | "alliance")
-        ) {
-            let draft = super::draft::build_single(&source, super::GenerateMode::Dungeon)?;
-            input::filter_boss_spans(&mut source.pull, &draft.report)?;
-        }
-        let peer_pulls = peers
-            .iter()
-            .map(|(file, (pull, _))| (file.as_str(), pull))
-            .collect();
-        let evidence = evidence(
-            &yaml,
-            &report,
-            &source.key,
-            &source.pull,
-            &source.log,
-            &peer_pulls,
-        )?;
-        let represented: BTreeSet<_> = evidence.expected.values().flatten().copied().collect();
-        let replay = replay::run(&yaml, &signals, source.pull.end_ms, &evidence)?;
-        pulls.push(ReplayPull {
-            file: &pull.file,
-            sha256: source.sha256,
-            report: &pull.report,
-            fight: pull.fight,
-            revision: pull.revision,
-            log_version: pull.log_version,
-            end_ms: pull.end_ms,
-            termination: if pull.kill { "kill" } else { "wipe" },
-            unrepresented_event_indices: source
-                .pull
-                .occurrences
-                .iter()
-                .filter(|row| row.kind == "cast" && !represented.contains(&row.event_index))
-                .map(|row| row.event_index)
-                .collect(),
-            unfinished_starts: pull
-                .occurrences
-                .iter()
-                .filter(|row| row.kind == "begincast" && row.completion_event_index.is_none())
-                .map(|row| row.event_index)
-                .collect(),
-            replay,
-        });
-    }
+    let peer_pulls = peers
+        .iter()
+        .map(|(file, (pull, _))| (file.as_str(), pull))
+        .collect();
+    // Each pull owns its clock; indexed collection preserves report order despite worker completion order.
+    let pulls = group
+        .pulls
+        .par_iter()
+        .map(|pull| {
+            let mut source = load_one(&PathBuf::from_slash(&pull.file))?;
+            if let Some((_, hash)) = peers
+                .values()
+                .find(|(peer, _)| same_file(&peer.file, &source.pull.file))
+            {
+                ensure!(
+                    hash == &source.sha256,
+                    "Replay input changed after evidence inspection"
+                );
+            }
+            let signals = signals(&source.log)?;
+            if matches!(
+                report.get("mode").and_then(Value::as_str),
+                Some("dungeon" | "alliance")
+            ) {
+                let draft = super::draft::build_single(&source, super::GenerateMode::Dungeon)?;
+                input::filter_boss_spans(&mut source.pull, &draft.report)?;
+            }
+            let evidence = evidence(
+                &yaml,
+                &report,
+                &source.key,
+                &source.pull,
+                &source.log,
+                &peer_pulls,
+            )?;
+            let represented: BTreeSet<_> = evidence.expected.values().flatten().copied().collect();
+            let replay = replay::run(&yaml, &signals, source.pull.end_ms, &evidence)?;
+            Ok::<_, anyhow::Error>(ReplayPull {
+                file: &pull.file,
+                sha256: source.sha256,
+                report: &pull.report,
+                fight: pull.fight,
+                revision: pull.revision,
+                log_version: pull.log_version,
+                end_ms: pull.end_ms,
+                termination: if pull.kill { "kill" } else { "wipe" },
+                unrepresented_event_indices: source
+                    .pull
+                    .occurrences
+                    .iter()
+                    .filter(|row| row.kind == "cast" && !represented.contains(&row.event_index))
+                    .map(|row| row.event_index)
+                    .collect(),
+                unfinished_starts: pull
+                    .occurrences
+                    .iter()
+                    .filter(|row| row.kind == "begincast" && row.completion_event_index.is_none())
+                    .map(|row| row.event_index)
+                    .collect(),
+                replay,
+            })
+        })
+        .collect::<Vec<_>>()
+        .into_iter()
+        .collect::<Result<Vec<_>>>()?;
     let passed = pulls.iter().all(|pull| pull.replay.passed);
     let result = ReplayReport {
         status: if passed {

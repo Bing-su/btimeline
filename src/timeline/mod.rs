@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
+use std::sync::LazyLock;
 
 use anyhow::{Context, Result};
 use garde::Validate;
@@ -264,8 +265,15 @@ fn parse(source: &str) -> Result<Timeline> {
 }
 
 fn from_value(value: Value) -> Result<Timeline> {
-    let schema = generated_schema()?;
-    jsonschema::validate(&schema, &value).map_err(|e| anyhow::anyhow!("JSON Schema: {e}"))?;
+    // Compile the fixed schema once, e.g. replaying 40 pulls shares one validator across workers.
+    static VALIDATOR: LazyLock<Result<jsonschema::Validator>> =
+        LazyLock::new(|| Ok(jsonschema::validator_for(&generated_schema()?)?));
+    let validator = VALIDATOR
+        .as_ref()
+        .map_err(|error| anyhow::anyhow!("{error}"))?;
+    validator
+        .validate(&value)
+        .map_err(|e| anyhow::anyhow!("JSON Schema: {e}"))?;
     let timeline: Timeline = serde_json::from_value(value)?;
     timeline.validate().context("Semantic field validation")?;
     timeline.validate_relations()?;

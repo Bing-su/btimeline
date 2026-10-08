@@ -8,6 +8,7 @@ use std::path::Path;
 use anyhow::{Context, Result, ensure};
 use garde::Validate;
 use itertools::Itertools;
+use rayon::prelude::*;
 use serde_json::Value;
 
 use super::pairing::{PendingStart, start_for};
@@ -176,10 +177,18 @@ pub fn inspect(paths: &[impl AsRef<Path>]) -> Result<Vec<Group>> {
     ensure!(!paths.is_empty(), "Supply at least one input file");
     let mut groups: BTreeMap<GroupKey, Vec<Pull>> = BTreeMap::new();
     let mut identities = BTreeSet::new();
-    for path in paths {
-        let path = path.as_ref();
-        let Source { key, pull, .. } =
-            load_one(path).with_context(|| format!("Invalid input {}", path.display()))?;
+    let paths: Vec<_> = paths.iter().map(AsRef::as_ref).collect();
+    // Drop raw events in each worker; merge in input order so duplicates and errors stay deterministic.
+    let loaded: Vec<_> = paths
+        .par_iter()
+        .map(|path| {
+            let Source { key, pull, .. } =
+                load_one(path).with_context(|| format!("Invalid input {}", path.display()))?;
+            Ok::<_, anyhow::Error>((key, pull))
+        })
+        .collect();
+    for source in loaded {
+        let (key, pull) = source?;
         ensure!(
             identities.insert((pull.report.clone(), pull.fight)),
             "Duplicate pull input"

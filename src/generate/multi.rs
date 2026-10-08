@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result, ensure};
 use itertools::Itertools;
 use path_slash::PathBufExt as _;
+use rayon::prelude::*;
 use serde_json::Value;
 
 use super::alignment::{self, Signal, SignalKey};
@@ -392,8 +393,10 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
     pulls.sort_by(|a, b| (&a.report, a.fight, &a.file).cmp(&(&b.report, b.fight, &b.file)));
     // Own each pull beside its raw evidence; sorting/filtering cannot desynchronize parallel lists.
     let inputs = pulls
-        .into_iter()
+        .into_par_iter()
         .map(|pull| prepare(&pull.file, mode))
+        .collect::<Vec<_>>()
+        .into_iter()
         .collect::<Result<Vec<_>>>()?;
     // The longest observed path provides positions, never permission to emit its exclusive branches.
     let reference = inputs
@@ -405,9 +408,19 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
     let mut relations = BTreeMap::new();
     let mut sensitive = Vec::new();
     // ponytail: reuse P4 pair evidence; an indexed graph is appropriate only for substantially larger groups.
-    for [(a, left), (b, right)] in inputs.iter().enumerate().array_combinations() {
-        let (forward, order_sensitive) = correspondence(&left.pull, &right.pull)?;
-        let (backward, _) = correspondence(&right.pull, &left.pull)?;
+    // Index pairs before parallel work so report ordering stays stable, e.g. (0,1) precedes (0,2).
+    let pairs: Vec<_> = inputs.iter().enumerate().array_combinations().collect();
+    let comparisons: Vec<_> = pairs
+        .par_iter()
+        .map(|[(_, left), (_, right)]| {
+            let (forward, order_sensitive) = correspondence(&left.pull, &right.pull)?;
+            let (backward, _) = correspondence(&right.pull, &left.pull)?;
+            Ok::<_, anyhow::Error>((forward, backward, order_sensitive))
+        })
+        .collect();
+    for (pair, comparison) in pairs.iter().zip(comparisons) {
+        let [(a, left), (b, right)] = *pair;
+        let (forward, backward, order_sensitive) = comparison?;
         relations.insert((a, b), forward);
         relations.insert((b, a), backward);
         if order_sensitive {

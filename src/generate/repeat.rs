@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context, Result, ensure};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -860,27 +861,32 @@ fn compile(
         .iter()
         .map(|input| (input.pull.file.as_str(), &input.pull))
         .collect();
-    let mut checks = Vec::new();
-    for input in inputs {
-        let evidence = replay::evidence(
-            &compiled_yaml,
-            &result,
-            &group,
-            &input.pull,
-            &input.log,
-            &peers,
-        )?;
-        let check = crate::timeline::replay::run(
-            &compiled_yaml,
-            &replay::signals(&input.log)?,
-            input.pull.end_ms,
-            &evidence,
-        )?;
-        checks.push(
-            json!({"file": input.pull.file, "passed": check.passed, "summary": check.summary,
+    // Keep per-pull repeat audits independent, e.g. a wipe clock cannot affect a clear clock.
+    let checks = inputs
+        .par_iter()
+        .map(|input| {
+            let evidence = replay::evidence(
+                &compiled_yaml,
+                &result,
+                &group,
+                &input.pull,
+                &input.log,
+                &peers,
+            )?;
+            let check = crate::timeline::replay::run(
+                &compiled_yaml,
+                &replay::signals(&input.log)?,
+                input.pull.end_ms,
+                &evidence,
+            )?;
+            Ok::<_, anyhow::Error>(
+                json!({"file": input.pull.file, "passed": check.passed, "summary": check.summary,
             "jumps": check.jumps, "previews": check.previews}),
-        );
-    }
+            )
+        })
+        .collect::<Vec<_>>()
+        .into_iter()
+        .collect::<Result<Vec<_>>>()?;
     candidate["checks"] = serde_json::to_value(&checks)?;
     ensure!(
         checks.iter().all(|check| check["passed"] == true),

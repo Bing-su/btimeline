@@ -1067,6 +1067,106 @@ fn with_logs(logs: &[Value], check: impl FnOnce(&Path)) {
     check(directory.path());
 }
 
+#[rstest]
+#[case::raid("raid")]
+#[case::dungeon("dungeon")]
+#[case::alliance("alliance")]
+fn parallel_prepare_preserves_output_order_and_bytes(#[case] mode: &str) {
+    // Exercise the whole pipeline, e.g. repeat checks and converted text must agree with one worker.
+    with_logs(
+        &[
+            repeat_log("clear", 2, true),
+            repeat_log("wipe", 2, false),
+            repeat_log("another-clear", 2, true),
+        ],
+        |dir| {
+            let mut expected = None;
+            for threads in [1, 4] {
+                let pool = rayon::ThreadPoolBuilder::new()
+                    .num_threads(threads)
+                    .build()
+                    .unwrap();
+                let output = dir.join("draft.yaml");
+                let paths = [
+                    output.clone(),
+                    output.with_extension("report.json"),
+                    output.with_extension("report.md"),
+                    output.with_extension("replay.json"),
+                    output.with_extension("replay.md"),
+                    output.with_extension("txt"),
+                ];
+                let alignment = pool.install(|| {
+                    let inputs: Vec<_> = (0..3)
+                        .map(|i| dir.join(format!("fight_{i}.json")))
+                        .collect();
+                    let alignment = serde_json::to_vec(&align(&inputs).unwrap()).unwrap();
+                    prepare(dir, &output, &["--mode", mode, "--convert"]).unwrap();
+                    alignment
+                });
+                let bytes: Vec<_> = paths.iter().map(|path| fs::read(path).unwrap()).collect();
+                let actual = (alignment, bytes);
+                if let Some(expected) = &expected {
+                    assert_eq!(&actual, expected);
+                } else {
+                    expected = Some(actual);
+                }
+                for path in paths {
+                    fs::remove_file(path).unwrap();
+                }
+            }
+        },
+    );
+}
+
+#[test]
+fn replay_recognizes_aliased_training_paths() {
+    // Cached path identity must retain direct evidence, e.g. logs/./fight.json names the training file.
+    let rows = [
+        (1000, 10, 91001, "cast"),
+        (5000, 10, 91002, "cast"),
+        (9000, 10, 91003, "cast"),
+    ];
+    with_logs(
+        &[
+            multi_log("first", &rows, 10000, true),
+            multi_log("second", &rows, 10000, true),
+        ],
+        |dir| {
+            let timeline = dir.join("draft.yaml");
+            let output = dir.join("replay.json");
+            generate(dir, &timeline, GenerateMode::Raid).unwrap();
+            replay::replay_file(&timeline, dir.join("."), &output, None).unwrap();
+            let report: Value = serde_json::from_slice(&fs::read(output).unwrap()).unwrap();
+            for pull in report["pulls"].as_array().unwrap() {
+                assert_eq!(pull["replay"]["passed"], true);
+                assert_eq!(pull["replay"]["summary"]["matches"], 3);
+            }
+        },
+    );
+}
+
+#[test]
+fn parallel_inspection_preserves_first_input_error() {
+    // A later parse failure cannot override an earlier duplicate, even if its worker finishes first.
+    with_logs(&[sample()], |dir| {
+        let valid = dir.join("fight_0.json");
+        let missing = dir.join("missing.json");
+        for threads in [1, 4] {
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap();
+            pool.install(|| {
+                let error = inspect(&[&valid, &valid, &missing]).unwrap_err();
+                assert_eq!(error.to_string(), "Duplicate pull input");
+                let error = inspect(&[&missing, &valid, &valid]).unwrap_err();
+                assert!(error.to_string().contains("Invalid input"));
+                assert!(error.to_string().contains("missing.json"));
+            });
+        }
+    });
+}
+
 // Exercise CLI parsing and execution together, e.g. prepare must forward group selection to generation.
 fn prepare(input: &Path, output: &Path, options: &[&str]) -> anyhow::Result<()> {
     use std::ffi::OsStr;

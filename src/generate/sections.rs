@@ -1,4 +1,5 @@
 use anyhow::{Context, Result, ensure};
+use rayon::prelude::*;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -395,19 +396,27 @@ pub(super) fn check(
         .collect();
     let mut checks = Vec::new();
     let mut clocks: std::collections::BTreeMap<usize, Vec<i64>> = Default::default();
-    for (pull, log) in inputs {
-        let evidence = super::replay::evidence(yaml, report, &key, pull, log, &peers)?;
-        let result = crate::timeline::replay::run(
-            yaml,
-            &super::replay::signals(log)?,
-            pull.end_ms,
-            &evidence,
-        )?;
-        ensure!(
-            result.passed,
-            "Boss section entry failed raw replay: {}",
-            pull.file
-        );
+    // Merge observations in input order, e.g. section clock statistics retain the same source ordering.
+    let results: Vec<_> = inputs
+        .par_iter()
+        .map(|(pull, log)| {
+            let evidence = super::replay::evidence(yaml, report, &key, pull, log, &peers)?;
+            let result = crate::timeline::replay::run(
+                yaml,
+                &super::replay::signals(log)?,
+                pull.end_ms,
+                &evidence,
+            )?;
+            ensure!(
+                result.passed,
+                "Boss section entry failed raw replay: {}",
+                pull.file
+            );
+            Ok::<_, anyhow::Error>(result)
+        })
+        .collect();
+    for ((pull, _), result) in inputs.iter().zip(results) {
+        let result = result?;
         for row in &result.rows {
             clocks.entry(row.entry_index).or_default().extend(
                 row.observations

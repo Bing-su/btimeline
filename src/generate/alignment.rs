@@ -4,6 +4,7 @@ use std::path::Path;
 use anyhow::{Context, Result, ensure};
 use contracts::{debug_ensures, ensures};
 use itertools::Itertools;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use similar::{Algorithm, DiffTag, capture_diff_slices};
 
@@ -542,11 +543,14 @@ pub fn align(paths: &[impl AsRef<Path>]) -> Result<AlignmentReport> {
     let group = groups.pop().context("Missing group")?;
     let mut pulls = group.pulls;
     pulls.sort_by(|a, b| (&a.report, a.fight, &a.file).cmp(&(&b.report, b.fight, &b.file)));
-    let mut comparisons = Vec::new();
     // ponytail: all pairs preserve path evidence; use an indexed graph if groups become large.
-    for [left, right] in pulls.iter().array_combinations() {
-        comparisons.push(compare(left, right)?);
-    }
+    let pairs: Vec<_> = pulls.iter().array_combinations().collect();
+    let comparisons = pairs
+        .par_iter()
+        .map(|[left, right]| compare(left, right))
+        .collect::<Vec<_>>()
+        .into_iter()
+        .collect::<Result<Vec<_>>>()?;
     Ok(AlignmentReport {
         group: group.key,
         inputs: pulls
