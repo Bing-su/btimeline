@@ -58,10 +58,16 @@ fn render_sync(sync: &Sync) -> String {
         Sync::Regex(sync) => format!("sync /{}/", sync.regex),
     }
 }
+#[expect(
+    clippy::float_cmp,
+    reason = "Omit only the exact default window, e.g. [2.5, 2.5]."
+)]
 fn window(sync: &Sync) -> String {
-    sync.window().map_or(String::new(), |[before, after]| {
-        format!(" window {},{}", number(before), number(after))
-    })
+    sync.window()
+        .filter(|window| *window != [2.5, 2.5])
+        .map_or(String::new(), |[before, after]| {
+            format!(" window {},{}", number(before), number(after))
+        })
 }
 fn render_jump(jump: &Jump) -> String {
     let to = match &jump.to {
@@ -94,6 +100,9 @@ fn ability_line(out: &mut String, ability: &Ability) -> Result<()> {
 impl Timeline {
     pub(super) fn render(&self) -> Result<String> {
         let mut out = String::new();
+        for name in &self.hide_names {
+            writeln!(out, "hideall {}", quote(name))?;
+        }
         // Keep selected resets before timeline content, e.g. dungeon uses only the area-clear row.
         if self.reset_on.contains(&ResetEvent::Wipe) {
             writeln!(
@@ -106,9 +115,6 @@ impl Timeline {
                 out,
                 "0.0 \"--Reset--\" SystemLogMessage {{ id: \"7DE\" }} window 0,1000000 jump 0"
             )?;
-        }
-        for name in &self.hide_names {
-            writeln!(out, "hideall {}", quote(name))?;
         }
         for entry in &self.entries {
             match entry {

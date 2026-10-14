@@ -154,9 +154,9 @@ fn hide_names_defaults_and_overrides_round_trip() {
     }
 }
 
-// Preserve lifecycle resets before directives, e.g. hideNames must not displace the first line.
+// Keep hiding directives before lifecycle rows, e.g. hideall → reset → combat-start sync.
 #[test]
-fn reset_lines_precede_timeline_content() {
+fn hide_names_precede_resets_and_sync() {
     let wipe = "0.0 \"--Reset--\" ActorControl { command: \"4000000F\" } window 0,1000000 jump 0\n";
     let clear = "0.0 \"--Reset--\" SystemLogMessage { id: \"7DE\" } window 0,1000000 jump 0\n";
     for (setting, expected) in [
@@ -167,10 +167,14 @@ fn reset_lines_precede_timeline_content() {
         ("resetOn: [areaClear]\n", clear.to_owned()),
         ("resetOn: []\n", String::new()),
     ] {
-        let source = format!("schemaVersion: 1\n{setting}hideNames: [Hidden]\nentries: []\n");
+        let source = format!(
+            "schemaVersion: 1\n{setting}hideNames: [Hidden]\nentries:\n  - kind: event\n    at: 0\n    name: --sync--\n    sync: {{ log: InCombat, fields: {{ inGameCombat: '1' }}, window: [0, 1] }}\n"
+        );
         assert_eq!(
             convert(&source).unwrap(),
-            format!("{expected}hideall \"Hidden\"\n")
+            format!(
+                "hideall \"Hidden\"\n{expected}0.0 \"--sync--\" InCombat {{ inGameCombat: \"1\" }} window 0,1\n"
+            )
         );
         // Preserve reset choices through serialization, e.g. [] cannot turn back into [wipe].
         let timeline = parse(&source).unwrap();
@@ -181,6 +185,33 @@ fn reset_lines_precede_timeline_content() {
             timeline.reset_on != [ResetEvent::Wipe]
         );
     }
+}
+
+// Omit only the consumer's default window, e.g. asymmetric 2.5,3 windows stay explicit.
+#[rstest]
+#[case::absent("", "")]
+#[case::default(", window: [2.5, 2.5]", "")]
+#[case::custom(", window: [0, 1]", " window 0,1")]
+#[case::asymmetric(", window: [2.5, 3]", " window 2.5,3")]
+fn renders_only_nondefault_windows(
+    #[case] setting: &str,
+    #[case] expected: &str,
+    #[values("regex: '9441'", "log: Ability, fields: { id: '9441' }")] sync: &str,
+    #[values(true, false)] enabled: bool,
+) {
+    let source = format!(
+        "schemaVersion: 1\nresetOn: []\nhideNames: []\nentries:\n  - kind: event\n    at: 0\n    name: Test\n    sync: {{ {sync}, enabled: {enabled}{setting} }}\n"
+    );
+    let pattern = if sync.starts_with("regex:") {
+        "sync /9441/"
+    } else {
+        "Ability { id: \"9441\" }"
+    };
+    let prefix = if enabled { " " } else { " #" };
+    assert_eq!(
+        convert(&source).unwrap(),
+        format!("0.0 \"Test\"{prefix}{pattern}{expected}\n")
+    );
 }
 
 #[rstest]
