@@ -7,6 +7,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result, ensure};
 use garde::Validate;
+use indicatif::{ParallelProgressIterator, ProgressStyle};
 use itertools::Itertools;
 use rayon::prelude::*;
 use serde_json::Value;
@@ -18,7 +19,10 @@ use crate::fflogs::model::CollectedLog;
 pub(super) fn load_one(path: &Path) -> Result<Source> {
     let bytes = fs::read(path)?;
     let sha256 = sha256(&bytes);
-    let data: CollectedLog = serde_json::from_slice(&bytes)?;
+    let mut deserializer = serde_json::Deserializer::from_slice(&bytes);
+    let data: CollectedLog = serde_path_to_error::deserialize(&mut deserializer)?;
+    // Consume the whole file, e.g. reject a second JSON value after an otherwise valid log.
+    deserializer.end()?;
     data.validate().context("Invalid collection")?;
     let report = &data.report;
     let events = &data.events;
@@ -228,6 +232,10 @@ pub fn inspect(paths: &[impl AsRef<Path>]) -> Result<Vec<Group>> {
                 load_one(path).with_context(|| format!("Invalid input {}", path.display()))?;
             Ok::<_, anyhow::Error>((key, pull))
         })
+        // Draw on stderr only in terminals, e.g. piped inspect-inputs JSON stays machine-readable.
+        .progress_with_style(ProgressStyle::with_template(
+            "Reading logs {wide_bar} {pos}/{len}",
+        )?)
         .collect();
     for source in loaded {
         let (key, pull) = source?;

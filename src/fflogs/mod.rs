@@ -10,7 +10,7 @@ use camino::Utf8PathBuf;
 use client::{API_URL, Client, TOKEN_URL};
 use serde_json::Value;
 use storage::save;
-use usage::{Args, Run, ValueEnum};
+use usage_rs::{Args, Run, ValueEnum};
 
 #[derive(Clone, Copy, ValueEnum)]
 enum OutputFormat {

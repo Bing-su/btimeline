@@ -4,6 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, ensure};
+use indicatif::{ParallelProgressIterator, ProgressStyle};
 use path_slash::PathBufExt as _;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -646,6 +647,9 @@ pub(crate) fn replay_file(
                 replay,
             })
         })
+        .progress_with_style(ProgressStyle::with_template(
+            "Replaying pulls {wide_bar} {pos}/{len}",
+        )?)
         .collect::<Vec<_>>()
         .into_iter()
         .collect::<Result<Vec<_>>>()?;

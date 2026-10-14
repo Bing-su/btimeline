@@ -3,6 +3,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result, ensure};
 use contracts::{debug_ensures, ensures};
+use indicatif::{ParallelProgressIterator, ProgressStyle};
 use itertools::Itertools;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -579,6 +580,9 @@ pub fn align(paths: &[impl AsRef<Path>]) -> Result<AlignmentReport> {
     let comparisons = pairs
         .par_iter()
         .map(|[left, right]| compare(left, right))
+        .progress_with_style(ProgressStyle::with_template(
+            "Aligning pulls {wide_bar} {pos}/{len}",
+        )?)
         .collect::<Vec<_>>()
         .into_iter()
         .collect::<Result<Vec<_>>>()?;

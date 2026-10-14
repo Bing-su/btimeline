@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, ensure};
+use indicatif::{ParallelProgressIterator, ProgressStyle};
 use itertools::Itertools;
 use path_slash::PathBufExt as _;
 use rayon::prelude::*;
@@ -608,6 +609,9 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
             let (backward, _) = correspondence(&right.pull, &left.pull)?;
             Ok::<_, anyhow::Error>((forward, backward, order_sensitive))
         })
+        .progress_with_style(ProgressStyle::with_template(
+            "Aligning pulls {wide_bar} {pos}/{len}",
+        )?)
         .collect();
     for (pair, comparison) in pairs.iter().zip(comparisons) {
         let [(a, left), (b, right)] = *pair;

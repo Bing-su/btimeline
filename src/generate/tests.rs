@@ -1585,7 +1585,7 @@ fn parallel_inspection_preserves_first_input_error() {
 fn prepare(input: &Path, output: &Path, options: &[&str]) -> anyhow::Result<()> {
     use std::ffi::OsStr;
 
-    use usage::Run;
+    use usage_rs::Run;
 
     let mut args = vec![
         OsStr::new("prepare"),
@@ -2893,6 +2893,37 @@ fn with_file(data: &Value, check: impl FnOnce(&Path)) {
     let path = directory.path().join("fight.json");
     fs::write(&path, serde_json::to_vec(data).unwrap()).unwrap();
     check(&path);
+}
+
+#[test]
+fn input_type_errors_include_the_nested_field_path() {
+    let mut data = sample();
+    data["events"][2]["timestamp"] = json!("invalid");
+    with_file(&data, |path| {
+        let error = inspect(&[path]).unwrap_err();
+        let message = format!("{error:#}");
+        assert!(message.contains(&path.display().to_string()));
+        assert!(message.contains("events[2].timestamp"), "{message}");
+    });
+}
+
+#[test]
+fn input_rejects_trailing_values_after_a_valid_log() {
+    with_file(&sample(), |path| {
+        let bytes = fs::read(path).unwrap();
+        // Keep the full-input contract, e.g. a second JSON object cannot be silently ignored.
+        for suffix in ["{}", "garbage"] {
+            let mut invalid = bytes.clone();
+            invalid.extend_from_slice(suffix.as_bytes());
+            fs::write(path, invalid).unwrap();
+            let error = inspect(&[path]).unwrap_err();
+            assert!(format!("{error:#}").contains("trailing characters"));
+        }
+        let mut padded = bytes;
+        padded.extend_from_slice(b" \n\t");
+        fs::write(path, padded).unwrap();
+        inspect(&[path]).unwrap();
+    });
 }
 
 #[test]

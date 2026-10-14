@@ -1,6 +1,6 @@
 use anyhow::{Result, ensure};
 use camino::Utf8PathBuf;
-use usage::{Args, Cli, Run, Subcommands};
+use usage_rs::{Args, Cli, Run, Subcommands};
 
 use crate::fflogs::FFLogsCommand;
 use crate::generate::GenerateMode;

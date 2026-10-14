@@ -7,7 +7,7 @@ use itertools::Itertools;
 use path_slash::PathBufExt as _;
 use serde::Serialize;
 use serde_json::Value;
-use usage::ValueEnum;
+use usage_rs::ValueEnum;
 
 use super::report::{
     BossAttempt,

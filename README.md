@@ -29,10 +29,13 @@ Input loading, pairwise alignment, and independent pull replay use Rayon workers
 RAYON_NUM_THREADS=4 btimeline prepare logs/example -o out/example.yaml
 ```
 
+These stages display progress on stderr in terminals; progress is hidden when stderr is redirected. JSON on stdout remains suitable for piping. Invalid collected JSON includes the failing field path, for example `events[2].timestamp`, while trailing values are still rejected.
+
 | Check                    | Command                               | Toolchain   |
 | ------------------------ | ------------------------------------- | ----------- |
 | Cast start pairing tests | `cargo test generate::pairing::tests` | Stable Rust |
 | Rust tests               | `cargo test`                          | Stable Rust |
+| CLI process tests        | `cargo test --test cli`               | Stable Rust |
 
 Cast pairing tests cover the last eligible start, exact actor/instance/ability matching, timestamp boundaries, and preservation of all unselected starts. Property tests exercise arbitrary pending-start lists; log-loading tests cover cancellation, interleaved instances, duplicate completions, and equal-time source order.
 

@@ -5,7 +5,7 @@ mod output;
 mod timeline;
 
 use anyhow::Result;
-use usage::Run;
+use usage_rs::Run;
 
 use crate::cli::MainCli;
 
