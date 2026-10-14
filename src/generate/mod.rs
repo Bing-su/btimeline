@@ -18,7 +18,7 @@ pub struct GroupKey {
     difficulty: i64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Occurrence {
     pub event_index: usize,
     pub timestamp_ms: i64,
@@ -35,7 +35,7 @@ pub struct Occurrence {
     pub completion_event_index: Option<usize>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Pull {
     pub file: String,
     pub report: String,
@@ -49,6 +49,16 @@ pub struct Pull {
     pub occurrences: Vec<Occurrence>,
     #[serde(skip)]
     actors: BTreeMap<i64, (i64, String)>,
+    #[serde(skip)]
+    raw_occurrences: Option<Vec<Occurrence>>,
+    #[serde(skip)]
+    virtual_actors: BTreeMap<i64, String>,
+    #[serde(skip)]
+    boss_spans: Vec<(i64, i64)>,
+    #[serde(skip)]
+    boss_interactions: Vec<(i64, i64)>,
+    #[serde(skip)]
+    boss_deaths: Vec<(i64, i64)>,
 }
 
 #[derive(Debug, Serialize)]

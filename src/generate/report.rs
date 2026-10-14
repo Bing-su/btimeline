@@ -50,6 +50,15 @@ pub(super) struct BossSegment {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+pub(super) struct BossAttempt {
+    pub actor_id: i64,
+    pub start_ms: i64,
+    pub end_ms: i64,
+    pub selected: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct ReportInput<'a> {
     pub file: &'a str,
     pub sha256: &'a str,
@@ -94,6 +103,8 @@ pub(super) struct SingleReport<'a> {
     pub status: &'static str,
     pub mode: GenerateMode,
     pub boss_segments: Vec<BossSegment>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub boss_attempts: Vec<BossAttempt>,
     pub input: ReportInput<'a>,
     pub group: &'a GroupKey,
     pub kill: bool,

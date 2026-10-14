@@ -249,6 +249,7 @@ pub(super) fn compress(
                 .zip(casts.iter().skip(start + width).take(width))
                 .all(|(a, b)| {
                     a.key.actor_game_id == b.key.actor_game_id
+                        && a.key.actor_name == b.key.actor_name
                         && a.key.ability_id == b.key.ability_id
                 })
         });
@@ -265,6 +266,7 @@ pub(super) fn compress(
                 .zip(casts.iter().skip(start + rounds * width).take(width))
                 .all(|(a, b)| {
                     a.key.actor_game_id == b.key.actor_game_id
+                        && a.key.actor_name == b.key.actor_name
                         && a.key.ability_id == b.key.ability_id
                 })
         {

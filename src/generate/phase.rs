@@ -14,6 +14,16 @@ use crate::timeline::{Destination, Entry, Jump, JumpWhen, LogType, NetworkSync, 
 type Samples<'a> = Vec<(usize, &'a Signal)>;
 type Paths<'a> = Vec<Vec<(usize, Vec<&'a Signal>)>>;
 
+// Packet fan-out changes the sample count, not the dispatch, e.g. eight Surface Missile helpers.
+fn path_key(signal: &Signal) -> SignalKey {
+    let mut key = signal.key.clone();
+    if key.actor_name.is_some() {
+        key.count = 1;
+        key.instances = 1;
+    }
+    key
+}
+
 // Keep compiled evidence typed until serialization, e.g. common slots omit path-only fields.
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -39,6 +49,10 @@ struct PhaseSlot {
     selector: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     transition_clock_range: Option<TimeStatistics>,
+    #[serde(skip)]
+    ancestors: Vec<String>,
+    #[serde(skip)]
+    origins: Vec<i64>,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -140,7 +154,7 @@ fn common_prefix(paths: &Paths<'_>) -> usize {
             let keys: BTreeSet<_> = paths
                 .iter()
                 .flatten()
-                .filter_map(|(_, casts)| casts.get(position).map(|s| &s.key))
+                .filter_map(|(_, casts)| casts.get(position).map(|s| path_key(s)))
                 .collect();
             keys.len() == 1
         })
@@ -203,7 +217,13 @@ fn samples<'a>(slot: &Value, inputs: &'a [Input]) -> Samples<'a> {
 
 // Only fully observed, direction-independent endpoints establish a branch; wipes supply no new path.
 // Example: A→X,P→C and A→Y,Q→C; A→X followed by a wipe is not an empty alternative.
-fn paths<'a>(before: Option<&Value>, after: &Value, inputs: &'a [Input]) -> Result<Paths<'a>> {
+fn paths<'a>(
+    before: Option<&Value>,
+    after: &Value,
+    inputs: &'a [Input],
+    boss_clocks: bool,
+    reactive: &mut BTreeSet<(usize, usize)>,
+) -> Result<Paths<'a>> {
     let mut variants: BTreeMap<Vec<SignalKey>, Vec<(usize, Vec<&Signal>)>> = BTreeMap::new();
     for (i, input) in inputs.iter().enumerate() {
         let Some(end) = sample_index(after, &input.pull.file) else {
@@ -215,6 +235,20 @@ fn paths<'a>(before: Option<&Value>, after: &Value, inputs: &'a [Input]) -> Resu
         }
         let ordered: Vec<_> = input.signals.values().collect();
         let mut ordered = ordered;
+        if boss_clocks {
+            let endpoint = input
+                .signals
+                .get(&end)
+                .context("Missing boss path endpoint")?;
+            let &(lo, hi) = input
+                .pull
+                .boss_spans
+                .iter()
+                .find(|&&(lo, hi)| lo <= endpoint.time_ms && endpoint.time_ms <= hi)
+                .context("Missing boss path span")?;
+            // Keep the opening path but exclude earlier bosses, e.g. X→P→C starts after travel.
+            ordered.retain(|signal| lo <= signal.time_ms && signal.time_ms <= hi);
+        }
         ordered.sort_by_key(|s| (s.time_ms, s.event_indices.first().copied()));
         let lo = start
             .and_then(|start| {
@@ -228,16 +262,63 @@ fn paths<'a>(before: Option<&Value>, after: &Value, inputs: &'a [Input]) -> Resu
             .position(|s| s.event_indices.first() == Some(&end))
             .context("Missing branch endpoint")?;
         let signals = ordered.get(lo..=hi).context("Invalid branch interval")?;
-        let keys = signals.iter().map(|s| s.key.clone()).collect();
-        let casts = signals
+        let casts: Vec<_> = signals
             .iter()
             .filter(|s| s.key.kind == "cast")
             .copied()
             .collect();
+        let keys = if boss_clocks {
+            casts.iter().map(|s| path_key(s)).collect()
+        } else {
+            signals.iter().map(|s| s.key.clone()).collect()
+        };
         variants.entry(keys).or_default().push((i, casts));
     }
-    let result: Paths<'a> = variants.into_values().collect();
-    if result.len() < 2
+    let mut result: Paths<'a> = variants.into_values().collect();
+    if boss_clocks {
+        // Conditional instant reactions are observations, e.g. Launch cannot dispatch a scripted missile path.
+        let optional: BTreeSet<_> = result
+            .iter()
+            .flatten()
+            .flat_map(|(_, casts)| casts.iter())
+            .filter(|signal| {
+                signal.key.actor_name.is_some()
+                    && !inputs.iter().any(|input| {
+                        input.signals.values().any(|start| {
+                            start.key.kind == "begincast"
+                                && start.key.actor_name == signal.key.actor_name
+                                && start.key.ability_id == signal.key.ability_id
+                        })
+                    })
+                    && result.iter().flatten().any(|(_, casts)| {
+                        !casts
+                            .iter()
+                            .any(|other| path_key(other) == path_key(signal))
+                    })
+            })
+            .map(|signal| path_key(signal))
+            .collect();
+        let mut grouped = BTreeMap::new();
+        for (i, mut casts) in result.into_iter().flatten() {
+            casts.retain(|signal| {
+                if optional.contains(&path_key(signal)) {
+                    if let Some(&index) = signal.event_indices.first() {
+                        reactive.insert((i, index));
+                    }
+                    false
+                } else {
+                    true
+                }
+            });
+            grouped
+                .entry(casts.iter().map(|s| path_key(s)).collect::<Vec<_>>())
+                .or_insert_with(Vec::new)
+                .push((i, casts));
+        }
+        result = grouped.into_values().collect();
+    }
+    if (!boss_clocks && result.len() < 2)
+        || result.is_empty()
         || result
             .iter()
             .any(|path| path.iter().any(|(_, casts)| casts.len() < 2))
@@ -248,14 +329,18 @@ fn paths<'a>(before: Option<&Value>, after: &Value, inputs: &'a [Input]) -> Resu
     let selectors: BTreeSet<_> = result
         .iter()
         .filter_map(|path| {
-            path.first()?
-                .1
-                .get(prefix)
-                .map(|s| (s.key.actor_game_id, s.key.ability_id, &s.key.role))
+            path.first()?.1.get(prefix).map(|s| {
+                (
+                    s.key.actor_game_id,
+                    &s.key.actor_name,
+                    s.key.ability_id,
+                    &s.key.role,
+                )
+            })
         })
         .collect();
-    // Nested choices need more evidence, e.g. X→P, X→Q and Y→R cannot share one dispatch.
-    if selectors.len() != result.len() {
+    // Preserve raid's flat-path policy; boss clocks can isolate nested X→P/Q versus Y→R dispatches.
+    if !boss_clocks && result.len() > 1 && selectors.len() != result.len() {
         return Ok(Vec::new());
     }
     Ok(result)
@@ -343,6 +428,7 @@ impl<'a> Compiler<'a> {
             });
         }
         slot.at_ms = at.into();
+        slot.origins.clone_from(&self.origins);
         slot.clock_time = Some(timing);
         slot.window_ms = Some([before, after]);
         let relative = samples
@@ -453,11 +539,13 @@ impl<'a> Compiler<'a> {
                 path: None,
                 selector: None,
                 transition_clock_range: None,
+                ancestors: Vec::new(),
+                origins: Vec::new(),
             },
         ))
     }
 
-    fn branch(&mut self, variants: &Paths<'a>) -> Result<()> {
+    fn branch(&mut self, variants: &Paths<'a>, opening: bool) -> Result<()> {
         let prefix = common_prefix(variants);
         for position in 0..prefix {
             let refs: Samples<'_> = variants
@@ -468,6 +556,16 @@ impl<'a> Compiler<'a> {
             let (entry, mut slot) = self.branch_entry(&refs)?;
             slot.evidence = "observedCommonPrefix".into();
             self.emit(entry, &refs, slot, None)?;
+            if opening && position == 0 {
+                open_entry(self.rows.last_mut().context("Missing opening prefix")?);
+            }
+        }
+        if variants
+            .iter()
+            .flatten()
+            .all(|(_, casts)| casts.len() == prefix)
+        {
+            return Ok(());
         }
         let variants: Paths<'_> = variants
             .iter()
@@ -499,9 +597,20 @@ impl<'a> Compiler<'a> {
             })
             .collect::<Result<Vec<_>>>()?;
         let envelope = statistics(arrivals)?;
+        let mut groups: BTreeMap<SignalKey, Paths<'_>> = BTreeMap::new();
+        for path in variants {
+            let key = path_key(
+                path.first()
+                    .and_then(|(_, casts)| casts.first())
+                    .context("Missing path choice")?,
+            );
+            groups.entry(key).or_default().push(path);
+        }
+        let groups: Vec<_> = groups.into_values().collect();
         let mut selectors = Vec::new();
         let mut occupied = self.next;
-        for (path_id, path) in variants.iter().enumerate() {
+        for (path_id, paths) in groups.iter().enumerate() {
+            let path: Vec<_> = paths.iter().flatten().collect();
             let refs: Samples<'_> = path
                 .iter()
                 .filter_map(|(i, casts)| Some((*i, *casts.first()?)))
@@ -523,6 +632,12 @@ impl<'a> Compiler<'a> {
             {
                 let at_ms = (*at * 1000.0).round() as i64;
                 let before = (((at_ms - envelope.min_ms).max(0) + 99) / 100 * 100).max(2500);
+                // Open sibling choices from zero only at entry, e.g. nested P/Q still needs X first.
+                let before = if opening && prefix == 0 {
+                    at_ms
+                } else {
+                    before
+                };
                 let after = (((envelope.max_ms - at_ms).max(0) / 100 + 1) * 100).max(2500);
                 sync.window = Some([before as f64 / 1000.0, after as f64 / 1000.0]);
                 let slot = slot.as_mut().context("Missing selector slot")?;
@@ -532,9 +647,17 @@ impl<'a> Compiler<'a> {
             }
             selectors.push((label, refs));
         }
+        // Reserve the parent before recursing, e.g. X→P/Q and Y→R need distinct branch labels.
+        self.branches.push(Branch {
+            id: group,
+            merge_label: merge_label.clone(),
+            merge_ms: 0,
+            paths: Vec::new(),
+        });
         let mut path_reports = Vec::new();
         let mut merges = Vec::new();
-        for (path_id, path) in variants.iter().enumerate() {
+        for (path_id, paths) in groups.iter().enumerate() {
+            let path: Vec<_> = paths.iter().flatten().collect();
             let (label, refs) = selectors.get(path_id).context("Missing branch selector")?;
             let base = self.allocate(occupied)?;
             self.label(label, base, refs)?;
@@ -542,24 +665,98 @@ impl<'a> Compiler<'a> {
                 *self.clocks.get_mut(*i).context("Missing branch clock")? = (s.time_ms, base);
                 *self.origins.get_mut(*i).context("Missing branch origin")? = s.time_ms;
             }
-            let length = path.first().context("Empty branch")?.1.len();
-            for position in 1..length {
-                let refs: Samples<'_> = path
+            let row_start = self.rows.len();
+            let child_start = self.branches.len();
+            if paths.len() > 1 {
+                let suffix: Paths<'_> = paths
                     .iter()
-                    .filter_map(|(i, casts)| Some((*i, *casts.get(position)?)))
+                    .map(|path| {
+                        path.iter()
+                            .map(|(i, casts)| {
+                                Ok((
+                                    *i,
+                                    casts.get(1..).context("Missing nested suffix")?.to_vec(),
+                                ))
+                            })
+                            .collect::<Result<_>>()
+                    })
+                    .collect::<Result<_>>()?;
+                self.branch(&suffix, false)?;
+                occupied = occupied.max(self.next);
+                let endpoints: BTreeSet<_> = suffix
+                    .iter()
+                    .flatten()
+                    .filter_map(|(i, casts)| Some((*i, *casts.last()?.event_indices.first()?)))
                     .collect();
-                ensure!(refs.len() == path.len(), "Branch path lengths differ");
-                let (entry, mut slot) = self.branch_entry(&refs)?;
-                slot.path = Some(label.clone());
-                let is_merge = position + 1 == length;
-                occupied = occupied.max(self.emit(
-                    entry,
-                    &refs,
-                    slot,
-                    is_merge.then_some(merge_label.as_str()),
-                )?);
-                if is_merge {
-                    merges.extend(refs);
+                for (entry, slot) in self.rows.iter_mut().skip(row_start) {
+                    if let Some(slot) = slot {
+                        slot.ancestors.push(label.clone());
+                        if slot.samples.iter().any(|sample| {
+                            self.inputs
+                                .iter()
+                                .position(|input| input.pull.file == sample.file)
+                                .is_some_and(|i| {
+                                    sample
+                                        .event_indices
+                                        .first()
+                                        .is_some_and(|index| endpoints.contains(&(i, *index)))
+                                })
+                        }) && let Entry::Event { jump, .. } = entry
+                        {
+                            *jump = Some(Jump {
+                                to: Destination::Label(merge_label.clone()),
+                                when: JumpWhen::Sync,
+                            });
+                        }
+                    }
+                }
+                for child in self.branches.iter_mut().skip(child_start) {
+                    child.merge_label.clone_from(&merge_label);
+                    for path in &mut child.paths {
+                        path.merge_label.clone_from(&merge_label);
+                    }
+                }
+                merges.extend(
+                    suffix
+                        .iter()
+                        .flatten()
+                        .filter_map(|(i, casts)| Some((*i, *casts.last()?))),
+                );
+            } else {
+                let length = path.first().context("Empty branch")?.1.len();
+                if length == 1 {
+                    for (entry, slot) in &mut self.rows {
+                        if slot.as_ref().is_some_and(|slot| {
+                            slot.path.as_deref() == Some(label.as_str())
+                                && slot.selector == Some(true)
+                        }) && let Entry::Event { jump, .. } = entry
+                        {
+                            *jump = Some(Jump {
+                                to: Destination::Label(merge_label.clone()),
+                                when: JumpWhen::Sync,
+                            });
+                        }
+                    }
+                    merges.extend(refs.iter().copied());
+                }
+                for position in 1..length {
+                    let refs: Samples<'_> = path
+                        .iter()
+                        .filter_map(|(i, casts)| Some((*i, *casts.get(position)?)))
+                        .collect();
+                    ensure!(refs.len() == path.len(), "Branch path lengths differ");
+                    let (entry, mut slot) = self.branch_entry(&refs)?;
+                    slot.path = Some(label.clone());
+                    let is_merge = position + 1 == length;
+                    occupied = occupied.max(self.emit(
+                        entry,
+                        &refs,
+                        slot,
+                        is_merge.then_some(merge_label.as_str()),
+                    )?);
+                    if is_merge {
+                        merges.extend(refs);
+                    }
                 }
             }
             path_reports.push(BranchPath {
@@ -576,18 +773,47 @@ impl<'a> Compiler<'a> {
             *self.clocks.get_mut(*i).context("Missing merge clock")? = (s.time_ms, merge_at);
             *self.origins.get_mut(*i).context("Missing merge origin")? = s.time_ms;
         }
-        self.branches.push(Branch {
+        for child in self
+            .branches
+            .iter_mut()
+            .skip(group + 1)
+            .filter(|child| child.merge_label == merge_label)
+        {
+            child.merge_ms = merge_at;
+        }
+        *self
+            .branches
+            .get_mut(group)
+            .context("Missing parent branch")? = Branch {
             id: group,
             merge_label,
             merge_ms: merge_at,
             paths: path_reports,
-        });
+        };
         Ok(())
     }
 }
 
 fn sync_enabled(row: &(Entry, Option<PhaseSlot>)) -> bool {
     matches!(&row.0, Entry::Event { sync:Some(Sync::Network(sync)), .. } if sync.enabled)
+}
+
+// A seal reset stops at zero, e.g. either opening selector must activate before travel advances time.
+fn open_entry(row: &mut (Entry, Option<PhaseSlot>)) {
+    if let (
+        Entry::Event {
+            at,
+            sync: Some(Sync::Network(sync)),
+            ..
+        },
+        Some(slot),
+    ) = row
+    {
+        let mut window = sync.window.unwrap_or([2.5, 2.5]);
+        window[0] = *at;
+        sync.window = Some(window);
+        slot.window_ms = Some(window.map(|value| (value * 1000.0).round() as i64));
+    }
 }
 
 pub(super) fn expand(
@@ -652,6 +878,26 @@ fn compile(
         .and_then(Value::as_array)
         .context("Missing common slots")?;
     ensure!(slots.len() == events.len(), "Common slot count differs");
+    let reports: Vec<_> = report
+        .get("inputs")
+        .and_then(Value::as_array)
+        .context("Missing phase inputs")?
+        .iter()
+        .collect();
+    let boss_clocks = report.get("mode").and_then(Value::as_str) != Some("raid")
+        && reports
+            .iter()
+            .any(|input| super::sections::spans(input).is_ok_and(|spans| spans.len() > 1));
+    let sections = slots
+        .iter()
+        .map(|slot| {
+            if boss_clocks {
+                super::sections::slot_section(slot, &reports, false)
+            } else {
+                Ok(0)
+            }
+        })
+        .collect::<Result<Vec<_>>>()?;
     let horizon = (lookahead * 1000.0).ceil() as i64;
     let longest = inputs.iter().map(|i| i.pull.end_ms).max().unwrap_or(0);
     ensure!(
@@ -685,14 +931,27 @@ fn compile(
         .map(|(i, _)| i)
         .collect();
     let mut candidates = BTreeMap::new();
+    let mut reactive = BTreeSet::new();
     let mut before = None;
     for after in anchors.into_iter().filter(|_| branches) {
+        // Start at this boss's boundary, e.g. X→P→C before its first common anchor C.
+        if before.is_some_and(|i| sections.get(i) != sections.get(after)) {
+            before = None;
+        }
         let variants = paths(
             before.and_then(|i| slots.get(i)),
             slots.get(after).context("Missing endpoint")?,
             inputs,
+            boss_clocks,
+            &mut reactive,
         )?;
-        let start = before.map_or(0, |i| i + 1);
+        let start = match before {
+            Some(i) => i + 1,
+            None => sections
+                .iter()
+                .position(|id| Some(id) == sections.get(after))
+                .context("Missing opening section")?,
+        };
         // Keep P5's proven scalar/ID-array rows when every cast is already represented.
         let omitted = variants.iter().flatten().any(|(i, signals)| {
             signals.iter().any(|signal| {
@@ -714,10 +973,13 @@ fn compile(
         before = Some(after);
     }
     let mut position = 0;
+    let mut section = None;
+    let mut occupied = 0;
     let mut events = events.into_iter().map(Some).collect::<Vec<_>>();
     while position < slots.len() {
+        let opening = boss_clocks && section != sections.get(position).copied();
         if let Some((after, variants)) = candidates.get(&position) {
-            if let Err(error) = compiler.branch(variants) {
+            if let Err(error) = compiler.branch(variants, opening) {
                 let mut report = report;
                 put(
                     RejectedExtension {
@@ -731,6 +993,9 @@ fn compile(
                 )?;
                 return Ok((yaml, report));
             }
+            if opening {
+                section = sections.get(position).copied();
+            }
             position = after + 1;
             continue;
         }
@@ -739,6 +1004,14 @@ fn compile(
             .and_then(Option::take)
             .context("Missing common event")?;
         let refs = samples(slots.get(position).context("Missing common slot")?, inputs);
+        if opening {
+            let base = compiler.allocate(occupied)?;
+            for &(i, signal) in &refs {
+                *compiler.clocks.get_mut(i).context("Missing boss clock")? = (signal.time_ms, base);
+                *compiler.origins.get_mut(i).context("Missing boss origin")? = signal.time_ms;
+            }
+            section = sections.get(position).copied();
+        }
         if let Entry::Event {
             sync: Some(Sync::Network(sync)),
             note,
@@ -746,10 +1019,14 @@ fn compile(
         } = &mut entry
         {
             // Reconsider drift-disabled rows only; raw collisions and unsafe source names stay disabled.
-            if !sync.enabled
-                && note
+            if (boss_clocks
+                && !note
                     .as_ref()
-                    .is_some_and(|n| n.contains("observed cast falls outside"))
+                    .is_some_and(|n| n.contains("source name cannot")))
+                || (!sync.enabled
+                    && note
+                        .as_ref()
+                        .is_some_and(|n| n.contains("observed cast falls outside")))
             {
                 sync.enabled = true;
                 *note = None;
@@ -758,14 +1035,17 @@ fn compile(
         let mut slot: PhaseSlot =
             serde_json::from_value(slots.get(position).context("Missing common slot")?.clone())?;
         slot.alignment_slot = Some(position);
-        let occupied = compiler.emit(entry, &refs, slot, None)?;
+        occupied = compiler.emit(entry, &refs, slot, None)?;
         let row = compiler.rows.last_mut().context("Missing common row")?;
+        if opening {
+            open_entry(row);
+        }
         let wide = row
             .1
             .as_ref()
             .and_then(|s| s.window_ms)
             .is_some_and(|w| w.iter().any(|&v| v > 2500));
-        if wide && sync_enabled(row) {
+        if wide && !opening && sync_enabled(row) {
             let label = format!("phase-{}", compiler.phases.len());
             if let Entry::Event { jump, .. } = &mut row.0 {
                 *jump = Some(Jump {
@@ -791,12 +1071,132 @@ fn compile(
         }
         position += 1;
     }
-    if compiler.branches.is_empty() && compiler.phases.is_empty() {
+    if !boss_clocks && compiler.branches.is_empty() && compiler.phases.is_empty() {
         return Ok((yaml, report));
+    }
+    let reactive_keys: BTreeSet<_> = reactive
+        .iter()
+        .filter_map(|&(i, index)| inputs.get(i)?.signals.get(&index).map(path_key))
+        .collect();
+    for (i, input) in inputs.iter().enumerate() {
+        reactive.extend(
+            input
+                .signals
+                .iter()
+                .filter(|(_, signal)| {
+                    signal.key.kind == "cast" && reactive_keys.contains(&path_key(signal))
+                })
+                .map(|(&index, _)| (i, index)),
+        );
+    }
+    let mut optional = BTreeMap::new();
+    for (i, index) in reactive {
+        let input = inputs.get(i).context("Missing reactive input")?;
+        let signal = input
+            .signals
+            .get(&index)
+            .context("Missing reactive signal")?;
+        let (entry, origin) = compiler
+            .rows
+            .iter()
+            .filter_map(|(entry, slot)| {
+                let sample = slot.as_ref()?.samples.iter().find(|sample| {
+                    sample.file == input.pull.file && sample.time_ms <= signal.time_ms
+                })?;
+                Some((time(entry), sample.time_ms))
+            })
+            .max_by_key(|(_, origin)| *origin)
+            .context("Missing reactive anchor")?;
+        optional
+            .entry(((entry * 1000.0).round() as i64, path_key(signal)))
+            .or_insert_with(Vec::new)
+            .push((i, signal, origin));
+    }
+    for ((anchor, _), refs) in optional {
+        let samples = refs.iter().map(|&(i, signal, _)| (i, signal)).collect();
+        let (mut entry, mut slot) = compiler.branch_entry(&samples)?;
+        let timing = statistics(
+            refs.iter()
+                .map(|(_, signal, origin)| anchor + signal.time_ms - origin)
+                .collect(),
+        )?;
+        let at = (timing.median_ms / 100.0).round() as i64 * 100;
+        if let Entry::Event {
+            at: entry_at,
+            sync: Some(Sync::Network(sync)),
+            note,
+            ..
+        } = &mut entry
+        {
+            *entry_at = at as f64 / 1000.0;
+            sync.enabled = false;
+            sync.window = Some([2.5, 2.5]);
+            // A reaction is visible without steering the clock, e.g. Launch has no cast start and can occur before or after missiles.
+            *note = Some("Conditional instant helper: observed timing only; no stable cast start for synchronization.".into());
+        }
+        slot.at_ms = at.into();
+        slot.evidence = "conditionalInstantHelper".into();
+        for (sample, (_, signal, origin)) in slot.samples.iter_mut().zip(&refs) {
+            sample.block_entry_ms = *origin;
+            sample.relative_ms = signal.time_ms - origin;
+        }
+        let mut samples: BTreeMap<String, PhaseSample> = BTreeMap::new();
+        for sample in slot.samples {
+            if let Some(existing) = samples.get_mut(&sample.file) {
+                existing.event_indices.extend(sample.event_indices);
+                existing.instance_ids.extend(sample.instance_ids);
+            } else {
+                samples.insert(sample.file.clone(), sample);
+            }
+        }
+        slot.samples = samples.into_values().collect();
+        compiler.rows.push((entry, Some(slot)));
     }
     compiler
         .rows
         .sort_by(|a, b| time(&a.0).total_cmp(&time(&b.0)));
+    if boss_clocks {
+        let mut previous = BTreeMap::new();
+        for position in 0..compiler.rows.len() {
+            let row = compiler.rows.get(position).context("Missing window row")?;
+            let Entry::Event {
+                sync: Some(Sync::Network(sync)),
+                ..
+            } = &row.0
+            else {
+                continue;
+            };
+            let key = serde_json::to_string(&(&sync.log, &sync.fields))?;
+            if let Some(prior) = previous.insert(key, position) {
+                let (left, right) = compiler.rows.split_at_mut(position);
+                let a = left.get_mut(prior).context("Missing preceding sync")?;
+                let b = right.first_mut().context("Missing following sync")?;
+                let gap = ((time(&b.0) - time(&a.0)) * 1000.0).round() as i64;
+                if gap > 0 {
+                    // Repeated packets need distinct windows, e.g. Surface Missile waves two seconds apart.
+                    let limit = gap / 200 * 100;
+                    for (row, edge) in [(a, 1), (b, 0)] {
+                        if let (
+                            Entry::Event {
+                                sync: Some(Sync::Network(sync)),
+                                ..
+                            },
+                            Some(slot),
+                        ) = row
+                        {
+                            let mut window = sync.window.context("Missing compiled window")?;
+                            if let Some(value) = window.get_mut(edge) {
+                                *value = value.min(limit as f64 / 1000.0);
+                            }
+                            sync.window = Some(window);
+                            slot.window_ms =
+                                Some(window.map(|value| (value * 1000.0).round() as i64));
+                        }
+                    }
+                }
+            }
+        }
+    }
     let mut compiled_slots = Vec::new();
     let mut conflicts = Vec::new();
     let mut entries = vec![Entry::Note {
@@ -853,11 +1253,16 @@ fn compile(
             let matching: Vec<_> = compiled_slots
                 .iter()
                 .enumerate()
-                .filter(|(_, slot)| slot.path.as_deref() == Some(path.label.as_str()))
+                .filter(|(_, slot)| {
+                    slot.path.as_deref() == Some(path.label.as_str())
+                        || slot.ancestors.contains(&path.label)
+                })
                 .collect();
             path.selector_slot = matching
                 .iter()
-                .find(|(_, s)| s.selector == Some(true))
+                .find(|(_, s)| {
+                    s.selector == Some(true) && s.path.as_deref() == Some(path.label.as_str())
+                })
                 .context("Missing selector")?
                 .0;
             path.slots = matching.iter().map(|(i, _)| *i).collect();
@@ -950,9 +1355,10 @@ fn compile(
         difficulty: *key.get("difficulty").context("Missing difficulty")?,
     };
     // Audit independent pull clocks concurrently and retain the sorted input order in checks.
-    let checks = inputs
+    let checks_and_samples = inputs
         .par_iter()
-        .map(|input| {
+        .enumerate()
+        .map(|(i, input)| {
             let evidence = replay::evidence(
                 &compiled_yaml,
                 &compiled_report,
@@ -967,17 +1373,56 @@ fn compile(
                 input.pull.end_ms,
                 &evidence,
             )?;
-            Ok::<_, anyhow::Error>(ReplayCheck {
-                file: input.pull.file.clone(),
-                passed: result.passed,
-                summary: result.summary,
-                jumps: result.jumps,
-                previews: result.previews,
-            })
+            let mut recovered = Vec::new();
+            for (position, row) in result.rows.iter().enumerate() {
+                let slot = compiled_slots
+                    .get(position)
+                    .context("Missing replayed slot")?;
+                if slot
+                    .samples
+                    .iter()
+                    .any(|sample| sample.file == input.pull.file)
+                {
+                    continue;
+                }
+                if let Some(signal) = (row.status == "matched")
+                    .then(|| {
+                        row.expected_event_indices
+                            .iter()
+                            .find_map(|index| input.signals.get(index))
+                    })
+                    .flatten()
+                {
+                    let origin = *slot.origins.get(i).context("Missing recovered origin")?;
+                    recovered.push((
+                        position,
+                        PhaseSample {
+                            file: input.pull.file.clone(),
+                            event_indices: signal.event_indices.clone(),
+                            instance_ids: signal.instance_ids.clone(),
+                            ability_id: signal.key.ability_id,
+                            time_ms: signal.time_ms,
+                            block_entry_ms: origin,
+                            relative_ms: signal.time_ms - origin,
+                        },
+                    ));
+                }
+            }
+            Ok::<_, anyhow::Error>((
+                ReplayCheck {
+                    file: input.pull.file.clone(),
+                    passed: result.passed,
+                    summary: result.summary,
+                    jumps: result.jumps,
+                    previews: result.previews,
+                },
+                recovered,
+            ))
         })
         .collect::<Vec<_>>()
         .into_iter()
         .collect::<Result<Vec<_>>>()?;
+    let (checks, recovered): (Vec<_>, Vec<_>) = checks_and_samples.into_iter().unzip();
     if checks.iter().any(|check| !check.passed) {
         let mut report = report;
         put(
@@ -993,6 +1438,25 @@ fn compile(
         return Ok((yaml, report));
     }
     extension.checks = checks;
+    // Truncated pulls still provide real prefix samples, e.g. missiles before a beam interrupted by death.
+    for (position, sample) in recovered.into_iter().flatten() {
+        compiled_slots
+            .get_mut(position)
+            .context("Missing recovered slot")?
+            .samples
+            .push(sample);
+    }
+    for slot in &mut compiled_slots {
+        slot.absolute_time =
+            statistics(slot.samples.iter().map(|sample| sample.time_ms).collect())?;
+        slot.time = statistics(
+            slot.samples
+                .iter()
+                .map(|sample| sample.relative_ms)
+                .collect(),
+        )?;
+    }
+    put(&compiled_slots, &mut compiled_report, "slots")?;
     put(extension, &mut compiled_report, "extensions")?;
     put(
         true,

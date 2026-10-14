@@ -19,7 +19,7 @@ btimeline prepare logs/example --name "Example Fight" --encounter 105 --difficul
 | `example.replay.md`   | Readable input replay report   |
 | `example.txt`         | Cactbot text, with `--convert` |
 
-Use a new output name for each run; existing outputs are not overwritten. With `--convert`, the YAML output must differ from the sibling `.txt` path, and existing text is checked before generation. Keep outputs outside the input log directory. A replay failure returns an error and retains the draft and diagnostic reports for inspection. Successful input replay checks the logs used to generate the draft; it does not establish holdout or cactbot runtime compatibility. The separate `convert` command remains available for edited drafts.
+Use a new output name for each run; existing outputs are not overwritten. With `--convert`, the YAML output must differ from the sibling `.txt` path, and existing text is checked before generation. Keep outputs outside the input log directory. An empty draft cannot pass replay; a failure returns an error and retains the draft and available diagnostic reports for inspection. Successful input replay checks the logs used to generate the draft; it does not establish holdout or cactbot runtime compatibility. The separate `convert` command remains available for edited drafts.
 
 ## Verification
 
@@ -29,10 +29,10 @@ Input loading, pairwise alignment, and independent pull replay use Rayon workers
 RAYON_NUM_THREADS=4 btimeline prepare logs/example -o out/example.yaml
 ```
 
-| Check                    | Command                              | Toolchain   |
-| ------------------------ | ------------------------------------ | ----------- |
+| Check                    | Command                               | Toolchain   |
+| ------------------------ | ------------------------------------- | ----------- |
 | Cast start pairing tests | `cargo test generate::pairing::tests` | Stable Rust |
-| Rust tests               | `cargo test`                         | Stable Rust |
+| Rust tests               | `cargo test`                          | Stable Rust |
 
 Cast pairing tests cover the last eligible start, exact actor/instance/ability matching, timestamp boundaries, and preservation of all unselected starts. Property tests exercise arbitrary pending-start lists; log-loading tests cover cancellation, interleaved instances, duplicate completions, and equal-time source order.
 
@@ -63,6 +63,20 @@ Example: `btimeline generate logs/example --mode alliance -o draft.yaml`. Hand-w
 | Entry sync                                      | First safe cast in each section has a window reaching back to zero, so it can select its boss after area clear     |
 | Evidence                                        | `bossSections` records offsets and entry indices; `bossSectionChecks` audits all raw training casts after rebasing |
 | Overlapping bosses                              | Share one section; existing single-section P7/P8 clocks remain unchanged                                           |
+
+| Dungeon log differences         | Generation and replay behavior                                                                                                                 |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Missing `sourceInstance`        | Counts as one actor; explicit instance IDs remain in source evidence                                                                           |
+| Report-local virtual helper IDs | Match by actor name and role; distinct instances arriving within 100 ms form one observed wave                                                 |
+| Boss retries                    | Align the last non-overlapping instance span; replay earlier attempts with their own observed branch, including effects before the arena opens |
+| Travel and waiting              | Compile each boss on its own corrected clock and reset alignment anchors at boss boundaries                                                    |
+| Early boss kills                | Retain observed suffixes from longer clears; shorter clears provide prefix samples and censor the remaining completions                        |
+| Nested choices                  | Recover observed dependent paths within a boss, e.g. Chort's consecutive Mortifying Flesh directions                                           |
+| Repeated helper waves           | Retain raw packet/instance evidence and separate overlapping sync windows, e.g. two-second Surface Missile waves                               |
+| Conditional instant helpers     | Helpers seen conditionally without any cast start remain visible with sync disabled, e.g. Launch; they do not select a branch                  |
+| Arena opens (`sealType: 3`)     | Model the consumer stopping on combat exit before the next attempt                                                                             |
+
+Unresolved paths remain reported. For example, `btimeline prepare logs/clyteum --mode dungeon --convert -o out/clyteum.yaml` recovers observed boss mechanics and branches. Check `outputCoverage` for omitted raw casts as well as replay results; passing replay alone does not establish complete coverage or cactbot runtime compatibility.
 
 ## Multi-pull alignment (P4)
 

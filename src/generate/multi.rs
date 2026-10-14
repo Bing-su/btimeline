@@ -43,6 +43,7 @@ fn index(signal: &Signal) -> Result<usize> {
 
 fn same_context(a: &SignalKey, b: &SignalKey) -> bool {
     a.actor_game_id == b.actor_game_id
+        && a.actor_name == b.actor_name
         && a.role == b.role
         && a.kind == b.kind
         && a.count == b.count
@@ -61,6 +62,7 @@ fn alternatives(left: &[&Signal], right: &[&Signal]) -> bool {
         if a.key.ability_id != b.key.ability_id {
             changes.insert((
                 a.key.actor_game_id,
+                &a.key.actor_name,
                 &a.key.role,
                 a.key.ability_id,
                 b.key.ability_id,
@@ -73,6 +75,194 @@ fn alternatives(left: &[&Signal], right: &[&Signal]) -> bool {
 }
 
 pub(super) fn correspondence(left: &Pull, right: &Pull) -> Result<(Correspondence, bool)> {
+    if !left.boss_spans.is_empty() && left.boss_spans.len() == right.boss_spans.len() {
+        let mut result = Correspondence::default();
+        let mut sensitive = false;
+        for (&(left_start, left_end), &(right_start, right_end)) in
+            left.boss_spans.iter().zip(&right.boss_spans)
+        {
+            let mut a = left.clone();
+            let mut b = right.clone();
+            for (pull, start, end) in [
+                (&mut a, left_start, left_end),
+                (&mut b, right_start, right_end),
+            ] {
+                pull.occurrences
+                    .retain(|row| start <= row.relative_ms && row.relative_ms <= end);
+                // Bound correspondence to this boss, e.g. movement cannot align a later boss's helper.
+                pull.end_ms = end;
+            }
+            let (mut relation, order_sensitive) = path_correspondence(&a, &b)?;
+            let a_signals = alignment::signals(&a);
+            let b_signals = alignment::signals(&b);
+            // Helpers can stop at defeat before arena opening; overlapping bosses must all be defeated.
+            let bosses: BTreeSet<_> = b
+                .boss_interactions
+                .iter()
+                .filter(|&&(_, at)| right_start <= at && at <= right_end)
+                .map(|&(actor, _)| actor)
+                .collect();
+            let defeated = bosses
+                .iter()
+                .map(|actor| {
+                    b.boss_deaths
+                        .iter()
+                        .filter(|&&(id, at)| id == *actor && right_start <= at && at <= right_end)
+                        .map(|&(_, at)| at)
+                        .min()
+                })
+                .collect::<Option<Vec<_>>>()
+                .and_then(|times| times.into_iter().max())
+                .unwrap_or(right_end);
+            let opening = |signals: &[Signal]| {
+                signals
+                    .iter()
+                    .find(|signal| signal.key.kind == "cast" && signal.key.role.ends_with("/Boss"))
+                    .map(|signal| signal.time_ms)
+            };
+            if let (Some(a_entry), Some(b_entry)) = (opening(&a_signals), opening(&b_signals)) {
+                // Bound repeated IDs before LCS can reuse an earlier round; allow observed conditional cast delays.
+                // shortcut: the 10s bound covers these boss paths; replay longer-delay holdouts before widening it.
+                relation.matched.retain(|source, target| {
+                    a_signals
+                        .iter()
+                        .find(|s| s.event_indices.first() == Some(source))
+                        .zip(
+                            b_signals
+                                .iter()
+                                .find(|s| s.event_indices.first() == Some(target)),
+                        )
+                        .is_none_or(|(a, b)| {
+                            !a.key.role.ends_with("/Boss")
+                                || (a.time_ms - a_entry).abs_diff(b.time_ms - b_entry) <= 10000
+                        })
+                });
+                // Resolve repeat ties only with unique observed timing, e.g. beam order cannot shift Eyes on Me to a later round.
+                for signal in &a_signals {
+                    let candidates: Vec<_> = b_signals
+                        .iter()
+                        .filter(|other| {
+                            signal.key == other.key
+                                && (signal.time_ms - a_entry).abs_diff(other.time_ms - b_entry)
+                                    <= 2500
+                        })
+                        .collect();
+                    if let [other] = candidates.as_slice()
+                        && a_signals
+                            .iter()
+                            .filter(|candidate| {
+                                candidate.key == other.key
+                                    && (candidate.time_ms - a_entry)
+                                        .abs_diff(other.time_ms - b_entry)
+                                        <= 2500
+                            })
+                            .count()
+                            == 1
+                    {
+                        let source = index(signal)?;
+                        let target = index(other)?;
+                        relation
+                            .matched
+                            .retain(|&old, mapped| old == source || *mapped != target);
+                        relation.matched.insert(source, target);
+                        relation.censored.remove(&source);
+                    }
+                }
+                // Follow observed clock corrections, e.g. a delayed common cast also delays its missing suffix.
+                let anchors: Vec<_> = a_signals
+                    .iter()
+                    .filter(|s| s.key.kind == "cast" && s.key.role.ends_with("/Boss"))
+                    .filter_map(|s| {
+                        relation
+                            .matched
+                            .get(&index(s).ok()?)
+                            .and_then(|target| {
+                                b_signals
+                                    .iter()
+                                    .find(|other| other.event_indices.first() == Some(target))
+                            })
+                            .map(|other| (s.time_ms, other.time_ms))
+                    })
+                    .collect();
+                let expected_at = |signal: &Signal| {
+                    let anchor = anchors
+                        .iter()
+                        .copied()
+                        .filter(|&(at, _)| at <= signal.time_ms)
+                        .max_by_key(|&(at, _)| at)
+                        .unwrap_or((a_entry, b_entry));
+                    signal.time_ms - anchor.0 + anchor.1
+                };
+                for signal in a_signals
+                    .iter()
+                    .filter(|signal| signal.key.actor_name.is_some())
+                {
+                    let source = index(signal)?;
+                    let expected = expected_at(signal);
+                    relation.matched.remove(&source);
+                    let candidates: Vec<_> = b_signals
+                        .iter()
+                        .filter(|other| {
+                            signal.key.actor_name == other.key.actor_name
+                                && signal.key.role == other.key.role
+                                && signal.key.kind == other.key.kind
+                                && signal.key.ability_id == other.key.ability_id
+                                && expected.abs_diff(other.time_ms) <= 2500
+                        })
+                        .collect();
+                    let nearest = candidates
+                        .iter()
+                        .map(|other| expected.abs_diff(other.time_ms))
+                        .min();
+                    let candidates: Vec<_> = candidates
+                        .into_iter()
+                        .filter(|other| Some(expected.abs_diff(other.time_ms)) == nearest)
+                        .collect();
+                    if let [other] = candidates.as_slice() {
+                        let target = index(other)?;
+                        relation.matched.retain(|_, mapped| *mapped != target);
+                        relation.matched.insert(source, target);
+                        relation.censored.remove(&source);
+                    }
+                }
+                for signal in &a_signals {
+                    let source = index(signal)?;
+                    if relation.matched.contains_key(&source) {
+                        continue;
+                    }
+                    // Prefer a matched cast start, e.g. a helper begins late and its completion falls after the kill.
+                    let expected =
+                        a.occurrences
+                            .iter()
+                            .find(|row| row.event_index == source)
+                            .and_then(|row| {
+                                let start = a.occurrences.iter().find(|start| {
+                                    Some(start.event_index) == row.start_event_index
+                                })?;
+                                let target = relation.matched.get(&start.event_index)?;
+                                let observed = b
+                                    .occurrences
+                                    .iter()
+                                    .find(|row| row.event_index == *target)?;
+                                Some(signal.time_ms - start.relative_ms + observed.relative_ms)
+                            })
+                            .unwrap_or_else(|| expected_at(signal));
+                    // Censor after the boss span, e.g. damage after a missing cast proves the boss was still alive.
+                    if expected > defeated {
+                        relation.censored.insert(source);
+                    }
+                }
+            }
+            result.matched.extend(relation.matched);
+            result.censored.extend(relation.censored);
+            sensitive |= order_sensitive;
+        }
+        return Ok((result, sensitive));
+    }
+    path_correspondence(left, right)
+}
+
+fn path_correspondence(left: &Pull, right: &Pull) -> Result<(Correspondence, bool)> {
     let comparison = alignment::compare(left, right)?;
     let mut result = Correspondence::default();
     let (mut left_gap, mut right_gap) = (Vec::new(), Vec::new());
@@ -114,6 +304,7 @@ pub(super) fn correspondence(left: &Pull, right: &Pull) -> Result<(Correspondenc
         .map(|(a, b)| {
             (
                 a.key.actor_game_id,
+                &a.key.actor_name,
                 &a.key.role,
                 a.key.ability_id,
                 b.key.ability_id,
@@ -468,10 +659,25 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
     let mut anchor_indices: Option<Vec<Option<usize>>> = None;
     let mut block_id = 0;
     let mut previous_at = 0.0_f64;
+    let mut boss_section = None;
     for (&event_index, signal) in reference_signals
         .iter()
         .sorted_by_key(|(index, signal)| (signal.time_ms, **index))
     {
+        if mode != GenerateMode::Raid {
+            let section = inputs
+                .get(reference)
+                .context("Missing reference input")?
+                .pull
+                .boss_spans
+                .iter()
+                .position(|&(lo, hi)| lo <= signal.time_ms && signal.time_ms <= hi);
+            if section != boss_section {
+                // A new boss starts its own anchors, e.g. a slow Eye clear must not hide Chort's opening.
+                anchor_indices = None;
+                boss_section = section;
+            }
+        }
         let Some(Consensus { samples, censored }) =
             consensus_samples(&inputs, &relations, reference, event_index)?
         else {
@@ -554,9 +760,13 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
         }
         let timing = statistics(relative_times)?;
         let absolute = statistics(samples.iter().map(|(_, s)| s.time_ms).collect())?;
-        // Use fight-relative medians for every role to preserve order with the same reached pulls.
-        // For A→helper→B, median(A)+median(helper−A) can exceed median(B); keep intervals in the report.
-        let at_ms = absolute.median_ms;
+        // Raid medians preserve shared order; dungeon placeholders follow the reference until boss clocks are compiled.
+        // A slow Eye suffix must not move ahead of a fast Chort opening just because the reached sample set changed.
+        let at_ms = if mode == GenerateMode::Raid {
+            absolute.median_ms
+        } else {
+            signal.time_ms as f64
+        };
         let at = (at_ms / 100.0).round() / 10.0;
         if at < previous_at {
             // A changing reached-pull subset can invert medians even though each observed path is ordered.

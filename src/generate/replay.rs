@@ -91,6 +91,12 @@ pub(super) fn signals(log: &crate::fflogs::model::CollectedLog) -> Result<Vec<Si
         let log = match event.kind.as_str() {
             "cast" => "Ability",
             "begincast" => "StartsUsing",
+            // The arena opening ends combat, e.g. the controller stops before a boss retry.
+            "instancesealupdate"
+                if event.extra.get("sealType").and_then(Value::as_i64) == Some(3) =>
+            {
+                "CombatEnd"
+            }
             _ => continue,
         };
         let mut fields = BTreeMap::new();
@@ -170,8 +176,57 @@ fn after_end(
     )
 }
 
-// P5 correspondence is an evaluation oracle only; it never decides which sync the clock activates.
-// Holdout mappings must agree across all reached training paths, e.g. repeated IDs cannot pick a convenient row.
+// Audit the first actual dispatch only, e.g. the later opposite beam cannot activate both paths in the oracle.
+fn select_paths(report: &Value, entries: &[usize], result: &mut Evidence) -> Result<()> {
+    if let Some(branches) = report
+        .pointer("/extensions/branches")
+        .and_then(Value::as_array)
+    {
+        for branch in branches {
+            let paths = branch["paths"].as_array().context("Missing branch paths")?;
+            let first = paths
+                .iter()
+                .filter_map(|path| {
+                    let entry = entries.get(path["selectorSlot"].as_u64()? as usize)?;
+                    result.expected.get(entry)?.first().copied()
+                })
+                .min();
+            let selected: Vec<_> = paths
+                .iter()
+                .filter(|path| {
+                    path["selectorSlot"]
+                        .as_u64()
+                        .and_then(|i| entries.get(i as usize))
+                        .is_some_and(|entry| {
+                            result
+                                .expected
+                                .get(entry)
+                                .and_then(|indices| indices.first())
+                                .copied()
+                                == first
+                                && first.is_some()
+                        })
+                })
+                .collect();
+            if !selected.is_empty() {
+                for path in paths.iter().filter(|path| !selected.contains(path)) {
+                    for slot in path["slots"].as_array().context("Missing path slots")? {
+                        let entry = *entries
+                            .get(slot.as_u64().context("Invalid path slot")? as usize)
+                            .context("Missing path entry")?;
+                        result.expected.remove(&entry);
+                        result.censored.remove(&entry);
+                        result.missing.remove(&entry);
+                        result.inactive.insert(entry);
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+// Correspondence audits activation; the independent replay clock never reads it to choose a sync.
 pub(super) fn evidence(
     yaml: &str,
     report: &Value,
@@ -196,6 +251,11 @@ pub(super) fn evidence(
     let slots = report["slots"]
         .as_array()
         .context("Missing generation slots")?;
+    // Empty consensus cannot validate mechanics, e.g. incompatible casts must not pass prepare.
+    ensure!(
+        !entries.is_empty(),
+        "No generated event rows to replay; inspect the generation report"
+    );
     ensure!(
         entries.len() == slots.len(),
         "Replay evidence requires the generated event rows in their original order"
@@ -253,7 +313,21 @@ pub(super) fn evidence(
                 Some(index)
             } else {
                 relation.and_then(|r| r.matched.get(&index)).copied()
-            };
+            }
+            .filter(|target| {
+                // A dispatch observes its literal ID, e.g. P→Q alignment cannot select Q after a real P.
+                slot["selector"] != true
+                    || peer
+                        .occurrences
+                        .iter()
+                        .find(|row| row.event_index == index)
+                        .zip(
+                            pull.occurrences
+                                .iter()
+                                .find(|row| row.event_index == *target),
+                        )
+                        .is_some_and(|(source, target)| source.ability_id == target.ability_id)
+            });
             let censored = !known
                 && matched.is_none()
                 && match relation {
@@ -272,6 +346,11 @@ pub(super) fn evidence(
         let direct = samples
             .iter()
             .find(|sample| known_files.contains(sample.file.as_str()));
+        if slot["evidence"] == "conditionalInstantHelper" && direct.is_none() {
+            // Optional reactions need no activation, e.g. a clean missile dodge has no Launch record.
+            result.inactive.insert(entry);
+            continue;
+        }
         if let Some(sample) = direct {
             let index = *sample
                 .event_indices
@@ -297,38 +376,117 @@ pub(super) fn evidence(
             }
         }
     }
-    // An oracle-selected path only audits activation; absent siblings must still fail if they match.
-    // Example: the shared merge cast belongs to the chosen X→A path, not also to Y→B.
-    if let Some(branches) = report
-        .pointer("/extensions/branches")
-        .and_then(Value::as_array)
-    {
-        for branch in branches {
-            let paths = branch["paths"].as_array().context("Missing branch paths")?;
-            let selected: Vec<_> = paths
+    // Select each attempt separately, e.g. the merge on an inactive sibling is never required.
+    select_paths(report, &entries, &mut result)?;
+    if report["mode"] != "raid" {
+        let fight = log.report.fights.first().context("Missing retry fight")?;
+        let enemies = fight
+            .enemy_npcs
+            .iter()
+            .chain(&fight.enemy_pets)
+            .map(|enemy| enemy.id)
+            .collect();
+        let (spans, attempts) = super::draft::boss_spans(log, &enemies);
+        let selected_spans = super::sections::merge_spans(
+            spans
+                .values()
+                .map(|&(lo, hi)| (lo - fight.start_time, hi - fight.start_time))
+                .collect(),
+        );
+        for attempt in attempts.iter().filter(|attempt| !attempt.selected) {
+            let &(start, _) = spans
+                .get(&attempt.actor_id)
+                .context("Missing selected attempt")?;
+            let section = selected_spans
                 .iter()
-                .filter(|path| {
-                    path["selectorSlot"]
-                        .as_u64()
-                        .and_then(|i| entries.get(i as usize))
-                        .is_some_and(|entry| result.expected.contains_key(entry))
+                .position(|&(lo, hi)| {
+                    lo <= start - fight.start_time && start - fight.start_time <= hi
                 })
+                .context("Missing retry section")?;
+            let mut target = pull.clone();
+            target.occurrences = pull
+                .raw_occurrences
+                .as_ref()
+                .unwrap_or(&pull.occurrences)
+                .iter()
+                .filter(|row| {
+                    attempt.start_ms <= row.relative_ms && row.relative_ms <= attempt.end_ms
+                })
+                .cloned()
                 .collect();
-            if let [chosen] = selected.as_slice() {
-                for path in paths.iter().filter(|path| *path != *chosen) {
-                    for slot in path["slots"].as_array().context("Missing path slots")? {
-                        let entry = *entries
-                            .get(slot.as_u64().context("Invalid path slot")? as usize)
-                            .context("Missing path entry")?;
-                        result.expected.remove(&entry);
-                        result.censored.remove(&entry);
-                        result.missing.remove(&entry);
-                        result.inactive.insert(entry);
+            target.boss_spans = vec![(attempt.start_ms, attempt.end_ms)];
+            target.kill = false;
+            target.end_ms = attempt.end_ms;
+            let mut relations = BTreeMap::new();
+            for (&file, peer) in peers {
+                let peer_spans = if peer.boss_spans.is_empty() {
+                    &selected_spans
+                } else {
+                    &peer.boss_spans
+                };
+                let Some(&(lo, hi)) = peer_spans.get(section) else {
+                    continue;
+                };
+                let mut reference = (*peer).clone();
+                reference
+                    .occurrences
+                    .retain(|row| lo <= row.relative_ms && row.relative_ms <= hi);
+                reference.boss_spans = vec![(lo, hi)];
+                reference.end_ms = hi;
+                relations.insert(file, multi::correspondence(&reference, &target)?.0);
+            }
+            let mut retry = Evidence::default();
+            if single {
+                // Relations use training indices, e.g. holdout index 2 maps from the slot's training index 0.
+                for (&entry, slot) in entries.iter().zip(slots) {
+                    let index = serde_json::from_value::<usize>(slot["eventIndex"].clone())
+                        .context("Missing retry sample event index")?;
+                    for relation in relations.values() {
+                        if let Some(index) = relation.matched.get(&index) {
+                            retry.expected.entry(entry).or_default().insert(*index);
+                        }
                     }
                 }
             }
+            // A retry can choose another observed path, e.g. left beam before a right-beam clear.
+            for (&entry, slot) in entries.iter().zip(slots) {
+                if let Some(samples) = slot["samples"].as_array() {
+                    for sample in samples {
+                        if let Some(index) = sample["file"]
+                            .as_str()
+                            .and_then(|file| relations.get(file))
+                            .and_then(|relation| {
+                                sample["eventIndices"]
+                                    .as_array()?
+                                    .first()?
+                                    .as_u64()
+                                    .and_then(|index| relation.matched.get(&(index as usize)))
+                            })
+                            && target.occurrences.iter().any(|row| {
+                                row.event_index == *index
+                                    && Some(row.ability_id)
+                                        == sample["abilityId"]
+                                            .as_i64()
+                                            .or_else(|| slot["abilityId"].as_i64())
+                            })
+                        {
+                            retry.expected.entry(entry).or_default().insert(*index);
+                        }
+                    }
+                }
+            }
+            select_paths(report, &entries, &mut retry)?;
+            for (entry, indices) in retry.expected {
+                result.expected.entry(entry).or_default().extend(indices);
+                result.censored.remove(&entry);
+                result.missing.remove(&entry);
+                result.inactive.remove(&entry);
+            }
         }
     }
+    // An oracle-selected path only audits activation; absent siblings must still fail if they match.
+    // Example: the shared merge cast belongs to the chosen X→A path, not also to Y→B.
+
     result.lookahead_ms = report
         .pointer("/extensions/lookaheadMs")
         .and_then(Value::as_i64);
@@ -472,7 +630,9 @@ pub(crate) fn replay_file(
                 termination: if pull.kill { "kill" } else { "wipe" },
                 unrepresented_event_indices: source
                     .pull
-                    .occurrences
+                    .raw_occurrences
+                    .as_ref()
+                    .unwrap_or(&source.pull.occurrences)
                     .iter()
                     .filter(|row| row.kind == "cast" && !represented.contains(&row.event_index))
                     .map(|row| row.event_index)

@@ -153,6 +153,37 @@ pub(super) fn load_one(path: &Path) -> Result<Source> {
             completion_event_index: None,
         });
     }
+    // Include melee-only bosses in combat ownership, e.g. damage proves survival without a cast.
+    let boss_interactions = events
+        .iter()
+        .flat_map(|event| {
+            [event.source_id, event.target_id]
+                .into_iter()
+                .flatten()
+                .filter(|id| {
+                    actors
+                        .get(id)
+                        .is_some_and(|actor| actor.1.ends_with("/Boss"))
+                })
+                .map(|id| (id, event.timestamp - start))
+        })
+        .collect();
+    // Retain actual defeat evidence, e.g. HP reaches zero before the arena opens or death is logged.
+    let boss_deaths = events
+        .iter()
+        .filter(|event| event.kind == "damage")
+        .filter_map(|event| {
+            let actor = event.target_id?;
+            let resources = event.extra.get("targetResources")?;
+            (actors.get(&actor)?.1.ends_with("/Boss")
+                && resources.get("hitPoints").and_then(Value::as_i64) == Some(0)
+                && resources
+                    .get("maxHitPoints")
+                    .and_then(Value::as_i64)
+                    .is_some_and(|hp| hp > 0))
+            .then_some((actor, event.timestamp - start))
+        })
+        .collect();
     Ok(Source {
         key,
         pull: Pull {
@@ -167,6 +198,17 @@ pub(super) fn load_one(path: &Path) -> Result<Source> {
             end_ms: end - start,
             occurrences,
             actors,
+            raw_occurrences: None,
+            // FFLogs virtual IDs include the report-local actor ID, e.g. 2000031 versus 2001111.
+            virtual_actors: master
+                .actors
+                .iter()
+                .filter(|actor| actor.id.checked_add(2_000_000) == Some(actor.game_id))
+                .map(|actor| (actor.id, actor.name.clone()))
+                .collect(),
+            boss_spans: Vec::new(),
+            boss_interactions,
+            boss_deaths,
         },
         log: data,
         sha256,
@@ -287,6 +329,11 @@ pub(super) fn filter_boss_spans(pull: &mut Pull, report: &Value) -> Result<()> {
     let spans = report["bossSegments"]
         .as_array()
         .context("Missing boss segments")?;
+    // Retain retry paths for raw replay, e.g. consensus uses the final attempt without erasing wipes.
+    if pull.raw_occurrences.is_none() {
+        pull.raw_occurrences = Some(pull.occurrences.clone());
+    }
+    pull.boss_spans = super::sections::spans(report)?;
     pull.occurrences.retain(|row| {
         spans.iter().any(|span| {
             span["startMs"]

@@ -345,6 +345,7 @@ pub(crate) fn run(
     }
     let mut elapsed = 0;
     let mut clock = 0;
+    let mut running = true;
     let mut spent = BTreeSet::new();
     let mut jumps = Vec::new();
     let mut last_expected_entry = None;
@@ -374,8 +375,12 @@ pub(crate) fn run(
     // Include a final tick so a scheduled forcejump cannot disappear just because no cast follows it.
     for signal in signals.iter().map(Some).chain(std::iter::once(None)) {
         let at = signal.map_or(end_ms, |s| s.at_ms);
-        let mut remaining = at - elapsed;
+        // Preserve the stopped clock during travel, e.g. only an active sync can restart after CombatEnd.
+        let mut remaining = if running { at - elapsed } else { 0 };
         loop {
+            if !running {
+                break;
+            }
             let scheduled = rows
                 .iter()
                 .enumerate()
@@ -482,6 +487,16 @@ pub(crate) fn run(
         clock += remaining;
         elapsed = at;
         let Some(signal) = signal else { break };
+        if signal.log == "CombatEnd" {
+            // Match the consumer's Stop on leaving combat, e.g. retry entry syncs are active at zero.
+            clock = 0;
+            running = false;
+            spent.clear();
+            last_expected_entry = None;
+            skipped.clear();
+            previews.push(preview(&rows, signal.at_ms, clock, "combatEnd"));
+            continue;
+        }
         let mut candidates: Vec<_> = predicates
             .iter()
             .zip(&rows)
@@ -617,6 +632,7 @@ pub(crate) fn run(
                 .map(|(i, _)| i),
         );
         clock = to;
+        running = true;
         if destinations.get(*i).is_none_or(Option::is_none)
             || predicates
                 .get(*i)
@@ -749,6 +765,38 @@ mod tests {
             &evidence,
         )
         .expect("valid fixture")
+    }
+
+    #[rstest::rstest]
+    #[case::inactive(10.0, false)]
+    #[case::reentry(1.0, true)]
+    fn combat_end_keeps_zero_until_an_active_sync(#[case] entry_at: f64, #[case] passed: bool) {
+        // Waiting cannot activate a future row, e.g. 10s of travel leaves the clock at zero.
+        let mut end = signal(0, 1000, "unused");
+        end.log = "CombatEnd";
+        let result = play(
+            vec![event(entry_at, "A")],
+            &[end, signal(1, 11000, "A")],
+            &[(0, &[1])],
+            &[],
+            12000,
+        );
+        assert_eq!(result.passed, passed);
+        assert_eq!(result.rows[0].observations[0].clock_ms, 0);
+        assert_eq!(result.final_clock_ms, if passed { 2000 } else { 0 });
+    }
+
+    #[test]
+    fn combat_end_suspends_scheduled_jumps() {
+        // Stopping cancels timer work, e.g. a forcejump at 5s cannot fire during travel.
+        let mut entry = event(5.0, "A");
+        entry["jump"] = json!({"to":20.0,"when":"always"});
+        let mut end = signal(0, 1000, "unused");
+        end.log = "CombatEnd";
+        let result = play(vec![entry], &[end], &[], &[0], 10000);
+        assert!(result.passed);
+        assert!(result.jumps.is_empty());
+        assert_eq!(result.final_clock_ms, 0);
     }
 
     #[rstest::rstest]

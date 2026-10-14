@@ -18,8 +18,8 @@ struct Section {
 }
 
 // Merge overlapping boss observations, e.g. two simultaneous bosses share one lifecycle section.
-fn spans(input: &Value) -> Result<Vec<(i64, i64)>> {
-    let mut spans = input
+pub(super) fn spans(input: &Value) -> Result<Vec<(i64, i64)>> {
+    let spans = input
         .get("bossSegments")
         .and_then(Value::as_array)
         .context("Missing boss segments")?
@@ -31,6 +31,11 @@ fn spans(input: &Value) -> Result<Vec<(i64, i64)>> {
             ))
         })
         .collect::<Result<Vec<_>>>()?;
+    Ok(merge_spans(spans))
+}
+
+// Share section numbering with retry evidence, e.g. two overlapping bosses precede section 1.
+pub(super) fn merge_spans(mut spans: Vec<(i64, i64)>) -> Vec<(i64, i64)> {
     spans.sort();
     let mut merged: Vec<(i64, i64)> = Vec::new();
     for (start, end) in spans {
@@ -42,11 +47,11 @@ fn spans(input: &Value) -> Result<Vec<(i64, i64)>> {
             merged.push((start, end));
         }
     }
-    Ok(merged)
+    merged
 }
 
 // Use raw timing only to assign a section; virtual P7/P8 jumps remain local to that section.
-fn slot_section(slot: &Value, inputs: &[&Value], single: bool) -> Result<usize> {
+pub(super) fn slot_section(slot: &Value, inputs: &[&Value], single: bool) -> Result<usize> {
     let samples = if single {
         vec![(
             inputs.first().copied().context("Missing input")?,
@@ -119,12 +124,19 @@ pub(super) fn separate(yaml: String, mut report: Value, lookahead: f64) -> Resul
         .iter()
         .map(|slot| slot_section(slot, &inputs, report.get("input").is_some()))
         .collect::<Result<Vec<_>>>()?;
-    // Inspect observed bosses, not emitted rows, e.g. consensus may omit every cast of boss 1.
-    let multiple = inputs
+    // Retries also need an entry from zero, e.g. a lone boss respawns at 17s after combat stops.
+    let isolated = inputs
         .iter()
-        .map(|input| spans(input).map(|spans| spans.len() > 1))
+        .map(|input| {
+            spans(input).map(|spans| {
+                spans.len() > 1
+                    || input["bossAttempts"]
+                        .as_array()
+                        .is_some_and(|attempts| !attempts.is_empty())
+            })
+        })
         .collect::<Result<Vec<_>>>()?;
-    if events.is_empty() || !multiple.into_iter().any(|multiple| multiple) {
+    if events.is_empty() || !isolated.into_iter().any(|isolated| isolated) {
         return Ok((yaml, report));
     }
     ensure!(

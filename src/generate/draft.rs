@@ -10,6 +10,7 @@ use serde_json::Value;
 use usage::ValueEnum;
 
 use super::report::{
+    BossAttempt,
     BossSegment,
     CollapsedCast,
     ReportInput,
@@ -160,7 +161,10 @@ pub(super) struct SingleDraft {
 }
 
 // Include every boss interaction in the span, e.g. damage to a boss can precede its first cast.
-fn boss_spans(data: &CollectedLog, enemies: &BTreeSet<i64>) -> BTreeMap<i64, (i64, i64)> {
+pub(super) fn boss_spans(
+    data: &CollectedLog,
+    enemies: &BTreeSet<i64>,
+) -> (BTreeMap<i64, (i64, i64)>, Vec<BossAttempt>) {
     let boss_ids: BTreeSet<i64> = data
         .report
         .master_data
@@ -169,19 +173,106 @@ fn boss_spans(data: &CollectedLog, enemies: &BTreeSet<i64>) -> BTreeMap<i64, (i6
         .filter(|actor| actor.sub_type == "Boss" && enemies.contains(&actor.id))
         .map(|actor| actor.id)
         .collect();
-    let mut spans = BTreeMap::new();
+    // A respawn changes the instance, e.g. damage before the arena seals still belongs to its retry.
+    let mut attempts: BTreeMap<i64, BTreeMap<i64, (i64, i64)>> = BTreeMap::new();
     for event in &data.events {
         for id in [event.source_id, event.target_id].into_iter().flatten() {
             if boss_ids.contains(&id) {
-                let span = spans
+                let instance = if event.source_id == Some(id) {
+                    event.source_instance
+                } else {
+                    event.extra.get("targetInstance").and_then(Value::as_i64)
+                }
+                .unwrap_or(1);
+                let span = attempts
                     .entry(id)
+                    .or_default()
+                    .entry(instance)
                     .or_insert((event.timestamp, event.timestamp));
                 span.0 = span.0.min(event.timestamp);
                 span.1 = span.1.max(event.timestamp);
             }
         }
     }
-    spans
+    let mut spans = BTreeMap::new();
+    let mut evidence = Vec::new();
+    let fight_start = data
+        .report
+        .fights
+        .first()
+        .map_or(0, |fight| fight.start_time);
+    let boundaries: BTreeSet<_> = attempts
+        .values()
+        .flat_map(|instances| instances.values().map(|span| span.0))
+        .collect();
+    let mut sealed = BTreeMap::new();
+    let mut arenas = Vec::new();
+    for event in data
+        .events
+        .iter()
+        .filter(|event| event.kind == "instancesealupdate")
+        .sorted_by_key(|event| event.timestamp)
+    {
+        let place = event.extra.get("placeID").and_then(Value::as_i64);
+        match event.extra.get("sealType").and_then(Value::as_i64) {
+            Some(1 | 2) => {
+                sealed.entry(place).or_insert(event.timestamp);
+            }
+            Some(3) => {
+                arenas.push((sealed.remove(&place).unwrap_or(i64::MIN), event.timestamp));
+            }
+            _ => {}
+        }
+    }
+    for (actor_id, observed) in attempts {
+        let mut observed: Vec<_> = observed.into_values().collect();
+        observed.sort();
+        let mut merged: Vec<(i64, i64)> = Vec::new();
+        for (start, end) in observed {
+            // Concurrent boss instances share a section, e.g. two copies alive at the same time.
+            if let Some(previous) = merged.last_mut()
+                && start <= previous.1
+            {
+                previous.1 = previous.1.max(end);
+            } else {
+                merged.push((start, end));
+            }
+        }
+        for (start, end) in &mut merged {
+            let next = boundaries
+                .range((std::ops::Bound::Excluded(*end), std::ops::Bound::Unbounded))
+                .next()
+                .copied()
+                .unwrap_or(i64::MAX);
+            if let Some(opened) = arenas
+                .iter()
+                .filter(|&&(sealed, opened)| sealed <= *end && *start <= opened && opened < next)
+                .map(|&(_, opened)| opened)
+                .max()
+            {
+                // Bound combat at arena opening, e.g. keep earlier missiles but exclude delayed death records.
+                *end = opened;
+            }
+        }
+        if let Some(&span) = merged.last() {
+            spans.insert(actor_id, span);
+            if merged.len() > 1 {
+                let last = merged.len() - 1;
+                evidence.extend(
+                    merged
+                        .into_iter()
+                        .enumerate()
+                        .map(|(attempt, (start, end))| BossAttempt {
+                            actor_id,
+                            start_ms: start - fight_start,
+                            end_ms: end - fight_start,
+                            selected: attempt == last,
+                        }),
+                );
+            }
+        }
+    }
+    (spans, evidence)
 }
 
 // Validate each input before consensus can omit its rows, e.g. an invalid ability name still fails.
@@ -210,7 +301,7 @@ pub(super) fn build_single(source: &Source, mode: GenerateMode) -> Result<Single
         .map(|enemy| enemy.id)
         .chain(fight.enemy_players.iter().flatten().copied())
         .collect();
-    let boss_spans = boss_spans(data, &enemies);
+    let (boss_spans, boss_attempts) = boss_spans(data, &enemies);
     if mode != GenerateMode::Raid {
         ensure!(!boss_spans.is_empty(), "No observed boss segment");
     }
@@ -350,6 +441,7 @@ pub(super) fn build_single(source: &Source, mode: GenerateMode) -> Result<Single
     let report = serde_json::to_value(SingleReport {
         status: "draft",
         mode,
+        boss_attempts,
         boss_segments: boss_spans
             .into_iter()
             .map(|(actor_id, (start, end))| BossSegment {

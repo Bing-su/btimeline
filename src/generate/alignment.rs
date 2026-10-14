@@ -14,6 +14,8 @@ use super::{GroupKey, Pull, inspect};
 #[serde(rename_all = "camelCase")]
 pub(super) struct SignalKey {
     pub actor_game_id: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_name: Option<String>,
     pub role: String,
     pub ability_id: i64,
     pub kind: String,
@@ -82,12 +84,39 @@ pub(super) fn signals(pull: &Pull) -> Vec<Signal> {
     let mut positions: BTreeMap<(usize, i64, i64, &str), usize> = BTreeMap::new();
     let mut instances: Vec<BTreeSet<i64>> = Vec::new();
     for row in &pull.occurrences {
+        let virtual_name = pull.virtual_actors.get(&row.actor_id);
+        let actor_game_id = if virtual_name.is_some() {
+            0
+        } else {
+            row.actor_game_id
+        };
         let identity = (
             row.simultaneous,
             row.actor_game_id,
             row.ability_id,
             row.kind.as_str(),
         );
+        // Virtual helper instances can be packet-staggered, e.g. 1+7 casts 45ms apart form one wave.
+        if virtual_name.is_some()
+            && !positions.contains_key(&identity)
+            && let Some(instance) = row.instance
+            && let Some(position) =
+                result
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .find_map(|(position, signal)| {
+                        (signal.key.actor_name.as_ref() == virtual_name
+                            && signal.key.role == row.role
+                            && signal.key.ability_id == row.ability_id
+                            && signal.key.kind == row.kind
+                            && row.relative_ms - signal.time_ms <= 100
+                            && !signal.instance_ids.contains(&instance))
+                        .then_some(position)
+                    })
+        {
+            positions.insert(identity, position);
+        }
         if let Some(&position) = positions.get(&identity) {
             if let Some(signal) = result.get_mut(position) {
                 signal.key.count += 1;
@@ -96,7 +125,7 @@ pub(super) fn signals(pull: &Pull) -> Vec<Signal> {
                     && let Some(seen) = instances.get_mut(position)
                 {
                     seen.insert(instance);
-                    signal.key.instances = seen.len();
+                    signal.key.instances = seen.len().max(1);
                     signal.instance_ids = seen.iter().copied().collect();
                 }
             }
@@ -106,12 +135,14 @@ pub(super) fn signals(pull: &Pull) -> Vec<Signal> {
         let seen: BTreeSet<i64> = row.instance.into_iter().collect();
         result.push(Signal {
             key: SignalKey {
-                actor_game_id: row.actor_game_id,
+                actor_game_id,
+                actor_name: virtual_name.cloned(),
                 role: row.role.clone(),
                 ability_id: row.ability_id,
                 kind: row.kind.clone(),
                 count: 1,
-                instances: seen.len(),
+                // A missing sourceInstance still denotes one actor, e.g. a single-pull boss.
+                instances: seen.len().max(1),
             },
             time_ms: row.relative_ms,
             event_indices: vec![row.event_index],
@@ -608,6 +639,11 @@ mod tests {
                 })
                 .collect(),
             actors: Default::default(),
+            raw_occurrences: None,
+            virtual_actors: Default::default(),
+            boss_spans: Vec::new(),
+            boss_interactions: Vec::new(),
+            boss_deaths: Vec::new(),
         }
     }
 
