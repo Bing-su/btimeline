@@ -2270,6 +2270,39 @@ fn directory_rejects_duplicate_and_incomplete_inputs_before_writing() {
 }
 
 #[test]
+fn multi_sync_uses_each_pulls_observed_time_for_collisions() {
+    // An 8s drift must not make the median time collide with a different occurrence in the early pull.
+    let make = |code, delay: i64| {
+        multi_log(
+            code,
+            &[
+                (1000, 10, 90001, "cast"),
+                (10000 + delay, 10, 90002, "cast"),
+                (18100 + delay, 10, 90002, "cast"),
+                (30000 + delay, 10, 90004, "cast"),
+            ],
+            40000,
+            true,
+        )
+    };
+    with_logs(&[make("a", 0), make("b", 8100), make("c", 8100)], |path| {
+        let (yaml, report) = multi::build(
+            input::select_group(path, None, None, None).unwrap(),
+            GenerateMode::Raid,
+            30.0,
+        )
+        .unwrap();
+        assert_eq!(report["syncConflicts"], json!([]));
+        assert_eq!(report["extensions"]["accepted"], true);
+        assert!(
+            draft_events(&yaml)
+                .iter()
+                .all(|event| event["sync"]["enabled"] != false)
+        );
+    });
+}
+
+#[test]
 fn multi_sync_checks_alternative_ids_against_excluded_raw_casts() {
     let a = multi_log(
         "a",

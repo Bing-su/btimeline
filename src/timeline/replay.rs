@@ -588,11 +588,17 @@ pub(crate) fn run(
         {
             summary.wrong_matches += 1;
         }
-        if expected && last_expected_entry.is_some_and(|last| *i < last) {
+        if expected && last_expected_entry.is_some_and(|(last, at)| *i < last && at < signal.at_ms)
+        {
             summary.dependency_violations += 1;
         }
         if expected {
-            last_expected_entry = Some(*i);
+            // Packet order does not order simultaneous casts; retain their highest row for later signals.
+            // Example: C,B at 1s is valid, but A at 2s still violates the observed order.
+            let last = last_expected_entry
+                .filter(|&(_, at)| at == signal.at_ms)
+                .map_or(*i, |(last, _)| last.max(*i));
+            last_expected_entry = Some((last, signal.at_ms));
         }
         let error = clock - row.at_ms;
         summary.max_abs_error_ms = summary.max_abs_error_ms.max(error.abs());
@@ -917,6 +923,36 @@ mod tests {
             serde_json::to_value(first).expect("serialize"),
             serde_json::to_value(second).expect("serialize")
         );
+    }
+
+    #[rstest::rstest]
+    #[case::simultaneous(1000, false, 0)]
+    #[case::ordered(1001, false, 1)]
+    #[case::later_regression(1000, true, 1)]
+    fn dependency_order_ignores_simultaneous_packet_order(
+        #[case] second_ms: i64,
+        #[case] later_regression: bool,
+        #[case] violations: usize,
+    ) {
+        // Distinct actors' casts can arrive reversed at the same timestamp, e.g. two Earthquakes.
+        let mut signals = vec![signal(2, 1000, "C"), signal(1, second_ms, "B")];
+        let mut expected: Vec<(usize, &[usize])> = vec![(1, &[1]), (2, &[2])];
+        let censored = if later_regression {
+            signals.push(signal(0, 2000, "A"));
+            expected.push((0, &[0]));
+            vec![]
+        } else {
+            vec![0]
+        };
+        let result = play(
+            vec![event(1.0, "A"), event(1.0, "B"), event(1.0, "C")],
+            &signals,
+            &expected,
+            &censored,
+            3000,
+        );
+        assert_eq!(result.summary.dependency_violations, violations);
+        assert_eq!(result.passed, violations == 0);
     }
 
     #[test]

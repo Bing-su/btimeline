@@ -504,9 +504,10 @@ fn cast_sync<'a>(
             .context("Missing fight")?
             .start_time;
         let representative = sample.map(index).transpose()?;
-        outside_window |= sample.is_some_and(|s| {
+        let sample_outside_window = sample.is_some_and(|s| {
             (s.time_ms as f64) < at * 1000.0 - 2500.0 || (s.time_ms as f64) >= at * 1000.0 + 2500.0
         });
+        outside_window |= sample_outside_window;
         let observed_ms =
             sample.map_or(at * 1000.0, |s| draft::rounded_seconds(s.time_ms) * 1000.0);
         for (event_index, event) in input.log.events.iter().enumerate() {
@@ -518,10 +519,10 @@ fn cast_sync<'a>(
                 && event.ability_game_id.is_some_and(|id| ids.contains(&id))
                 && source_matches
                 && Some(event_index) != representative
-                && ((event.timestamp - start) as f64 - at * 1000.0)
-                    .abs()
-                    .min(((event.timestamp - start) as f64 - observed_ms).abs())
-                    <= 2500.0
+                // A drift-disabled draft needs clock correction first, e.g. an 8s shift between pulls.
+                && ((!sample_outside_window
+                    && ((event.timestamp - start) as f64 - at * 1000.0).abs() <= 2500.0)
+                    || ((event.timestamp - start) as f64 - observed_ms).abs() <= 2500.0)
             {
                 collisions.push(ConflictingEvent {
                     file: &input.pull.file,
