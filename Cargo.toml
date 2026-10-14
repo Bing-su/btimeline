@@ -101,4 +101,4 @@ allow_attributes_without_reason = "warn"
 
 [profile.release]
 strip = true
-lto = true
+lto = "thin"
