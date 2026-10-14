@@ -2900,14 +2900,16 @@ fn multi_boss_keeps_repeat_compression_and_raw_replay() {
     });
 }
 
-#[test]
-fn simultaneous_instances_are_preserved_without_inflating_pull_sample_counts() {
+#[rstest]
+#[case::simultaneous(0)]
+#[case::staggered(1)]
+fn simultaneous_instances_are_preserved_without_inflating_pull_sample_counts(#[case] stagger: i64) {
     let mut a = multi_log(
         "a",
         &[
             (1000, 10, 90001, "cast"),
             (3000, 11, 90002, "cast"),
-            (3000, 11, 90002, "cast"),
+            (3000 + stagger, 11, 90002, "cast"),
             (7000, 10, 90004, "cast"),
         ],
         8000,
@@ -2936,6 +2938,895 @@ fn simultaneous_instances_are_preserved_without_inflating_pull_sample_counts() {
             json!([2, 3])
         );
         assert_eq!(draft_events(&yaml)[1]["sync"]["enabled"], false);
+        // A collapsed wave is represented in full, e.g. both helper instances belong to one row.
+        let output = path.join("wave.yaml");
+        prepare(path, &output, &[]).unwrap();
+        let replay: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("replay.json")).unwrap())
+                .unwrap();
+        for pull in replay["pulls"].as_array().unwrap() {
+            assert_eq!(pull["unrepresentedEventIndices"], json!([]));
+        }
+    });
+}
+
+#[test]
+fn raid_phase_clocks_prevent_matching_a_choice_to_a_later_round() {
+    let mut a = multi_log(
+        "a",
+        &[
+            (1000, 10, 90001, "cast"),
+            (5000, 10, 90004, "cast"),
+            (24000, 10, 90002, "cast"),
+            (34000, 10, 90003, "cast"),
+            (40000, 10, 90005, "cast"),
+        ],
+        41000,
+        true,
+    );
+    let mut b = multi_log(
+        "b",
+        &[
+            (1000, 10, 90001, "cast"),
+            (5000, 10, 90004, "cast"),
+            (34000, 10, 90003, "cast"),
+            (44000, 10, 90002, "cast"),
+            (50000, 10, 90005, "cast"),
+        ],
+        51000,
+        true,
+    );
+    a["report"]["fights"][0]["phaseTransitions"] =
+        json!([{"id":7,"startTime":1000},{"id":3,"startTime":22000}]);
+    b["report"]["fights"][0]["phaseTransitions"] =
+        json!([{"id":7,"startTime":1000},{"id":3,"startTime":32000}]);
+    with_logs(&[a, b], |dir| {
+        let a = load_one(&dir.join("fight_0.json")).unwrap();
+        let b = load_one(&dir.join("fight_1.json")).unwrap();
+        let (relation, _) = multi::correspondence(&a.pull, &b.pull).unwrap();
+        assert_eq!(relation.matched.get(&4), Some(&4));
+        assert!(!relation.matched.contains_key(&2));
+        assert!(!relation.matched.contains_key(&3));
+        let output = dir.join("phases.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            report["extensions"]["accepted"], true,
+            "{}",
+            report["extensions"]
+        );
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+    });
+}
+
+#[test]
+fn raid_phase_suffix_needs_explicit_defeat_of_every_overlapping_boss() {
+    let mut long = multi_log(
+        "long",
+        &[
+            (1000, 10, 90001, "cast"),
+            (15000, 10, 90002, "cast"),
+            (30000, 10, 90003, "cast"),
+        ],
+        31000,
+        true,
+    );
+    long["report"]["fights"][0]["phaseTransitions"] =
+        json!([{"id":1,"startTime":1000},{"id":2,"startTime":11000}]);
+    let mut short = multi_log(
+        "short",
+        &[(1000, 10, 90001, "cast"), (15000, 10, 90002, "cast")],
+        21000,
+        true,
+    );
+    short["report"]["fights"][0]["phaseTransitions"] =
+        long["report"]["fights"][0]["phaseTransitions"].clone();
+    for (defeat, overlapping, censored) in [
+        (false, false, false),
+        (true, false, true),
+        (true, true, false),
+    ] {
+        let mut peer = short.clone();
+        if defeat {
+            peer["events"].as_array_mut().unwrap().push(json!({"timestamp":20000,"type":"damage","fight":2,"sourceID":11,"targetID":10,"targetResources":{"hitPoints":0,"maxHitPoints":100}}));
+        }
+        if overlapping {
+            peer["report"]["masterData"]["actors"].as_array_mut().unwrap().push(json!({"id":12,"name":"Other Boss","gameID":99903,"type":"NPC","subType":"Boss"}));
+            peer["report"]["fights"][0]["enemyNPCs"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"id":12,"gameID":99903}));
+            peer["events"]
+                .as_array_mut()
+                .unwrap()
+                .push(serde_json::to_value(cast_event(21000, 12, 90002, "cast")).unwrap());
+        }
+        peer["collection"]["eventCount"] = json!(peer["events"].as_array().unwrap().len());
+        with_logs(&[long.clone(), peer], |dir| {
+            let a = load_one(&dir.join("fight_0.json")).unwrap();
+            let b = load_one(&dir.join("fight_1.json")).unwrap();
+            let (relation, _) = multi::correspondence(&a.pull, &b.pull).unwrap();
+            assert_eq!(relation.censored.contains(&2), censored);
+        });
+    }
+}
+
+#[test]
+fn raid_packet_fanout_does_not_create_a_branch_or_untracked_casts() {
+    let logs: Vec<_> = [2, 3]
+        .into_iter()
+        .enumerate()
+        .map(|(i, count)| {
+            let mut rows = vec![(1000, 10, 90001, "cast")];
+            rows.extend((0..count).map(|packet| (3000 + packet * 180, 11, 90002, "cast")));
+            rows.push((8000, 10, 90004, "cast"));
+            let mut log = multi_log(&format!("wave-{i}"), &rows, 9000, true);
+            for packet in 0..count {
+                log["events"][1 + usize::try_from(packet).unwrap()]["sourceInstance"] =
+                    json!(packet + 1);
+            }
+            log
+        })
+        .collect();
+    with_logs(&logs, |dir| {
+        let output = dir.join("wave.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(report["slots"].as_array().unwrap().len(), 3);
+        assert!(
+            report["extensions"]["branches"]
+                .as_array()
+                .is_none_or(Vec::is_empty)
+        );
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+        let replay: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("replay.json")).unwrap())
+                .unwrap();
+        for pull in replay["pulls"].as_array().unwrap() {
+            assert_eq!(pull["unrepresentedEventIndices"], json!([]));
+        }
+    });
+}
+
+#[rstest]
+#[case::completion_alias(false)]
+#[case::start_alias(true)]
+fn raid_discriminator_uses_cast_start_when_helper_shares_its_completion_signature(
+    #[case] start_alias: bool,
+) {
+    let mut logs: Vec<_> = [(90002, 90005), (90003, 90006)]
+        .into_iter()
+        .enumerate()
+        .map(|(i, (choice, tail))| {
+            multi_log(
+                &format!("path-{i}"),
+                &[
+                    (1000, 10, 90001, "cast"),
+                    (3000, 10, choice, "begincast"),
+                    (6000, 10, choice, "cast"),
+                    (8000, 10, tail, "cast"),
+                    (10000, 10, 90004, "cast"),
+                ],
+                11000,
+                true,
+            )
+        })
+        .collect();
+    let log = &mut logs[0];
+    log["report"]["masterData"]["actors"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"id":12,"name":"Boss","gameID":99903,"type":"NPC","subType":"NPC"}));
+    log["report"]["fights"][0]["enemyNPCs"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"id":12,"gameID":99903}));
+    for instance in 1..=2 {
+        let mut packet =
+            serde_json::to_value(cast_event(7400 + instance, 12, 90002, "cast")).unwrap();
+        packet["sourceInstance"] = json!(instance);
+        log["events"].as_array_mut().unwrap().push(packet);
+    }
+    if start_alias {
+        let mut start = serde_json::to_value(cast_event(3999, 12, 90002, "begincast")).unwrap();
+        start["sourceInstance"] = json!(1);
+        log["events"].as_array_mut().unwrap().push(start);
+    } else {
+        // A different, earlier helper start keeps these completions separate from the boss's cast.
+        for instance in 1..=2 {
+            let mut start = serde_json::to_value(cast_event(1200, 12, 90002, "begincast")).unwrap();
+            start["sourceInstance"] = json!(instance);
+            log["events"].as_array_mut().unwrap().push(start);
+        }
+    }
+    log["collection"]["eventCount"] = json!(log["events"].as_array().unwrap().len());
+    with_logs(&logs, |dir| {
+        let output = dir.join("start.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            report["extensions"]["accepted"], true,
+            "{}",
+            report["extensions"]
+        );
+        assert_eq!(
+            report["extensions"]["branches"].as_array().unwrap().len(),
+            1
+        );
+        let events = draft_events(&fs::read_to_string(&output).unwrap());
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| event["sync"]["log"] == "StartsUsing")
+                .count(),
+            if start_alias { 0 } else { 2 }
+        );
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+        let mut holdout = logs[0].clone();
+        holdout["report"]["code"] = json!("holdout");
+        holdout["collection"]["reportCode"] = json!("holdout");
+        with_file(&holdout, |input| {
+            replay::replay_file(&output, input, dir.join("holdout.replay.json"), None).unwrap();
+        });
+        // Enemy aliases are evidence; a friendly actor with the same name must still expose accidental activation.
+        holdout["report"]["masterData"]["actors"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"id":13,"name":"Boss","gameID":99904,"type":"Player","subType":""}));
+        holdout["events"].as_array_mut().unwrap().push(
+            serde_json::to_value(if start_alias {
+                cast_event(6999, 13, 90002, "cast")
+            } else {
+                cast_event(3998, 13, 90002, "begincast")
+            })
+            .unwrap(),
+        );
+        holdout["collection"]["eventCount"] = json!(holdout["events"].as_array().unwrap().len());
+        with_file(&holdout, |input| {
+            assert!(
+                replay::replay_file(&output, input, dir.join("friendly.replay.json"), None)
+                    .is_err()
+            );
+        });
+    });
+}
+
+#[test]
+fn raid_joint_packet_choices_preserve_both_mechanics_and_accept_reversed_holdout_order() {
+    let logs: Vec<_> = [
+        (90002, 90012),
+        (90002, 90013),
+        (90003, 90012),
+        (90003, 90013),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(i, (a, b))| {
+        let mut rows = vec![
+            (1000, 10, 90001, "cast"),
+            (3000, 10, a, "begincast"),
+            (3000, 11, b, "begincast"),
+            (6000, 10, a, "cast"),
+            (6000, 11, b, "cast"),
+            (10000, 10, 90004, "cast"),
+        ];
+        if i % 2 == 1 {
+            rows.swap(3, 4);
+        }
+        multi_log(&format!("joint-{i}"), &rows, 11000, true)
+    })
+    .collect();
+    with_logs(&logs, |dir| {
+        let output = dir.join("joint.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            report["extensions"]["accepted"], true,
+            "{}",
+            report["extensions"]
+        );
+        assert!(
+            report["extensions"]["branches"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|branch| branch["packetWave"] == true)
+        );
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+        // A different packet order must still select a path with both choices, e.g. helper B arrives before boss A.
+        let mut holdout = logs[0].clone();
+        holdout["report"]["code"] = json!("joint-holdout");
+        holdout["collection"]["reportCode"] = json!("joint-holdout");
+        holdout["events"].as_array_mut().unwrap().swap(3, 4);
+        with_file(&holdout, |input| {
+            replay::replay_file(&output, input, dir.join("holdout.replay.json"), None).unwrap();
+        });
+    });
+}
+
+#[rstest]
+#[case::paired(false, 1, 500, 3)]
+#[case::orphan(true, 1, 500, 3)]
+#[case::delayed_copy(false, 600, 600, 3)]
+#[case::later_followup(true, 1, 2000, 4)]
+#[case::separate_cast(false, 2000, 2000, 4)]
+#[case::distinct_starts_same_tick(false, 2000, 0, 4)]
+#[case::distinct_starts_same_wave(false, -2000, 100, 4)]
+fn raid_late_completion_aliases_share_the_observed_start_and_keep_raw_coverage(
+    #[case] orphan: bool,
+    #[case] start_offset: i64,
+    #[case] completion_offset: i64,
+    #[case] rows: usize,
+) {
+    let logs: Vec<_> = [0, 1]
+        .into_iter()
+        .map(|i| {
+            let mut log = multi_log(
+                &format!("alias-{i}"),
+                &[
+                    (1000, 10, 90001, "cast"),
+                    (3000, 10, 90002, "begincast"),
+                    (3000 + start_offset, 11, 90012, "begincast"),
+                    (6000, 10, 90002, "cast"),
+                    (6000 + completion_offset, 11, 90012, "cast"),
+                    (10000, 10, 90004, "cast"),
+                ],
+                11000,
+                true,
+            );
+            log["report"]["masterData"]["actors"][1]["name"] = json!("Boss");
+            if orphan {
+                log["events"].as_array_mut().unwrap().remove(2);
+                log["collection"]["eventCount"] = json!(log["events"].as_array().unwrap().len());
+            }
+            for ability in log["report"]["masterData"]["abilities"]
+                .as_array_mut()
+                .unwrap()
+            {
+                if ability["gameID"] == 90012 {
+                    ability["name"] = json!("Ability 90002");
+                }
+            }
+            log
+        })
+        .collect();
+    with_logs(&logs, |dir| {
+        let output = dir.join("aliases.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(report["slots"].as_array().unwrap().len(), rows);
+        assert_eq!(
+            report["slots"][1]["abilityIds"],
+            if rows == 3 {
+                json!([90002, 90012])
+            } else {
+                json!([90002])
+            }
+        );
+        assert_eq!(report["slots"][1]["time"]["sampleCount"], 2);
+        assert_ne!(
+            draft_events(&fs::read_to_string(&output).unwrap())[1]["sync"]["enabled"],
+            false
+        );
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+        if rows == 4 {
+            // Independent casts are mandatory, e.g. removing the helper must not satisfy an ID alternative.
+            let mut holdout = logs[0].clone();
+            holdout["report"]["code"] = json!("missing-cast");
+            holdout["collection"]["reportCode"] = json!("missing-cast");
+            holdout["events"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|event| event["sourceID"] != 11);
+            holdout["collection"]["eventCount"] =
+                json!(holdout["events"].as_array().unwrap().len());
+            with_file(&holdout, |input| {
+                let replay_output = dir.join("missing.replay.json");
+                assert!(replay::replay_file(&output, input, &replay_output, None).is_err());
+                let result: Value =
+                    serde_json::from_slice(&fs::read(replay_output).unwrap()).unwrap();
+                assert_eq!(result["pulls"][0]["replay"]["summary"]["missing"], 1);
+            });
+        }
+    });
+}
+
+#[test]
+fn raid_truncated_branch_reactions_use_the_observed_discriminator_clock() {
+    let first = multi_log(
+        "x",
+        &[
+            (1000, 10, 90001, "cast"),
+            (2000, 10, 90002, "cast"),
+            (5000, 10, 90005, "cast"),
+            (6500, 10, 90007, "cast"),
+            (8000, 10, 90004, "cast"),
+        ],
+        9000,
+        true,
+    );
+    let second = multi_log(
+        "y",
+        &[
+            (1000, 10, 90001, "cast"),
+            (2000, 10, 90003, "cast"),
+            (5000, 10, 90006, "cast"),
+            (6500, 10, 90007, "cast"),
+            (8000, 10, 90004, "cast"),
+        ],
+        9000,
+        true,
+    );
+    let mut wipe = multi_log(
+        "wipe",
+        &[
+            (1000, 10, 90001, "cast"),
+            (2000, 10, 90002, "cast"),
+            (3000, 11, 90012, "cast"),
+            (3001, 11, 90012, "cast"),
+        ],
+        3500,
+        false,
+    );
+    wipe["events"][2]["sourceInstance"] = json!(1);
+    wipe["events"][3]["sourceInstance"] = json!(2);
+    with_logs(&[first, second, wipe], |dir| {
+        let output = dir.join("partial.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            report["extensions"]["accepted"], true,
+            "{}",
+            report["extensions"]
+        );
+        assert_eq!(
+            report["extensions"]["branches"].as_array().unwrap().len(),
+            1,
+            "{}",
+            report["extensions"]
+        );
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+    });
+}
+
+#[rstest]
+#[case::one_instance(false)]
+#[case::different_instances(true)]
+fn raid_repeated_started_casts_from_one_actor_are_not_merged_as_copies(
+    #[case] different_instances: bool,
+) {
+    let rows = [
+        (500, 10, 90002, "begincast"),
+        (1000, 10, 90002, "cast"),
+        (2500, 10, 90002, "begincast"),
+        (3000, 10, 90002, "cast"),
+        (8000, 10, 90004, "cast"),
+    ];
+    let mut logs = [
+        multi_log("a", &rows, 9000, true),
+        multi_log("b", &rows, 9000, true),
+    ];
+    if different_instances {
+        for log in &mut logs {
+            for (index, instance) in [(0, 1), (1, 1), (2, 2), (3, 2)] {
+                log["events"][index]["sourceInstance"] = json!(instance);
+            }
+        }
+    }
+    with_logs(&logs, |dir| {
+        let output = dir.join("repeated.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(report["slots"].as_array().unwrap().len(), 3);
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+    });
+}
+
+#[test]
+fn single_draft_replay_keeps_distinct_alias_rows() {
+    let mut log = sample();
+    log["report"]["masterData"]["actors"][1]["name"] = json!("Boss");
+    log["report"]["masterData"]["abilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"gameID":90002,"name":"Move","type":"1"}));
+    log["events"][0]["abilityGameID"] = json!(90002);
+    with_file(&log, |input| {
+        let output = input.with_extension("yaml");
+        prepare(input, &output, &[]).unwrap();
+        let replay: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("replay.json")).unwrap())
+                .unwrap();
+        assert_eq!(replay["pulls"][0]["replay"]["passed"], true);
+        assert_eq!(replay["pulls"][0]["unrepresentedEventIndices"], json!([]));
+    });
+}
+
+#[test]
+fn raid_observed_suffix_is_preserved_without_a_common_successor() {
+    let mut short = multi_log(
+        "short",
+        &[(1000, 10, 90001, "cast"), (5000, 10, 90002, "cast")],
+        6000,
+        true,
+    );
+    let mut long = multi_log(
+        "long",
+        &[
+            (1000, 10, 90001, "cast"),
+            (5000, 10, 90002, "cast"),
+            (6000, 10, 90008, "begincast"),
+            (8000, 10, 90008, "cast"),
+        ],
+        9000,
+        false,
+    );
+    for log in [&mut short, &mut long] {
+        log["report"]["fights"][0]["phaseTransitions"] = json!([{"id":1,"startTime":1000}]);
+    }
+    with_logs(&[short, long], |dir| {
+        let output = dir.join("suffix.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        let suffix = report["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|slot| slot["abilityIds"] == json!([90008]))
+            .unwrap();
+        assert_eq!(suffix["evidence"], "observedSuffix");
+        assert_eq!(
+            draft_events(&fs::read_to_string(&output).unwrap())
+                .iter()
+                .find(|event| event["name"] == "Ability 90008")
+                .unwrap()["sync"]["enabled"],
+            false
+        );
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+    });
+}
+
+#[test]
+fn raid_unresolved_phase_preserves_verified_branches_and_every_observed_cast() {
+    let mut logs: Vec<_> = [(90002, 90005, 90012, 90015), (90003, 90006, 90013, 90016)]
+        .into_iter()
+        .enumerate()
+        .map(|(i, (a, b, c, d))| {
+            multi_log(
+                &format!("full-{i}"),
+                &[
+                    (1000, 10, 90001, "cast"),
+                    (3000, 10, a, "cast"),
+                    (5000, 10, b, "cast"),
+                    (10000, 10, 90004, "cast"),
+                    (20000, 10, 90011, "cast"),
+                    (22000, 10, c, "cast"),
+                    (25000, 10, d, "cast"),
+                    (30000, 10, 90014, "cast"),
+                ],
+                31000,
+                true,
+            )
+        })
+        .collect();
+    logs.push(multi_log(
+        "wipe",
+        &[
+            (1000, 10, 90001, "cast"),
+            (3000, 10, 90002, "cast"),
+            (5000, 10, 90005, "cast"),
+            (10000, 10, 90004, "cast"),
+            (20000, 10, 90011, "cast"),
+            (22000, 10, 90012, "cast"),
+            (24000, 10, 90030, "cast"),
+        ],
+        26000,
+        false,
+    ));
+    for log in &mut logs {
+        log["report"]["fights"][0]["phaseTransitions"] =
+            json!([{"id":1,"startTime":1000},{"id":2,"startTime":19000}]);
+    }
+    with_logs(&logs, |dir| {
+        let output = dir.join("isolated.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(report["extensions"]["unresolvedPhaseIds"], json!([2]));
+        assert!(
+            !report["extensions"]["branches"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            report["slots"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|slot| slot["abilityIds"] == json!([90030])
+                    && slot["evidence"] == "unresolvedPath")
+        );
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+    });
+}
+
+#[rstest]
+#[case::all_dead(2, false, Some(3100))]
+#[case::one_alive(1, false, None)]
+#[case::resurrected(2, true, None)]
+fn raid_party_defeat_needs_every_participant_and_respects_resurrection(
+    #[case] deaths: usize,
+    #[case] resurrect: bool,
+    #[case] expected: Option<i64>,
+) {
+    let mut log = multi_log("party", &[(1000, 10, 90001, "cast")], 6000, false);
+    log["report"]["fights"][0]["friendlyPlayers"] = json!([20, 21, 22]);
+    log["report"]["masterData"]["actors"].as_array_mut().unwrap().extend([
+        json!({"id":20,"name":"Tank","gameID":1000020,"type":"Player","subType":"Paladin"}),
+        json!({"id":21,"name":"Healer","gameID":1000021,"type":"Player","subType":"WhiteMage"}),
+        json!({"id":22,"name":"Limit Break","gameID":1000022,"type":"Player","subType":"LimitBreak"})]);
+    for (at, id) in [(4000, 20), (4100, 21)].into_iter().take(deaths) {
+        log["events"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"timestamp":at,"type":"death","fight":2,"targetID":id}));
+    }
+    if resurrect {
+        log["events"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"timestamp":4200,"type":"resurrect","fight":2,"targetID":21}));
+    }
+    log["collection"]["eventCount"] = json!(log["events"].as_array().unwrap().len());
+    with_file(&log, |input| {
+        assert_eq!(load_one(input).unwrap().pull.party_defeat_ms, expected);
+    });
+}
+
+#[test]
+fn raid_mixed_alias_packets_match_one_explicit_alternative_wave() {
+    let mut logs: Vec<_> = [90002, 90012, 90013]
+        .into_iter()
+        .enumerate()
+        .map(|(i, id)| {
+            multi_log(
+                &format!("full-{i}"),
+                &[
+                    (1000, 10, 90001, "cast"),
+                    (1500, 11, id, "begincast"),
+                    (2000, 10, 90007, "cast"),
+                    (3000, 11, id, "cast"),
+                    (6000, 10, 90005, "cast"),
+                    (9000, 10, 90004, "cast"),
+                ],
+                10000,
+                true,
+            )
+        })
+        .collect();
+    let mut partial = multi_log(
+        "partial",
+        &[
+            (1000, 10, 90001, "cast"),
+            (1500, 11, 90012, "begincast"),
+            (1500, 11, 90013, "begincast"),
+            (2000, 10, 90007, "cast"),
+            (3000, 11, 90012, "cast"),
+            (3000, 11, 90013, "cast"),
+        ],
+        4000,
+        false,
+    );
+    for (index, instance) in [(1, 1), (2, 2), (4, 1), (5, 2)] {
+        partial["events"][index]["sourceInstance"] = json!(instance);
+    }
+    logs.push(partial);
+    for log in &mut logs {
+        for ability in log["report"]["masterData"]["abilities"]
+            .as_array_mut()
+            .unwrap()
+        {
+            if [90002, 90012, 90013]
+                .iter()
+                .any(|id| ability["gameID"].as_i64() == Some(*id))
+            {
+                ability["name"] = json!("Choice");
+            }
+        }
+    }
+    with_logs(&logs, |dir| {
+        let output = dir.join("mixed.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(
+                coverage["omittedEventIndices"],
+                json!([]),
+                "{}",
+                report["extensions"]
+            );
+        }
+    });
+}
+
+#[test]
+fn raid_reversed_copy_packets_retain_their_cast_starts() {
+    let mut log = multi_log(
+        "a",
+        &[
+            (1000, 10, 90001, "cast"),
+            (3000, 10, 90002, "begincast"),
+            (3001, 11, 90012, "begincast"),
+            (4000, 11, 90012, "cast"),
+            (4001, 10, 90002, "cast"),
+            (5000, 10, 90002, "begincast"),
+            (5001, 11, 90012, "begincast"),
+            (6000, 11, 90012, "cast"),
+            (6001, 10, 90002, "cast"),
+            (8000, 10, 90004, "cast"),
+        ],
+        9000,
+        true,
+    );
+    log["report"]["masterData"]["actors"][1]["name"] = json!("Boss");
+    log["report"]["masterData"]["actors"][1]["subType"] = json!("Boss");
+    for ability in log["report"]["masterData"]["abilities"]
+        .as_array_mut()
+        .unwrap()
+    {
+        if ability["gameID"] == 90012 {
+            ability["name"] = json!("Ability 90002");
+        }
+    }
+    let mut peer = log.clone();
+    peer["report"]["code"] = json!("b");
+    peer["collection"]["reportCode"] = json!("b");
+    with_logs(&[log, peer], |dir| {
+        let output = dir.join("copies.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        let casts: Vec<_> = report["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|slot| slot["abilityIds"] == json!([90002, 90012]))
+            .collect();
+        assert_eq!(casts.len(), 2);
+        assert!(
+            casts
+                .iter()
+                .all(|slot| slot["evidence"] != "conditionalInstantHelper")
+        );
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+    });
+}
+
+#[test]
+fn raid_instant_burst_choices_keep_their_early_discriminators() {
+    let logs: Vec<_> = [(90002, 90005), (90003, 90006)]
+        .into_iter()
+        .enumerate()
+        .map(|(i, (choice, tail))| {
+            multi_log(
+                &format!("burst-{i}"),
+                &[
+                    (1000, 10, 90001, "cast"),
+                    (2000, 10, choice, "cast"),
+                    (4000, 10, choice, "cast"),
+                    (6000, 10, choice, "cast"),
+                    (9000, 10, tail, "cast"),
+                    (10000, 10, 90004, "cast"),
+                ],
+                11000,
+                true,
+            )
+        })
+        .collect();
+    with_logs(&logs, |dir| {
+        let output = dir.join("burst.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        let selectors: Vec<_> = report["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|slot| slot["selector"] == true)
+            .collect();
+        assert_eq!(selectors.len(), 2);
+        assert!(selectors.iter().all(
+            |slot| slot["abilityIds"] == json!([90002]) || slot["abilityIds"] == json!([90003])
+        ));
+    });
+}
+
+#[test]
+fn raid_unstarted_boss_followups_keep_variable_packet_counts_as_observations() {
+    let first = multi_log(
+        "three",
+        &[
+            (500, 10, 90001, "begincast"),
+            (1000, 10, 90001, "cast"),
+            (3000, 10, 90002, "cast"),
+            (5000, 10, 90002, "cast"),
+            (7000, 10, 90002, "cast"),
+            (10000, 10, 90004, "cast"),
+        ],
+        11000,
+        true,
+    );
+    let second = multi_log(
+        "two",
+        &[
+            (500, 10, 90001, "begincast"),
+            (1000, 10, 90001, "cast"),
+            (3000, 10, 90002, "cast"),
+            (7000, 10, 90002, "cast"),
+            (10000, 10, 90004, "cast"),
+        ],
+        11000,
+        true,
+    );
+    with_logs(&[first, second], |dir| {
+        let output = dir.join("followups.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+        assert!(
+            report["slots"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|slot| slot["abilityIds"] == json!([90002]))
+                .all(|slot| slot["evidence"] == "conditionalInstantHelper")
+        );
     });
 }
 
@@ -3161,6 +4052,21 @@ fn input_rejects_trailing_values_after_a_valid_log() {
         padded.extend_from_slice(b" \n\t");
         fs::write(path, padded).unwrap();
         inspect(&[path]).unwrap();
+    });
+}
+
+#[rstest]
+#[case::not_an_array(json!({}))]
+#[case::invalid_id(json!([{"id":"one","startTime":1000}]))]
+#[case::before_fight(json!([{"id":1,"startTime":999}]))]
+#[case::after_fight(json!([{"id":1,"startTime":2001}]))]
+#[case::duplicate_clock(json!([{"id":1,"startTime":1000},{"id":2,"startTime":1000}]))]
+#[case::reverse_clock(json!([{"id":1,"startTime":1500},{"id":2,"startTime":1400}]))]
+fn input_rejects_malformed_phase_clocks(#[case] transitions: Value) {
+    let mut data = sample();
+    data["report"]["fights"][0]["phaseTransitions"] = transitions;
+    with_file(&data, |path| {
+        inspect(&[path]).unwrap_err();
     });
 }
 

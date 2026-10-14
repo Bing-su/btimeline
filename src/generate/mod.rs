@@ -59,6 +59,10 @@ pub struct Pull {
     boss_interactions: Vec<(i64, i64)>,
     #[serde(skip)]
     boss_deaths: Vec<(i64, i64)>,
+    #[serde(skip)]
+    phase_spans: Vec<(i64, i64, i64)>,
+    #[serde(skip)]
+    party_defeat_ms: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]

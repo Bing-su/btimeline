@@ -35,6 +35,40 @@ pub(super) fn load_one(path: &Path) -> Result<Source> {
     let end = fight.end_time;
     ensure!(start >= 0 && end >= start, "Invalid fight time range");
     ensure!(!fight.in_progress, "Fight still in progress");
+    // Bound repeated mechanics to their observed phase, e.g. P2's first Past's End cannot match its second round.
+    let mut transitions = Vec::new();
+    if let Some(value) = fight
+        .extra
+        .get("phaseTransitions")
+        .filter(|value| !value.is_null())
+    {
+        for phase in value.as_array().context("Invalid phaseTransitions")? {
+            let id = phase["id"].as_i64().context("Invalid phase ID")?;
+            let at = phase["startTime"]
+                .as_i64()
+                .context("Invalid phase startTime")?;
+            ensure!(
+                start <= at
+                    && at <= end
+                    && transitions
+                        .last()
+                        .is_none_or(|&(_, previous)| previous < at),
+                "Invalid phase transition time range"
+            );
+            transitions.push((id, at));
+        }
+    }
+    let phase_spans = transitions
+        .iter()
+        .enumerate()
+        .map(|(i, &(id, at))| {
+            let lo = if i == 0 { 0 } else { at - start };
+            let hi = transitions
+                .get(i + 1)
+                .map_or(end - start, |&(_, next)| next - start - 1);
+            (id, lo, hi)
+        })
+        .collect();
     let key = GroupKey {
         encounter: fight.encounter_id,
         difficulty: fight.difficulty,
@@ -188,6 +222,7 @@ pub(super) fn load_one(path: &Path) -> Result<Source> {
             .then_some((actor, event.timestamp - start))
         })
         .collect();
+    let party_defeat_ms = party_defeat(&data);
     Ok(Source {
         key,
         pull: Pull {
@@ -213,10 +248,70 @@ pub(super) fn load_one(path: &Path) -> Result<Source> {
             boss_spans: Vec::new(),
             boss_interactions,
             boss_deaths,
+            phase_spans,
+            party_defeat_ms,
         },
         log: data,
         sha256,
     })
+}
+
+// FFLogs can end after the actual wipe; explicit deaths and revivals bound unobserved follow-ups.
+fn party_defeat(log: &crate::fflogs::model::CollectedLog) -> Option<i64> {
+    let fight = log.report.fights.first()?;
+    if fight.kill {
+        return None;
+    }
+    let friendly = fight
+        .extra
+        .get("friendlyPlayers")?
+        .as_array()?
+        .iter()
+        .map(Value::as_i64)
+        .collect::<Option<BTreeSet<_>>>()?;
+    let actors = &log.report.master_data.actors;
+    if friendly
+        .iter()
+        .any(|id| !actors.iter().any(|actor| actor.id == *id))
+    {
+        return None;
+    }
+    let players: BTreeSet<_> = actors
+        .iter()
+        .filter(|actor| {
+            friendly.contains(&actor.id) && actor.kind == "Player" && actor.sub_type != "LimitBreak"
+        })
+        .map(|actor| actor.id)
+        .collect();
+    if players.is_empty() {
+        return None;
+    }
+    let mut dead = BTreeSet::new();
+    let mut defeated = None;
+    for event in log.events.iter().sorted_by_key(|event| event.timestamp) {
+        if event.kind == "death"
+            && let Some(target) = event.target_id.filter(|id| players.contains(id))
+        {
+            dead.insert(target);
+            if dead.len() == players.len() {
+                defeated = Some(event.timestamp - fight.start_time);
+            }
+        }
+        if event.kind == "resurrect"
+            && let Some(target) = event.target_id
+        {
+            dead.remove(&target);
+        }
+        if matches!(event.kind.as_str(), "cast" | "begincast")
+            && let Some(source) = event.source_id
+        {
+            dead.remove(&source);
+        }
+        if dead.len() != players.len() {
+            defeated = None;
+        }
+    }
+    defeated
 }
 
 pub fn inspect(paths: &[impl AsRef<Path>]) -> Result<Vec<Group>> {

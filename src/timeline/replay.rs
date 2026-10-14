@@ -21,6 +21,8 @@ pub(crate) struct Evidence {
     // Preserve mandatory finite evidence, e.g. an exit jump cannot hide missing repeat rounds.
     pub required_missing: BTreeSet<usize>,
     pub inactive: BTreeSet<usize>,
+    pub unordered: BTreeSet<usize>,
+    pub packet_wave_selectors: BTreeSet<usize>,
     pub lookahead_ms: Option<i64>,
 }
 
@@ -348,7 +350,7 @@ pub(crate) fn run(
     let mut running = true;
     let mut spent = BTreeSet::new();
     let mut jumps = Vec::new();
-    let mut last_expected_entry = None;
+    let mut last_expected_entry: Option<(usize, i64)> = None;
     let mut stopped = false;
     let mut skipped = BTreeSet::new();
     let horizon_ms = evidence.lookahead_ms.unwrap_or(30_000);
@@ -539,7 +541,13 @@ pub(crate) fn run(
                         .map(|(i, _)| i)
                 })
                 .collect();
-            if concurrent.len() > 1 {
+            if concurrent.len() > 1
+                && !concurrent.iter().all(|&i| {
+                    rows.get(i).is_some_and(|row| {
+                        evidence.packet_wave_selectors.contains(&row.entry_index)
+                    })
+                })
+            {
                 summary.ambiguous_matches += 1;
                 candidates.clear();
             }
@@ -578,6 +586,10 @@ pub(crate) fn run(
             }
         }
         let [i] = candidates.as_slice() else { continue };
+        let last_expected_time = last_expected_entry.and_then(|(last, at)| {
+            rows.get(last)
+                .map(|row| (last, at, row.at_ms, row.entry_index))
+        });
         let row = rows.get_mut(*i).context("Missing sync row")?;
         let expected = row.expected_event_indices.contains(&signal.index);
         if !expected
@@ -588,7 +600,15 @@ pub(crate) fn run(
         {
             summary.wrong_matches += 1;
         }
-        if expected && last_expected_entry.is_some_and(|(last, at)| *i < last && at < signal.at_ms)
+        if expected
+            && last_expected_time.is_some_and(|(last, at, nominal, entry)| {
+                *i < last
+                    && at < signal.at_ms
+                    && !(evidence.unordered.contains(&entry)
+                        && evidence.unordered.contains(&row.entry_index)
+                        && signal.at_ms - at <= 250
+                        && row.at_ms.abs_diff(nominal) <= 250)
+            })
         {
             summary.dependency_violations += 1;
         }
@@ -653,7 +673,26 @@ pub(crate) fn run(
         }
     }
     for (i, row) in rows.iter_mut().enumerate() {
-        if skipped.contains(&i) && !row.expected_event_indices.is_empty() && row.matches.is_empty()
+        let observed_reference =
+            predicates
+                .get(i)
+                .and_then(Option::as_ref)
+                .is_some_and(|predicate| {
+                    !predicate.enabled
+                        && row.observations.len() == row.expected_event_indices.len()
+                        && row.observations.iter().all(|observation| {
+                            (observation.clock_ms >= row.at_ms - predicate.window[0]
+                                && observation.clock_ms < row.at_ms + predicate.window[1])
+                                || jumps.iter().any(|jump| {
+                                    jump.source_ms.abs_diff(observation.source_ms) <= 250
+                                        && jump.to_ms.abs_diff(row.at_ms) <= 250
+                                })
+                        })
+                });
+        if skipped.contains(&i)
+            && !row.expected_event_indices.is_empty()
+            && row.matches.is_empty()
+            && !observed_reference
         {
             summary.wrong_jumps += 1;
             summary.dependency_violations += 1;
@@ -953,6 +992,35 @@ mod tests {
         );
         assert_eq!(result.summary.dependency_violations, violations);
         assert_eq!(result.passed, violations == 0);
+    }
+
+    #[test]
+    fn packet_wave_order_needs_observed_evidence_and_keeps_later_dependencies() {
+        let yaml =
+            json!({"schemaVersion":1,"entries":[event(1.0, "B"), event(1.0, "C")]}).to_string();
+        let mut evidence = Evidence {
+            expected: BTreeMap::from([(0, BTreeSet::from([0])), (1, BTreeSet::from([1]))]),
+            ..Default::default()
+        };
+        let packets = [signal(1, 1000, "C"), signal(0, 1045, "B")];
+        assert!(
+            !run(&yaml, &packets, 3000, &evidence)
+                .expect("valid fixture")
+                .passed
+        );
+        // Only a measured order swap admits this wave; a later packet remains a dependency violation.
+        evidence.unordered.extend([0, 1]);
+        assert!(
+            run(&yaml, &packets, 3000, &evidence)
+                .expect("valid fixture")
+                .passed
+        );
+        let late = [signal(1, 1000, "C"), signal(0, 1500, "B")];
+        assert!(
+            !run(&yaml, &late, 3000, &evidence)
+                .expect("valid fixture")
+                .passed
+        );
     }
 
     #[test]

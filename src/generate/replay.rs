@@ -173,25 +173,51 @@ fn after_end(
     // Kill also truncates unobserved completions, e.g. the boss dies at 6s during a cast due at 9s.
     Ok(
         i128::from(sample.relative_ms) - i128::from(anchor.0) + i128::from(anchor.1)
-            > i128::from(target.end_ms),
+            > i128::from(
+                target
+                    .party_defeat_ms
+                    .unwrap_or(target.end_ms)
+                    .min(target.end_ms),
+            ),
     )
 }
 
 // Audit the first actual dispatch only, e.g. the later opposite beam cannot activate both paths in the oracle.
-fn select_paths(report: &Value, entries: &[usize], result: &mut Evidence) -> Result<()> {
+fn select_paths(
+    report: &Value,
+    entries: &[usize],
+    pull: &Pull,
+    result: &mut Evidence,
+) -> Result<()> {
     if let Some(branches) = report
         .pointer("/extensions/branches")
         .and_then(Value::as_array)
     {
         for branch in branches {
             let paths = branch["paths"].as_array().context("Missing branch paths")?;
+            if branch["packetWave"] == true {
+                for path in paths {
+                    if let Some(entry) = path["selectorSlot"]
+                        .as_u64()
+                        .and_then(|i| entries.get(i as usize))
+                    {
+                        result.packet_wave_selectors.insert(*entry);
+                    }
+                }
+            }
             let first = paths
                 .iter()
                 .filter_map(|path| {
                     let entry = entries.get(path["selectorSlot"].as_u64()? as usize)?;
                     result.expected.get(entry)?.first().copied()
                 })
-                .min();
+                // Raw arrays can be unsorted, e.g. an earlier helper start appears after the main cast.
+                .min_by_key(|index| {
+                    pull.occurrences
+                        .iter()
+                        .find(|row| row.event_index == *index)
+                        .map(|row| (row.relative_ms, *index))
+                });
             let selected: Vec<_> = paths
                 .iter()
                 .filter(|path| {
@@ -272,9 +298,37 @@ pub(super) fn evidence(
         .copied()
         .filter(|file| same_file(file, &pull.file))
         .collect();
+    let actors = log
+        .report
+        .master_data
+        .actors
+        .iter()
+        .map(|actor| (actor.id, actor.name.clone()))
+        .collect();
+    // Only multi-pull raid rows use merged wire casts; single drafts and dungeon retries retain raw representatives.
+    let representatives: BTreeMap<_, _> = if !single && report["mode"] == "raid" {
+        multi::wire_signals(pull, log, &actors)?
+            .iter()
+            .flat_map(|(&index, signal)| {
+                signal
+                    .event_indices
+                    .iter()
+                    .map(move |&event| (event, index))
+            })
+            .collect()
+    } else {
+        BTreeMap::new()
+    };
     let mut relations = BTreeMap::new();
     let mut result = Evidence::default();
     for (&entry, slot) in entries.iter().zip(slots) {
+        let alternative_ids = slot["abilityIds"].as_array().filter(|ids| ids.len() > 1);
+        if slot["evidence"] == "unorderedPacketWave" {
+            result.unordered.insert(entry);
+        }
+        let starts = matches!(timeline.entries.get(entry),
+            Some(crate::timeline::Entry::Event { sync: Some(crate::timeline::Sync::Network(sync)), .. })
+                if matches!(sync.log, crate::timeline::LogType::StartsUsing));
         let samples = if single {
             vec![EvidenceSample {
                 file: report
@@ -313,7 +367,15 @@ pub(super) fn evidence(
             let matched = if known {
                 Some(index)
             } else {
-                relation.and_then(|r| r.matched.get(&index)).copied()
+                let mapped: BTreeSet<_> = sample
+                    .event_indices
+                    .iter()
+                    .filter_map(|index| relation?.matched.get(index))
+                    .map(|index| representatives.get(index).copied().unwrap_or(*index))
+                    .collect();
+                (mapped.len() == 1)
+                    .then(|| mapped.into_iter().next())
+                    .flatten()
             }
             .filter(|target| {
                 // A dispatch observes its literal ID, e.g. P→Q alignment cannot select Q after a real P.
@@ -327,8 +389,15 @@ pub(super) fn evidence(
                                 .iter()
                                 .find(|row| row.event_index == *target),
                         )
-                        .is_some_and(|(source, target)| source.ability_id == target.ability_id)
+                        .is_some_and(|(source, target)| {
+                            source.ability_id == target.ability_id
+                                || alternative_ids.is_some_and(|ids| {
+                                    ids.iter().any(|id| id.as_i64() == Some(target.ability_id))
+                                })
+                        })
             });
+            let matched =
+                matched.map(|index| representatives.get(&index).copied().unwrap_or(index));
             let censored = !known
                 && matched.is_none()
                 && match relation {
@@ -336,9 +405,8 @@ pub(super) fn evidence(
                     None => false,
                 };
             ensure!(
-                peer.occurrences
-                    .iter()
-                    .any(|row| row.event_index == index && row.kind == "cast"),
+                peer.occurrences.iter().any(|row| row.event_index == index
+                    && row.kind == if starts { "begincast" } else { "cast" }),
                 "Evidence refers to a non-cast occurrence"
             );
             outcomes.push((matched, censored));
@@ -347,7 +415,11 @@ pub(super) fn evidence(
         let direct = samples
             .iter()
             .find(|sample| known_files.contains(sample.file.as_str()));
-        if slot["evidence"] == "conditionalInstantHelper" && direct.is_none() {
+        if matches!(
+            slot["evidence"].as_str(),
+            Some("conditionalInstantHelper" | "unresolvedPath" | "observedSuffix")
+        ) && direct.is_none()
+        {
             // Optional reactions need no activation, e.g. a clean missile dodge has no Launch record.
             result.inactive.insert(entry);
             continue;
@@ -357,14 +429,17 @@ pub(super) fn evidence(
                 .event_indices
                 .first()
                 .context("Missing direct index")?;
+            let index = representatives.get(&index).copied().unwrap_or(index);
             result.expected.insert(entry, BTreeSet::from([index]));
         } else {
             let matches: BTreeSet<_> = outcomes.iter().filter_map(|(index, _)| *index).collect();
             if matches.len() == 1
-                && outcomes
-                    .iter()
-                    .all(|(index, censored)| index.is_some() || *censored)
+                && (alternative_ids.is_some()
+                    || outcomes
+                        .iter()
+                        .all(|(index, censored)| index.is_some() || *censored))
             {
+                // An ID array is an alternative, e.g. mixed true/fake packets need not match every training variant.
                 result.expected.insert(entry, matches);
             } else if !outcomes.is_empty() && outcomes.iter().all(|(_, censored)| *censored) {
                 result.censored.insert(entry);
@@ -378,7 +453,7 @@ pub(super) fn evidence(
         }
     }
     // Select each attempt separately, e.g. the merge on an inactive sibling is never required.
-    select_paths(report, &entries, &mut result)?;
+    select_paths(report, &entries, pull, &mut result)?;
     if report["mode"] != "raid" {
         let fight = log.report.fights.first().context("Missing retry fight")?;
         let enemies = fight
@@ -476,7 +551,7 @@ pub(super) fn evidence(
                     }
                 }
             }
-            select_paths(report, &entries, &mut retry)?;
+            select_paths(report, &entries, &target, &mut retry)?;
             for (entry, indices) in retry.expected {
                 result.expected.entry(entry).or_default().extend(indices);
                 result.censored.remove(&entry);
@@ -618,7 +693,33 @@ pub(crate) fn replay_file(
                 &source.log,
                 &peer_pulls,
             )?;
-            let represented: BTreeSet<_> = evidence.expected.values().flatten().copied().collect();
+            let mut represented: BTreeSet<_> =
+                evidence.expected.values().flatten().copied().collect();
+            // Coverage includes the whole wave; activation still uses one representative, e.g. four Explosions.
+            for signal in super::alignment::signals(&source.pull) {
+                if signal
+                    .event_indices
+                    .first()
+                    .is_some_and(|index| represented.contains(index))
+                {
+                    represented.extend(signal.event_indices);
+                }
+            }
+            if let Some(coverage) = report
+                .get("outputCoverage")
+                .and_then(Value::as_array)
+                .and_then(|items| {
+                    items.iter().find(|item| {
+                        item["file"]
+                            .as_str()
+                            .is_some_and(|file| same_file(file, &source.pull.file))
+                    })
+                })
+            {
+                represented.extend(serde_json::from_value::<BTreeSet<usize>>(
+                    coverage["representedEventIndices"].clone(),
+                )?);
+            }
             let replay = replay::run(&yaml, &signals, source.pull.end_ms, &evidence)?;
             Ok::<_, anyhow::Error>(ReplayPull {
                 file: &pull.file,

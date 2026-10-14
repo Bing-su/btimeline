@@ -75,7 +75,141 @@ fn alternatives(left: &[&Signal], right: &[&Signal]) -> bool {
     changes.len() == 1
 }
 
+// Helpers stop only after every interacting boss dies, e.g. one defeated overlapping boss is insufficient.
+fn boss_defeat(pull: &Pull, start: i64, end: i64) -> Option<i64> {
+    let bosses: BTreeSet<_> = pull
+        .boss_interactions
+        .iter()
+        .filter(|&&(_, at)| start <= at && at <= end)
+        .map(|&(actor, _)| actor)
+        .collect();
+    bosses
+        .iter()
+        .map(|actor| {
+            pull.boss_deaths
+                .iter()
+                .filter(|&&(id, at)| id == *actor && start <= at && at <= end)
+                .map(|&(_, at)| at)
+                .min()
+        })
+        .collect::<Option<Vec<_>>>()
+        .and_then(|times| times.into_iter().max())
+}
+
 pub(super) fn correspondence(left: &Pull, right: &Pull) -> Result<(Correspondence, bool)> {
+    if left.boss_spans.is_empty() && !left.phase_spans.is_empty() && !right.phase_spans.is_empty() {
+        let mut result = Correspondence::default();
+        let mut sensitive = false;
+        for (position, &(id, lo, hi)) in left.phase_spans.iter().enumerate() {
+            let round = left
+                .phase_spans
+                .iter()
+                .take(position)
+                .filter(|&&(phase, _, _)| phase == id)
+                .count();
+            let Some(&(_, other_lo, other_hi)) = right
+                .phase_spans
+                .iter()
+                .filter(|&&(phase, _, _)| phase == id)
+                .nth(round)
+            else {
+                if !right.kill
+                    && position >= right.phase_spans.len()
+                    && left
+                        .phase_spans
+                        .iter()
+                        .zip(&right.phase_spans)
+                        .all(|(a, b)| a.0 == b.0)
+                {
+                    result.censored.extend(
+                        alignment::signals(left)
+                            .into_iter()
+                            .filter(|signal| lo <= signal.time_ms && signal.time_ms <= hi)
+                            .filter_map(|signal| signal.event_indices.first().copied()),
+                    );
+                }
+                continue;
+            };
+            let mut a = left.clone();
+            let mut b = right.clone();
+            for (pull, start, end) in [(&mut a, lo, hi), (&mut b, other_lo, other_hi)] {
+                pull.occurrences
+                    .retain(|row| start <= row.relative_ms && row.relative_ms <= end);
+                pull.end_ms = end;
+            }
+            let (mut relation, order_sensitive) = path_correspondence(&a, &b)?;
+            let own = alignment::signals(&a);
+            let peer = alignment::signals(&b);
+            // Use unique phase-relative timing to break repeated-ID ties, e.g. swapped Past/Future rounds 20s apart.
+            for signal in &own {
+                let source = index(signal)?;
+                let candidates: Vec<_> = peer
+                    .iter()
+                    .filter(|other| {
+                        alignment::match_key(signal) == alignment::match_key(other)
+                            && (signal.time_ms - lo).abs_diff(other.time_ms - other_lo) <= 2500
+                    })
+                    .collect();
+                if let [other] = candidates.as_slice()
+                    && own
+                        .iter()
+                        .filter(|candidate| {
+                            alignment::match_key(candidate) == alignment::match_key(other)
+                                && (candidate.time_ms - lo).abs_diff(other.time_ms - other_lo)
+                                    <= 2500
+                        })
+                        .count()
+                        == 1
+                {
+                    let target = index(other)?;
+                    relation.matched.retain(|_, mapped| *mapped != target);
+                    relation.matched.insert(source, target);
+                    relation.censored.remove(&source);
+                } else if relation
+                    .matched
+                    .get(&source)
+                    .and_then(|target| peer.iter().find(|other| index(other).ok() == Some(*target)))
+                    .is_some_and(|other| {
+                        (signal.time_ms - lo).abs_diff(other.time_ms - other_lo) > 2500
+                    })
+                {
+                    relation.matched.remove(&source);
+                }
+            }
+            if let Some(defeated) = boss_defeat(&b, other_lo, other_hi) {
+                for signal in &own {
+                    let source = index(signal)?;
+                    if relation.matched.contains_key(&source) {
+                        continue;
+                    }
+                    let clock = own
+                        .iter()
+                        .filter(|anchor| {
+                            anchor.key.kind == "cast"
+                                && anchor.key.role.ends_with("/Boss")
+                                && anchor.time_ms <= signal.time_ms
+                        })
+                        .filter_map(|anchor| {
+                            let target = relation.matched.get(&index(anchor).ok()?)?;
+                            let other = peer
+                                .iter()
+                                .find(|other| index(other).ok() == Some(*target))?;
+                            Some((anchor.time_ms, other.time_ms))
+                        })
+                        .max_by_key(|&(at, _)| at)
+                        .unwrap_or((lo, other_lo));
+                    // Explicit defeat bounds the suffix, e.g. a shorter P5 clear cannot observe its later enrage.
+                    if signal.time_ms - clock.0 + clock.1 > defeated {
+                        relation.censored.insert(source);
+                    }
+                }
+            }
+            result.matched.extend(relation.matched);
+            result.censored.extend(relation.censored);
+            sensitive |= order_sensitive;
+        }
+        return Ok((result, sensitive));
+    }
     if !left.boss_spans.is_empty() && left.boss_spans.len() == right.boss_spans.len() {
         let mut result = Correspondence::default();
         let mut sensitive = false;
@@ -96,25 +230,7 @@ pub(super) fn correspondence(left: &Pull, right: &Pull) -> Result<(Correspondenc
             let (mut relation, order_sensitive) = path_correspondence(&a, &b)?;
             let a_signals = alignment::signals(&a);
             let b_signals = alignment::signals(&b);
-            // Helpers can stop at defeat before arena opening; overlapping bosses must all be defeated.
-            let bosses: BTreeSet<_> = b
-                .boss_interactions
-                .iter()
-                .filter(|&&(_, at)| right_start <= at && at <= right_end)
-                .map(|&(actor, _)| actor)
-                .collect();
-            let defeated = bosses
-                .iter()
-                .map(|actor| {
-                    b.boss_deaths
-                        .iter()
-                        .filter(|&&(id, at)| id == *actor && right_start <= at && at <= right_end)
-                        .map(|&(_, at)| at)
-                        .min()
-                })
-                .collect::<Option<Vec<_>>>()
-                .and_then(|times| times.into_iter().max())
-                .unwrap_or(right_end);
+            let defeated = boss_defeat(&b, right_start, right_end).unwrap_or(right_end);
             let opening = |signals: &[Signal]| {
                 signals
                     .iter()
@@ -364,6 +480,7 @@ pub(super) struct Input {
     pub log: CollectedLog,
     report: Value,
     pub signals: BTreeMap<usize, Signal>,
+    pub signal_indices: BTreeMap<usize, usize>,
     catalog: Vec<Ability>,
     pub actors: BTreeMap<i64, String>,
 }
@@ -378,31 +495,183 @@ fn prepare(file: &str, mode: GenerateMode) -> Result<Input> {
     if mode != GenerateMode::Raid {
         input::filter_boss_spans(&mut pull, &report)?;
     }
-    let signals = alignment::signals(&pull)
-        .into_iter()
-        .map(|s| Ok((index(&s)?, s)))
-        .collect::<Result<_>>()?;
     let log = source.log;
-    let actors = log
+    let actors: BTreeMap<_, _> = log
         .report
         .master_data
         .actors
         .iter()
         .map(|actor| (actor.id, actor.name.clone()))
         .collect();
+    let signals = if mode == GenerateMode::Raid {
+        wire_signals(&pull, &log, &actors)?
+    } else {
+        alignment::signals(&pull)
+            .into_iter()
+            .map(|signal| Ok((index(&signal)?, signal)))
+            .collect::<Result<_>>()?
+    };
+    let signal_indices = signals
+        .iter()
+        .flat_map(|(&index, signal)| {
+            signal
+                .event_indices
+                .iter()
+                .map(move |&event| (event, index))
+        })
+        .collect();
     Ok(Input {
         pull,
         log,
         report,
         signals,
+        signal_indices,
         catalog,
         actors,
     })
 }
 
+// Generation and evidence must agree on one wire cast, e.g. helper and boss copies share a representative.
+pub(super) fn wire_signals(
+    pull: &Pull,
+    log: &CollectedLog,
+    actors: &BTreeMap<i64, String>,
+) -> Result<BTreeMap<usize, Signal>> {
+    let mut waves: BTreeMap<_, Signal> = BTreeMap::new();
+    for mut signal in alignment::signals(pull) {
+        let source = log
+            .events
+            .get(index(&signal)?)
+            .and_then(|event| event.source_id)
+            .and_then(|id| actors.get(&id))
+            .context("Missing signal source")?;
+        let name = log
+            .report
+            .master_data
+            .abilities
+            .iter()
+            .find(|ability| ability.game_id == signal.key.ability_id)
+            .map(|ability| ability.name.clone())
+            .context("Missing signal ability")?;
+        let start = |signal: &Signal| {
+            signal
+                .event_indices
+                .iter()
+                .filter_map(|index| {
+                    pull.occurrences
+                        .iter()
+                        .find(|row| row.event_index == *index)
+                        .and_then(|row| row.start_timestamp_ms)
+                })
+                .min()
+        };
+        let wave_key = waves
+            .iter()
+            .find_map(|((wave, kind, other_name, other_source), other)| {
+                (kind == &signal.key.kind
+                    && other_name == &name
+                    && other_source == source
+                    && signal.time_ms.abs_diff(other.time_ms) <= 2500
+                    && match (start(&signal), start(other)) {
+                        (Some(a), Some(b)) => {
+                            a.abs_diff(b) <= 750
+                                && (signal.time_ms - other.time_ms).abs_diff(a - b) <= 500
+                                && (signal.key.actor_game_id != other.key.actor_game_id
+                                    || signal.key.role != other.key.role
+                                    || (!signal.instance_ids.is_empty()
+                                        && signal.instance_ids.iter().all(|instance| {
+                                            !other.instance_ids.contains(instance)
+                                        })))
+                        }
+                        (Some(_), None) | (None, Some(_)) => {
+                            // Pairing consumes a start once; a late duplicate completion can be orphaned.
+                            signal.time_ms.abs_diff(other.time_ms) <= 750
+                                && !pull.occurrences.iter().any(|row| {
+                                    row.kind == "begincast"
+                                        && [signal.key.ability_id, other.key.ability_id]
+                                            .contains(&row.ability_id)
+                                        && actors.get(&row.actor_id) == Some(source)
+                                        && row.relative_ms > signal.time_ms.min(other.time_ms)
+                                        && row.relative_ms <= signal.time_ms.max(other.time_ms)
+                                })
+                        }
+                        (None, None) => {
+                            signal.key.kind == "begincast"
+                                && signal.time_ms.abs_diff(other.time_ms) <= 750
+                                && (signal.key.actor_game_id != other.key.actor_game_id
+                                    || signal.key.role != other.key.role
+                                    || (!signal.instance_ids.is_empty()
+                                        && signal.instance_ids.iter().all(|instance| {
+                                            !other.instance_ids.contains(instance)
+                                        })))
+                        }
+                    })
+                .then_some(*wave)
+            })
+            // Rejected merges keep unique keys, e.g. separate starts can complete in the same packet wave.
+            .unwrap_or((signal.wave_ms, index(&signal)?));
+        let key = (wave_key, signal.key.kind.clone(), name, source.clone());
+        if let Some(wave) = waves.get_mut(&key) {
+            // One wire event can have boss/helper copies, e.g. Kefka's All Things Ending.
+            let count = wave.key.count + signal.key.count;
+            if signal.key.role.ends_with("/Boss") {
+                wave.key = signal.key;
+            }
+            wave.key.count = count;
+            wave.event_indices.append(&mut signal.event_indices);
+            wave.event_indices
+                .sort_by_key(|&index| log.events.get(index).map(|event| (event.timestamp, index)));
+            wave.time_ms = wave.time_ms.min(signal.time_ms);
+            wave.instance_ids.extend(signal.instance_ids);
+            wave.instance_ids.sort();
+            wave.instance_ids.dedup();
+            wave.key.instances = wave.instance_ids.len().max(1);
+        } else {
+            waves.insert(key, signal);
+        }
+    }
+    let signals: BTreeMap<usize, Signal> = waves
+        .into_values()
+        .map(|signal| Ok((index(&signal)?, signal)))
+        .collect::<Result<_>>()?;
+    Ok(signals)
+}
+
 struct Consensus<'a> {
     samples: Vec<(usize, &'a Signal)>,
     censored: Vec<usize>,
+}
+
+// Keep relation indices on the merged wire wave, e.g. either Kefka copy denotes the same emitted row.
+fn wire_correspondence(
+    mut relation: Correspondence,
+    left: &Input,
+    right: &Input,
+) -> Correspondence {
+    let mut matched: BTreeMap<usize, BTreeSet<usize>> = BTreeMap::new();
+    for (a, b) in relation.matched {
+        if let Some((&a, &b)) = left
+            .signal_indices
+            .get(&a)
+            .zip(right.signal_indices.get(&b))
+        {
+            matched.entry(a).or_default().insert(b);
+        }
+    }
+    relation.matched = matched
+        .into_iter()
+        .filter_map(|(index, targets)| {
+            (targets.len() == 1)
+                .then(|| targets.first().map(|&target| (index, target)))
+                .flatten()
+        })
+        .collect();
+    relation.censored = relation
+        .censored
+        .iter()
+        .filter_map(|index| left.signal_indices.get(index).copied())
+        .collect();
+    relation
 }
 
 // Require all observed pairs to agree, e.g. a repeated cast must occupy the same position in every pull.
@@ -519,6 +788,9 @@ fn cast_sync<'a>(
                 && event.ability_game_id.is_some_and(|id| ids.contains(&id))
                 && source_matches
                 && Some(event_index) != representative
+                // A boss's merged copies belong to this cast, e.g. its main and helper completion IDs share one row.
+                && !sample.is_some_and(|signal| signal.key.role.ends_with("/Boss")
+                    && signal.event_indices.contains(&event_index))
                 // A drift-disabled draft needs clock correction first, e.g. an 8s shift between pulls.
                 && ((!sample_outside_window
                     && ((event.timestamp - start) as f64 - at * 1000.0).abs() <= 2500.0)
@@ -608,7 +880,11 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
         .map(|[(_, left), (_, right)]| {
             let (forward, order_sensitive) = correspondence(&left.pull, &right.pull)?;
             let (backward, _) = correspondence(&right.pull, &left.pull)?;
-            Ok::<_, anyhow::Error>((forward, backward, order_sensitive))
+            Ok::<_, anyhow::Error>((
+                wire_correspondence(forward, left, right),
+                wire_correspondence(backward, right, left),
+                order_sensitive,
+            ))
         })
         .progress_with_style(ProgressStyle::with_template(
             "Aligning pulls {wide_bar} {pos}/{len}",
@@ -667,7 +943,7 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
     let mut boss_section = None;
     for (&event_index, signal) in reference_signals
         .iter()
-        .sorted_by_key(|(index, signal)| (signal.time_ms, **index))
+        .sorted_by_key(|(index, signal)| (alignment::signal_order(signal), **index))
     {
         if mode != GenerateMode::Raid {
             let section = inputs
@@ -726,7 +1002,13 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
                 continue;
             };
             relative_times.push(sample.time_ms - entry_ms);
-            ids.insert(sample.key.ability_id);
+            ids.extend(sample.event_indices.iter().filter_map(|&index| {
+                input
+                    .log
+                    .events
+                    .get(index)
+                    .and_then(|event| event.ability_game_id)
+            }));
             for &event in &sample.event_indices {
                 let raw = input
                     .log
@@ -772,7 +1054,11 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
         } else {
             signal.time_ms as f64
         };
-        let at = (at_ms / 100.0).round() / 10.0;
+        let mut at = (at_ms / 100.0).round() / 10.0;
+        if at < previous_at && previous_at - at <= 0.25 {
+            // Keep a single packet wave on one clock tick, e.g. a helper precedes its caster by 45ms.
+            at = previous_at;
+        }
         if at < previous_at {
             // A changing reached-pull subset can invert medians even though each observed path is ordered.
             omitted.push(OmittedSignal {
@@ -850,15 +1136,12 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
         }
     }
     // Reuse P3's mode-filtered first-seen catalogs so unfinished casts keep their provenance too.
-    let mut abilities = Vec::new();
-    let mut seen = BTreeSet::new();
-    for input in &inputs {
-        for ability in &input.catalog {
-            if seen.insert(ability.id.clone()) {
-                abilities.push(ability.clone());
-            }
-        }
-    }
+    let abilities = inputs
+        .iter()
+        .flat_map(|input| &input.catalog)
+        .unique_by(|ability| &ability.id)
+        .cloned()
+        .collect();
     entries.push(Entry::AbilityCatalog {
         abilities,
         phase: None,
@@ -867,6 +1150,37 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
         .iter()
         .map(|input| output_coverage(input, &slots))
         .collect();
+    let mut unordered = BTreeSet::new();
+    for (i, a) in slots.iter().enumerate() {
+        for (j, b) in slots
+            .iter()
+            .enumerate()
+            .skip(i + 1)
+            .take_while(|(_, b)| b.at_ms - a.at_ms <= 250.0)
+        {
+            let differences: Vec<_> = a
+                .samples
+                .iter()
+                .filter_map(|sample| {
+                    b.samples
+                        .iter()
+                        .find(|other| other.file == sample.file)
+                        .map(|other| sample.time_ms - other.time_ms)
+                })
+                .collect();
+            if differences.iter().all(|time| time.abs_diff(0) <= 250)
+                && differences.iter().any(|&time| time > 0)
+            {
+                // Preserve measured packet order swaps even in the common draft, e.g. two Exdeath copies.
+                unordered.extend([i, j]);
+            }
+        }
+    }
+    for i in unordered {
+        if let Some(slot) = slots.get_mut(i) {
+            slot.evidence = "unorderedPacketWave";
+        }
+    }
     let yaml = draft::serialize_draft(entries, mode.reset_on())?;
     let report = serde_json::to_value(MultiReport {
         status: "draft",

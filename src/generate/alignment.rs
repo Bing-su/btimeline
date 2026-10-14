@@ -29,8 +29,27 @@ pub(super) struct SignalKey {
 pub(super) struct Signal {
     pub key: SignalKey,
     pub time_ms: i64,
+    #[serde(skip)]
+    pub wave_ms: i64,
     pub event_indices: Vec<usize>,
     pub instance_ids: Vec<i64>,
+}
+
+// Align the mechanic rather than its fan-out, e.g. the same cast can hit three or four targets.
+pub(super) fn match_key(signal: &Signal) -> SignalKey {
+    let mut key = signal.key.clone();
+    key.count = 1;
+    key.instances = 1;
+    key
+}
+
+// Put the caster before its same-wave effects, e.g. a 1ms helper offset cannot change the chosen path.
+pub(super) fn signal_order(signal: &Signal) -> (i64, bool, SignalKey) {
+    (
+        signal.wave_ms,
+        !signal.key.role.ends_with("/Boss"),
+        match_key(signal),
+    )
 }
 
 #[derive(Serialize)]
@@ -78,12 +97,20 @@ struct AlignmentInput {
     log_version: i64,
 }
 
+// Keep grouping state beside its signal so interleaved helper waves cannot desynchronize parallel lists.
+struct SignalGroup {
+    signal: Signal,
+    instances: BTreeSet<i64>,
+    last_ms: i64,
+    start_group: Option<usize>,
+}
+
 // Every occurrence contributes to exactly one grouped signal, even when helpers interleave.
 #[debug_ensures(ret.iter().map(|signal| signal.key.count).sum::<usize>() == pull.occurrences.len())]
 pub(super) fn signals(pull: &Pull) -> Vec<Signal> {
-    let mut result: Vec<Signal> = Vec::new();
+    let mut groups: Vec<SignalGroup> = Vec::new();
     let mut positions: BTreeMap<(usize, i64, i64, &str), usize> = BTreeMap::new();
-    let mut instances: Vec<BTreeSet<i64>> = Vec::new();
+    let mut start_groups = BTreeMap::new();
     for row in &pull.occurrences {
         let virtual_name = pull.virtual_actors.get(&row.actor_id);
         let actor_game_id = if virtual_name.is_some() {
@@ -97,59 +124,96 @@ pub(super) fn signals(pull: &Pull) -> Vec<Signal> {
             row.ability_id,
             row.kind.as_str(),
         );
-        // Virtual helper instances can be packet-staggered, e.g. 1+7 casts 45ms apart form one wave.
-        if virtual_name.is_some()
-            && !positions.contains_key(&identity)
-            && let Some(instance) = row.instance
-            && let Some(position) =
-                result
-                    .iter()
-                    .enumerate()
-                    .rev()
-                    .find_map(|(position, signal)| {
-                        (signal.key.actor_name.as_ref() == virtual_name
-                            && signal.key.role == row.role
-                            && signal.key.ability_id == row.ability_id
-                            && signal.key.kind == row.kind
-                            && row.relative_ms - signal.time_ms <= 100
-                            && !signal.instance_ids.contains(&instance))
-                        .then_some(position)
-                    })
+        let start_group = row
+            .start_event_index
+            .and_then(|index| start_groups.get(&index).copied());
+        // Distinct helper instances can be packet-staggered, e.g. four Wave Cannons 1ms apart form one wave.
+        if !positions.contains_key(&identity)
+            && let Some(position) = groups
+                .iter()
+                .enumerate()
+                .rev()
+                .find_map(|(position, group)| {
+                    let signal = &group.signal;
+                    (signal.key.actor_game_id == actor_game_id
+                        && signal.key.actor_name.as_ref() == virtual_name
+                        && signal.key.role == row.role
+                        && signal.key.ability_id == row.ability_id
+                        && signal.key.kind == row.kind
+                        && (row.relative_ms - group.last_ms <= 250
+                            || (start_group.is_some() && group.start_group == start_group))
+                        && (row
+                            .instance
+                            .is_some_and(|instance| !signal.instance_ids.contains(&instance))
+                            || (row.instance.is_none() && row.start_event_index.is_none())))
+                    .then_some(position)
+                })
         {
             positions.insert(identity, position);
         }
         if let Some(&position) = positions.get(&identity) {
-            if let Some(signal) = result.get_mut(position) {
+            if row.kind == "begincast" {
+                start_groups.insert(row.event_index, position);
+            }
+            if let Some(group) = groups.get_mut(position) {
+                let signal = &mut group.signal;
                 signal.key.count += 1;
+                group.last_ms = row.relative_ms;
                 signal.event_indices.push(row.event_index);
-                if let Some(instance) = row.instance
-                    && let Some(seen) = instances.get_mut(position)
-                {
-                    seen.insert(instance);
-                    signal.key.instances = seen.len().max(1);
-                    signal.instance_ids = seen.iter().copied().collect();
+                if let Some(instance) = row.instance {
+                    group.instances.insert(instance);
+                    signal.key.instances = group.instances.len().max(1);
+                    signal.instance_ids = group.instances.iter().copied().collect();
                 }
             }
             continue;
         }
-        positions.insert(identity, result.len());
+        positions.insert(identity, groups.len());
+        if row.kind == "begincast" {
+            start_groups.insert(row.event_index, groups.len());
+        }
         let seen: BTreeSet<i64> = row.instance.into_iter().collect();
-        result.push(Signal {
-            key: SignalKey {
-                actor_game_id,
-                actor_name: virtual_name.cloned(),
-                role: row.role.clone(),
-                ability_id: row.ability_id,
-                kind: row.kind.clone(),
-                count: 1,
-                // A missing sourceInstance still denotes one actor, e.g. a single-pull boss.
-                instances: seen.len().max(1),
+        groups.push(SignalGroup {
+            signal: Signal {
+                key: SignalKey {
+                    actor_game_id,
+                    actor_name: virtual_name.cloned(),
+                    role: row.role.clone(),
+                    ability_id: row.ability_id,
+                    kind: row.kind.clone(),
+                    count: 1,
+                    // A missing sourceInstance still denotes one actor, e.g. a single-pull boss.
+                    instances: seen.len().max(1),
+                },
+                time_ms: row.relative_ms,
+                wave_ms: row.relative_ms,
+                event_indices: vec![row.event_index],
+                instance_ids: seen.iter().copied().collect(),
             },
-            time_ms: row.relative_ms,
-            event_indices: vec![row.event_index],
-            instance_ids: seen.iter().copied().collect(),
+            instances: seen,
+            last_ms: row.relative_ms,
+            start_group,
         });
-        instances.push(seen);
+    }
+    let mut result: Vec<_> = groups.into_iter().map(|group| group.signal).collect();
+    // Equivalent simultaneous mechanics have no packet order, e.g. Spelldriver/Spellscatter can swap.
+    result.sort_by_key(|signal| signal.time_ms);
+    let mut start = 0;
+    while start < result.len() {
+        let wave = result.get(start).map_or(0, |signal| signal.time_ms);
+        let end = start
+            + result
+                .iter()
+                .skip(start)
+                .take_while(|signal| signal.time_ms - wave <= 250)
+                .count();
+        if let Some(signals) = result.get_mut(start..end) {
+            for signal in signals.iter_mut() {
+                signal.wave_ms = wave;
+            }
+            signals.sort_by_key(signal_order);
+        }
+        start = end;
     }
     result
 }
@@ -199,8 +263,8 @@ fn paired_keys(
 
 fn pairs(left: &[Signal], right: &[Signal]) -> Result<Vec<(Option<usize>, Option<usize>)>> {
     paired_keys(
-        &left.iter().map(|s| s.key.clone()).collect_vec(),
-        &right.iter().map(|s| s.key.clone()).collect_vec(),
+        &left.iter().map(match_key).collect_vec(),
+        &right.iter().map(match_key).collect_vec(),
     )
 }
 
@@ -211,12 +275,12 @@ fn boss_pairs(left: &[Signal], right: &[Signal]) -> Result<Vec<(Option<usize>, O
         &left_anchors
             .iter()
             .filter_map(|&i| left.get(i))
-            .map(|s| s.key.clone())
+            .map(match_key)
             .collect_vec(),
         &right_anchors
             .iter()
             .filter_map(|&i| right.get(i))
-            .map(|s| s.key.clone())
+            .map(match_key)
             .collect_vec(),
     )
     .map(|aligned| {
@@ -246,7 +310,7 @@ fn observed_len(
     let (own_entry, peer_entry) = signals
         .iter()
         .zip(peer_signals)
-        .take_while(|(a, b)| a.key == b.key)
+        .take_while(|(a, b)| match_key(a) == match_key(b))
         .last()
         .map_or(entry, |(a, b)| (a.time_ms, b.time_ms));
     signals
@@ -329,7 +393,7 @@ fn slot(
     before_anchor_times: Option<(i64, i64)>,
 ) -> Slot {
     let evidence = match (left, right) {
-        (Some(a), Some(b)) if a.key == b.key => "matched",
+        (Some(a), Some(b)) if match_key(a) == match_key(b) => "matched",
         (Some(_), Some(_)) => "unresolved",
         (Some(a), None)
             if !has_common_successor
@@ -402,7 +466,7 @@ fn section(
                 censor_reference,
             );
             if let (Some(a), Some(b)) = (left_signal, right_signal)
-                && a.key == b.key
+                && match_key(a) == match_key(b)
             {
                 censor_reference = Some((a.time_ms, b.time_ms));
             }
@@ -432,7 +496,7 @@ fn align_segments(left_pull: &Pull, right_pull: &Pull) -> Result<Vec<Segment>> {
     }
     // An identical opening boss signal corrects pull-start offset before finding repeat anchors.
     let entry = match (left.first(), right.first()) {
-        (Some(a), Some(b)) if a.key == b.key && a.key.role.ends_with("/Boss") => {
+        (Some(a), Some(b)) if match_key(a) == match_key(b) && a.key.role.ends_with("/Boss") => {
             (a.time_ms, b.time_ms)
         }
         _ => (0, 0),
@@ -646,6 +710,8 @@ mod tests {
             raw_occurrences: None,
             virtual_actors: Default::default(),
             boss_spans: Vec::new(),
+            phase_spans: Vec::new(),
+            party_defeat_ms: None,
             boss_interactions: Vec::new(),
             boss_deaths: Vec::new(),
         }
