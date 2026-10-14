@@ -423,6 +423,211 @@ fn p8_rejected_repeat_keeps_finite_rows_and_reports_reason(#[case] scenario: &st
 }
 
 #[rstest]
+#[case::same_tail(false, false, false, false)]
+#[case::different_tail(true, false, false, false)]
+#[case::different_name(false, true, false, false)]
+#[case::id_alternatives_throughout(false, false, true, false)]
+#[case::single_remaining_path(false, false, true, true)]
+fn branch_id_alternatives_merge_only_identical_paths(
+    #[case] different_tail: bool,
+    #[case] different_name: bool,
+    #[case] tail_id_alternatives: bool,
+    #[case] single_path: bool,
+) {
+    let logs: Vec<_> = (0..if single_path { 4 } else { 5 })
+        .map(|variant| {
+            let mut log = multi_log(
+                &format!("variant-{variant}"),
+                &[
+                    (1000, 10, 90001, "cast"),
+                    (5000 + variant * 100, 11, 0xBEE4 + variant, "cast"),
+                    (
+                        5600 + variant * 100,
+                        11,
+                        0xC4E0 + if tail_id_alternatives { variant } else { 0 },
+                        "cast",
+                    ),
+                    (
+                        10000 + variant * 100,
+                        11,
+                        if variant == 4 || different_tail && variant == 3 {
+                            90005
+                        } else {
+                            0xBEED
+                        },
+                        "cast",
+                    ),
+                    (12000, 10, 90004, "cast"),
+                    (15000, 10, 90008, "cast"),
+                ],
+                18000,
+                true,
+            );
+            for ability in log["report"]["masterData"]["abilities"]
+                .as_array_mut()
+                .unwrap()
+            {
+                if ability["gameID"] == 0xBEE4 + variant {
+                    ability["name"] = json!(if different_name && variant == 3 {
+                        "Other ability"
+                    } else {
+                        "Mortifying Flesh"
+                    });
+                }
+                if tail_id_alternatives && ability["gameID"] == 0xC4E0 + variant {
+                    ability["name"] = json!("Followup");
+                }
+            }
+            log
+        })
+        .collect();
+    with_logs(&logs, |dir| {
+        let (yaml, report) = multi::build(
+            input::select_group(dir, None, None, None).unwrap(),
+            GenerateMode::Raid,
+            30.0,
+        )
+        .unwrap();
+        assert_eq!(
+            report["extensions"]["accepted"], true,
+            "{}",
+            report["extensions"]
+        );
+        let branches = report["extensions"]["branches"].as_array().unwrap();
+        if single_path {
+            assert!(branches.is_empty());
+            assert!(
+                draft_events(&yaml)
+                    .iter()
+                    .all(|event| event.get("jump").is_none())
+            );
+            assert!(
+                report["slots"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .all(|slot| slot.get("path").is_none())
+            );
+        } else {
+            assert_eq!(branches.len(), 1);
+            assert_eq!(
+                branches[0]["paths"].as_array().unwrap().len(),
+                if different_name { 3 } else { 2 }
+            );
+        }
+        let events = draft_events(&yaml);
+        let selector = events
+            .iter()
+            .find(|event| event["name"] == "Mortifying Flesh")
+            .unwrap();
+        assert_eq!(
+            selector["sync"]["fields"]["id"],
+            if different_tail || different_name {
+                json!(["BEE4", "BEE5", "BEE6"])
+            } else {
+                json!(["BEE4", "BEE5", "BEE6", "BEE7"])
+            }
+        );
+        let text = crate::timeline::convert(&yaml).unwrap();
+        if tail_id_alternatives {
+            let followup = events
+                .iter()
+                .find(|event| event["name"] == "Followup")
+                .unwrap();
+            assert_eq!(
+                followup["sync"]["fields"]["id"],
+                json!(["C4E0", "C4E1", "C4E2", "C4E3"])
+            );
+            assert!(text.contains("id: [\"C4E0\", \"C4E1\", \"C4E2\", \"C4E3\"]"));
+        }
+        assert!(text.contains(if different_tail || different_name {
+            "id: [\"BEE4\", \"BEE5\", \"BEE6\"]"
+        } else {
+            "id: [\"BEE4\", \"BEE5\", \"BEE6\", \"BEE7\"]"
+        }));
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+        for check in report["extensions"]["checks"].as_array().unwrap() {
+            assert_eq!(check["passed"], true);
+        }
+    });
+}
+
+#[rstest]
+#[case::equivalent(false)]
+#[case::different_successor(true)]
+fn branch_merges_multiple_id_combinations_per_selector(#[case] different_successor: bool) {
+    let logs: Vec<_> = (0..8)
+        .map(|variant| {
+            let tail = if different_successor && variant == 7 {
+                90009
+            } else {
+                0xBEE8 + (variant / 2 + variant % 2) % 4
+            };
+            let mut log = multi_log(
+                &format!("combination-{variant}"),
+                &[
+                    (1000, 10, 90001, "cast"),
+                    (4500, 10, 0xBEE4 + variant / 2, "begincast"),
+                    (5000, 10, 0xBEE4 + variant / 2, "cast"),
+                    (5200, 10, tail, "begincast"),
+                    (5500, 10, tail, "cast"),
+                    (10000, 10, 0xC4E0, "cast"),
+                    (10500, 10, 0xBEEC, "cast"),
+                    (15000, 10, 0xBEED, "cast"),
+                    (18000, 10, 90004, "cast"),
+                    (31000, 12, 90005, "cast"),
+                    (35000, 12, 90006, "cast"),
+                ],
+                36000,
+                true,
+            );
+            for ability in log["report"]["masterData"]["abilities"]
+                .as_array_mut()
+                .unwrap()
+            {
+                if (0xBEE4..=0xBEEC).contains(&ability["gameID"].as_i64().unwrap()) {
+                    ability["name"] = json!("Mortifying Flesh");
+                }
+            }
+            log["report"]["masterData"]["actors"].as_array_mut().unwrap().push(json!({"id":12,"name":"Second Boss","gameID":99903,"type":"NPC","subType":"Boss"}));
+            log["report"]["fights"][0]["enemyNPCs"].as_array_mut().unwrap().push(json!({"id":12,"gameID":99903}));
+            log["events"].as_array_mut().unwrap().insert(9, json!({"timestamp":21000,"type":"instancesealupdate","sealType":3,"fight":2}));
+            log["collection"]["eventCount"] = json!(12);
+            log
+        })
+        .collect();
+    with_logs(&logs, |dir| {
+        let (yaml, report) = multi::build(
+            input::select_group(dir, None, None, None).unwrap(),
+            GenerateMode::Dungeon,
+            30.0,
+        )
+        .unwrap();
+        assert_eq!(
+            report["extensions"]["accepted"], true,
+            "{}",
+            report["extensions"]
+        );
+        let branches = report["extensions"]["branches"].as_array().unwrap();
+        assert_eq!(branches.is_empty(), !different_successor);
+        let text = crate::timeline::convert(&yaml).unwrap();
+        if !different_successor {
+            assert!(!text.contains("label \"branch-"));
+            assert!(text.contains("id: [\"BEE4\", \"BEE5\", \"BEE6\", \"BEE7\"]"));
+            assert!(text.contains("id: [\"BEE8\", \"BEE9\", \"BEEA\", \"BEEB\"]"));
+        }
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+        for check in report["extensions"]["checks"].as_array().unwrap() {
+            assert_eq!(check["passed"], true);
+        }
+    });
+}
+
+#[rstest]
 #[case::first_path(90002, 90005)]
 #[case::second_path(90003, 90006)]
 fn p7_branch_holdout_selects_one_path_merges_and_projects_only_its_future(

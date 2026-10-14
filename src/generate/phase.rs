@@ -161,6 +161,23 @@ fn common_prefix(paths: &Paths<'_>) -> usize {
         .count()
 }
 
+// Keep variant grouping when advancing past emitted rows, e.g. X→P/Q remains two suffixes.
+fn path_suffixes<'a>(paths: &Paths<'a>, start: usize) -> Result<Paths<'a>> {
+    paths
+        .iter()
+        .map(|path| {
+            path.iter()
+                .map(|(i, casts)| {
+                    casts
+                        .get(start..)
+                        .map(|suffix| (*i, suffix.to_vec()))
+                        .context("Invalid path suffix")
+                })
+                .collect::<Result<_>>()
+        })
+        .collect()
+}
+
 // Check JSON evidence objects before updates, e.g. a slot must never become a scalar silently.
 pub(super) fn put(field: impl Serialize, value: &mut Value, key: &str) -> Result<()> {
     value
@@ -545,20 +562,89 @@ impl<'a> Compiler<'a> {
         ))
     }
 
+    // Share common-row evidence and opening windows, e.g. a sole merged choice has no jump.
+    fn emit_common(&mut self, paths: &Paths<'a>, position: usize, opening: bool) -> Result<()> {
+        let refs: Samples<'_> = paths
+            .iter()
+            .flatten()
+            .filter_map(|(i, casts)| Some((*i, *casts.get(position)?)))
+            .collect();
+        let (entry, mut slot) = self.branch_entry(&refs)?;
+        slot.evidence = "observedCommonPrefix".into();
+        self.emit(entry, &refs, slot, None)?;
+        if opening {
+            open_entry(self.rows.last_mut().context("Missing opening row")?);
+        }
+        Ok(())
+    }
+
+    // Group by selector first so differing tails still dispatch together, e.g. X→P/Q versus Y→R.
+    fn group_paths(&self, variants: Paths<'a>) -> Result<Vec<Paths<'a>>> {
+        let mut groups: BTreeMap<SignalKey, Paths<'_>> = BTreeMap::new();
+        for path in variants {
+            let key = path_key(
+                path.first()
+                    .and_then(|(_, casts)| casts.first())
+                    .context("Missing path choice")?,
+            );
+            groups.entry(key).or_default().push(path);
+        }
+        let mut merged: Vec<Paths<'_>> = Vec::new();
+        // Compare every named step so ID-only paths share rows, e.g. C3FF→C401 versus C400→C402.
+        let mut equivalent: BTreeMap<_, usize> = BTreeMap::new();
+        for paths in groups.into_values() {
+            let keys = paths
+                .iter()
+                .map(|path| {
+                    let (i, casts) = path.first().context("Missing equivalent samples")?;
+                    let input = self.inputs.get(*i).context("Missing equivalent input")?;
+                    casts
+                        .iter()
+                        .map(|signal| {
+                            let name = input
+                                .log
+                                .report
+                                .master_data
+                                .abilities
+                                .iter()
+                                .find(|ability| ability.game_id == signal.key.ability_id)
+                                .map(|ability| ability.name.clone())
+                                .context("Missing path ability")?;
+                            let mut key = path_key(signal);
+                            key.ability_id = 0;
+                            Ok((key, name))
+                        })
+                        .collect::<Result<Vec<_>>>()
+                })
+                .collect::<Result<BTreeSet<_>>>()?;
+            // A selector may cover several ID combinations, e.g. BEE4→BEE9/BEEB has one named path.
+            if keys.len() != 1 {
+                merged.push(paths);
+                continue;
+            }
+            let key = keys
+                .into_iter()
+                .next()
+                .context("Missing equivalent path key")?;
+            let mut samples = paths.into_iter().flatten().collect();
+            if let Some(&prior) = equivalent.get(&key) {
+                let target = merged
+                    .get_mut(prior)
+                    .and_then(|paths| paths.first_mut())
+                    .context("Missing merged path")?;
+                target.append(&mut samples);
+            } else {
+                equivalent.insert(key, merged.len());
+                merged.push(vec![samples]);
+            }
+        }
+        Ok(merged)
+    }
+
     fn branch(&mut self, variants: &Paths<'a>, opening: bool) -> Result<()> {
         let prefix = common_prefix(variants);
         for position in 0..prefix {
-            let refs: Samples<'_> = variants
-                .iter()
-                .flatten()
-                .filter_map(|(i, casts)| Some((*i, *casts.get(position)?)))
-                .collect();
-            let (entry, mut slot) = self.branch_entry(&refs)?;
-            slot.evidence = "observedCommonPrefix".into();
-            self.emit(entry, &refs, slot, None)?;
-            if opening && position == 0 {
-                open_entry(self.rows.last_mut().context("Missing opening prefix")?);
-            }
+            self.emit_common(variants, position, opening && position == 0)?;
         }
         if variants
             .iter()
@@ -567,19 +653,7 @@ impl<'a> Compiler<'a> {
         {
             return Ok(());
         }
-        let variants: Paths<'_> = variants
-            .iter()
-            .map(|path| {
-                path.iter()
-                    .map(|(i, casts)| {
-                        casts
-                            .get(prefix..)
-                            .map(|suffix| (*i, suffix.to_vec()))
-                            .context("Invalid common prefix")
-                    })
-                    .collect::<Result<_>>()
-            })
-            .collect::<Result<_>>()?;
+        let variants = path_suffixes(variants, prefix)?;
         let group = self.branches.len();
         let merge_label = format!("branch-{group}-merge");
         let original_clocks = self.clocks.clone();
@@ -597,16 +671,13 @@ impl<'a> Compiler<'a> {
             })
             .collect::<Result<Vec<_>>>()?;
         let envelope = statistics(arrivals)?;
-        let mut groups: BTreeMap<SignalKey, Paths<'_>> = BTreeMap::new();
-        for path in variants {
-            let key = path_key(
-                path.first()
-                    .and_then(|(_, casts)| casts.first())
-                    .context("Missing path choice")?,
-            );
-            groups.entry(key).or_default().push(path);
+        let groups = self.group_paths(variants)?;
+        // A sole choice needs no jump, e.g. merged C3FF/C400 continues on the current clock.
+        if let [paths] = groups.as_slice() {
+            self.emit_common(paths, 0, opening && prefix == 0)?;
+            let suffix = path_suffixes(paths, 1)?;
+            return self.branch(&suffix, false);
         }
-        let groups: Vec<_> = groups.into_values().collect();
         let mut selectors = Vec::new();
         let mut occupied = self.next;
         for (path_id, paths) in groups.iter().enumerate() {
@@ -668,19 +739,7 @@ impl<'a> Compiler<'a> {
             let row_start = self.rows.len();
             let child_start = self.branches.len();
             if paths.len() > 1 {
-                let suffix: Paths<'_> = paths
-                    .iter()
-                    .map(|path| {
-                        path.iter()
-                            .map(|(i, casts)| {
-                                Ok((
-                                    *i,
-                                    casts.get(1..).context("Missing nested suffix")?.to_vec(),
-                                ))
-                            })
-                            .collect::<Result<_>>()
-                    })
-                    .collect::<Result<_>>()?;
+                let suffix = path_suffixes(paths, 1)?;
                 self.branch(&suffix, false)?;
                 occupied = occupied.max(self.next);
                 let endpoints: BTreeSet<_> = suffix
@@ -1071,7 +1130,11 @@ fn compile(
         }
         position += 1;
     }
-    if !boss_clocks && compiler.branches.is_empty() && compiler.phases.is_empty() {
+    if !boss_clocks
+        && candidates.is_empty()
+        && compiler.branches.is_empty()
+        && compiler.phases.is_empty()
+    {
         return Ok((yaml, report));
     }
     let reactive_keys: BTreeSet<_> = reactive
