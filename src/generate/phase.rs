@@ -621,7 +621,7 @@ impl<'a> Compiler<'a> {
         let mut ids = BTreeSet::new();
         let mut names = BTreeSet::new();
         let mut refs = Vec::new();
-        let mut name = None;
+        let mut ability_names = Vec::new();
         for (i, signal) in samples {
             let input = self.inputs.get(*i).context("Missing branch input")?;
             ids.extend(signal.event_indices.iter().filter_map(|&index| {
@@ -643,14 +643,17 @@ impl<'a> Compiler<'a> {
                 );
                 names.insert(source.clone());
             }
-            name = input
-                .log
-                .report
-                .master_data
-                .abilities
-                .iter()
-                .find(|a| a.game_id == signal.key.ability_id)
-                .map(|a| a.name.clone());
+            ability_names.push(
+                input
+                    .log
+                    .report
+                    .master_data
+                    .abilities
+                    .iter()
+                    .find(|a| a.game_id == signal.key.ability_id)
+                    .map(|a| a.name.as_str())
+                    .context("Missing branch ability")?,
+            );
             refs.push(PhaseSample {
                 file: input.pull.file.clone(),
                 event_indices: signal.event_indices.clone(),
@@ -691,7 +694,7 @@ impl<'a> Compiler<'a> {
         Ok((
             Entry::Event {
                 at: 0.0,
-                name: name.context("Missing branch ability")?,
+                name: ability_names.into_iter().unique().join(" / "),
                 duration: None,
                 sync: Some(Sync::Network(NetworkSync {
                     log: if samples
@@ -789,7 +792,7 @@ impl<'a> Compiler<'a> {
             groups.entry(key).or_default().push(path);
         }
         let mut merged: Vec<Paths<'_>> = Vec::new();
-        // Compare every named step so ID-only paths share rows, e.g. C3FF→C401 versus C400→C402.
+        // Different choices can share a continuation, e.g. Halo/Miasma both lead to Puppet Strings.
         let mut equivalent: BTreeMap<_, usize> = BTreeMap::new();
         for paths in groups.into_values() {
             let keys = paths
@@ -799,7 +802,8 @@ impl<'a> Compiler<'a> {
                     let input = self.inputs.get(*i).context("Missing equivalent input")?;
                     casts
                         .iter()
-                        .map(|signal| {
+                        .enumerate()
+                        .map(|(position, signal)| {
                             let name = input
                                 .log
                                 .report
@@ -811,7 +815,7 @@ impl<'a> Compiler<'a> {
                                 .context("Missing path ability")?;
                             let mut key = path_key(signal);
                             key.ability_id = 0;
-                            Ok((key, name))
+                            Ok((key, (position > 0).then_some(name)))
                         })
                         .collect::<Result<Vec<_>>>()
                 })

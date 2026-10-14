@@ -1080,7 +1080,7 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
                     .and_then(Value::as_str)
                     .context("Missing catalog name")
             })
-            .process_results(|mut names| names.join(" / "))?;
+            .process_results(|names| names.unique().join(" / "))?;
         let (sync, conflict) = cast_sync(&inputs, &samples, &ids, &sources, at, slots.len())?;
         let reason = conflict.as_ref().map(|conflict| conflict.reason);
         if let Some(conflict) = conflict {

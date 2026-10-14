@@ -428,7 +428,8 @@ fn p8_rejected_repeat_keeps_finite_rows_and_reports_reason(#[case] scenario: &st
 #[case::different_name(false, true, false, false)]
 #[case::id_alternatives_throughout(false, false, true, false)]
 #[case::single_remaining_path(false, false, true, true)]
-fn branch_id_alternatives_merge_only_identical_paths(
+#[case::single_remaining_named_path(false, true, true, true)]
+fn branch_id_alternatives_merge_only_identical_tails(
     #[case] different_tail: bool,
     #[case] different_name: bool,
     #[case] tail_id_alternatives: bool,
@@ -510,19 +511,29 @@ fn branch_id_alternatives_merge_only_identical_paths(
             );
         } else {
             assert_eq!(branches.len(), 1);
-            assert_eq!(
-                branches[0]["paths"].as_array().unwrap().len(),
-                if different_name { 3 } else { 2 }
-            );
+            assert_eq!(branches[0]["paths"].as_array().unwrap().len(), 2);
         }
         let events = draft_events(&yaml);
         let selector = events
             .iter()
-            .find(|event| event["name"] == "Mortifying Flesh")
+            .find(|event| {
+                event["name"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("Mortifying Flesh")
+            })
             .unwrap();
         assert_eq!(
+            selector["name"],
+            if different_name {
+                "Mortifying Flesh / Other ability"
+            } else {
+                "Mortifying Flesh"
+            }
+        );
+        assert_eq!(
             selector["sync"]["fields"]["id"],
-            if different_tail || different_name {
+            if different_tail {
                 json!(["BEE4", "BEE5", "BEE6"])
             } else {
                 json!(["BEE4", "BEE5", "BEE6", "BEE7"])
@@ -540,7 +551,7 @@ fn branch_id_alternatives_merge_only_identical_paths(
             );
             assert!(text.contains("id: [\"C4E0\", \"C4E1\", \"C4E2\", \"C4E3\"]"));
         }
-        assert!(text.contains(if different_tail || different_name {
+        assert!(text.contains(if different_tail {
             "id: [\"BEE4\", \"BEE5\", \"BEE6\"]"
         } else {
             "id: [\"BEE4\", \"BEE5\", \"BEE6\", \"BEE7\"]"
@@ -2011,6 +2022,57 @@ fn snapshot_draft(name: &str, yaml: &str, report: &Value, input: &Path) {
     insta::assert_snapshot!(format!("{name}_markdown"), report::render(&stable).unwrap());
 }
 
+#[rstest]
+#[case::same_name(["Blizzard III Blowout"; 3], "Blizzard III Blowout")]
+#[case::mixed_names(["Blizzard III", "Thunder III", "Blizzard III"], "Blizzard III / Thunder III")]
+fn multi_draft_deduplicates_display_names_without_dropping_sync_ids(
+    #[case] names: [&str; 3],
+    #[case] expected: &str,
+) {
+    // Distinct IDs can share a name, e.g. real/fake Blizzard variants still need every sync ID.
+    let logs: Vec<_> = names
+        .iter()
+        .enumerate()
+        .map(|(i, name)| {
+            let id = 90002 + i as i64;
+            let mut log = multi_log(
+                &format!("pull{i}"),
+                &[
+                    (1000, 10, 90001, "cast"),
+                    (2000, 11, id, "cast"),
+                    (4000, 10, 90005, "cast"),
+                ],
+                6000,
+                true,
+            );
+            let ability = log["report"]["masterData"]["abilities"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|ability| ability["gameID"] == id)
+                .unwrap();
+            ability["name"] = json!(name);
+            log
+        })
+        .collect();
+    with_logs(&logs, |path| {
+        let group = input::select_group(path, None, None, None).unwrap();
+        let (yaml, _) = multi::build(group, GenerateMode::Raid, 30.0).unwrap();
+        let events = draft_events(&yaml);
+        assert_eq!(events.len(), 3);
+        assert_eq!(events[1]["name"], expected);
+        assert!(
+            crate::timeline::convert(&yaml)
+                .unwrap()
+                .contains(&format!("\"{expected}\" Ability"))
+        );
+        assert_eq!(
+            events[1]["sync"]["fields"]["id"],
+            json!(["15F92", "15F93", "15F94"])
+        );
+    });
+}
+
 #[test]
 fn multi_draft_merges_isolated_alternatives_and_keeps_block_timing_provenance() {
     let a = multi_log(
@@ -2679,8 +2741,17 @@ fn later_boss_opening_paths_are_preserved(#[case] mode: &str, #[case] nested: bo
         );
         assert_eq!(
             report["extensions"]["branches"].as_array().unwrap().len(),
-            if nested { 2 } else { 1 }
+            1
         );
+        if nested {
+            // Keep the opening fork while sharing its identical inner tails, e.g. X→Y/Z→C versus Y→X→C.
+            let yaml = fs::read_to_string(&output).unwrap();
+            assert!(draft_events(&yaml).iter().any(|event| {
+                event["name"] == "Ability 90003 / Ability 90007"
+                    && event["sync"]["fields"]["id"] == json!(["15F93", "15F97"])
+                    && event.get("jump").is_none()
+            }));
+        }
         for coverage in report["outputCoverage"].as_array().unwrap() {
             assert_eq!(coverage["omittedEventIndices"], json!([]), "{coverage}");
         }
