@@ -64,6 +64,12 @@ struct Slot {
     predictive: bool,
     required: bool,
     sync_enabled: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    burst_offsets_ms: Vec<i64>,
+    #[serde(default)]
+    cast_started: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    sync_window_ms: Option<[i64; 2]>,
 }
 
 impl Slot {
@@ -191,16 +197,18 @@ fn sample(input: &Input, segment: usize, origin: i64, signal: &Signal) -> Sample
 }
 
 fn event(slot: &Slot, enabled: bool, window: [f64; 2], jump: bool) -> Result<Entry> {
+    let window = slot
+        .sync_window_ms
+        .map(|w| w.map(|ms| ms as f64 / 1000.0))
+        .unwrap_or(window);
     Ok(Entry::Event {
         at: slot.at_ms as f64 / 1000.0,
         name: if slot.selector {
             "--sync--".into()
-        } else if slot.predictive {
-            slot.name.clone()
         } else {
-            "--reference--".into()
+            slot.name.clone()
         },
-        duration: None,
+        duration: slot.burst_offsets_ms.last().map(|ms| *ms as f64 / 1000.0),
         sync: Some(Sync::Network(NetworkSync {
             log: if slot.selector {
                 LogType::StartsUsing
@@ -233,13 +241,225 @@ fn event(slot: &Slot, enabled: bool, window: [f64; 2], jump: bool) -> Result<Ent
             to: Destination::Time(slot.at_ms as f64 / 1000.0),
             when: JumpWhen::Sync,
         }),
-        note: (!slot.predictive && !slot.selector).then(|| {
-            format!(
-                "Reference evidence: {}; timing or occurrence is conditional.",
-                slot.name
-            )
-        }),
+        note: None,
     })
+}
+
+// Spawn cues bound overlapping waves, e.g. six exaflare waves each have six hits even when their endpoints coincide.
+fn cue_bursts(mut slots: Vec<Slot>, inputs: &[Input]) -> Result<Vec<Slot>> {
+    let mut families: BTreeMap<_, (Vec<usize>, Vec<usize>)> = BTreeMap::new();
+    for (i, slot) in slots.iter().enumerate().filter(|(_, slot)| !slot.selector) {
+        let family = families
+            .entry((slot.phase, slot.source.clone(), slot.name.clone()))
+            .or_default();
+        if slot.cast_started {
+            family.0.push(i);
+        } else {
+            family.1.push(i);
+        }
+    }
+    let mut removed = BTreeSet::new();
+    let mut added = Vec::new();
+    for (cues, effects) in families.into_values() {
+        if cues.len() < 2 || effects.len() < 3 {
+            continue;
+        }
+        let first_cue = slots
+            .get(*cues.first().context("Missing spawn cue")?)
+            .context("Missing cue slot")?;
+        let first_effect = slots
+            .get(*effects.first().context("Missing effect")?)
+            .context("Missing effect slot")?;
+        let intervals = cues
+            .windows(2)
+            .map(|pair| match pair {
+                [a, b] => Ok(slots.get(*b).context("Missing next cue")?.relative_ms
+                    - slots.get(*a).context("Missing previous cue")?.relative_ms),
+                _ => anyhow::bail!("Invalid cue interval"),
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let period = statistics(intervals.clone())?.median_ms.round() as i64;
+        let delay = first_effect.relative_ms - first_cue.relative_ms;
+        let cohort = |slot: &Slot| {
+            slot.samples
+                .iter()
+                .map(|s| (s.file.clone(), s.segment))
+                .collect::<BTreeSet<_>>()
+        };
+        let valid = period > 500
+            && delay >= 0
+            && delay < period / 2
+            && intervals.iter().all(|gap| gap.abs_diff(period) <= 250)
+            && effects.iter().all(|&i| {
+                slots.get(i).is_some_and(|s| {
+                    s.required
+                        && !s.sync_enabled
+                        && s.ability_ids == first_effect.ability_ids
+                        && cohort(s) == cohort(first_effect)
+                })
+            })
+            && cues.iter().all(|&i| {
+                slots.get(i).is_some_and(|s| {
+                    s.required
+                        && s.ability_ids
+                            .iter()
+                            .all(|id| !first_effect.ability_ids.contains(id))
+                })
+            });
+        if !valid {
+            continue;
+        }
+        let mut bursts = Vec::new();
+        let mut covered = BTreeSet::new();
+        for &cue in &cues {
+            let onset = slots.get(cue).context("Missing burst cue")?.relative_ms + delay;
+            let hits: Vec<_> = effects
+                .iter()
+                .copied()
+                .filter(|&i| {
+                    slots.get(i).is_some_and(|s| {
+                        onset - 200 <= s.relative_ms && s.relative_ms <= onset + period + 200
+                    })
+                })
+                .collect();
+            if hits.len() < 3 {
+                break;
+            }
+            let mut burst = slots
+                .get(*hits.first().context("Missing first hit")?)
+                .context("Missing hit slot")?
+                .clone();
+            burst.samples.clear();
+            burst.burst_offsets_ms.clear();
+            for &i in &hits {
+                let hit = slots.get(i).context("Missing burst hit")?;
+                burst
+                    .burst_offsets_ms
+                    .push(hit.relative_ms - burst.relative_ms);
+                burst.samples.extend(hit.samples.iter().cloned());
+                covered.insert(i);
+            }
+            burst.name = format!("{} x{}", burst.name, hits.len());
+            burst.evidence = "fixedBurst".into();
+            bursts.push(burst);
+        }
+        if bursts.len() != cues.len()
+            || covered.len() != effects.len()
+            || bursts.iter().any(|s| {
+                s.burst_offsets_ms.len() != bursts.first().map_or(0, |s| s.burst_offsets_ms.len())
+                    || s.burst_offsets_ms
+                        .last()
+                        .is_none_or(|last| last.abs_diff(period) > 400)
+            })
+        {
+            continue;
+        }
+        for cue in cues {
+            let slot = slots.get_mut(cue).context("Missing retained cue")?;
+            let boss = slot.samples.iter().any(|s| {
+                inputs
+                    .iter()
+                    .find(|input| input.pull.file == s.file)
+                    .is_some_and(|input| {
+                        input.pull.occurrences.iter().any(|row| {
+                            s.event_indices.contains(&row.event_index)
+                                && row.role.ends_with("/Boss")
+                        })
+                    })
+            });
+            if boss {
+                slot.name = format!("{} (castbar)", slot.name);
+            } else {
+                slot.name = "--sync--".into();
+                slot.predictive = false;
+                slot.evidence = "burstTimingCue".into();
+                slot.sync_window_ms = Some([period / 200 * 100; 2]);
+            }
+        }
+        removed.extend(covered);
+        added.extend(bursts);
+    }
+    let mut kept: Vec<_> = slots
+        .into_iter()
+        .enumerate()
+        .filter(|(i, _)| !removed.contains(i))
+        .map(|(_, s)| s)
+        .collect();
+    kept.extend(added);
+    kept.sort_by_key(|s| (s.at_ms, !s.selector, s.source.clone(), s.name.clone()));
+    for (id, slot) in kept.iter_mut().enumerate() {
+        slot.id = id;
+    }
+    Ok(kept)
+}
+
+// Free forecast bars for distinct mechanics, e.g. four unsynced 0.8s hits become one x4 bar with a duration.
+fn compact_bursts(slots: Vec<Slot>, entries: Vec<Entry>) -> Result<(Vec<Slot>, Vec<Entry>)> {
+    ensure!(entries.len() == slots.len() + 1, "Missing burst event rows");
+    let mut entries = entries.into_iter();
+    let mut compact_entries = vec![entries.next().context("Missing schedule note")?];
+    let mut compact_slots = Vec::new();
+    let mut rows = slots.into_iter().zip(entries).peekable();
+    while let Some(first) = rows.next() {
+        let mut run = vec![first];
+        while rows.peek().is_some_and(|(next, _)| {
+            run.last().is_some_and(|(last, _)| {
+                !last.selector
+                    && !next.selector
+                    && !last.sync_enabled
+                    && !next.sync_enabled
+                    && last.burst_offsets_ms.is_empty()
+                    && next.burst_offsets_ms.is_empty()
+                    && last.required
+                    && next.required
+                    && last.phase == next.phase
+                    && last.source == next.source
+                    && last.source_aliases == next.source_aliases
+                    && last.name == next.name
+                    && last.ability_ids == next.ability_ids
+                    && (1..=2500).contains(&(next.relative_ms - last.relative_ms))
+                    && last
+                        .samples
+                        .iter()
+                        .map(|s| (&s.file, s.segment))
+                        .collect::<BTreeSet<_>>()
+                        == next
+                            .samples
+                            .iter()
+                            .map(|s| (&s.file, s.segment))
+                            .collect::<BTreeSet<_>>()
+            })
+        }) {
+            run.push(rows.next().context("Missing burst continuation")?);
+        }
+        if run.len() >= 3 {
+            let count = run.len();
+            let (mut slot, mut entry) = run.remove(0);
+            slot.burst_offsets_ms.push(0);
+            for (mut other, _) in run {
+                slot.burst_offsets_ms
+                    .push(other.relative_ms - slot.relative_ms);
+                slot.samples.append(&mut other.samples);
+            }
+            slot.name = format!("{} x{count}", slot.name);
+            slot.evidence = "fixedBurst".into();
+            if let Entry::Event { name, duration, .. } = &mut entry {
+                *name = slot.name.clone();
+                *duration = slot.burst_offsets_ms.last().map(|ms| *ms as f64 / 1000.0);
+            }
+            compact_slots.push(slot);
+            compact_entries.push(entry);
+        } else {
+            for (slot, entry) in run {
+                compact_slots.push(slot);
+                compact_entries.push(entry);
+            }
+        }
+    }
+    for (id, slot) in compact_slots.iter_mut().enumerate() {
+        slot.id = id;
+    }
+    Ok((compact_slots, compact_entries))
 }
 
 pub(super) fn build(
@@ -414,27 +634,34 @@ pub(super) fn build(
                     span.phase,
                     source,
                     name,
+                    signal.event_indices.iter().any(|index| {
+                        input.pull.occurrences.iter().any(|row| {
+                            row.event_index == *index && row.start_timestamp_ms.is_some()
+                        })
+                    }),
                     sample(input, segment, span.origin_ms, signal),
                 ));
             }
         }
     }
-    observations.sort_by_key(|(phase, source, name, sample)| {
+    observations.sort_by_key(|(phase, source, name, started, sample)| {
         (
             *phase,
             source.clone(),
             name.clone(),
+            *started,
             sample.relative_ms,
             sample.file.clone(),
             sample.segment,
         )
     });
     let mut slots: Vec<Slot> = Vec::new();
-    for (phase, source, name, sample) in observations {
+    for (phase, source, name, started, sample) in observations {
         let found = slots.iter_mut().rev().find(|slot| {
             slot.phase == phase
                 && slot.source == source
                 && slot.name == name
+                && slot.cast_started == started
                 && sample.relative_ms.abs_diff(slot.relative_ms) <= 750
                 && slot.samples.iter().all(|other| {
                     other.file != sample.file
@@ -460,6 +687,9 @@ pub(super) fn build(
                 predictive: true,
                 required: false,
                 sync_enabled: false,
+                burst_offsets_ms: Vec::new(),
+                cast_started: started,
+                sync_window_ms: None,
             });
         }
     }
@@ -473,6 +703,7 @@ pub(super) fn build(
                 || b.samples.is_empty()
                 || a.phase != b.phase
                 || a.name != b.name
+                || a.cast_started != b.cast_started
             {
                 continue;
             }
@@ -537,6 +768,7 @@ pub(super) fn build(
                 && !b.samples.is_empty()
                 && a.phase == b.phase
                 && a.source == b.source
+                && a.cast_started == b.cast_started
                 && a.relative_ms.abs_diff(b.relative_ms) <= 250
                 && !a.samples.iter().any(|a| {
                     b.samples
@@ -611,13 +843,24 @@ pub(super) fn build(
             })
             .count();
         // Show frequent effects but require only invariant rows, e.g. conditional Holy is still optional.
-        slot.predictive =
-            slot.relative_ms >= 0 && observed.len() >= 2 && observed.len() * 5 >= reached * 4;
+        // Repeated attempts in one file are not independent support, e.g. a merged retry cannot vote twice alone.
+        slot.predictive = slot.relative_ms >= 0
+            && slot
+                .samples
+                .iter()
+                .map(|sample| &sample.file)
+                .unique()
+                .count()
+                >= 2
+            && observed.len() * 5 >= reached * 4;
         slot.required = slot.predictive && observed.len() == reached;
         if !slot.predictive {
             slot.evidence = "conditionalReference".into();
         }
     }
+    // A conditional reaction is evidence rather than a forecast, e.g. a missed tower must not become a timeline bar.
+    let (mut slots, excluded): (Vec<_>, Vec<_>) =
+        slots.into_iter().partition(|slot| slot.predictive);
     for phase in &phases {
         let samples: Vec<_> = inputs
             .iter()
@@ -654,6 +897,9 @@ pub(super) fn build(
             predictive: false,
             required: true,
             sync_enabled: true,
+            burst_offsets_ms: Vec::new(),
+            cast_started: true,
+            sync_window_ms: None,
         });
     }
     slots.sort_by_key(|slot| {
@@ -664,7 +910,7 @@ pub(super) fn build(
             slot.name.clone(),
         )
     });
-    let mut entries = vec![Entry::Note { text: "Phase schedules: fixed-time alternatives share a mechanic row; conditional trace evidence is hidden from prediction.".into() }];
+    let mut entries = vec![Entry::Note { text: "Phase schedules: fixed-time alternatives share a mechanic row; conditional reactions are excluded and documented in the generation report.".into() }];
     for (i, slot) in slots.iter_mut().enumerate() {
         slot.id = i;
         let mut window = [2.5, 2.5];
@@ -734,6 +980,29 @@ pub(super) fn build(
         slot.sync_enabled =
             matches!(entry, Entry::Event { sync: Some(Sync::Network(sync)), .. } if sync.enabled);
     }
+    let slots = cue_bursts(slots, inputs)?;
+    let mut rebuilt = vec![
+        entries
+            .into_iter()
+            .next()
+            .context("Missing schedule note")?,
+    ];
+    for slot in &slots {
+        rebuilt.push(event(
+            slot,
+            slot.sync_enabled,
+            [
+                if slot.selector {
+                    slot.at_ms as f64 / 1000.0
+                } else {
+                    2.5
+                },
+                2.5,
+            ],
+            slot.selector,
+        )?);
+    }
+    let (slots, mut entries) = compact_bursts(slots, rebuilt)?;
     entries.push(Entry::AbilityCatalog {
         abilities: inputs
             .iter()
@@ -762,26 +1031,65 @@ pub(super) fn build(
         annotated.push(entry);
     }
     let yaml = draft::serialize_draft(annotated, vec![crate::timeline::ResetEvent::Wipe])?;
-    let mut timeline: crate::timeline::Timeline = serde_saphyr::from_str(&yaml)?;
-    timeline.hide_names.push("--reference--".into());
-    let yaml = serde_saphyr::to_string(&timeline)?;
-    crate::timeline::validate_value(serde_json::to_value(timeline)?)?;
     let coverage: Vec<_> = inputs.iter().map(|input| {
         let represented: BTreeSet<_> = slots.iter().filter(|slot| !slot.selector).flat_map(|slot| &slot.samples).filter(|sample| sample.file == input.pull.file).flat_map(|sample| sample.event_indices.iter().copied()).collect();
         let predicted: BTreeSet<_> = slots.iter().filter(|slot| slot.predictive).flat_map(|slot| &slot.samples).filter(|sample| sample.file == input.pull.file).flat_map(|sample| sample.event_indices.iter().copied()).collect();
-        json!({"file": input.pull.file, "representedEventIndices": represented, "predictiveEventIndices": predicted,
-            "omittedEventIndices": input.pull.occurrences.iter().filter(|row| row.kind == "cast" && !represented.contains(&row.event_index)).map(|row| row.event_index).collect::<Vec<_>>()})
+        let excluded: BTreeSet<_> = excluded.iter().flat_map(|slot| &slot.samples).filter(|sample| sample.file == input.pull.file).flat_map(|sample| sample.event_indices.iter().copied()).collect();
+        json!({"file": input.pull.file, "representedEventIndices": represented, "predictiveEventIndices": predicted, "excludedEventIndices": excluded,
+            "omittedEventIndices": input.pull.occurrences.iter().filter(|row| row.kind == "cast" && !represented.contains(&row.event_index) && !excluded.contains(&row.event_index)).map(|row| row.event_index).collect::<Vec<_>>()})
     }).collect();
     let report = json!({"status":"draft", "mode":"raid", "group":key,
         "inputs":inputs.iter().map(|input| &input.report).collect::<Vec<_>>(), "slots":slots,
+        "excludedSignals":excluded.iter().map(|slot| json!({"reason":"conditionalTimingOrOccurrence", "slot":slot})).collect::<Vec<_>>(),
         "blocks":[], "syncConflicts":[], "omittedSignals":[], "observedPaths":inputs.iter().map(|input| json!({"file":input.pull.file,"occurrences":input.pull.occurrences})).collect::<Vec<_>>(),
         "outputCoverage":coverage, "alignment":{"implementation":"phase-relative mechanic schedules", "orderSensitivePairs":[]},
         "schedule":{"phases":phases, "segments": inputs.iter().zip(&spans).map(|(input, spans)| json!({"file":input.pull.file,"spans":spans})).collect::<Vec<_>>()},
         "extensions":{"accepted":true,"branches":[],"phases":phases,"lookaheadMs":(lookahead*1000.0).round() as i64},
         "repeats":{"accepted":false,"reason":"Phase schedules retain finite rounds."},
-        "limitations":["Conditional trace evidence is retained but hidden from prediction.","Phase transitions require observed boss cast starts; ACT reset capture remains unverified."],
+        "limitations":["Conditional or insufficiently supported effects are excluded; evidence remains in excludedSignals.","Phase transitions require observed boss cast starts; ACT reset capture remains unverified."],
         "validation":{"schemaAndSemantic":true,"replay":false,"cactbotParser":false,"runtime":false}});
     Ok(Some((yaml, report)))
+}
+
+// Apply learned exclusions to unseen packets too, e.g. an optional failed soak may occur earlier in a holdout.
+pub(super) fn excluded_events(
+    report: &Value,
+    pull: &Pull,
+    log: &CollectedLog,
+) -> Result<BTreeSet<usize>> {
+    let phases: Vec<Phase> = serde_json::from_value(
+        report
+            .pointer("/schedule/phases")
+            .context("Missing exclusion phases")?
+            .clone(),
+    )?;
+    let spans = segments(pull, log, &phases)?;
+    let actors = actor_names(log);
+    let start = log
+        .report
+        .fights
+        .first()
+        .context("Missing exclusion fight")?
+        .start_time;
+    let mut excluded = BTreeSet::new();
+    for item in report["excludedSignals"].as_array().into_iter().flatten() {
+        let slot: Slot = serde_json::from_value(item["slot"].clone())?;
+        for (index, raw) in log.events.iter().enumerate() {
+            let at = raw.timestamp - start;
+            if raw.kind == "cast"
+                && slot.accepts_source(raw.source_id.and_then(|id| actors.get(&id)))
+                && raw
+                    .ability_game_id
+                    .is_some_and(|id| slot.ability_ids.contains(&id))
+                && spans.iter().any(|span| {
+                    span.phase == slot.phase && span.start_ms <= at && at <= span.end_ms
+                })
+            {
+                excluded.insert(index);
+            }
+        }
+    }
+    Ok(excluded)
 }
 
 pub(super) fn evidence(
@@ -836,8 +1144,10 @@ pub(super) fn evidence(
                     && raw
                         .ability_game_id
                         .is_some_and(|id| slot.ability_ids.contains(&id))
-                    // Trace-only effects have no learned clock, e.g. a player-triggered Death Bomb can resolve early.
-                    && (!slot.predictive || (at - span.origin_ms).abs_diff(slot.relative_ms) < 2500)
+                    && ((at - span.origin_ms).abs_diff(slot.relative_ms) < 2500
+                        || slot.burst_offsets_ms.iter().any(|offset| {
+                            (at - span.origin_ms).abs_diff(slot.relative_ms + offset) < 2500
+                        }))
                 {
                     // The closest same-ID row owns the event, e.g. adjacent two-second tankbuster ticks stay distinct.
                     let nearest = slots
@@ -852,7 +1162,16 @@ pub(super) fn evidence(
                                     .is_some_and(|id| other.ability_ids.contains(&id))
                         })
                         .min_by_key(|other| {
-                            ((at - span.origin_ms).abs_diff(other.relative_ms), other.id)
+                            (
+                                std::iter::once(0)
+                                    .chain(other.burst_offsets_ms.iter().copied())
+                                    .map(|offset| {
+                                        (at - span.origin_ms).abs_diff(other.relative_ms + offset)
+                                    })
+                                    .min()
+                                    .unwrap_or(u64::MAX),
+                                other.id,
+                            )
                         });
                     if nearest.is_some_and(|other| other.id == slot.id) {
                         expected.insert(index);

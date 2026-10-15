@@ -274,6 +274,60 @@ fn cell(value: &str) -> String {
 }
 
 pub(super) fn render(report: &Value) -> Result<String> {
+    let mut out = render_draft(report)?;
+    if let Some(selection) = report.get("inputSelection") {
+        writeln!(
+            out,
+            "\n## 입력 선별\n\n| 항목 | 개수 |\n| --- | ---: |\n| 생성에 사용 | {} |\n| 제외 · 진단 재생 | {} |",
+            array_field(selection, "selected")?.len(),
+            array_field(selection, "excluded")?.len()
+        )?;
+        writeln!(
+            out,
+            "\n{}\n\n| 제외 원본 | 사유 | 보스 시전 시작 수 |\n| --- | --- | ---: |",
+            text_field(selection, "policy")?
+        )?;
+        for input in array_field(selection, "excluded")? {
+            writeln!(
+                out,
+                "| {} | {} | {} |",
+                cell(text_field(input, "file")?),
+                text_field(input, "reason")?,
+                number_field(input, "bossCastStarts")?
+            )?;
+        }
+    }
+    if let Some(excluded) = report.get("excludedSignals").and_then(Value::as_array) {
+        writeln!(
+            out,
+            "\n## 의도적으로 제외한 이벤트\n\n원본 이벤트 번호는 JSON의 `excludedSignals[].slot.samples`에 보존합니다. 이 이벤트는 타임라인 행이나 누락으로 계산하지 않습니다.\n\n| 능력 ID | 사유 | 표본 수 |\n| --- | --- | ---: |"
+        )?;
+        for item in excluded {
+            let slot = item.get("slot").context("Missing excluded slot")?;
+            let ids = array_field(slot, "abilityIds")?
+                .iter()
+                .map(|id| {
+                    id.as_i64()
+                        .map(|id| format!("{id:X}"))
+                        .context("Invalid excluded ability")
+                })
+                .process_results(|mut ids| ids.join(" / "))?;
+            writeln!(
+                out,
+                "| {} | {} | {} |",
+                ids,
+                text_field(item, "reason")?,
+                array_field(slot, "samples")?.len()
+            )?;
+        }
+    }
+    Ok(out)
+}
+
+fn render_draft(report: &Value) -> Result<String> {
+    if report.get("segments").is_some() {
+        return super::combined::render(report);
+    }
     if report.get("inputs").is_some() {
         return render_multi(report);
     }
@@ -666,11 +720,8 @@ fn render_schedule(report: &Value) -> Result<String> {
     )?;
     writeln!(
         out,
-        "| 숨긴 조건부 증거 행 | {} |",
-        slots
-            .iter()
-            .filter(|slot| slot["evidence"] == "conditionalReference")
-            .count()
+        "| 제외한 조건부 증거 행 | {} |",
+        array_field(report, "excludedSignals")?.len()
     )?;
     writeln!(out, "\n## 검증\n\n| 검사 | 실행 결과 |\n| --- | --- |")?;
     for (key, label) in [
@@ -720,15 +771,16 @@ fn render_schedule(report: &Value) -> Result<String> {
     }
     writeln!(
         out,
-        "\n## 포함률\n\n| 원본 | 증거에 보존한 cast | 예측에 포함한 cast | 누락 cast |\n| --- | ---: | ---: | ---: |"
+        "\n## 포함률\n\n| 원본 | 타임라인에 포함한 cast | 예측에 포함한 cast | 의도적 제외 cast | 누락 cast |\n| --- | ---: | ---: | ---: | ---: |"
     )?;
     for coverage in array_field(report, "outputCoverage")? {
         writeln!(
             out,
-            "| {} | {} | {} | {} |",
+            "| {} | {} | {} | {} | {} |",
             cell(text_field(coverage, "file")?),
             array_field(coverage, "representedEventIndices")?.len(),
             array_field(coverage, "predictiveEventIndices")?.len(),
+            array_field(coverage, "excludedEventIndices")?.len(),
             array_field(coverage, "omittedEventIndices")?.len()
         )?;
     }

@@ -32,6 +32,8 @@ struct ReplayPull<'a> {
     log_version: i64,
     end_ms: i64,
     termination: &'static str,
+    excluded_from_generation: bool,
+    excluded_event_indices: BTreeSet<usize>,
     unrepresented_event_indices: Vec<usize>,
     unfinished_starts: Vec<usize>,
     replay: replay::Replay,
@@ -43,6 +45,8 @@ struct ReplayValidation {
     #[serde(flatten)]
     validation: super::report::Validation,
     replay_executed: bool,
+    replay_scope: &'static str,
+    all_inputs_passed: bool,
 }
 
 #[derive(Serialize)]
@@ -67,6 +71,8 @@ struct ReplayReport<'a> {
     evidence_sha256: String,
     evidence: String,
     group: &'a super::GroupKey,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    groups: Option<Vec<GroupKey>>,
     pulls: &'a [ReplayPull<'a>],
     validation: ReplayValidation,
     policy: ReplayPolicy,
@@ -262,6 +268,9 @@ pub(super) fn evidence(
     log: &crate::fflogs::model::CollectedLog,
     peers: &BTreeMap<&str, &Pull>,
 ) -> Result<Evidence> {
+    if report.get("segments").is_some() {
+        return super::combined::evidence(yaml, report, key, pull, log, peers);
+    }
     // Audit phase schedules against independent source times, e.g. a retry reuses the same mechanic rows.
     if report.get("schedule").is_some() {
         ensure!(
@@ -571,6 +580,32 @@ pub(super) fn evidence(
     // An oracle-selected path only audits activation; absent siblings must still fail if they match.
     // Example: the shared merge cast belongs to the chosen X→A path, not also to Y→B.
 
+    // Consumer fan-out remains valid on holdouts, e.g. eight target packets share the first packet's clock correction.
+    let mut packet_pull = pull.clone();
+    if let Some(raw) = packet_pull.raw_occurrences.take() {
+        packet_pull.occurrences = raw;
+    }
+    let packets: Vec<_> = if !single && report["mode"] == "raid" {
+        multi::wire_signals(&packet_pull, log, &actors)?
+            .into_values()
+            .collect()
+    } else {
+        super::alignment::signals(&packet_pull)
+    };
+    for (&entry, expected) in &result.expected {
+        let observed = packets
+            .iter()
+            .filter(|signal| {
+                signal
+                    .event_indices
+                    .iter()
+                    .any(|index| expected.contains(index))
+            })
+            .flat_map(|signal| signal.event_indices.iter().copied())
+            .collect();
+        result.observed_packets.insert(entry, observed);
+    }
+
     result.lookahead_ms = report
         .pointer("/extensions/lookaheadMs")
         .and_then(Value::as_i64);
@@ -578,6 +613,17 @@ pub(super) fn evidence(
 }
 
 fn load_peers(report: &Value) -> Result<BTreeMap<String, (Pull, String)>> {
+    if let Some(segments) = report.get("segments").and_then(Value::as_array) {
+        let mut peers = BTreeMap::new();
+        for segment in segments {
+            peers.extend(load_peers(
+                segment
+                    .get("report")
+                    .context("Missing checkpoint evidence")?,
+            )?);
+        }
+        return Ok(peers);
+    }
     let inputs = if report.get("input").is_some() {
         vec![report]
     } else {
@@ -649,22 +695,29 @@ pub(crate) fn replay_file(
     let report_bytes = fs::read(&report_path)
         .with_context(|| format!("Reading replay evidence {}", report_path.display()))?;
     let report: Value = serde_json::from_slice(&report_bytes)?;
-    let group = input::select_group(
-        input.as_ref(),
-        None,
-        Some(
+    let keys: Vec<GroupKey> = if let Some(groups) = report.get("groups") {
+        serde_json::from_value(groups.clone())?
+    } else {
+        vec![serde_json::from_value(
             report
-                .pointer("/group/encounter")
-                .and_then(Value::as_i64)
-                .context("Missing generation encounter")?,
-        ),
-        Some(
-            report
-                .pointer("/group/difficulty")
-                .and_then(Value::as_i64)
-                .context("Missing generation difficulty")?,
-        ),
-    )?;
+                .get("group")
+                .context("Missing generation group")?
+                .clone(),
+        )?]
+    };
+    let groups = input::select_groups(input.as_ref(), None, None, None)?;
+    let group = super::Group {
+        key: keys.first().context("Missing replay group")?.clone(),
+        pulls: groups
+            .into_iter()
+            .filter(|g| keys.contains(&g.key))
+            .flat_map(|g| g.pulls)
+            .collect(),
+    };
+    ensure!(
+        !group.pulls.is_empty(),
+        "Replay input group differs from generation group"
+    );
     let peers = load_peers(&report)?;
     let peer_pulls = peers
         .iter()
@@ -676,6 +729,24 @@ pub(crate) fn replay_file(
         .par_iter()
         .map(|pull| {
             let mut source = load_one(&PathBuf::from_slash(&pull.file))?;
+            let source_report = super::combined::source_report(&report, &source.key)?;
+            let exclusion = report
+                .pointer("/inputSelection/excluded")
+                .and_then(Value::as_array)
+                .and_then(|items| {
+                    items.iter().find(|item| {
+                        item["file"]
+                            .as_str()
+                            .is_some_and(|file| same_file(file, &pull.file))
+                    })
+                });
+            if let Some(exclusion) = exclusion {
+                ensure!(
+                    exclusion["sha256"] == source.sha256,
+                    "Excluded input bytes changed: {}",
+                    pull.file
+                );
+            }
             if let Some((_, hash)) = peers
                 .values()
                 .find(|(peer, _)| same_file(&peer.file, &source.pull.file))
@@ -686,9 +757,11 @@ pub(crate) fn replay_file(
                 );
             }
             let mut signals = signals(&source.log)?;
-            if report.get("schedule").is_some() {
+            if source_report.get("schedule").is_some() {
                 // A recorded arena reload stops the consumer clock, e.g. a merged ultimate log restarts at P1.
-                for index in super::schedule::reset_indices(&report, &source.pull, &source.log)? {
+                for index in
+                    super::schedule::reset_indices(source_report, &source.pull, &source.log)?
+                {
                     let event = source
                         .log
                         .events
@@ -727,6 +800,11 @@ pub(crate) fn replay_file(
             )?;
             let mut represented: BTreeSet<_> =
                 evidence.expected.values().flatten().copied().collect();
+            let mut excluded = if source_report.get("schedule").is_some() {
+                super::schedule::excluded_events(source_report, &source.pull, &source.log)?
+            } else {
+                BTreeSet::new()
+            };
             represented.extend(evidence.observed_packets.values().flatten());
             // Coverage includes the whole wave; activation still uses one representative, e.g. four Explosions.
             for signal in super::alignment::signals(&source.pull) {
@@ -752,7 +830,11 @@ pub(crate) fn replay_file(
                 represented.extend(serde_json::from_value::<BTreeSet<usize>>(
                     coverage["representedEventIndices"].clone(),
                 )?);
+                if let Some(indices) = coverage.get("excludedEventIndices") {
+                    excluded.extend(serde_json::from_value::<BTreeSet<usize>>(indices.clone())?);
+                }
             }
+            excluded.retain(|index| !represented.contains(index));
             let replay = replay::run(&yaml, &signals, source.pull.end_ms, &evidence)?;
             Ok::<_, anyhow::Error>(ReplayPull {
                 file: &pull.file,
@@ -763,15 +845,21 @@ pub(crate) fn replay_file(
                 log_version: pull.log_version,
                 end_ms: pull.end_ms,
                 termination: if pull.kill { "kill" } else { "wipe" },
+                excluded_from_generation: exclusion.is_some(),
                 unrepresented_event_indices: source
                     .pull
                     .raw_occurrences
                     .as_ref()
                     .unwrap_or(&source.pull.occurrences)
                     .iter()
-                    .filter(|row| row.kind == "cast" && !represented.contains(&row.event_index))
+                    .filter(|row| {
+                        row.kind == "cast"
+                            && !represented.contains(&row.event_index)
+                            && !excluded.contains(&row.event_index)
+                    })
                     .map(|row| row.event_index)
                     .collect(),
+                excluded_event_indices: excluded,
                 unfinished_starts: pull
                     .occurrences
                     .iter()
@@ -787,10 +875,17 @@ pub(crate) fn replay_file(
         .collect::<Vec<_>>()
         .into_iter()
         .collect::<Result<Vec<_>>>()?;
-    let passed = pulls.iter().all(|pull| pull.replay.passed);
+    // Excluded files are diagnostic holdouts, e.g. an unseen wipe reaction cannot reject a clean-clear draft.
+    let passed = pulls
+        .iter()
+        .filter(|pull| !pull.excluded_from_generation)
+        .all(|pull| pull.replay.passed);
+    let all_inputs_passed = pulls.iter().all(|pull| pull.replay.passed);
     let result = ReplayReport {
-        status: if passed {
+        status: if all_inputs_passed {
             "internally_validated"
+        } else if passed {
+            "selected_inputs_validated"
         } else {
             "draft"
         },
@@ -800,6 +895,10 @@ pub(crate) fn replay_file(
         evidence_sha256: super::sha256(&report_bytes),
         evidence: super::slash_path(&report_path),
         group: &group.key,
+        groups: report
+            .get("groups")
+            .map(|v| serde_json::from_value(v.clone()))
+            .transpose()?,
         pulls: &pulls,
         validation: ReplayValidation {
             validation: super::report::Validation {
@@ -807,26 +906,37 @@ pub(crate) fn replay_file(
                 ..Default::default()
             },
             replay_executed: true,
+            replay_scope: if pulls.iter().any(|pull| pull.excluded_from_generation) {
+                "selected generation inputs; excluded files replayed diagnostically"
+            } else {
+                "all replay inputs"
+            },
+            all_inputs_passed,
         },
         policy: ReplayPolicy {
             clock: "fight start assumes the declared InCombat entry signal; raw cast replay starts independently at zero and audits unique sync corrections",
             window: "lower boundary inclusive, upper boundary exclusive; absent window is +/-2500 ms",
             ambiguity: "multiple active matches are reported, never resolved by entry order",
             supported_signals: ["Ability", "StartsUsing"],
-            coverage: "Only represented rows are validated; disabled syncs and unrepresented casts are reported separately.",
+            coverage: "Only represented rows are validated; intentionally excluded events and unrepresented casts are separate. Files excluded by inputSelection are diagnostic only; allInputsPassed records their result too.",
             unsupported: "ACT raw regex, unavailable network fields and simultaneous exit/forcejump priority remain unverified",
             lookahead: "independent projection before/after sync jumps; actual runtime display not executed",
         },
     };
     let mut markdown = String::from(
-        "# 재생 결과\n\n| 원본 | 종료 | 통과 | 오매칭 | 모호 | jump 오류 | 의존성 위반 | window 미검출 | 누락 | 종료 잘림 | 미지원 | 미검증 | 최대 시간 오차 (ms) |\n| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n",
+        "# 재생 결과\n\n| 원본 | 생성 표본 | 종료 | 통과 | 오매칭 | 모호 | jump 오류 | 의존성 위반 | window 미검출 | 누락 | 종료 잘림 | 미지원 | 미검증 | 최대 시간 오차 (ms) |\n| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n",
     );
     for pull in &pulls {
         let s = &pull.replay.summary;
         writeln!(
             markdown,
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
             pull.file.replace('|', "\\|").replace(['\r', '\n'], " "),
+            if pull.excluded_from_generation {
+                "제외 · 진단용"
+            } else {
+                "검증 대상"
+            },
             pull.termination,
             pull.replay.passed,
             s.wrong_matches,

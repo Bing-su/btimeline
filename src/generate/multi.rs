@@ -584,8 +584,22 @@ pub(super) fn wire_signals(
                                         })))
                         }
                         (Some(_), None) | (None, Some(_)) => {
-                            // Pairing consumes a start once; a late duplicate completion can be orphaned.
-                            signal.time_ms.abs_diff(other.time_ms) <= 750
+                            let orphan = if start(&signal).is_none() {
+                                &signal
+                            } else {
+                                other
+                            };
+                            // A repeated unstarted effect is its own sequence, e.g. Apocalypse damage is not its castbar.
+                            let repeated_effect = pull.occurrences.iter().any(|row| {
+                                row.kind == "cast"
+                                    && row.ability_id == orphan.key.ability_id
+                                    && row.start_timestamp_ms.is_none()
+                                    && actors.get(&row.actor_id) == Some(source)
+                                    && (251..=2500)
+                                        .contains(&row.relative_ms.abs_diff(orphan.time_ms))
+                            });
+                            !repeated_effect
+                                && signal.time_ms.abs_diff(other.time_ms) <= 750
                                 && !pull.occurrences.iter().any(|row| {
                                     row.kind == "begincast"
                                         && [signal.key.ability_id, other.key.ability_id]
@@ -857,17 +871,21 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
     let Group { key, mut pulls } = group;
     pulls.sort_by(|a, b| (&a.report, a.fight, &a.file).cmp(&(&b.report, b.fight, &b.file)));
     // Own each pull beside its raw evidence; sorting/filtering cannot desynchronize parallel lists.
-    let inputs = pulls
+    let mut inputs = pulls
         .into_par_iter()
         .map(|pull| prepare(&pull.file, mode))
         .collect::<Vec<_>>()
         .into_iter()
         .collect::<Result<Vec<_>>>()?;
+    let selection = super::selection::select(&mut inputs)?;
     // Build fixed phase schedules before mining divergent paths, e.g. randomized IDs need not fork a fixed clock.
     if mode == GenerateMode::Raid
         && let Some(schedule) = super::schedule::build(&key, &inputs, lookahead)?
     {
-        return Ok(schedule);
+        return Ok((
+            schedule.0,
+            super::selection::annotate(schedule.1, selection)?,
+        ));
     }
     // The longest observed path provides positions, never permission to emit its exclusive branches.
     let reference = inputs
@@ -1229,7 +1247,7 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
             .map(|input| (&input.pull, &input.log))
             .collect::<Vec<_>>(),
     )?;
-    Ok((yaml, report))
+    Ok((yaml, super::selection::annotate(report, selection)?))
 }
 
 // Preserve scalar patterns for one value and arrays for alternatives, e.g. A versus [A, B].

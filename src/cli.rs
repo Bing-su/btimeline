@@ -118,10 +118,10 @@ pub struct GenerateCommand {
     /// Generation mode: raid keeps the full fight; dungeon/alliance keep boss encounters and area resets.
     #[usage(long, value_enum, default = "raid")]
     mode: GenerateMode,
-    /// Select one compatible group by its exact fight name, e.g. --name "Example Fight".
+    /// Filter by exact fight name; proven raid checkpoints combine, e.g. --name "Lindwurm".
     #[usage(long)]
     name: Option<String>,
-    /// Select an encounter segment when names overlap, e.g. --encounter 105 for a checkpoint entry.
+    /// Restrict generation to one encounter instead of combining checkpoints, e.g. --encounter 105.
     #[usage(long)]
     encounter: Option<i64>,
     /// Select the difficulty when an encounter has multiple groups.
@@ -181,7 +181,7 @@ impl Run for PrepareCommand {
             crate::timeline::convert_file(&timeline, text)?;
         }
         tracing::info!(
-            "[Prepare] YAML validation and input replay passed; cactbot parser/runtime not checked"
+            "[Prepare] YAML validation and selected-input replay passed; excluded-input diagnostics are in the replay report; cactbot parser/runtime not checked"
         );
         Ok(())
     }

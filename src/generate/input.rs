@@ -361,12 +361,50 @@ pub fn inspect(paths: &[impl AsRef<Path>]) -> Result<Vec<Group>> {
         .collect())
 }
 
+#[cfg(test)]
 pub(super) fn select_group(
     input: &Path,
     name: Option<&str>,
     encounter: Option<i64>,
     difficulty: Option<i64>,
 ) -> Result<Group> {
+    let mut groups = select_groups(input, name, encounter, difficulty)?;
+    let choices = group_choices(&groups);
+    ensure!(
+        groups.len() == 1,
+        "Select exactly one compatible group with --name or --encounter / --difficulty (matched {}); available: {choices}",
+        groups.len()
+    );
+    groups.pop().context("Missing selected group")
+}
+
+pub(super) fn group_choices(groups: &[Group]) -> String {
+    groups
+        .iter()
+        .map(|group| {
+            format!(
+                "{} (--encounter {} --difficulty {}, {} pulls)",
+                group
+                    .pulls
+                    .iter()
+                    .map(|p| p.name.as_str())
+                    .sorted()
+                    .dedup()
+                    .join(" / "),
+                group.key.encounter,
+                group.key.difficulty,
+                group.pulls.len()
+            )
+        })
+        .join(", ")
+}
+
+pub(super) fn select_groups(
+    input: &Path,
+    name: Option<&str>,
+    encounter: Option<i64>,
+    difficulty: Option<i64>,
+) -> Result<Vec<Group>> {
     let mut paths = Vec::new();
     let mut pending = vec![input.to_path_buf()];
     // Do not follow directory symlinks: a log tree must not recurse through a cycle.
@@ -392,25 +430,8 @@ pub(super) fn select_group(
     }
     paths.sort();
     let groups = inspect(&paths)?;
-    let choices = groups
-        .iter()
-        .map(|group| {
-            format!(
-                "{} (--encounter {} --difficulty {}, {} pulls)",
-                group
-                    .pulls
-                    .iter()
-                    .map(|p| p.name.as_str())
-                    .sorted()
-                    .dedup()
-                    .join(" / "),
-                group.key.encounter,
-                group.key.difficulty,
-                group.pulls.len()
-            )
-        })
-        .join(", ");
-    let mut selected: Vec<_> = groups
+    let choices = group_choices(&groups);
+    let selected: Vec<_> = groups
         .into_iter()
         .filter(|group| {
             name.is_none_or(|name| group.pulls.iter().any(|pull| pull.name == name))
@@ -419,11 +440,11 @@ pub(super) fn select_group(
         })
         .collect();
     ensure!(
-        selected.len() == 1,
+        !selected.is_empty(),
         "Select exactly one compatible group with --name or --encounter / --difficulty (matched {}); available: {choices}",
         selected.len()
     );
-    selected.pop().context("Missing selected group")
+    Ok(selected)
 }
 
 // Filter only normalized correspondence; raw casts still expose accidental sync activation.

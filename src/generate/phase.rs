@@ -1382,7 +1382,8 @@ fn compile(
         .context("Missing phase inputs")?
         .iter()
         .collect();
-    let boss_clocks = report.get("mode").and_then(Value::as_str) != Some("raid")
+    let raid = report.get("mode").and_then(Value::as_str) == Some("raid");
+    let boss_clocks = !raid
         && reports
             .iter()
             .any(|input| super::sections::spans(input).is_ok_and(|spans| spans.len() > 1));
@@ -1697,7 +1698,7 @@ fn compile(
         position += 1;
     }
     let phase_suffix = inputs.iter().any(|input| {
-        !input.pull.phase_spans.is_empty()
+        (raid || !input.pull.phase_spans.is_empty())
             && compiler
                 .rows
                 .iter()
@@ -1808,7 +1809,7 @@ fn compile(
     for (i, input) in inputs
         .iter()
         .enumerate()
-        .filter(|(_, input)| !input.pull.phase_spans.is_empty())
+        .filter(|(_, input)| raid || !input.pull.phase_spans.is_empty())
     {
         let covered: BTreeSet<_> = observations
             .iter()
@@ -1828,7 +1829,7 @@ fn compile(
                     && !covered.contains(&index)
                     && !unresolved.contains(&(i, index))
                 {
-                    // EOF is not a common successor, e.g. preserve a late Forsaken Null without inventing its continuation.
+                    // EOF is not a common successor, e.g. retain Heartbreak Kick even when FFLogs supplies no phase metadata.
                     suffixes.insert((i, index));
                     reactive.insert((i, index));
                 }
@@ -2012,6 +2013,18 @@ fn compile(
         slot.samples = samples.into_values().collect();
         compiler.rows.push((entry, Some(slot)));
     }
+    // Unstarted conditional reactions cannot forecast a mechanic, e.g. Launch depends on a player's missile hit.
+    let mut excluded = Vec::new();
+    compiler.rows.retain(|(_, slot)| {
+        if let Some(slot) = slot
+            && slot.evidence == "conditionalInstantHelper"
+            && slot.selector != Some(true)
+        {
+            excluded.push(slot.clone());
+            return false;
+        }
+        true
+    });
     compiler
         .rows
         .sort_by(|a, b| time(&a.0).total_cmp(&time(&b.0)));
@@ -2205,6 +2218,14 @@ fn compile(
     };
     let mut compiled_report = report.clone();
     put(&compiled_slots, &mut compiled_report, "slots")?;
+    put(
+        excluded
+            .iter()
+            .map(|slot| serde_json::json!({"reason":"conditionalInstantFollowup", "slot":slot}))
+            .collect::<Vec<_>>(),
+        &mut compiled_report,
+        "excludedSignals",
+    )?;
     put(conflicts, &mut compiled_report, "syncConflicts")?;
     put(
         report
@@ -2436,14 +2457,22 @@ fn compile(
             .flat_map(|s| s.event_indices.iter().copied())
             .filter(|index| casts.contains(index))
             .collect();
+        let excluded: BTreeSet<_> = excluded
+            .iter()
+            .flat_map(|slot| &slot.samples)
+            .filter(|sample| coverage["file"] == sample.file)
+            .flat_map(|sample| sample.event_indices.iter().copied())
+            .filter(|index| casts.contains(index) && !represented.contains(index))
+            .collect();
         put(&represented, coverage, "representedEventIndices")?;
+        put(&excluded, coverage, "excludedEventIndices")?;
         put(
             input
                 .signals
                 .values()
                 .filter(|s| s.key.kind == "cast")
                 .flat_map(|s| &s.event_indices)
-                .filter(|&&i| !represented.contains(&i))
+                .filter(|&&i| !represented.contains(&i) && !excluded.contains(&i))
                 .collect::<Vec<_>>(),
             coverage,
             "omittedEventIndices",
@@ -2467,6 +2496,9 @@ fn compile(
                                 item["representedEventIndices"]
                                     .as_array()
                                     .is_some_and(|represented| represented.contains(index))
+                                    || item["excludedEventIndices"]
+                                        .as_array()
+                                        .is_some_and(|excluded| excluded.contains(index))
                             })
                         })
                 })

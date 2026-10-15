@@ -61,3 +61,15 @@ expression: "report::render(&stable).unwrap()"
 | 제한 | ID arrays require an isolated one-ability substitution and an observed common successor; multiple varying choices remain unresolved. |
 | 제한 | Repeats are expanded finitely; no conditional exits or encounter transitions are inferred. |
 | 제한 | Block entries are observational timing references; entry sync, replay and runtime compatibility are unverified. |
+
+## 입력 선별
+
+| 항목 | 개수 |
+| --- | ---: |
+| 생성에 사용 | 2 |
+| 제외 · 진단 재생 | 0 |
+
+Prefer at least three clears, then uninterrupted clears; otherwise exclude only wipes below one quarter of the longest boss-start trace when three substantial observations remain. Excluded inputs are replayed diagnostically, not used to infer mechanics.
+
+| 제외 원본 | 사유 | 보스 시전 시작 수 |
+| --- | --- | ---: |

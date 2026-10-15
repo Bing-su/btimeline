@@ -124,21 +124,20 @@ pub fn generate_selected(
         "Output already exists"
     );
 
-    let group = input::select_group(input, name, encounter, difficulty)?;
-    let (yaml, report) = if group.pulls.len() == 1 {
-        let source = load_one(&PathBuf::from_slash(
-            &group.pulls.first().context("Missing pull")?.file,
-        ))?;
-        let draft = build_single(&source, mode)?;
-        let (yaml, mut report) = super::sections::separate(
-            serialize_draft(draft.entries, mode.reset_on())?,
-            draft.report,
+    let mut groups = input::select_groups(input, name, encounter, difficulty)?;
+    let (yaml, report) = if groups.len() == 1 {
+        build_group(
+            groups.pop().context("Missing generation group")?,
+            mode,
             lookahead,
-        )?;
-        super::sections::check(&yaml, &mut report, &[(&source.pull, &source.log)])?;
-        (yaml, report)
+        )?
     } else {
-        super::multi::build(group, mode, lookahead)?
+        let choices = input::group_choices(&groups);
+        super::combined::build(groups, mode, lookahead).map_err(|error| {
+            anyhow::anyhow!(
+                "{error:#}; select with --name or --encounter / --difficulty; available: {choices}"
+            )
+        })?
     };
     let report_bytes = format!("{}\n", serde_json::to_string_pretty(&report)?);
     let markdown = super::report::render(&report)?;
@@ -150,6 +149,29 @@ pub fn generate_selected(
         (&report_path, report_bytes.as_bytes()),
         (&markdown_path, markdown.as_bytes()),
     ])
+}
+
+// Generate each checkpoint independently before composing clocks, e.g. P2 clear timing must not align against P1.
+pub(super) fn build_group(
+    group: super::Group,
+    mode: GenerateMode,
+    lookahead: f64,
+) -> Result<(String, Value)> {
+    if group.pulls.len() == 1 {
+        let source = load_one(&PathBuf::from_slash(
+            &group.pulls.first().context("Missing pull")?.file,
+        ))?;
+        let draft = build_single(&source, mode)?;
+        let (yaml, mut report) = super::sections::separate(
+            serialize_draft(draft.entries, mode.reset_on())?,
+            draft.report,
+            lookahead,
+        )?;
+        super::sections::check(&yaml, &mut report, &[(&source.pull, &source.log)])?;
+        Ok((yaml, report))
+    } else {
+        super::multi::build(group, mode, lookahead)
+    }
 }
 
 // Keep computed catalogs available to multi-pull generation without inspecting serialized entries.

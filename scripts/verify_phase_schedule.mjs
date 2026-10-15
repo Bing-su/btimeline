@@ -82,9 +82,11 @@ for (const pull of replay.pulls) {
   // Holdouts have their own recorded reloads, e.g. a reset in an unseen report is absent from train segments.
   for (const preview of pull.replay.previews.filter((preview) => preview.moment === "combatEnd")) {
     const index = log.events.findIndex(
-      (event) => event.type === "zonechange" && event.timestamp - start === preview.sourceMs,
+      (event) => (event.type === "zonechange" ||
+        (event.type === "instancesealupdate" && event.sealType === 3)) &&
+        event.timestamp - start === preview.sourceMs,
     );
-    assert(index >= 0, "Reset has no source arena reload");
+    assert(index >= 0, "Reset has no source arena opening or reload");
     resetIndices.add(index);
   }
   const source = log.events.flatMap((event, index) => {
@@ -113,10 +115,17 @@ for (const pull of replay.pulls) {
     const row = pull.replay.rows.find((row) => row.entryIndex === slotEntries[i]);
     const packets = row.packetEventIndices ?? row.expectedEventIndices;
     const times = packets.map((index) => log.events[index].timestamp - start).sort((a, b) => a - b);
-    // One forecast per mechanic wave, e.g. eight target packets at one tick do not receive eight votes.
-    return times
-      .filter((at, index) => index === 0 || at - times[index - 1] > 250)
-      .map((at) => ({ entry: slotEntries[i], at, name: slot.name ?? row.name }));
+    // One forecast per mechanic wave or burst, e.g. a three-hit duration bar is one upcoming mechanic.
+    const waves = times
+      .filter((at, index) => index === 0 || at - times[index - 1] > 250);
+    const burstDuration = slot.burstOffsetsMs?.at(-1) ?? 0;
+    let origin;
+    return waves.filter((at) => {
+      if (burstDuration && origin !== undefined && at - origin <= burstDuration + 2500)
+        return false;
+      origin = at;
+      return true;
+    }).map((at) => ({ entry: slotEntries[i], at, name: slot.name ?? row.name }));
   });
   // Five seconds before each observed mechanic is a forecast check, e.g. completing a sync is too late.
   const probes = targets
@@ -208,6 +217,7 @@ for (const pull of replay.pulls) {
   assert.equal(timers.size, 0);
   results.push({
     file: pull.file,
+    excludedFromGeneration: Boolean(pull.excludedFromGeneration),
     expectedMatches: expected.size,
     missing,
     unexpected,
@@ -229,11 +239,20 @@ const summary = {
   missingMatches: results.reduce((n, result) => n + result.missing.length, 0),
   unexpectedMatches: results.reduce((n, result) => n + result.unexpected.length, 0),
 };
+// Match replay's validation scope while exposing every diagnostic failure, e.g. a wipe-only path is not a clear forecast.
+const checked = results.filter((result) => !result.excludedFromGeneration);
+const validation = {
+  checkedPulls: checked.length,
+  diagnosticPulls: results.length - checked.length,
+  missingMatches: checked.reduce((n, result) => n + result.missing.length, 0),
+  unexpectedMatches: checked.reduce((n, result) => n + result.unexpected.length, 0),
+  allInputsPassed: summary.missingMatches === 0 && summary.unexpectedMatches === 0,
+};
 const output = replayFile.replace(/\.replay\.json$/, ".cactbot.json");
 fs.writeFileSync(
   output,
-  `${JSON.stringify({ summary, results, generationFile: file, replayFile, scope: "Actual cactbot parser/controller/engine and timer callbacks; default six bars, 30s horizon, 5s forecast probes, 2.5s timing tolerance. Network lines and reset lifecycle reconstructed from FFLogs; no live ACT capture." }, null, 2)}\n`,
+  `${JSON.stringify({ summary, validation, results, generationFile: file, replayFile, scope: "Actual cactbot parser/controller/engine and timer callbacks; default six bars, 30s horizon, 5s forecast probes, 2.5s timing tolerance. Excluded inputs are diagnostic; summary includes their failures, validation checks non-excluded inputs. Network lines and reset lifecycle reconstructed from FFLogs; no live ACT capture." }, null, 2)}\n`,
 );
-console.log(JSON.stringify({ ...summary, output }, null, 2));
-assert.equal(summary.missingMatches, 0, "Consumer missed internal sync matches");
-assert.equal(summary.unexpectedMatches, 0, "Consumer activated unexpected syncs");
+console.log(JSON.stringify({ ...summary, validation, output }, null, 2));
+assert.equal(validation.missingMatches, 0, "Consumer missed internal sync matches");
+assert.equal(validation.unexpectedMatches, 0, "Consumer activated unexpected syncs");

@@ -1266,7 +1266,9 @@ fn replay_multi_pull_sync_and_disabled_rows_use_original_indices() {
         "a",
         &[
             (1000, 10, 90001, "cast"),
+            (4500, 10, 90002, "begincast"),
             (5000, 10, 90002, "cast"),
+            (5200, 10, 90002, "begincast"),
             (5500, 10, 90002, "cast"),
         ],
         6000,
@@ -1276,7 +1278,9 @@ fn replay_multi_pull_sync_and_disabled_rows_use_original_indices() {
         "b",
         &[
             (1100, 10, 90001, "cast"),
+            (4600, 10, 90002, "begincast"),
             (5100, 10, 90002, "cast"),
+            (5300, 10, 90002, "begincast"),
             (5600, 10, 90002, "cast"),
         ],
         6100,
@@ -1294,6 +1298,39 @@ fn replay_multi_pull_sync_and_disabled_rows_use_original_indices() {
             assert_eq!(pull["replay"]["summary"]["matches"], 1);
             assert_eq!(pull["replay"]["resetClockMs"], 0);
         }
+    });
+}
+
+#[rstest]
+#[case::raid(GenerateMode::Raid)]
+#[case::dungeon(GenerateMode::Dungeon)]
+fn holdout_replay_records_all_target_packets_separately_from_clock_ownership(
+    #[case] mode: GenerateMode,
+) {
+    let rows = [
+        (500, 10, 90001, "begincast"),
+        (1000, 10, 90001, "cast"),
+        (4500, 10, 90002, "begincast"),
+        (5000, 10, 90002, "cast"),
+    ];
+    let logs = [
+        multi_log("first", &rows, 6000, true),
+        multi_log("second", &rows, 6000, true),
+    ];
+    with_logs(&logs, |dir| {
+        let output = dir.join("fanout.yaml");
+        generate(dir, &output, mode).unwrap();
+        let mut rows = rows.to_vec();
+        rows.extend([(5000, 10, 90002, "cast"), (5001, 10, 90002, "cast")]);
+        with_file(&multi_log("holdout", &rows, 6000, true), |file| {
+            let result = dir.join("holdout.replay.json");
+            replay::replay_file(&output, file, &result, None).unwrap();
+            let replay: Value = serde_json::from_slice(&fs::read(result).unwrap()).unwrap();
+            let row = &replay["pulls"][0]["replay"]["rows"][1];
+            assert_eq!(row["expectedEventIndices"].as_array().unwrap().len(), 1);
+            assert_eq!(row["packetEventIndices"].as_array().unwrap().len(), 3);
+            assert_eq!(replay["pulls"][0]["unrepresentedEventIndices"], json!([]));
+        });
     });
 }
 
@@ -1890,6 +1927,186 @@ fn prepare(input: &Path, output: &Path, options: &[&str]) -> anyhow::Result<()> 
         .map_err(|error| anyhow::anyhow!("{error:?}"))?
         .command
         .run()
+}
+
+#[test]
+fn generation_prefers_clears_and_keeps_excluded_replay_failures_diagnostic() {
+    let rows = [
+        (500, 10, 90001, "begincast"),
+        (1000, 10, 90001, "cast"),
+        (4500, 10, 90002, "begincast"),
+        (5000, 10, 90002, "cast"),
+        (9000, 10, 90003, "cast"),
+    ];
+    let mut logs: Vec<_> = (0..3)
+        .map(|i| multi_log(&format!("clear-{i}"), &rows, 10000, true))
+        .collect();
+    // A living boss with a different follow-up is an unsupported path, e.g. a wipe-only enrage must not redefine clears.
+    let wipe = multi_log(
+        "wipe",
+        &[
+            (500, 10, 90001, "begincast"),
+            (1000, 10, 90001, "cast"),
+            (5000, 10, 90004, "cast"),
+            (9000, 10, 90005, "cast"),
+        ],
+        10000,
+        false,
+    );
+    logs.push(wipe.clone());
+    with_logs(&logs, |dir| {
+        let output = dir.join("selected.yaml");
+        prepare(dir, &output, &["--convert"]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(report["inputs"].as_array().unwrap().len(), 3);
+        assert_eq!(
+            report["inputSelection"]["excluded"][0]["reason"],
+            "wipeCoveredByClears"
+        );
+        assert!(
+            report["slots"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|slot| slot["abilityIds"] != json!([90004]))
+        );
+        let replay: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("replay.json")).unwrap())
+                .unwrap();
+        let diagnostic = replay["pulls"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|pull| pull["excludedFromGeneration"] == true)
+            .unwrap();
+        assert_eq!(diagnostic["replay"]["passed"], false);
+        assert_eq!(replay["validation"]["replay"], true);
+        assert_eq!(replay["validation"]["allInputsPassed"], false);
+        assert_eq!(replay["status"], "selected_inputs_validated");
+        let mut holdout = wipe.clone();
+        holdout["report"]["code"] = json!("unseen-wipe");
+        holdout["collection"]["reportCode"] = json!("unseen-wipe");
+        let file = dir.join("holdout.json");
+        fs::write(&file, serde_json::to_vec(&holdout).unwrap()).unwrap();
+        // A new holdout still gates validation, e.g. only the exact excluded file gets diagnostic status.
+        assert!(
+            replay::replay_file(&output, &file, dir.join("holdout.replay.json"), None).is_err()
+        );
+        let original = dir.join("fight_3.json");
+        fs::write(&original, serde_json::to_vec(&holdout).unwrap()).unwrap();
+        assert!(
+            replay::replay_file(&output, &original, dir.join("changed.replay.json"), None)
+                .unwrap_err()
+                .to_string()
+                .contains("Excluded input bytes changed")
+        );
+    });
+}
+
+#[rstest]
+#[case::enough_observations(3, 1)]
+#[case::insufficient_observations(2, 0)]
+fn generation_prunes_only_short_wipes_with_enough_progression_evidence(
+    #[case] count: usize,
+    #[case] excluded: usize,
+) {
+    let rows: Vec<_> = (0..8)
+        .flat_map(|i| {
+            [
+                (1000 + i * 5000, 10, 90001 + i, "begincast"),
+                (2000 + i * 5000, 10, 90001 + i, "cast"),
+            ]
+        })
+        .collect();
+    let mut logs: Vec<_> = (0..count)
+        .map(|i| multi_log(&format!("late-{i}"), &rows, 40000, false))
+        .collect();
+    logs.push(multi_log("early", &rows[..2], 3000, false));
+    with_logs(&logs, |dir| {
+        let output = dir.join("progression.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            report["inputSelection"]["excluded"]
+                .as_array()
+                .unwrap()
+                .len(),
+            excluded
+        );
+        assert_eq!(
+            report["inputs"].as_array().unwrap().len(),
+            count + 1 - excluded
+        );
+        if excluded > 0 {
+            assert_eq!(
+                report["inputSelection"]["excluded"][0]["reason"],
+                "shortProgressionPrefix"
+            );
+        }
+    });
+}
+
+#[rstest]
+#[case::three_clean_clears(3, 1)]
+#[case::two_clean_clears(2, 0)]
+fn dungeon_selection_requires_three_clean_clears_before_excluding_retries(
+    #[case] count: usize,
+    #[case] excluded: usize,
+) {
+    let mut logs: Vec<_> = (0..count)
+        .map(|i| {
+            multi_log(
+                &format!("clean-{i}"),
+                &[(1000, 10, 90001, "cast"), (5000, 10, 90002, "cast")],
+                6000,
+                true,
+            )
+        })
+        .collect();
+    let mut retry = multi_log(
+        "retry",
+        &[
+            (1000, 10, 90001, "cast"),
+            (17000, 10, 90001, "cast"),
+            (21000, 10, 90002, "cast"),
+        ],
+        22000,
+        true,
+    );
+    retry["events"][0]["sourceInstance"] = json!(1);
+    retry["events"][1]["sourceInstance"] = json!(2);
+    retry["events"][2]["sourceInstance"] = json!(2);
+    // An arena opening splits the attempts, e.g. a clear after a wipe is not an uninterrupted clear.
+    retry["events"].as_array_mut().unwrap().insert(
+        1,
+        json!({"timestamp":8000,"type":"instancesealupdate","sealType":3,"fight":2}),
+    );
+    retry["collection"]["eventCount"] = json!(4);
+    logs.push(retry);
+    with_logs(&logs, |dir| {
+        let output = dir.join("clean.yaml");
+        prepare(dir, &output, &["--mode", "dungeon"]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            report["inputSelection"]["excluded"]
+                .as_array()
+                .unwrap()
+                .len(),
+            excluded
+        );
+        if excluded > 0 {
+            assert_eq!(
+                report["inputSelection"]["excluded"][0]["reason"],
+                "retryTraceCoveredByCleanClears"
+            );
+        }
+    });
 }
 
 #[rstest]
@@ -2986,17 +3203,17 @@ fn multi_boss_keeps_packet_waves_optional_helpers_and_short_clear_suffixes() {
             );
         }
         let events = draft_events(&fs::read_to_string(output).unwrap());
-        let optional = events
-            .iter()
-            .find(|entry| entry["sync"]["fields"]["id"] == "15F98")
-            .unwrap();
-        assert_eq!(optional["sync"]["enabled"], false);
         assert!(
-            report["slots"]
+            events
+                .iter()
+                .all(|entry| entry["sync"]["fields"]["id"] != "15F98")
+        );
+        assert!(
+            report["excludedSignals"]
                 .as_array()
                 .unwrap()
                 .iter()
-                .any(|slot| slot["evidence"] == "conditionalInstantHelper")
+                .any(|item| item["slot"]["abilityIds"] == json!([90008]))
         );
         let waves: Vec<_> = events
             .iter()
@@ -3349,14 +3566,19 @@ fn phase_schedule_preserves_drifting_rounds_and_source_aliases_without_promoting
             assert_eq!(round["source"], "Boss");
             assert_eq!(round["sourceAliases"], json!(["Helper"]));
         }
-        let conditional = report["slots"]
+        let conditional = report["excludedSignals"]
             .as_array()
             .unwrap()
             .iter()
-            .find(|slot| slot["abilityIds"] == json!([90006]))
+            .find(|item| item["slot"]["abilityIds"] == json!([90006]))
             .unwrap();
-        assert_eq!(conditional["predictive"], false);
-        assert_eq!(conditional["evidence"], "conditionalReference");
+        assert_eq!(conditional["reason"], "conditionalTimingOrOccurrence");
+        assert_eq!(conditional["slot"]["predictive"], false);
+        assert!(
+            !fs::read_to_string(output)
+                .unwrap()
+                .contains("--reference--")
+        );
         for coverage in report["outputCoverage"].as_array().unwrap() {
             assert_eq!(coverage["omittedEventIndices"], json!([]));
         }
@@ -3407,6 +3629,359 @@ fn phase_schedule_keeps_visible_mechanics_when_nearby_packet_order_reverses() {
         // A later completion must not move the clock backwards, e.g. End's packet follows Path despite its earlier median.
         assert_eq!(rows[0]["syncEnabled"], false);
         assert_eq!(rows[1]["syncEnabled"], true);
+    });
+}
+
+#[rstest]
+#[case::one_burst(false, false, true)]
+#[case::distinct_mechanic_between_hits(true, false, false)]
+#[case::same_name_different_abilities(false, true, false)]
+fn phase_schedule_compacts_only_uninterrupted_unsynced_bursts(
+    #[case] interrupted: bool,
+    #[case] different_ids: bool,
+    #[case] compact: bool,
+) {
+    let logs: Vec<_> = (0..3)
+        .map(|i| {
+            let mut rows = vec![
+                (1000, 10, 90001, "begincast"),
+                (2000, 10, 90001, "cast"),
+                (10000, 10, 90004, "begincast"),
+                (11000, 10, 90004, "cast"),
+                (15000, 10, 90002, "cast"),
+                (16000, 10, if different_ids { 90003 } else { 90002 }, "cast"),
+                (17000, 10, if different_ids { 90006 } else { 90002 }, "cast"),
+                (22000, 10, 90005, "cast"),
+            ];
+            if interrupted {
+                rows.push((16050, 10, 90007, "cast"));
+            }
+            let mut log = multi_log(&format!("burst-{i}"), &rows, 23000, true);
+            log["report"]["fights"][0]["phaseTransitions"] =
+                json!([{"id":1,"startTime":1000},{"id":2,"startTime":11000}]);
+            for ability in log["report"]["masterData"]["abilities"]
+                .as_array_mut()
+                .unwrap()
+            {
+                if [90002, 90003, 90006].contains(&ability["gameID"].as_i64().unwrap()) {
+                    ability["name"] = json!("Repeated strike");
+                }
+            }
+            log
+        })
+        .collect();
+    with_logs(&logs, |dir| {
+        let output = dir.join("burst.yaml");
+        prepare(dir, &output, &["--convert"]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        let bursts: Vec<_> = report["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|slot| slot["evidence"] == "fixedBurst")
+            .collect();
+        assert_eq!(bursts.len(), usize::from(compact));
+        if compact {
+            let burst = bursts.first().unwrap();
+            assert_eq!(burst["burstOffsetsMs"], json!([0, 1000, 2000]));
+            assert_eq!(burst["syncEnabled"], false);
+            assert!(fs::read_to_string(output.with_extension("txt")).unwrap().contains("\"Repeated strike x3\" duration 2 #Ability { id: \"15F92\", source: \"Boss\" }"));
+        }
+        with_file(&logs[0], |holdout| {
+            let replay_file = dir.join("holdout.replay.json");
+            replay::replay_file(&output, holdout, &replay_file, None).unwrap();
+            let replay: Value = serde_json::from_slice(&fs::read(replay_file).unwrap()).unwrap();
+            assert_eq!(replay["pulls"][0]["unrepresentedEventIndices"], json!([]));
+        });
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+    });
+}
+
+#[test]
+fn phase_schedule_does_not_count_one_files_retries_as_independent_support() {
+    let logs: Vec<_> = (0..3)
+        .map(|i| {
+            let mut rows = Vec::new();
+            for attempt in 0..if i == 0 { 8 } else { 1 } {
+                let base = attempt * 30000;
+                rows.extend([
+                    (base + 1000, 10, 90001, "begincast"),
+                    (base + 2000, 10, 90001, "cast"),
+                    (base + 10000, 10, 90004, "begincast"),
+                    (base + 11000, 10, 90004, "cast"),
+                    (base + 20000, 10, 90005, "cast"),
+                ]);
+                if i == 0 {
+                    rows.push((base + 15000, 11, 90006, "cast"));
+                }
+            }
+            let mut log = multi_log(
+                &format!("single-file-support-{i}"),
+                &rows,
+                if i == 0 { 231000 } else { 21000 },
+                true,
+            );
+            log["report"]["fights"][0]["phaseTransitions"] =
+                json!([{"id":1,"startTime":1000},{"id":2,"startTime":11000}]);
+            for event in log["events"].as_array_mut().unwrap() {
+                event["sourceInstance"] =
+                    json!((event["timestamp"].as_i64().unwrap() - 1000) / 30000 + 1);
+            }
+            log
+        })
+        .collect();
+    with_logs(&logs, |dir| {
+        let output = dir.join("support.yaml");
+        generate(dir, &output, GenerateMode::Raid).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        // Eight reactions in one upload are still one source, e.g. merged retries must not create a normal mechanic.
+        assert!(
+            report["slots"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|slot| slot["abilityIds"] != json!([90006]))
+        );
+        assert!(
+            report["excludedSignals"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|item| item["slot"]["abilityIds"] == json!([90006]))
+        );
+    });
+}
+
+#[test]
+fn phase_schedule_uses_cast_cues_to_keep_six_overlapping_six_hit_bursts() {
+    let logs: Vec<_> = (0..3)
+        .map(|i| {
+            let mut rows = vec![
+                (1000, 10, 90001, "begincast"),
+                (2000, 10, 90001, "cast"),
+                (10000, 10, 90004, "begincast"),
+                (11000, 10, 90004, "cast"),
+                (12000, 10, 90006, "begincast"),
+                (16000, 10, 90006, "cast"),
+            ];
+            for wave in 0..6 {
+                let at = 16000 + wave * 2500;
+                rows.extend([(at - 4000, 11, 90003, "begincast"), (at, 11, 90003, "cast")]);
+                for hit in 0..6 {
+                    rows.push((at + 700 + hit * 500, 11, 90002, "cast"));
+                }
+            }
+            let mut log = multi_log(&format!("overlapping-bursts-{i}"), &rows, 35000, true);
+            for event in log["events"].as_array_mut().unwrap() {
+                if event["abilityGameID"] == 90003 {
+                    let origin = if event["type"] == "begincast" {
+                        12000
+                    } else {
+                        16000
+                    };
+                    event["sourceInstance"] =
+                        json!((event["timestamp"].as_i64().unwrap() - 1000 - origin) / 2500 + 1);
+                }
+            }
+            log["report"]["fights"][0]["phaseTransitions"] =
+                json!([{"id":1,"startTime":1000},{"id":2,"startTime":11000}]);
+            log["report"]["masterData"]["actors"][1]["name"] = json!("Boss");
+            for ability in log["report"]["masterData"]["abilities"]
+                .as_array_mut()
+                .unwrap()
+            {
+                if [90002, 90003, 90006].contains(&ability["gameID"].as_i64().unwrap()) {
+                    ability["name"] = json!("Repeating line");
+                }
+            }
+            log
+        })
+        .collect();
+    with_logs(&logs, |dir| {
+        let output = dir.join("overlapping.yaml");
+        prepare(dir, &output, &["--convert"]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        let bursts: Vec<_> = report["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|slot| slot["name"] == "Repeating line x6")
+            .collect();
+        assert_eq!(
+            bursts.len(),
+            6,
+            "Six spawned waves must not become partial x3 runs or one continuous x31 run"
+        );
+        for burst in bursts {
+            assert_eq!(burst["abilityIds"], json!([90002]));
+            assert_eq!(
+                burst["burstOffsetsMs"],
+                json!([0, 500, 1000, 1500, 2000, 2500])
+            );
+        }
+        let events = draft_events(&fs::read_to_string(&output).unwrap());
+        assert_eq!(
+            events
+                .iter()
+                .filter(
+                    |event| event["name"] == "Repeating line x6" && event["duration"] == json!(2.5)
+                )
+                .count(),
+            6
+        );
+        // Independent packets must still represent shared endpoints, e.g. wave 1's last hit overlaps wave 2's first.
+        let mut holdout = logs[0].clone();
+        holdout["report"]["code"] = json!("overlapping-holdout");
+        holdout["collection"]["reportCode"] = json!("overlapping-holdout");
+        with_file(&holdout, |input| {
+            let replay_output = dir.join("holdout.replay.json");
+            replay::replay_file(&output, input, &replay_output, None).unwrap();
+            let replay: Value = serde_json::from_slice(&fs::read(replay_output).unwrap()).unwrap();
+            assert_eq!(replay["pulls"][0]["unrepresentedEventIndices"], json!([]));
+        });
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+    });
+}
+
+fn checkpoint_logs() -> Vec<Value> {
+    let mut logs = Vec::new();
+    for (phase, ability) in [(1, 90001), (2, 90004)] {
+        let mut log = multi_log(
+            "checkpoint-report",
+            &[
+                (500, 10, ability, "begincast"),
+                (1000, 10, ability, "cast"),
+                (5000, 10, ability + 1, "cast"),
+            ],
+            6000,
+            true,
+        );
+        log["report"]["fights"][0]["id"] = json!(phase);
+        log["report"]["fights"][0]["encounterID"] = json!(9998 + phase);
+        log["report"]["fights"][0]["gameZone"] = json!({"id":123,"name":"Shared arena"});
+        log["collection"]["fightID"] = json!(phase);
+        for event in log["events"].as_array_mut().unwrap() {
+            event["fight"] = json!(phase);
+        }
+        logs.push(log);
+    }
+    logs
+}
+
+#[test]
+fn prepare_combines_checkpoint_encounters_and_replays_direct_entry_to_either_segment() {
+    with_logs(&checkpoint_logs(), |dir| {
+        let output = dir.join("combined.yaml");
+        prepare(dir, &output, &["--convert"]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(report["segments"].as_array().unwrap().len(), 2);
+        assert_eq!(report["outputCoverage"].as_array().unwrap().len(), 2);
+        let replay: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("replay.json")).unwrap())
+                .unwrap();
+        assert_eq!(replay["pulls"].as_array().unwrap().len(), 2);
+        assert!(
+            replay["pulls"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|pull| pull["replay"]["passed"] == true)
+        );
+        for phase in 0..2 {
+            let result = dir.join(format!("entry-{phase}.replay.json"));
+            replay::replay_file(
+                &output,
+                dir.join(format!("fight_{phase}.json")),
+                &result,
+                None,
+            )
+            .unwrap();
+        }
+        let sources: Vec<_> = (0..2)
+            .map(|phase| load_one(&dir.join(format!("fight_{phase}.json"))).unwrap())
+            .collect();
+        let peers = sources
+            .iter()
+            .map(|s| (s.pull.file.as_str(), &s.pull))
+            .collect();
+        let yaml = fs::read_to_string(&output).unwrap();
+        let mut signals = Vec::new();
+        let mut evidence = crate::timeline::replay::Evidence::default();
+        for (phase, source) in sources.iter().enumerate() {
+            let local = combined::evidence(
+                &yaml,
+                &report,
+                &source.key,
+                &source.pull,
+                &source.log,
+                &peers,
+            )
+            .unwrap();
+            let index_offset = phase * 10;
+            let time_offset = phase as i64 * 7000;
+            evidence
+                .expected
+                .extend(local.expected.into_iter().map(|(entry, indices)| {
+                    (
+                        entry,
+                        indices.into_iter().map(|i| i + index_offset).collect(),
+                    )
+                }));
+            for mut signal in replay::signals(&source.log).unwrap() {
+                signal.index += index_offset;
+                signal.at_ms += time_offset;
+                signals.push(signal);
+            }
+        }
+        // P2 can follow P1 without stopping the clock, e.g. an observed checkpoint transition selects its own range.
+        let continuous = crate::timeline::replay::run(&yaml, &signals, 13000, &evidence).unwrap();
+        assert!(continuous.passed);
+    });
+}
+
+#[rstest]
+#[case::different_zone(0)]
+#[case::different_boss(1)]
+#[case::unobserved_order(2)]
+#[case::shared_opening(3)]
+fn checkpoint_composition_rejects_unproven_connections(#[case] change: usize) {
+    let mut logs = checkpoint_logs();
+    let second = &mut logs[1];
+    match change {
+        0 => second["report"]["fights"][0]["gameZone"]["id"] = json!(321),
+        1 => second["report"]["masterData"]["actors"][0]["name"] = json!("Other boss"),
+        2 => {
+            second["report"]["code"] = json!("unrelated-report");
+            second["collection"]["reportCode"] = json!("unrelated-report");
+        }
+        _ => {
+            for event in second["events"].as_array_mut().unwrap() {
+                if event["abilityGameID"] == 90004 {
+                    event["abilityGameID"] = json!(90001);
+                }
+            }
+            second["report"]["masterData"]["abilities"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"gameID":90001,"name":"Other opening","type":"1"}));
+        }
+    }
+    with_logs(&logs, |dir| {
+        let output = dir.join("unproven.yaml");
+        assert!(prepare(dir, &output, &[]).is_err());
+        assert!(!output.exists());
     });
 }
 
@@ -3877,8 +4452,10 @@ fn single_draft_replay_keeps_distinct_alias_rows() {
     });
 }
 
-#[test]
-fn raid_observed_suffix_is_preserved_without_a_common_successor() {
+#[rstest]
+#[case::with_metadata(true)]
+#[case::without_metadata(false)]
+fn raid_observed_suffix_is_preserved_without_a_common_successor(#[case] metadata: bool) {
     let mut short = multi_log(
         "short",
         &[(1000, 10, 90001, "cast"), (5000, 10, 90002, "cast")],
@@ -3896,8 +4473,10 @@ fn raid_observed_suffix_is_preserved_without_a_common_successor() {
         9000,
         false,
     );
-    for log in [&mut short, &mut long] {
-        log["report"]["fights"][0]["phaseTransitions"] = json!([{"id":1,"startTime":1000}]);
+    if metadata {
+        for log in [&mut short, &mut long] {
+            log["report"]["fights"][0]["phaseTransitions"] = json!([{"id":1,"startTime":1000}]);
+        }
     }
     with_logs(&[short, long], |dir| {
         let output = dir.join("suffix.yaml");
@@ -4224,7 +4803,7 @@ fn raid_instant_burst_choices_keep_their_early_discriminators() {
 }
 
 #[test]
-fn raid_unstarted_boss_followups_keep_variable_packet_counts_as_observations() {
+fn raid_unstarted_boss_followups_are_excluded_with_raw_evidence() {
     let first = multi_log(
         "three",
         &[
@@ -4264,8 +4843,24 @@ fn raid_unstarted_boss_followups_keep_variable_packet_counts_as_observations() {
                 .as_array()
                 .unwrap()
                 .iter()
-                .filter(|slot| slot["abilityIds"] == json!([90002]))
-                .all(|slot| slot["evidence"] == "conditionalInstantHelper")
+                .all(|slot| slot["abilityIds"] != json!([90002]))
+        );
+        assert!(
+            report["excludedSignals"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|item| item["slot"]["abilityIds"] == json!([90002]))
+        );
+        assert!(
+            report["outputCoverage"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|coverage| !coverage["excludedEventIndices"]
+                    .as_array()
+                    .unwrap()
+                    .is_empty())
         );
     });
 }

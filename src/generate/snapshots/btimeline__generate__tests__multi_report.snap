@@ -96,6 +96,14 @@ expression: stable
     "difficulty": 9,
     "encounter": 9999
   },
+  "inputSelection": {
+    "excluded": [],
+    "policy": "Prefer at least three clears, then uninterrupted clears; otherwise exclude only wipes below one quarter of the longest boss-start trace when three substantial observations remain. Excluded inputs are replayed diagnostically, not used to infer mechanics.",
+    "selected": [
+      "[input]/fight_0.json",
+      "[input]/fight_1.json"
+    ]
+  },
   "inputs": [
     {
       "abilityNames": {

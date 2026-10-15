@@ -102,6 +102,7 @@ fn slash_path(path: &Path) -> String {
 }
 
 mod alignment;
+mod combined;
 mod draft;
 mod multi;
 mod phase;
@@ -109,6 +110,7 @@ mod repeat;
 pub(crate) mod replay;
 mod report;
 mod schedule;
+mod selection;
 pub use alignment::align;
 #[cfg(test)]
 use draft::generate;
