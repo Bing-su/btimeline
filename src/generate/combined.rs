@@ -324,6 +324,23 @@ pub(super) fn build(
             }
             rows.push((Some(index), entry, slot));
         }
+        // Reuse a scheduled opening, e.g. a second identical StartsUsing row makes R12S entry ambiguous.
+        let scheduled_opening = rows.iter().position(|(_, _, slot)| {
+            slot.as_ref().is_some_and(|slot| {
+                slot["selector"] == true
+                    && slot["abilityIds"] == json!([opening.ability_id])
+                    && slot["source"] == opening.source
+            })
+        });
+        if let Some(index) = scheduled_opening {
+            // Keep the schedule's rounded clock, e.g. rounding a 1049.5ms median twice changes its grid point.
+            opening.at_ms = rows
+                .get(index)
+                .and_then(|(_, _, slot)| slot.as_ref())
+                .and_then(|slot| slot["atMs"].as_i64())
+                .context("Missing scheduled checkpoint time")?
+                - offset;
+        }
         let at = (offset + opening.at_ms) as f64 / 1000.0;
         let selector = Entry::Event {
             at,
@@ -362,13 +379,22 @@ pub(super) fn build(
                 _ => false,
             })
             .unwrap_or(rows.len());
-        rows.insert(insertion,(None,selector,Some(json!({"selector":true,"predictive":false,"evidence":"encounterEntry","abilityIds":[opening.ability_id],"samples":samples,"atMs":offset+opening.at_ms}))));
-        for (local, entry, slot) in rows {
+        let opening_row = if let Some(existing) = scheduled_opening {
+            rows.get_mut(existing)
+                .context("Missing scheduled checkpoint opening")?
+                .1 = selector;
+            existing
+        } else {
+            rows.insert(insertion,(None,selector,Some(json!({"selector":true,"predictive":false,"evidence":"encounterEntry","abilityIds":[opening.ability_id],"samples":samples,"atMs":offset+opening.at_ms}))));
+            insertion
+        };
+        for (position, (local, entry, slot)) in rows.into_iter().enumerate() {
+            if position == opening_row {
+                opening.entry = entries.len();
+            }
             if let Some(index) = local {
                 *map.get_mut(index)
                     .context("Missing checkpoint map position")? = entries.len();
-            } else {
-                opening.entry = entries.len();
             }
             if let Some(mut slot) = slot {
                 super::phase::put(slots.len(), &mut slot, "id")?;
@@ -512,7 +538,9 @@ pub(super) fn evidence(
     }) {
         evidence
             .expected
-            .insert(segment.opening.entry, BTreeSet::from([row.event_index]));
+            .entry(segment.opening.entry)
+            .or_default()
+            .insert(row.event_index);
     } else if pull.end_ms < segment.opening.at_ms {
         evidence.censored.insert(segment.opening.entry);
     } else {

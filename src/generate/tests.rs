@@ -4196,6 +4196,59 @@ fn prepare_combines_checkpoint_encounters_and_replays_direct_entry_to_either_seg
 }
 
 #[rstest]
+#[case::matching_rounding(500)]
+#[case::half_millisecond_rounding(1049)]
+fn checkpoint_composition_reuses_phase_schedule_openings(#[case] opening_time: i64) {
+    let mut logs = Vec::new();
+    for copy in 0..2 {
+        for (checkpoint, opening) in [(1, 90001), (2, 90011)] {
+            let mut log = multi_log(
+                &format!("scheduled-checkpoints-{copy}"),
+                &[
+                    (opening_time + copy, 10, opening, "begincast"),
+                    (2000, 10, opening, "cast"),
+                    (5000, 10, opening + 1, "cast"),
+                    (10000, 10, opening + 2, "begincast"),
+                    (11000, 10, opening + 2, "cast"),
+                    (15000, 10, opening + 3, "cast"),
+                ],
+                16000,
+                true,
+            );
+            log["report"]["fights"][0]["id"] = json!(checkpoint);
+            log["report"]["fights"][0]["encounterID"] = json!(9998 + checkpoint);
+            log["report"]["fights"][0]["gameZone"] = json!({"id":123,"name":"Shared arena"});
+            log["report"]["fights"][0]["phaseTransitions"] =
+                json!([{"id":1,"startTime":1000},{"id":2,"startTime":11000}]);
+            log["collection"]["fightID"] = json!(checkpoint);
+            for event in log["events"].as_array_mut().unwrap() {
+                event["fight"] = json!(checkpoint);
+            }
+            logs.push(log);
+        }
+    }
+    with_logs(&logs, |dir| {
+        let output = dir.join("scheduled-checkpoints.yaml");
+        // Existing phase selectors and checkpoint entry must share one sync, including direct entry into P2.
+        prepare(dir, &output, &["--convert"]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        for segment in report["segments"].as_array().unwrap() {
+            assert!(segment["report"].get("schedule").is_some());
+        }
+        let replay: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("replay.json")).unwrap())
+                .unwrap();
+        for pull in replay["pulls"].as_array().unwrap() {
+            assert_eq!(pull["replay"]["summary"]["ambiguousMatches"], 0);
+            assert_eq!(pull["replay"]["summary"]["windowMisses"], 0);
+            assert_eq!(pull["unrepresentedEventIndices"], json!([]));
+        }
+    });
+}
+
+#[rstest]
 #[case::different_zone(0)]
 #[case::different_boss(1)]
 #[case::unobserved_order(2)]

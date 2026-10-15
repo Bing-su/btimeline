@@ -99,3 +99,16 @@ Stray Apocalypse previously mixed BB3B/BB3C cast cues with BB3D damage, and adja
 `out/followup/coverage-audit.json` independently compares raw enemy non-melee cast indices with represented/excluded sets and checks that the sets are disjoint. YAML, text, generation evidence, raw replay and actual cactbot results share the artifact basenames above. R12S excluded-input diagnostics still contain two unexpected consumer syncs; they are not reported as passing.
 
 Regression tests cover direct entry into either checkpoint, a continuous P1-to-P2 clock transition, rejection of four unproven combinations, and six overlapping waves with an independent replay input. Full verification passes 367 unit tests, three CLI tests, Clippy with warnings denied, formatting, diff whitespace and verifier syntax checks. Live ACT capture and browser layout remain unverified.
+
+## Scheduled checkpoint opening repair, 2026-10-15
+
+The inferred P1 schedule exposed a composition regression: the checkpoint composer added a second `StartsUsing` selector for an opening already represented by the schedule. Separate encounter evaluations did not exercise this combination. Composition now reuses the existing selector and its rounded time, widens its window for direct checkpoint entry, and preserves the original entry mapping and retry evidence. Regression cases cover scheduled openings in both checkpoints, including a half-millisecond median that rounds differently when computed twice.
+
+| `target/release/btimeline prepare -o out/r12s.yaml --mode raid --convert logs/r12s` |  Before | Repaired |
+| ----------------------------------------------------------------------------------- | ------: | -------: |
+| Selected inputs passing replay                                                      | 26 / 40 |  40 / 40 |
+| Ambiguous opening matches                                                           |      14 |        0 |
+| Opening window misses                                                               |      28 |        0 |
+| Unrepresented selected-input casts                                                  |       0 |        0 |
+
+The repaired draft represents 11,035 of 11,179 eligible casts and intentionally excludes 144; accidental omissions are zero. The actual cactbot consumer has zero missing or unexpected syncs on all 40 selected inputs. Its 119 excluded-input diagnostics retain two unexpected syncs. Rust verification passes 379 unit tests, four CLI tests, Clippy with warnings denied and formatting checks; live ACT delivery remains unverified. The original failed artifacts are preserved in `out/r12s-before-selector-fix/`.
