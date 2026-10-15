@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result, anyhow, ensure};
@@ -15,6 +16,7 @@ pub(super) const TOKEN_URL: &str = "https://www.fflogs.com/oauth/token";
 pub(super) const API_URL: &str = "https://www.fflogs.com/api/v2/client";
 const METADATA: &str = r#"
 query TimelineMetadata($code: String!, $fightIDs: [Int]) {
+  rateLimitData { limitPerHour pointsSpentThisHour pointsResetIn }
   reportData { report(code: $code, allowUnlisted: true) {
     code title startTime endTime revision visibility
     archiveStatus { isArchived isAccessible archiveDate }
@@ -39,6 +41,7 @@ query TimelineMetadata($code: String!, $fightIDs: [Int]) {
 }"#;
 const EVENTS: &str = r#"
 query TimelineEvents($code: String!, $fightIDs: [Int]!, $start: Float!, $end: Float!) {
+  rateLimitData { limitPerHour pointsSpentThisHour pointsResetIn }
   reportData { report(code: $code, allowUnlisted: true) {
     events(fightIDs: $fightIDs, startTime: $start, endTime: $end,
       dataType: All, limit: 10000, useAbilityIDs: true, useActorIDs: true,
@@ -85,6 +88,23 @@ pub(super) struct Client {
     agent: ureq::Agent,
     token: String,
     api_url: String,
+    budget: Option<Budget>,
+}
+
+struct Budget {
+    max_requests: usize,
+    max_points: f64,
+    requests: Cell<usize>,
+    points: Cell<f64>,
+    previous_spent: Cell<Option<f64>>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct RateLimit {
+    pub limit_per_hour: f64,
+    pub points_spent_this_hour: f64,
+    pub points_reset_in: f64,
 }
 
 impl Client {
@@ -132,15 +152,78 @@ impl Client {
             agent,
             token: token.access_token,
             api_url: api_url.into(),
+            budget: None,
         })
     }
 
     fn query(&self, query: &str, variables: impl Serialize) -> Result<Value> {
+        self.request(query, variables)?
+            .pointer("/reportData/report")
+            .filter(|v| v.is_object())
+            .cloned()
+            .context("Report missing or inaccessible")
+    }
+
+    pub(super) fn with_budget(mut self, max_requests: usize, max_points: f64) -> Result<Self> {
+        ensure!(
+            max_requests > 0 && max_points.is_finite() && max_points > 0.0,
+            "Invalid collection budget"
+        );
+        self.budget = Some(Budget {
+            max_requests,
+            max_points,
+            requests: Cell::new(0),
+            points: Cell::new(0.0),
+            previous_spent: Cell::new(None),
+        });
+        self.rate_limit()?;
+        Ok(self)
+    }
+
+    pub(super) fn check_budget(&self) -> Result<()> {
+        if let Some(budget) = &self.budget {
+            ensure!(
+                budget.requests.get() < budget.max_requests,
+                "FFLogs request budget exhausted; resume with a new budget"
+            );
+            ensure!(
+                budget.points.get() < budget.max_points,
+                "FFLogs point budget exhausted; resume after quota resets"
+            );
+        }
+        Ok(())
+    }
+
+    pub(super) fn rate_limit(&self) -> Result<RateLimit> {
+        let data = self.request("query TimelineQuota { rateLimitData { limitPerHour pointsSpentThisHour pointsResetIn } }", ())?;
+        Self::parse_rate_limit(&data)
+    }
+
+    fn parse_rate_limit(data: &Value) -> Result<RateLimit> {
+        let limit: RateLimit = serde_json::from_value(data["rateLimitData"].clone())
+            .context("Invalid FFLogs rate limit data")?;
+        ensure!(
+            limit.limit_per_hour.is_finite()
+                && limit.limit_per_hour > 0.0
+                && limit.points_spent_this_hour.is_finite()
+                && limit.points_spent_this_hour >= 0.0
+                && limit.points_reset_in.is_finite()
+                && limit.points_reset_in >= 0.0,
+            "Invalid FFLogs rate limit data"
+        );
+        Ok(limit)
+    }
+
+    pub(super) fn request(&self, query: &str, variables: impl Serialize) -> Result<Value> {
         let body = Query { query, variables };
         let retry_after = std::rc::Rc::new(std::cell::Cell::new(None));
         let sleep_delay = retry_after.clone();
         // Queries are read-only: backon retries transient failures twice, never auth or GraphQL errors.
         let mut response = (|| {
+            self.check_budget().map_err(|error| (error, false))?;
+            if let Some(budget) = &self.budget {
+                budget.requests.set(budget.requests.get() + 1);
+            }
             retry_after.set(None);
             let response = self
                 .agent
@@ -210,10 +293,29 @@ impl Client {
                 "FFLogs GraphQL errors returned"
             );
         }
-        data.pointer("/data/reportData/report")
-            .filter(|v| v.is_object())
-            .cloned()
-            .context("Report missing or inaccessible")
+        let data = data
+            .get("data")
+            .filter(|data| data.is_object())
+            .context("Missing FFLogs GraphQL data")?;
+        if let Some(budget) = &self.budget {
+            let limit = Self::parse_rate_limit(data)?;
+            if let Some(previous) = budget
+                .previous_spent
+                .replace(Some(limit.points_spent_this_hour))
+            {
+                // Include other activity on the same client; a quota reset starts a fresh counter.
+                let delta = if limit.points_spent_this_hour >= previous {
+                    limit.points_spent_this_hour - previous
+                } else {
+                    limit.points_spent_this_hour
+                };
+                budget.points.set(budget.points.get() + delta);
+            }
+            if limit.points_spent_this_hour >= limit.limit_per_hour {
+                budget.points.set(budget.max_points);
+            }
+        }
+        Ok(data.clone())
     }
 
     pub(super) fn metadata(&self, code: &str, fight_id: Option<i64>) -> Result<Value> {

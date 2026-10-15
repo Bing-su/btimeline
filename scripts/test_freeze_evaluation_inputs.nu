@@ -15,6 +15,17 @@ def main [] {
         if ($frozen | length) != 7 or $frozen.0.candidate_group != $frozen.1.candidate_group or $frozen.0.split != 'train' or $frozen.1.split != 'train' or $frozen.5.split != 'holdout' or $frozen.6.split != 'train' {
             error make {msg: 'candidate grouping or split failed'}
         }
+        # A second fight from a holdout report stays held out, even across encounter groups.
+        let same_report = ($audit | update files ($rows | update 6.identity ['report-5' 6]))
+        let shared = (write-manifest $same_report | from csv | where report == 'report-5')
+        if ($shared | length) != 2 or ($shared | get split | uniq | length) != 1 or $shared.0.split != 'holdout' {
+            error make {msg: 'one report leaked across splits'}
+        }
+        # Duplicate uploads can link reports transitively through separate fights.
+        let linked = ($same_report | update duplicate_pull_candidates [{files: [$paths.0 $paths.1]} {files: [$paths.1 $paths.2]}])
+        if (try { write-manifest $linked | ignore; true } catch { false }) {
+            error make {msg: 'overlapping duplicate candidates accepted'}
+        }
         let bad = ($audit | update files ($rows | update 1.group [9999 101]))
         let accepted = (try { write-manifest $bad | ignore; true } catch { false })
         if $accepted { error make {msg: 'cross-group candidate accepted'} }

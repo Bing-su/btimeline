@@ -36,8 +36,16 @@ def main [binary: path = 'target/debug/btimeline'] {
         if $generation.slots.0.sampleCount != 1 or $generation.input.report != 'train' {
             error make {msg: 'holdout leaked into generation'}
         }
+        # Exercise both new CLI paths with the same frozen independent reports.
+        for option in [[--mode alliance] [--combine-encounters]] {
+            let extension = ($directory | path join ($option | str join '-'))
+            let tested = (^nu scripts/evaluate_replay.nu $manifest $extension --binary $binary ...$option | complete)
+            if $tested.exit_code != 0 or ((open ($extension | path join evaluation.json)).groups | any {|group| $group.status != 'passed'}) {
+                error make {msg: $'extended evaluation failed: ($tested.stderr)'}
+            }
+        }
         let bad = ($directory | path join bad.csv)
-        for changed in [($rows | update 1.candidate_group 'train'), ($rows | update 1.encounter 9), ($rows | update 1.sha256 ('0' | fill -w 64 -c '0'))] {
+        for changed in [($rows | update 1.candidate_group 'train'), ($rows | update 1.report 'train'), ($rows | update 1.encounter 9), ($rows | update 1.sha256 ('0' | fill -w 64 -c '0'))] {
             $changed | to csv | save --force $bad
             if (try { validate-manifest $bad $binary | ignore; true } catch { false }) {
                 error make {msg: 'invalid manifest accepted'}
@@ -55,36 +63,33 @@ def main [binary: path = 'target/debug/btimeline'] {
             error make {msg: 'successful train-only evaluation failed'}
         }
 
-        # Competing branches and a rogue transition reject P7 recovery; absent holdout must not hide failure.
-        let failing_rows = ([[1000 10000] [5000 6000]] | enumerate | each {|item|
-            let code = $'train-only-($item.index)'
-            let log = (open $rows.0.file
-                | update report.code $code
-                | update collection.reportCode $code
-                | update report.masterData.actors [{id: 10, name: 'Synthetic Boss', gameID: 99001, type: NPC, subType: Boss} {id: 11, name: 'Synthetic Boss', gameID: 99002, type: Player, subType: Player}]
-                | update report.masterData.abilities ([46376 46377 46378 46379 46380 46381] | each {|id| {gameID: $id, name: $'Ability ($id)', type: '1'}})
-                | update events (($item.item | enumerate | each {|event|
-                    {timestamp: (1000 + $event.item), type: cast, sourceID: 10, abilityGameID: (46376 + $event.index), fight: 1}
-                }) | append [
-                    {timestamp: (1100 + $item.item.0), type: cast, sourceID: 10, abilityGameID: (46378 + $item.index), fight: 1}
-                    {timestamp: (1200 + $item.item.0), type: cast, sourceID: 10, abilityGameID: (46380 + $item.index), fight: 1}
-                    {timestamp: (1100 + $item.item.0), type: cast, sourceID: 11, abilityGameID: (46379 - $item.index), fight: 1}
-                ] | append (if $item.index == 0 {
-                    [{timestamp: (4000 + $item.item.0), type: cast, sourceID: 11, abilityGameID: 46377, fight: 1}]
-                } else { [] }))
-                | update collection.eventCount {|log| $log.events | length })
-            let path = ($directory | path join $'($code).json')
-            $log | to json | save $path
-            $rows.0 | update file $path | update sha256 (open --raw $path | hash sha256)
-                | update report $code | update candidate_group $code | update split train
-        })
-        let failing_manifest = ($directory | path join failing.csv)
-        $failing_rows | to csv | save $failing_manifest
+        # Inject replay failure at the CLI boundary; generator improvements must not invalidate this check.
+        let wrapper = ($directory | path join failing-btimeline)
+        '#!/usr/bin/env nu
+def --wrapped main [...args: string] {
+    let result = (^$env.BTIMELINE_TEST_BINARY ...$args | complete)
+    if $args.0 == "replay" and $result.exit_code == 0 {
+        let output = ($args | last)
+        open $output | update validation.replay false
+            | update pulls {|report| $report.pulls | each {|pull| $pull | update replay.summary.windowMisses 2 }}
+            | to json | save --force $output
+        exit 1
+    }
+    print -n $result.stdout
+    print -en $result.stderr
+    exit $result.exit_code
+}' | save $wrapper
+        ^chmod +x $wrapper
         let failing_output = ($directory | path join failing)
-        let failed = (^nu scripts/evaluate_replay.nu $failing_manifest $failing_output --binary $binary | complete)
+        let failed = (with-env {BTIMELINE_TEST_BINARY: $binary} {
+            ^nu scripts/evaluate_replay.nu $train_only $failing_output --binary $wrapper | complete
+        })
+        if not ($failing_output | path join evaluation.json | path exists) {
+            error make {msg: $'fault-injected evaluation did not finish: ($failed.stderr)'}
+        }
         let failures = (open ($failing_output | path join evaluation.json)).groups
         if $failed.exit_code == 0 or ($failures | length) != 2 or ($failures | any {|g| $g.status != 'failed' or $g.train.passed or $g.train.exitCode == 0 or $g.train.windowMisses != 2 or $g.holdout != null}) {
-            error make {msg: 'train replay failure hidden without holdout'}
+            error make {msg: $'train replay failure hidden without holdout: ($failures | to json --raw)'}
         }
     } catch {|error|
         rm -r $directory

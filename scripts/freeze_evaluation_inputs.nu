@@ -18,6 +18,8 @@ export def write-manifest [audit: record] {
     }
 
     mut memberships = []
+    # One report is one independent observation source; linked uploads share its split too.
+    mut report_groups = ($rows | each {|row| {report: $row.identity.0, group: $row.identity.0}} | uniq)
     for candidate in $audit.duplicate_pull_candidates {
         let members = ($candidate.files | sort)
         if ($members | length) < 2 or (($members | uniq | length) != ($members | length)) {
@@ -30,6 +32,12 @@ export def write-manifest [audit: record] {
         if ($selected | get group | uniq | length) != 1 {
             error make {msg: 'duplicate candidate crosses input groups'}
         }
+        let reports = ($selected | each {|row| $row.identity.0} | uniq)
+        let connected = ($report_groups | where {|row| $row.report in $reports} | get group | uniq | sort)
+        let representative = $connected.0
+        $report_groups = ($report_groups | each {|row|
+            if $row.group in $connected { $row | update group $representative } else { $row }
+        })
         for path in $members {
             if ($memberships | any {|member| $member.file == $path}) {
                 error make {msg: 'duplicate candidate overlaps another group'}
@@ -39,14 +47,13 @@ export def write-manifest [audit: record] {
     }
 
     let candidate_memberships = $memberships
-    let grouped = ($rows | each {|row|
-        let member = ($candidate_memberships | where file == $row.file)
-        {file: $row.file, group: $row.group, candidate_group: (if ($member | is-empty) { $row.file } else { $member.0.candidate_group })}
-    })
+    let components = $report_groups
+    let groups = ($components | get group | uniq | sort)
     let records = ($rows | sort-by file | each {|row|
-        let candidate_group = ($grouped | where file == $row.file | first | get candidate_group)
-        let groups = ($grouped | where group == $row.group | get candidate_group | uniq | sort)
-        let index = ($groups | enumerate | where item == $candidate_group | first | get index)
+        let member = ($candidate_memberships | where file == $row.file)
+        let candidate_group = if ($member | is-empty) { $row.file } else { $member.0.candidate_group }
+        let component = ($components | where report == $row.identity.0 | first | get group)
+        let index = ($groups | enumerate | where item == $component | first | get index)
         {file: $row.file, sha256: $row.sha256, report: $row.identity.0, fight: $row.identity.1, encounter: $row.group.0, difficulty: $row.group.1, candidate_group: $candidate_group, split: (if ($index mod 5) == 4 { 'holdout' } else { 'train' })}
     })
     $records | to csv --columns [file sha256 report fight encounter difficulty candidate_group split]

@@ -12,18 +12,18 @@ use wiremock::{Mock, MockBuilder, MockServer, ResponseTemplate};
 
 use super::*;
 
-fn token() -> (u16, Value) {
+pub(super) fn token() -> (u16, Value) {
     (
         200,
         json!({"access_token":"test-token", "token_type":"Bearer"}),
     )
 }
 
-fn report(value: Value) -> (u16, Value) {
+pub(super) fn report(value: Value) -> (u16, Value) {
     (200, json!({"data":{"reportData":{"report":value}}}))
 }
 
-fn metadata() -> (u16, Value) {
+pub(super) fn metadata() -> (u16, Value) {
     report(
         json!({"code":"example","revision":1,"startTime":0,"endTime":100,"archiveStatus":{"isAccessible":true},"phases":null,
         "masterData":{"lang":"en","gameVersion":1,"logVersion":76,"actors":[],"abilities":[]},
@@ -38,14 +38,14 @@ fn response((status, body): (u16, Value)) -> ResponseTemplate {
 }
 
 // Match real paths, authorization and query kinds instead of reimplementing an HTTP server.
-fn api(query: &str) -> MockBuilder {
+pub(super) fn api(query: &str) -> MockBuilder {
     Mock::given(method("POST"))
         .and(path("/api/v2/client"))
         .and(header("Authorization", "Bearer test-token"))
         .and(body_string_contains(query))
 }
 
-async fn server(
+pub(super) async fn server(
     token_response: (u16, Value),
     metadata_response: Option<(u16, Value)>,
 ) -> MockServer {
@@ -68,7 +68,7 @@ async fn server(
     server
 }
 
-fn authenticate(server: &MockServer) -> Client {
+pub(super) fn authenticate(server: &MockServer) -> Client {
     Client::authenticate(
         &format!("{}/oauth/token", server.uri()),
         &format!("{}/api/v2/client", server.uri()),

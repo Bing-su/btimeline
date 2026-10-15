@@ -2,7 +2,7 @@ use anyhow::{Result, ensure};
 use camino::Utf8PathBuf;
 use usage_rs::{Args, Cli, Run, Subcommands};
 
-use crate::fflogs::FFLogsCommand;
+use crate::fflogs::{FFLogsCollectCommand, FFLogsCommand, FFLogsDownloadCommand};
 use crate::generate::GenerateMode;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -11,6 +11,10 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[usage(run)]
 pub enum MainCommands {
     Fflogs(FFLogsCommand),
+    /// Discover report/fight candidates and save a download plan without fetching events.
+    FflogsCollect(FFLogsCollectCommand),
+    /// Download a saved FFLogs plan, verifying and skipping completed local fights.
+    FflogsDownload(FFLogsDownloadCommand),
     Validate(ValidateCommand),
     Convert(ConvertCommand),
     ExportSchema(ExportSchemaCommand),

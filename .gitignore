@@ -24,3 +24,5 @@ rustc-ice-*.txt
 #.idea/
 logs/
 out/
+
+.env

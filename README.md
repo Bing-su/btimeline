@@ -1,5 +1,98 @@
 # btimeline
 
+## FFLogs collection and downloads
+
+The CLI reads `.env` in the current directory before parsing arguments. Existing environment variables take precedence; explicit `--client-id`/`--client-secret` flags still work. Keep credentials in the gitignored `.env` or the process environment.
+
+| Command | Purpose |
+| --- | --- |
+| `fflogs-collect` | Discover report/fight candidates and save a JSON plan without downloading events |
+| `fflogs-download` | Download a saved plan; validate and skip existing complete fight files |
+| `fflogs` | Existing direct download, `--all`, and `--list` interface |
+
+```sh
+# Discover reports through encounter rankings; gather completed pulls, including wipes.
+btimeline fflogs-collect --encounter 105 --difficulty 101 --max-reports 5 --max-fights 50 -o out/r12s-plan.json
+
+# Or collect candidates from explicitly chosen reports, optionally filtering by encounter/difficulty.
+btimeline fflogs-collect REPORT_CODE OTHER_REPORT_CODE --encounter 105 -o out/chosen-plan.json
+
+# Review the plan, then download. Repeat the same command to resume.
+btimeline fflogs-download out/r12s-plan.json -o logs/new-r12s --limit 10
+
+# Existing commands retain their behavior.
+btimeline fflogs REPORT_CODE --list
+btimeline fflogs REPORT_CODE FIGHT_ID -o logs/example
+btimeline fflogs REPORT_CODE FIGHT_ID --all -o logs/example
+```
+
+| Limit or output | Behavior |
+| --- | --- |
+| `--page`, `--pages`, `--partition`, `--region` | Select ranking pages/partition/region; defaults to one page starting at 1. Rankings mainly expose clears; use explicit reports for targeted progression evidence |
+| `--max-reports 10`, `--max-fights 100` | Bound discovery. The plan records truncation and individual failures; existing plans are never replaced |
+| `--max-requests 100` | Both new commands bound GraphQL HTTP attempts, including the quota probe and retries; OAuth token requests are separate |
+| `--max-points 1000` | Both new commands stop before another request after observing this usage. One request can cross the threshold; shared-client activity also counts |
+| `--limit 100`, `--max-bytes 2147483648` | Download bounds per invocation. The byte limit bounds newly published files, not bytes received while fetching an individual fight |
+| `REPORT_FIGHT.json` | Complete raw log with collection provenance. Invalid or mismatched existing files stop download and are preserved |
+| `r12s-plan.download.json` | Sibling status report with downloaded/skipped/remaining counts and failures. Updated on resume; plan and status must be outside the raw-log output directory |
+
+Download stops on a failed fight and retains completed files. Its next invocation retries the first unfinished fight. A failed discovery retains its partial plan and returns failure; collect a new plan with an adjusted page/report selection to extend the sample. Private-user OAuth is not implemented.
+
+## Reproducible quality tooling
+
+Freeze raw log bytes and report-level splits before comparing algorithms. All fights from a report share a split, including checkpoint encounters. Duplicate-upload candidates link their reports into one split; they cannot leak into both training and holdout.
+
+```sh
+uv run scripts/audit_timeline_sequences.py > out/input-audit.json
+nu scripts/freeze_evaluation_inputs.nu out/input-audit.json > out/evaluation-inputs.csv
+```
+
+Reference mappings are JSON objects keyed by encounter/difficulty, for example:
+
+```json
+{
+  "103-101": "/home/ks2515/workspace/cactbot/ui/raidboss/data/07-dt/raid/r11s.txt",
+  "combined-101": "/home/ks2515/workspace/cactbot/ui/raidboss/data/07-dt/raid/r12s.txt"
+}
+```
+
+Use the actual encounter/difficulty keys from your manifest. `--combine-encounters` groups encounters of each difficulty into one checkpoint generation; unsupported combinations fail. The evaluator also accepts `--mode alliance`.
+
+```sh
+node scripts/evaluate_quality.mjs out/evaluation-inputs.csv out/candidate-quality \
+  --binary target/release/btimeline \
+  --cactbot /home/ks2515/workspace/cactbot \
+  --references out/references.json
+
+# Optionally run another binary on exactly the same frozen manifest.
+node scripts/evaluate_quality.mjs out/evaluation-inputs.csv out/comparison-quality \
+  --baseline /tmp/btimeline-baseline --binary target/release/btimeline \
+  --cactbot /home/ks2515/workspace/cactbot --references out/references.json
+```
+
+The runner writes `quality.json`, `quality.md`, command logs and per-group artifacts. Correctness gates require independent holdouts, YAML validation, raw cast accounting, cactbot's official timeline tests and actual consumer sync checks. It records reference differences and forecast rates separately; these are diagnostic quality measures, not an assertion of human-authored parity. Baseline deltas do not automatically classify editorial changes as improvements. Train-only runs are incomplete in this runner.
+
+| Tool | Evidence and limits |
+| --- | --- |
+| `scripts/compare_cactbot.mjs` | Uses the official parser and order-aware mechanic matching. Reports active/commented ID evidence, ID alternatives, durations, hidden rows, windows, resolved jumps and reference ignored IDs. Clock differences across branch ranges are diagnostic |
+| `scripts/verify_official_cactbot.mjs` | Runs the unmodified upstream timeline tests in a temporary directory using the reference trigger's real translations and timeline triggers. Requires the cactbot checkout and its Node dependencies; does not modify it |
+| `scripts/evaluate_quality.mjs` | Joins frozen replay, reference comparison, official checks, selected-input raw coverage and train/holdout consumer forecasts. Records manifest/reference/binary hashes and the cactbot commit |
+
+Standalone comparison uses the same TypeScript loader as consumer replay:
+
+```sh
+TS_NODE_TRANSPILE_ONLY=true \
+TS_NODE_PROJECT=/home/ks2515/workspace/cactbot/tsconfig.json \
+node --loader /home/ks2515/workspace/cactbot/node_modules/ts-node/esm.mjs \
+  scripts/compare_cactbot.mjs out/fight.txt /path/to/reference.txt \
+  /home/ks2515/workspace/cactbot -o out/fight.comparison.json
+
+node scripts/verify_official_cactbot.mjs out/fight.txt \
+  /home/ks2515/workspace/cactbot /path/to/reference.txt out/fight.official.json
+```
+
+Raw coverage distinguishes representation, intentional exclusion and unexplained omissions. Dungeon/alliance raw accounting uses the reported boss spans and retains outside-scope indices explicitly. Forecast probes still derive from generated evidence, so inspect independent raw coverage and reference-only mechanics as well as the forecast rate. Locale/runtime/browser and live ACT delivery require separate validation.
+
 ## Generate and validate a draft
 
 `prepare` runs `generate`, YAML schema/semantic validation, and raw-log replay in order. It accepts the same options as `generate`, including group selection and generation mode. The boolean `--convert` flag defaults to false; add it to convert to cactbot text after validation and replay succeed.
@@ -105,6 +198,11 @@ These stages display progress on stderr in terminals; progress is hidden when st
 | Cast start pairing tests | `cargo test generate::pairing::tests` | Stable Rust |
 | Rust tests               | `cargo test`                          | Stable Rust |
 | CLI process tests        | `cargo test --test cli`               | Stable Rust |
+| Frozen report splits | `nu scripts/test_freeze_evaluation_inputs.nu` | Nushell |
+| Replay evaluator and failure propagation | `nu scripts/test_evaluate_replay.nu target/debug/btimeline` | Nushell |
+| Reference matching | `node scripts/test_compare_cactbot.mjs` | Node |
+| Raw coverage and quality metrics | `node scripts/test_evaluate_quality.mjs` | Node |
+| Quality runner with real consumer and expected official-test failure | `node scripts/test_evaluate_quality.mjs /home/ks2515/workspace/cactbot` | Node + cactbot dependencies |
 
 Cast pairing tests cover the last eligible start, exact actor/instance/ability matching, timestamp boundaries, and preservation of all unselected starts. Property tests exercise arbitrary pending-start lists; log-loading tests cover cancellation, interleaved instances, duplicate completions, and equal-time source order.
 

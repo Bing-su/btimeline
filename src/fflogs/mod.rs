@@ -1,4 +1,5 @@
 mod client;
+mod collection;
 pub(crate) mod model;
 mod storage;
 
@@ -8,6 +9,7 @@ use std::io::{self, Write};
 use anyhow::{Context, Result, ensure};
 use camino::Utf8PathBuf;
 use client::{API_URL, Client, TOKEN_URL};
+pub use collection::{FFLogsCollectCommand, FFLogsDownloadCommand};
 use serde_json::Value;
 use storage::save;
 use usage_rs::{Args, Run, ValueEnum};

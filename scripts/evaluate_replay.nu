@@ -24,6 +24,11 @@ export def validate-manifest [manifest: path, binary: path] {
             error make {msg: 'candidate crosses split or encounter/difficulty'}
         }
     }
+    for report in ($rows | group-by report | values) {
+        if ($report | get split | uniq | length) != 1 {
+            error make {msg: 'report crosses train/holdout split'}
+        }
+    }
     # Check the frozen identities against the collector boundary, including duplicate report/fight rejection.
     let inspection = (^$binary inspect-inputs ...($rows | get file) | complete)
     if $inspection.exit_code != 0 { error make {msg: $inspection.stderr} }
@@ -59,9 +64,10 @@ def replay-split [binary: path, yaml: path, folder: path, output: path] {
     summarize (open $output) | insert exitCode $run.exit_code
 }
 
-def evaluate-group [rows: table, root: path, binary: path, mode: string] {
+def evaluate-group [rows: table, root: path, binary: path, mode: string, combine: bool] {
     let first = ($rows | first)
-    let folder = ($root | path join $'($first.encounter)-($first.difficulty)')
+    let key = if $combine { $'combined-($first.difficulty)' } else { $'($first.encounter)-($first.difficulty)' }
+    let folder = ($root | path join $key)
     let train = ($rows | where split == 'train')
     let holdout = ($rows | where split == 'holdout')
     if ($train | is-empty) { return {group: ($first | select encounter difficulty), status: 'noTrainingInputs'} }
@@ -85,12 +91,13 @@ def evaluate-group [rows: table, root: path, binary: path, mode: string] {
     }
     # A missing holdout cannot hide training failure, e.g. active median syncs miss their corrected windows.
     {group: ($first | select encounter difficulty), status: (if not $training.passed { 'failed' } else if $testing == null { 'holdoutNotExecuted' } else if $testing.passed { 'passed' } else { 'failed' }), train: $training, holdout: $testing,
+        directory: $folder, encounters: ($rows | get encounter | uniq | sort),
         timelineSha256: (open --raw $yaml | hash sha256), generationReportSha256: (open --raw ($folder | path join draft.report.json) | hash sha256),
         inputs: $rows}
 }
 
-def main [manifest: path, output: path, --binary: path = 'target/release/btimeline', --mode: string = 'raid'] {
-    if $mode not-in ['raid' 'dungeon'] { error make {msg: 'mode must be raid or dungeon'} }
+def main [manifest: path, output: path, --binary: path = 'target/release/btimeline', --mode: string = 'raid', --combine-encounters] {
+    if $mode not-in ['raid' 'dungeon' 'alliance'] { error make {msg: 'mode must be raid, dungeon or alliance'} }
     if ($output | path exists) { error make {msg: 'evaluation output already exists'} }
     let binary = ($binary | path expand)
     let rows = (validate-manifest $manifest $binary)
@@ -101,8 +108,8 @@ def main [manifest: path, output: path, --binary: path = 'target/release/btimeli
     for evaluation in [{name: primary, rows: $rows}, {name: withoutDuplicateCandidates, rows: $unique}] {
         let root = ($output | path join $evaluation.name)
         mkdir $root
-        for group in ($evaluation.rows | group-by {|row| $'($row.encounter)-($row.difficulty)'} | values) {
-            let result = (try { evaluate-group $group $root $binary $mode } catch {|error|
+        for group in ($evaluation.rows | group-by {|row| if $combine_encounters { $'combined-($row.difficulty)' } else { $'($row.encounter)-($row.difficulty)' }} | values) {
+            let result = (try { evaluate-group $group $root $binary $mode $combine_encounters } catch {|error|
                 {group: ($group | first | select encounter difficulty), status: 'error', error: $error.msg}
             })
             $results = ($results | append ($result | insert evaluation $evaluation.name))

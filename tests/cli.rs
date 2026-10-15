@@ -41,6 +41,45 @@ fn piped_inspection_keeps_stdout_json_and_progress_hidden() {
 }
 
 #[test]
+fn fflogs_tools_load_dotenv_without_exposing_credentials() {
+    let directory = tempfile::tempdir().expect("temporary credentials directory");
+    fs::write(
+        directory.path().join(".env"),
+        "FFLOGS_CLIENT_ID=test-id\nFFLOGS_CLIENT_SECRET='private-test-value'\n",
+    )
+    .expect("local credentials fixture");
+    for arguments in [
+        vec!["fflogs", "invalid/code", "1"],
+        vec!["fflogs-collect", "-o", "plan.json"],
+    ] {
+        let result = cargo_bin_cmd!("btimeline")
+            .current_dir(directory.path())
+            .env_remove("FFLOGS_CLIENT_ID")
+            .env_remove("FFLOGS_CLIENT_SECRET")
+            .args(arguments)
+            .assert()
+            .failure();
+        let stderr = String::from_utf8_lossy(&result.get_output().stderr);
+        assert!(!stderr.contains("private-test-value"));
+        assert!(!stderr.contains("Missing required flag"));
+    }
+    // A malformed secret is never included in a dotenv parser error.
+    fs::write(
+        directory.path().join(".env"),
+        "FFLOGS_CLIENT_SECRET='private-test-value\n",
+    )
+    .expect("malformed fixture");
+    let result = cargo_bin_cmd!("btimeline")
+        .current_dir(directory.path())
+        .args(["fflogs-collect", "--help"])
+        .assert()
+        .failure();
+    let stderr = String::from_utf8_lossy(&result.get_output().stderr);
+    assert!(stderr.contains("Cannot load .env"));
+    assert!(!stderr.contains("private-test-value"));
+}
+
+#[test]
 fn prepare_replays_all_casts_and_converts_only_when_requested() {
     for convert in [false, true] {
         let directory = tempfile::tempdir().expect("temporary output directory");
