@@ -1,47 +1,56 @@
-// Verify converted drafts with the consumer itself, e.g. see docs/cactbot-e2e.md for invocation.
+// Verify drafts with the consumer itself, e.g. bun scripts/verify_cactbot.ts out/evaluation CACTBOT BINARY.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
+import type {
+  CollectedLog,
+  ConsumerEvent,
+  ConsumerTimeline,
+  EvaluationReport,
+  ParsedTimeline,
+  ReplayReport,
+  TimelineDocument,
+} from "./types.ts";
 
 const [evaluation, cactbot, binary = "target/release/btimeline", ...supplemental] =
   process.argv.slice(2);
-assert(evaluation && cactbot, "Usage: verify_cactbot.mjs EVALUATION CACTBOT [BINARY]");
+assert(evaluation && cactbot, "Usage: verify_cactbot.ts EVALUATION CACTBOT [BINARY]");
 const root = path.resolve(evaluation);
 const consumer = path.resolve(cactbot);
 const require = createRequire(path.join(consumer, "package.json"));
 const { load: yaml } = require("js-yaml");
-const imported = (file) => import(pathToFileURL(path.join(consumer, file)).href);
+const imported = (file: string) => import(pathToFileURL(path.join(consumer, file)).href);
 const { TimelineParser } = await imported("ui/raidboss/timeline_parser.ts");
 const { TimelineController, TimelineUI } = await imported("ui/raidboss/timeline.ts");
 const { default: defaults } = await imported("ui/raidboss/raidboss_options.ts");
 const { default: definitions } = await imported("resources/netlog_defs.ts");
-const read = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
-const run = (...args) => execFileSync(path.resolve(binary), args, { encoding: "utf8" });
-const hash = (file) =>
+const read = <T>(file: string): T => JSON.parse(fs.readFileSync(file, "utf8"));
+const run = (...args: string[]) => execFileSync(path.resolve(binary), args, { encoding: "utf8" });
+const hash = (file: string): string =>
   require("node:crypto").createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 const epoch = 1700000000000;
 // Deliver the consumer's real start channel, e.g. SetInCombat(true) alone never starts its clock.
 const combatStartLine = "260|2026-10-07T00:00:00.0000000+00:00|1|1|1|1|";
 let now = epoch;
 let timerId = 0;
-const timers = new Map();
+const timers = new Map<number, { callback: () => void; at: number }>();
 
 // Run the real engine's scheduled callbacks against a deterministic clock, e.g. window expiry.
 globalThis.window = {
-  setTimeout(callback, delay) {
+  setTimeout(callback: () => void, delay: number) {
     const id = ++timerId;
     timers.set(id, { callback, at: now + Math.max(1, delay) });
     return id;
   },
-  clearTimeout(id) {
+  clearTimeout(id: number) {
     timers.delete(id);
   },
-};
+} as unknown as Window & typeof globalThis;
 Date.now = () => now;
-function advance(target) {
+function advance(target: number) {
   let updates = 0;
   while (timers.size) {
     const [id, timer] = [...timers].sort((a, b) => a[1].at - b[1].at)[0];
@@ -55,37 +64,42 @@ function advance(target) {
 }
 
 class CaptureUI extends TimelineUI {
+  declare timeline: ConsumerTimeline;
   added = 0;
-  visible = new Map();
-  OnAddTimer(_time, event) {
+  visible = new Map<string, ConsumerEvent>();
+  OnAddTimer(_time: number, event: ConsumerEvent) {
     this.added++;
     this.visible.set(event.id, event);
   }
-  OnRemoveTimer(event) {
+  OnRemoveTimer(event: ConsumerEvent) {
     this.visible.delete(event.id);
   }
 }
 
 // Encode only available FFLogs fields into canonical network lines; this is not an ACT capture.
-function signals(log, areaClear = false) {
-  const actors = new Map(log.report.masterData.actors.map((a) => [a.id, a.name]));
-  const abilities = new Map(log.report.masterData.abilities.map((a) => [a.gameID, a.name]));
+function signals(log: CollectedLog, areaClear = false): Signal[] {
+  const actors = new Map<number, string>(log.report.masterData.actors.map((a) => [a.id, a.name]));
+  const abilities = new Map<number, string>(
+    log.report.masterData.abilities.map((a) => [a.gameID, a.name]),
+  );
   const start = log.report.fights[0].startTime;
   const result = log.events
-    .flatMap((event, index) => {
-      const type = { cast: "Ability", begincast: "StartsUsing" }[event.type];
+    .flatMap<Signal>((event, index) => {
+      const type = (
+        { cast: "Ability", begincast: "StartsUsing" } as Record<string, string | undefined>
+      )[event.type];
       if (!type) return [];
-      const def = definitions[type];
+      const def: { type: string; fields: Record<string, number> } = definitions[type];
       const fields = Array.from({ length: Math.max(...Object.values(def.fields)) + 1 }, () => "0");
       const values = {
         type: def.type,
         timestamp: "2026-10-07T00:00:00.0000000+00:00",
         sourceId: "40000001",
-        source: actors.get(event.sourceID) ?? "",
+        source: actors.get(event.sourceID!) ?? "",
         id: event.abilityGameID?.toString(16).toUpperCase() ?? "",
-        ability: abilities.get(event.abilityGameID) ?? "",
+        ability: abilities.get(event.abilityGameID!) ?? "",
         targetId: "10000001",
-        target: actors.get(event.targetID) ?? "",
+        target: actors.get(event.targetID!) ?? "",
         castTime: "1.000",
       };
       for (const [key, value] of Object.entries(values))
@@ -107,7 +121,7 @@ function signals(log, areaClear = false) {
         return times.length ? [[Math.min(...times), Math.max(...times)]] : [];
       })
       .sort((a, b) => a[0] - b[0]);
-    const merged = [];
+    const merged: number[][] = [];
     for (const span of spans) {
       const previous = merged.at(-1);
       if (previous && span[0] <= previous[1]) previous[1] = Math.max(previous[1], span[1]);
@@ -126,7 +140,38 @@ function signals(log, areaClear = false) {
   return result;
 }
 
-function playback(text, source, entryIndices, expected, forceStart = false) {
+type Signal = { index?: number; at: number; line: string; lifecycle?: string };
+type ObservedMatch = {
+  entryIndex: number | undefined;
+  eventIndex: number | undefined;
+  jump?: number;
+  visibleBefore?: string[];
+  visibleAfter?: string[];
+};
+type PlaybackResult = {
+  matches: number;
+  jumps: number;
+  timersAdded: number;
+  runningBeforeReset: boolean;
+  missingExpected: number;
+  unexpected: number;
+  initialActiveSyncs: number;
+  jumpDetails: ObservedMatch[];
+  combatStarts: number;
+  areaClears: number;
+  expectedCombatStarts: number;
+  expectedAreaClears: number;
+  resetStopped?: boolean;
+  reentryRunning?: boolean;
+  reentryCombatStarts?: number;
+};
+function playback(
+  text: string,
+  source: Signal[],
+  entryIndices: (number | undefined)[],
+  expected: Set<string>,
+  forceStart = false,
+) {
   now = epoch;
   timers.clear();
   const ui = new CaptureUI();
@@ -138,10 +183,10 @@ function playback(text, source, entryIndices, expected, forceStart = false) {
       .sort((a, b) => a.lineNumber - b.lineNumber)
       .map((event, i) => [event.lineNumber, entryIndices[i]]),
   );
-  const matches = [];
+  const matches: ObservedMatch[] = [];
   let combatStarts = 0;
   let areaClears = 0;
-  let signalIndex;
+  let signalIndex: number | undefined;
   const originalJump = engine.OnLogLineJump.bind(engine);
   // Observe selection without replacing it, e.g. repeated IDs must use the consumer's active windows.
   engine.OnLogLineJump = (sync, time) => {
@@ -155,7 +200,7 @@ function playback(text, source, entryIndices, expected, forceStart = false) {
       originalJump(sync, time);
       return;
     }
-    const match = {
+    const match: ObservedMatch = {
       entryIndex: byLine.get(sync.lineNumber),
       eventIndex: signalIndex,
       jump: sync.jump,
@@ -177,7 +222,7 @@ function playback(text, source, entryIndices, expected, forceStart = false) {
       assert.equal(engine.timebase, 0, "Area clear did not stop");
   }
   const observed = new Set(matches.map((m) => `${m.entryIndex}:${m.eventIndex}`));
-  const result = {
+  const result: PlaybackResult = {
     matches: matches.length,
     jumps: matches.filter((m) => m.jump !== undefined).length,
     timersAdded: ui.added,
@@ -215,19 +260,30 @@ function playback(text, source, entryIndices, expected, forceStart = false) {
   return result;
 }
 
-function verify(folder, splits) {
+type VerifiedPull = {
+  split: string;
+  report: string;
+  fight: number;
+  termination: string;
+  expectedMatches: number;
+  expectedRegexMatches: number;
+  original: PlaybackResult;
+  unrepresentedCasts: number;
+  totalRawCasts: number;
+};
+function verify(folder: string, splits: string[]) {
   const file = path.join(folder, "draft.yaml");
   run("validate", file);
   const output = path.join(folder, "draft.txt");
   run("convert", file, "-o", output);
   const text = fs.readFileSync(output, "utf8");
-  const document = yaml(fs.readFileSync(file, "utf8"));
+  const document: TimelineDocument = yaml(fs.readFileSync(file, "utf8"));
   // Conversion prepends lifecycle resets without FFLogs slots, e.g. alliance adds a second reset.
   const entryIndices = [
     ...(document.resetOn ?? ["wipe"]).map(() => undefined),
     ...document.entries.flatMap((e, index) => (e.kind === "event" ? [index] : [])),
   ];
-  const parser = new TimelineParser(text, [], []);
+  const parser: ParsedTimeline = new TimelineParser(text, [], []);
   assert.equal(parser.events.length, entryIndices.length, "Conversion dropped events");
   const result = {
     folder,
@@ -235,13 +291,16 @@ function verify(folder, splits) {
     parserErrors: parser.errors,
     events: parser.events.length,
     syncs: parser.syncStarts.length,
-    pulls: [],
+    pulls: [] as VerifiedPull[],
   };
   for (const split of splits) {
-    const replay = read(path.join(folder, `${split}.replay.json`));
+    const replay = read<ReplayReport>(path.join(folder, `${split}.replay.json`));
     for (const pull of replay.pulls) {
-      const source = signals(read(pull.file), (document.resetOn ?? ["wipe"]).includes("areaClear"));
-      const expected = new Set(
+      const source = signals(
+        read<CollectedLog>(pull.file),
+        (document.resetOn ?? ["wipe"]).includes("areaClear"),
+      );
+      const expected = new Set<string>(
         pull.replay.rows.flatMap((row) =>
           row.matches.map((m) => `${row.entryIndex}:${m.eventIndex}`),
         ),
@@ -273,7 +332,7 @@ function verify(folder, splits) {
   return result;
 }
 
-const frozen = read(path.join(root, "evaluation.json"));
+const frozen = read<EvaluationReport>(path.join(root, "evaluation.json"));
 assert.equal(hash(path.resolve(binary)), frozen.binarySha256, "Evaluation used a different binary");
 // Compare the exact window edges with the internal inclusive policy, e.g. 10s +/- 2.5s.
 const boundaryChecks = [7500, 10000, 12500].map((at) => ({
@@ -295,7 +354,7 @@ const results = frozen.groups.map((group) =>
 for (const folder of supplemental) results.push(verify(path.resolve(folder), ["train"]));
 
 // Exercise accepted P7/P8 paths absent from the real corpus, e.g. distinct clear and wipe exits.
-function fixture(code, rows, encounter, kill, end = 45000) {
+function fixture(code: string, rows: number[][], encounter: number, kill: boolean, end = 45000) {
   end = Math.max(end, ...rows.map((row) => row[0] + 1000));
   return {
     report: {
@@ -379,7 +438,7 @@ const branchB = [
   [16000, 10, 90004],
   [18000, 10, 90008],
 ];
-const cases = [
+const cases: { name: string; encounter: number; mode?: string; rows: number[][][] }[] = [
   { name: "p7-branch", encounter: 9999, rows: [branchA, branchB] },
   ...[1, 2].map((width) => {
     const rows = [[1000, 10, 91000]];
@@ -393,7 +452,7 @@ const cases = [
   { name: "single-file", encounter: 9998, rows: [branchA] },
 ];
 // Preserve accepted repeat jumps when rebasing bosses, e.g. a loop in boss 1 followed by boss 2.
-const repeated = cases.find((item) => item.name === "p8-repeat-2");
+const repeated = cases.find((item) => item.name === "p8-repeat-2")!;
 cases.push({
   name: "p8-multi-boss",
   encounter: 9997,
@@ -424,7 +483,9 @@ for (const item of cases) {
   );
   for (const split of ["train", "holdout"])
     run("replay", draft, path.join(folder, split), "-o", path.join(folder, `${split}.replay.json`));
-  const generation = read(path.join(folder, "draft.report.json"));
+  const generation = read<{ repeats: { accepted: boolean } }>(
+    path.join(folder, "draft.report.json"),
+  );
   if (item.name.startsWith("p8")) assert.equal(generation.repeats.accepted, true);
   results.push(verify(folder, ["train", "holdout"]));
 }
@@ -434,7 +495,7 @@ const disposeDom = require("jsdom-global")(
   '<style>.timer-bar { animation-name: none; }</style><div id="timeline-container"><div id="timeline"></div></div>',
   { pretendToBeVisual: true },
 );
-window.setTimeout = () => 1;
+window.setTimeout = (() => 1) as unknown as typeof window.setTimeout;
 window.clearTimeout = () => {};
 window.requestAnimationFrame = () => 0;
 const { HTMLTimelineUI } = await imported("ui/raidboss/html_timeline_ui.ts");
@@ -446,7 +507,9 @@ const domChecks = results.map((group) => {
   now = epoch;
   controller.SetInCombat(true);
   controller.OnNetLog({ rawLine: combatStartLine });
-  const bars = [...document.querySelectorAll("#timeline timer-bar")].map((bar) => bar.lefttext);
+  const bars = [
+    ...document.querySelectorAll<Element & { lefttext: string | null }>("#timeline timer-bar"),
+  ].map((bar) => bar.lefttext);
   controller.SetInCombat(false);
   const remainingBars = document.querySelectorAll("#timeline timer-bar").length;
   assert.equal(remainingBars, 0, "HTML reset retained bars");
@@ -454,9 +517,9 @@ const domChecks = results.map((group) => {
   now = epoch + 10000000;
   controller.SetInCombat(true);
   controller.OnNetLog({ rawLine: combatStartLine });
-  const reentryBars = [...document.querySelectorAll("#timeline timer-bar")].map(
-    (bar) => bar.lefttext,
-  );
+  const reentryBars = [
+    ...document.querySelectorAll<Element & { lefttext: string | null }>("#timeline timer-bar"),
+  ].map((bar) => bar.lefttext);
   assert.deepEqual(reentryBars, bars, "Reset changed independent re-entry previews");
   controller.SetInCombat(false);
   assert.equal(document.querySelectorAll("#timeline timer-bar").length, 0);
@@ -471,7 +534,7 @@ const result = {
   cactbotCommit: execFileSync("git", ["-C", consumer, "rev-parse", "HEAD"], {
     encoding: "utf8",
   }).trim(),
-  cactbotVersion: read(path.join(consumer, "package.json")).version,
+  cactbotVersion: read<{ version: string }>(path.join(consumer, "package.json")).version,
   nodeVersion: process.version,
   results,
   domChecks,

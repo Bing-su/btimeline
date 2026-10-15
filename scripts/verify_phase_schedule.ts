@@ -1,41 +1,51 @@
-// Measure real consumer predictions, e.g. node --loader CACTBOT/node_modules/ts-node/esm.mjs scripts/verify_phase_schedule.mjs out/fight.yaml CACTBOT.
+// Measure real consumer predictions, e.g. node --loader CACTBOT/node_modules/ts-node/esm.mjs scripts/verify_phase_schedule.ts out/fight.yaml CACTBOT.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
+import type {
+  CollectedLog,
+  ConsumerEvent,
+  ConsumerTimeline,
+  GenerationReport,
+  ParsedTimeline,
+  ReplayReport,
+  TimelineDocument,
+} from "./types.ts";
 
 const [file, consumer, replayFile = file?.replace(/\.yaml$/, ".replay.json")] =
   process.argv.slice(2);
-assert(file && consumer, "Usage: verify_phase_schedule.mjs YAML CACTBOT [REPLAY]");
+assert(file && consumer, "Usage: verify_phase_schedule.ts YAML CACTBOT [REPLAY]");
 const root = path.resolve(consumer);
 const require = createRequire(path.join(root, "package.json"));
-const imported = (file) => import(pathToFileURL(path.join(root, file)).href);
+const imported = (file: string) => import(pathToFileURL(path.join(root, file)).href);
 const { TimelineParser } = await imported("ui/raidboss/timeline_parser.ts");
 const { TimelineController, TimelineUI } = await imported("ui/raidboss/timeline.ts");
 const { default: defaults } = await imported("ui/raidboss/raidboss_options.ts");
 const { default: definitions } = await imported("resources/netlog_defs.ts");
-const read = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
-const document = require("js-yaml").load(fs.readFileSync(file, "utf8"));
+const read = <T>(file: string): T => JSON.parse(fs.readFileSync(file, "utf8"));
+const document: TimelineDocument = require("js-yaml").load(fs.readFileSync(file, "utf8"));
 const text = fs.readFileSync(file.replace(/\.yaml$/, ".txt"), "utf8");
-const generation = read(file.replace(/\.yaml$/, ".report.json"));
-const replay = read(replayFile);
+const generation = read<GenerationReport>(file.replace(/\.yaml$/, ".report.json"));
+const replay = read<ReplayReport>(replayFile);
 const epoch = 1700000000000;
 let now = epoch;
 let nextTimer = 0;
-const timers = new Map();
+const timers = new Map<number, { callback: () => void; at: number }>();
+// Only timer methods are needed by the consumer, e.g. advancing expiry without a browser.
 globalThis.window = {
-  setTimeout(callback, delay) {
+  setTimeout(callback: () => void, delay: number) {
     const id = ++nextTimer;
     timers.set(id, { callback, at: now + Math.max(1, delay) });
     return id;
   },
-  clearTimeout(id) {
+  clearTimeout(id: number) {
     timers.delete(id);
   },
-};
+} as unknown as Window & typeof globalThis;
 Date.now = () => now;
-function advance(target) {
+function advance(target: number) {
   let steps = 0;
   while (timers.size) {
     const [id, timer] = [...timers].sort((a, b) => a[1].at - b[1].at)[0];
@@ -48,15 +58,16 @@ function advance(target) {
   now = target;
 }
 class CaptureUI extends TimelineUI {
-  visible = new Map();
-  OnAddTimer(_time, event) {
+  declare timeline: ConsumerTimeline;
+  visible = new Map<string, ConsumerEvent>();
+  OnAddTimer(_time: number, event: ConsumerEvent) {
     this.visible.set(event.id, event);
   }
-  OnRemoveTimer(event) {
+  OnRemoveTimer(event: ConsumerEvent) {
     this.visible.delete(event.id);
   }
 }
-const parser = new TimelineParser(text, [], []);
+const parser: ParsedTimeline = new TimelineParser(text, [], []);
 assert.deepEqual(parser.errors, [], "Consumer parser rejected the timeline");
 const indices = [
   ...(document.resetOn ?? ["wipe"]).map(() => undefined),
@@ -66,12 +77,35 @@ assert.equal(parser.events.length, indices.length);
 const slotEntries = document.entries.flatMap((entry, index) =>
   entry.kind === "event" && entry.sync?.log !== "InCombat" ? [index] : [],
 );
-const results = [];
+type ForecastTarget = { entry: number; at: number; name: string };
+type StreamItem = {
+  at: number;
+  index?: number;
+  reset?: boolean;
+  line?: string;
+  probe?: ForecastTarget;
+};
+type ForecastCounts = {
+  expectedMatches: number;
+  forecastTargets: number;
+  forecasted: number;
+  exposures: number;
+  calibrated: number;
+};
+const results: (ForecastCounts & {
+  file: string;
+  excludedFromGeneration: boolean;
+  missing: string[];
+  unexpected: string[];
+  absent: ForecastTarget[];
+})[] = [];
 for (const pull of replay.pulls) {
-  const log = read(pull.file);
+  const log = read<CollectedLog>(pull.file);
   const start = log.report.fights[0].startTime;
-  const actors = new Map(log.report.masterData.actors.map((actor) => [actor.id, actor.name]));
-  const abilities = new Map(
+  const actors = new Map<number, string>(
+    log.report.masterData.actors.map((actor) => [actor.id, actor.name]),
+  );
+  const abilities = new Map<number, string>(
     log.report.masterData.abilities.map((ability) => [ability.gameID, ability.name]),
   );
   const resetIndices = new Set(
@@ -82,56 +116,60 @@ for (const pull of replay.pulls) {
   // Holdouts have their own recorded reloads, e.g. a reset in an unseen report is absent from train segments.
   for (const preview of pull.replay.previews.filter((preview) => preview.moment === "combatEnd")) {
     const index = log.events.findIndex(
-      (event) => (event.type === "zonechange" ||
-        (event.type === "instancesealupdate" && event.sealType === 3)) &&
+      (event) =>
+        (event.type === "zonechange" ||
+          (event.type === "instancesealupdate" && event.sealType === 3)) &&
         event.timestamp - start === preview.sourceMs,
     );
     assert(index >= 0, "Reset has no source arena opening or reload");
     resetIndices.add(index);
   }
-  const source = log.events.flatMap((event, index) => {
+  const source = log.events.flatMap<StreamItem>((event, index) => {
     if (resetIndices.has(index)) return [{ index, at: event.timestamp - start, reset: true }];
-    const type = { cast: "Ability", begincast: "StartsUsing" }[event.type];
+    const type = (
+      { cast: "Ability", begincast: "StartsUsing" } as Record<string, string | undefined>
+    )[event.type];
     if (!type) return [];
-    const def = definitions[type];
+    const def: { type: string; fields: Record<string, number> } = definitions[type];
     const fields = Array.from({ length: Math.max(...Object.values(def.fields)) + 1 }, () => "0");
     const values = {
       type: def.type,
       timestamp: "2026-10-14T00:00:00.0000000+00:00",
       sourceId: "40000001",
-      source: actors.get(event.sourceID) ?? "",
+      source: actors.get(event.sourceID!) ?? "",
       id: event.abilityGameID?.toString(16).toUpperCase() ?? "",
-      ability: abilities.get(event.abilityGameID) ?? "",
+      ability: abilities.get(event.abilityGameID!) ?? "",
       targetId: "10000001",
-      target: actors.get(event.targetID) ?? "",
+      target: actors.get(event.targetID!) ?? "",
       castTime: "1.000",
     };
     for (const [key, value] of Object.entries(values))
       if (key in def.fields) fields[def.fields[key]] = value;
     return [{ index, at: event.timestamp - start, line: `${fields.join("|")}|` }];
   });
-  const targets = generation.slots.flatMap((slot, i) => {
+  const targets = generation.slots!.flatMap((slot, i) => {
     if (slot.selector || slot.predictive === false) return [];
-    const row = pull.replay.rows.find((row) => row.entryIndex === slotEntries[i]);
+    const row = pull.replay.rows.find((row) => row.entryIndex === slotEntries[i])!;
     const packets = row.packetEventIndices ?? row.expectedEventIndices;
     const times = packets.map((index) => log.events[index].timestamp - start).sort((a, b) => a - b);
     // One forecast per mechanic wave or burst, e.g. a three-hit duration bar is one upcoming mechanic.
-    const waves = times
-      .filter((at, index) => index === 0 || at - times[index - 1] > 250);
+    const waves = times.filter((at, index) => index === 0 || at - times[index - 1] > 250);
     const burstDuration = slot.burstOffsetsMs?.at(-1) ?? 0;
-    let origin;
-    return waves.filter((at) => {
-      if (burstDuration && origin !== undefined && at - origin <= burstDuration + 2500)
-        return false;
-      origin = at;
-      return true;
-    }).map((at) => ({ entry: slotEntries[i], at, name: slot.name ?? row.name }));
+    let origin: number | undefined;
+    return waves
+      .filter((at) => {
+        if (burstDuration && origin !== undefined && at - origin <= burstDuration + 2500)
+          return false;
+        origin = at;
+        return true;
+      })
+      .map((at) => ({ entry: slotEntries[i], at, name: slot.name ?? row.name }));
   });
   // Five seconds before each observed mechanic is a forecast check, e.g. completing a sync is too late.
   const probes = targets
     .filter((target) => target.at >= 5000)
     .map((target) => ({ at: target.at - 5000, probe: target }));
-  const stream = [...source, ...probes].sort(
+  const stream: StreamItem[] = [...source, ...probes].sort(
     (a, b) => a.at - b.at || Number(Boolean(a.probe)) - Number(Boolean(b.probe)),
   );
   now = epoch;
@@ -145,8 +183,8 @@ for (const pull of replay.pulls) {
       .sort((a, b) => a.lineNumber - b.lineNumber)
       .map((event, i) => [event.lineNumber, indices[i]]),
   );
-  let signalIndex;
-  const observed = new Set();
+  let signalIndex: number | undefined;
+  const observed = new Set<string>();
   const originalJump = engine.OnLogLineJump.bind(engine);
   engine.OnLogLineJump = (sync, time) => {
     if (sync.origInput?.inGameCombat !== "1")
@@ -173,7 +211,7 @@ for (const pull of replay.pulls) {
         bars.every((event) => !["--reference--", "--sync--", "--Reset--"].includes(event.name)),
         "Hidden trace evidence reached the UI",
       );
-      if (bars.some((event) => byLine.get(event.lineNumber) === item.probe.entry)) forecasted++;
+      if (bars.some((event) => byLine.get(event.lineNumber) === item.probe!.entry)) forecasted++;
       else if (absent.length < 10) absent.push(item.probe);
       for (const event of bars) {
         exposures++;
@@ -203,7 +241,7 @@ for (const pull of replay.pulls) {
     ...pull.replay.rows.flatMap((row) =>
       (row.packetEventIndices ?? []).map((index) => `${row.entryIndex}:${index}`),
     ),
-    ...generation.slots.flatMap((slot, i) =>
+    ...generation.slots!.flatMap((slot, i) =>
       (slot.samples ?? [])
         .filter((sample) => sample.file === pull.file)
         .flatMap((sample) => sample.eventIndices.map((index) => `${slotEntries[i]}:${index}`)),
@@ -228,7 +266,8 @@ for (const pull of replay.pulls) {
     absent,
   });
 }
-const sum = (field) => results.reduce((total, result) => total + result[field], 0);
+const sum = (field: keyof ForecastCounts) =>
+  results.reduce((total, result) => total + result[field], 0);
 const summary = {
   pulls: results.length,
   expectedMatches: sum("expectedMatches"),

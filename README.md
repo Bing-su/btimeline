@@ -4,11 +4,11 @@
 
 The CLI reads `.env` in the current directory before parsing arguments. Existing environment variables take precedence; explicit `--client-id`/`--client-secret` flags still work. Keep credentials in the gitignored `.env` or the process environment.
 
-| Command | Purpose |
-| --- | --- |
-| `fflogs-collect` | Discover report/fight candidates and save a JSON plan without downloading events |
-| `fflogs-download` | Download a saved plan; validate and skip existing complete fight files |
-| `fflogs` | Existing direct download, `--all`, and `--list` interface |
+| Command           | Purpose                                                                          |
+| ----------------- | -------------------------------------------------------------------------------- |
+| `fflogs-collect`  | Discover report/fight candidates and save a JSON plan without downloading events |
+| `fflogs-download` | Download a saved plan; validate and skip existing complete fight files           |
+| `fflogs`          | Existing direct download, `--all`, and `--list` interface                        |
 
 ```sh
 # Discover reports through encounter rankings; gather completed pulls, including wipes.
@@ -26,15 +26,15 @@ btimeline fflogs REPORT_CODE FIGHT_ID -o logs/example
 btimeline fflogs REPORT_CODE FIGHT_ID --all -o logs/example
 ```
 
-| Limit or output | Behavior |
-| --- | --- |
+| Limit or output                                | Behavior                                                                                                                                                         |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--page`, `--pages`, `--partition`, `--region` | Select ranking pages/partition/region; defaults to one page starting at 1. Rankings mainly expose clears; use explicit reports for targeted progression evidence |
-| `--max-reports 10`, `--max-fights 100` | Bound discovery. The plan records truncation and individual failures; existing plans are never replaced |
-| `--max-requests 100` | Both new commands bound GraphQL HTTP attempts, including the quota probe and retries; OAuth token requests are separate |
-| `--max-points 1000` | Both new commands stop before another request after observing this usage. One request can cross the threshold; shared-client activity also counts |
-| `--limit 100`, `--max-bytes 2147483648` | Download bounds per invocation. The byte limit bounds newly published files, not bytes received while fetching an individual fight |
-| `REPORT_FIGHT.json` | Complete raw log with collection provenance. Invalid or mismatched existing files stop download and are preserved |
-| `r12s-plan.download.json` | Sibling status report with downloaded/skipped/remaining counts and failures. Updated on resume; plan and status must be outside the raw-log output directory |
+| `--max-reports 10`, `--max-fights 100`         | Bound discovery. The plan records truncation and individual failures; existing plans are never replaced                                                          |
+| `--max-requests 100`                           | Both new commands bound GraphQL HTTP attempts, including the quota probe and retries; OAuth token requests are separate                                          |
+| `--max-points 1000`                            | Both new commands stop before another request after observing this usage. One request can cross the threshold; shared-client activity also counts                |
+| `--limit 100`, `--max-bytes 2147483648`        | Download bounds per invocation. The byte limit bounds newly published files, not bytes received while fetching an individual fight                               |
+| `REPORT_FIGHT.json`                            | Complete raw log with collection provenance. Invalid or mismatched existing files stop download and are preserved                                                |
+| `r12s-plan.download.json`                      | Sibling status report with downloaded/skipped/remaining counts and failures. Updated on resume; plan and status must be outside the raw-log output directory     |
 
 Download stops on a failed fight and retains completed files. Its next invocation retries the first unfinished fight. A failed discovery retains its partial plan and returns failure; collect a new plan with an adjusted page/report selection to extend the sample. Private-user OAuth is not implemented.
 
@@ -59,36 +59,44 @@ Reference mappings are JSON objects keyed by encounter/difficulty, for example:
 Use the actual encounter/difficulty keys from your manifest. `--combine-encounters` groups encounters of each difficulty into one checkpoint generation; unsupported combinations fail. The evaluator also accepts `--mode alliance`.
 
 ```sh
-node scripts/evaluate_quality.mjs out/evaluation-inputs.csv out/candidate-quality \
+node scripts/evaluate_quality.ts out/evaluation-inputs.csv out/candidate-quality \
   --binary target/release/btimeline \
   --cactbot /home/ks2515/workspace/cactbot \
   --references out/references.json
 
 # Optionally run another binary on exactly the same frozen manifest.
-node scripts/evaluate_quality.mjs out/evaluation-inputs.csv out/comparison-quality \
+node scripts/evaluate_quality.ts out/evaluation-inputs.csv out/comparison-quality \
   --baseline /tmp/btimeline-baseline --binary target/release/btimeline \
   --cactbot /home/ks2515/workspace/cactbot --references out/references.json
 ```
 
 The runner writes `quality.json`, `quality.md`, command logs and per-group artifacts. Correctness gates require independent holdouts, YAML validation, raw cast accounting, cactbot's official timeline tests and actual consumer sync checks. It records reference differences and forecast rates separately; these are diagnostic quality measures, not an assertion of human-authored parity. Baseline deltas do not automatically classify editorial changes as improvements. Train-only runs are incomplete in this runner.
 
-| Tool | Evidence and limits |
-| --- | --- |
-| `scripts/compare_cactbot.mjs` | Uses the official parser and order-aware mechanic matching. Reports active/commented ID evidence, ID alternatives, durations, hidden rows, windows, resolved jumps and reference ignored IDs. Clock differences across branch ranges are diagnostic |
-| `scripts/verify_official_cactbot.mjs` | Runs the unmodified upstream timeline tests in a temporary directory using the reference trigger's real translations and timeline triggers. Requires the cactbot checkout and its Node dependencies; does not modify it |
-| `scripts/evaluate_quality.mjs` | Joins frozen replay, reference comparison, official checks, selected-input raw coverage and train/holdout consumer forecasts. Records manifest/reference/binary hashes and the cactbot commit |
+| Tool                                 | Evidence and limits                                                                                                                                                                                                                                 |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/compare_cactbot.ts`         | Uses the official parser and order-aware mechanic matching. Reports active/commented ID evidence, ID alternatives, durations, hidden rows, windows, resolved jumps and reference ignored IDs. Clock differences across branch ranges are diagnostic |
+| `scripts/verify_official_cactbot.ts` | Runs the unmodified upstream timeline tests in a temporary directory using the reference trigger's real translations and timeline triggers. Requires the cactbot checkout and its Node dependencies; does not modify it                             |
+| `scripts/evaluate_quality.ts`        | Joins frozen replay, reference comparison, official checks, selected-input raw coverage and train/holdout consumer forecasts. Records manifest/reference/binary hashes and the cactbot commit                                                       |
 
-Standalone comparison uses the same TypeScript loader as consumer replay:
+All TypeScript scripts run on Node.js 24+ or Bun without a build step. Node consumer checks use the cactbot checkout's ts-node loader for its extensionless imports; Bun resolves them directly. The official verifier uses the checkout's type-aware ts-node compiler on both runtimes to preserve upstream type-only imports.
+
+Standalone comparison and official verification:
 
 ```sh
 TS_NODE_TRANSPILE_ONLY=true \
 TS_NODE_PROJECT=/home/ks2515/workspace/cactbot/tsconfig.json \
 node --loader /home/ks2515/workspace/cactbot/node_modules/ts-node/esm.mjs \
-  scripts/compare_cactbot.mjs out/fight.txt /path/to/reference.txt \
+  scripts/compare_cactbot.ts out/fight.txt /path/to/reference.txt \
   /home/ks2515/workspace/cactbot -o out/fight.comparison.json
 
-node scripts/verify_official_cactbot.mjs out/fight.txt \
+node scripts/verify_official_cactbot.ts out/fight.txt \
   /home/ks2515/workspace/cactbot /path/to/reference.txt out/fight.official.json
+
+# Bun needs no loader flags or TS_NODE environment variables.
+bun scripts/compare_cactbot.ts out/fight.txt /path/to/reference.txt \
+  /home/ks2515/workspace/cactbot -o out/fight.bun.comparison.json
+bun scripts/verify_official_cactbot.ts out/fight.txt \
+  /home/ks2515/workspace/cactbot /path/to/reference.txt out/fight.bun.official.json
 ```
 
 Raw coverage distinguishes representation, intentional exclusion and unexplained omissions. Dungeon/alliance raw accounting uses the reported boss spans and retains outside-scope indices explicitly. Forecast probes still derive from generated evidence, so inspect independent raw coverage and reference-only mechanics as well as the forecast rate. Locale/runtime/browser and live ACT delivery require separate validation.
@@ -118,22 +126,22 @@ Use a new output name for each run; existing outputs are not overwritten. With `
 
 Generation prefers a normal, repeatable fight over a transcription of every supplied log. Inputs are validated before selection; source files are never changed.
 
-| Available evidence | Generation inputs |
-| --- | --- |
-| At least three clears | Use clears; exclude wipe logs from inference |
-| At least three uninterrupted clears | Also exclude successful logs containing earlier boss attempts |
+| Available evidence                                               | Generation inputs                                                         |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| At least three clears                                            | Use clears; exclude wipe logs from inference                              |
+| At least three uninterrupted clears                              | Also exclude successful logs containing earlier boss attempts             |
 | Fewer than three clears, but three substantial progression pulls | Exclude wipes with fewer than one quarter of the longest boss-start trace |
-| Insufficient evidence for selection | Retain the available pulls |
+| Insufficient evidence for selection                              | Retain the available pulls                                                |
 
 Excluded files still receive diagnostic replay. `inputSelection` records paths, reasons, and hashes. `replay.validation.replay` checks inputs that were not excluded, while `allInputsPassed` includes diagnostics. New holdout files always gate replay; exclusion applies only to the exact recorded file and hash. Clear-based generation does not promise wipe-only enrage paths.
 
-| Event evidence | Output |
-| --- | --- |
-| Supported, predictable mechanic or observed branch | Timeline row |
-| Conditional completion below schedule support, or an unstarted conditional helper | `excludedSignals` evidence; no timeline row |
-| Regular cast cues delimit overlapping waves of identical mandatory hits | Separate castbar and hidden timing cues from `xN` damage rows; duration measures first to last hit |
-| At least three consecutive identical, mandatory phase-schedule hits within 2.5 seconds, all already unsynced | One `xN` row with a duration; all raw packets remain represented |
-| Different mechanic between hits, different IDs, optional hits, or independent sync | Keep separate rows |
+| Event evidence                                                                                               | Output                                                                                             |
+| ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Supported, predictable mechanic or observed branch                                                           | Timeline row                                                                                       |
+| Conditional completion below schedule support, or an unstarted conditional helper                            | `excludedSignals` evidence; no timeline row                                                        |
+| Regular cast cues delimit overlapping waves of identical mandatory hits                                      | Separate castbar and hidden timing cues from `xN` damage rows; duration measures first to last hit |
+| At least three consecutive identical, mandatory phase-schedule hits within 2.5 seconds, all already unsynced | One `xN` row with a duration; all raw packets remain represented                                   |
+| Different mechanic between hits, different IDs, optional hits, or independent sync                           | Keep separate rows                                                                                 |
 
 `outputCoverage` distinguishes represented, intentionally excluded, and accidentally omitted event indices. An exclusion is not prediction coverage. See [the cactbot comparison and limits](agent/timeline-quality.md).
 
@@ -146,11 +154,11 @@ btimeline prepare logs/r12s --convert -o out/r12s.yaml
 btimeline prepare logs/r12s --encounter 105 --convert -o out/r12s-p2.yaml
 ```
 
-| Required evidence | Purpose |
-| --- | --- |
-| Shared game zone, difficulty and boss identity | Reject unrelated fights |
-| Consistent encounter order within shared reports | Establish segment order without guessing from encounter numbers |
-| Stable opening cast unique to each encounter | Select the segment during a continuous run or direct checkpoint entry |
+| Required evidence                                | Purpose                                                               |
+| ------------------------------------------------ | --------------------------------------------------------------------- |
+| Shared game zone, difficulty and boss identity   | Reject unrelated fights                                               |
+| Consistent encounter order within shared reports | Establish segment order without guessing from encounter numbers       |
+| Stable opening cast unique to each encounter     | Select the segment during a continuous run or direct checkpoint entry |
 
 `segments` records each local draft, its report, clock offset and entry mapping. Clocks occupy separate 1000-second ranges; this does not estimate the real intermission duration. Unsupported combinations retain the explicit `--encounter` selection error.
 
@@ -165,7 +173,7 @@ Raid inputs with a consistent phase order and distinct observed boss opening cas
 | Same mechanic and observed ID attributed to different sources    | One mechanic row with observed source aliases                                          |
 | Mutually exclusive effects at the same time                      | One displayed alternative, such as `Future's End / Past's End`                         |
 | Frequent completion observed in at least 80% of reached segments | Predictive row; occurrence is mandatory only if invariant                              |
-| Conditional or unstable completion                               | Exclude from the timeline; retain raw evidence in `excludedSignals`                     |
+| Conditional or unstable completion                               | Exclude from the timeline; retain raw evidence in `excludedSignals`                    |
 | Multiple target/helper packets                                   | All packets retained; one packet owns the internal clock correction                    |
 | Nearby mechanics whose packet order varies                       | Keep both forecasts and let the later row own the clock correction                     |
 | New instance of a phase opening cast inside an FFLogs phase      | Restore the repeated phase segment; recorded arena reload stops replay before re-entry |
@@ -178,7 +186,7 @@ After `prepare --convert`, measure predictions in the actual cactbot engine usin
 TS_NODE_TRANSPILE_ONLY=true \
 TS_NODE_PROJECT=/home/ks2515/workspace/cactbot/tsconfig.json \
 node --loader /home/ks2515/workspace/cactbot/node_modules/ts-node/esm.mjs \
-  scripts/verify_phase_schedule.mjs out/example.yaml /home/ks2515/workspace/cactbot
+  scripts/verify_phase_schedule.ts out/example.yaml /home/ks2515/workspace/cactbot
 ```
 
 The verifier uses cactbot's default six bars and 30-second horizon, probes five seconds before each observed mechanic wave, and checks displayed timing within 2.5 seconds. It also rejects missing or unexpected consumer syncs. Pass a separate replay report as the third argument for holdouts. Network lines and reset lifecycle are reconstructed from FFLogs; live ACT delivery and browser layout remain separate checks.
@@ -193,16 +201,17 @@ RAYON_NUM_THREADS=4 btimeline prepare logs/example -o out/example.yaml
 
 These stages display progress on stderr in terminals; progress is hidden when stderr is redirected. JSON on stdout remains suitable for piping. Invalid collected JSON includes the failing field path, for example `events[2].timestamp`, while trailing values are still rejected.
 
-| Check                    | Command                               | Toolchain   |
-| ------------------------ | ------------------------------------- | ----------- |
-| Cast start pairing tests | `cargo test generate::pairing::tests` | Stable Rust |
-| Rust tests               | `cargo test`                          | Stable Rust |
-| CLI process tests        | `cargo test --test cli`               | Stable Rust |
-| Frozen report splits | `nu scripts/test_freeze_evaluation_inputs.nu` | Nushell |
-| Replay evaluator and failure propagation | `nu scripts/test_evaluate_replay.nu target/debug/btimeline` | Nushell |
-| Reference matching | `node scripts/test_compare_cactbot.mjs` | Node |
-| Raw coverage and quality metrics | `node scripts/test_evaluate_quality.mjs` | Node |
-| Quality runner with real consumer and expected official-test failure | `node scripts/test_evaluate_quality.mjs /home/ks2515/workspace/cactbot` | Node + cactbot dependencies |
+| Check                                                                | Command                                                                                                                          | Toolchain                              |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Cast start pairing tests                                             | `cargo test generate::pairing::tests`                                                                                            | Stable Rust                            |
+| Rust tests                                                           | `cargo test`                                                                                                                     | Stable Rust                            |
+| CLI process tests                                                    | `cargo test --test cli`                                                                                                          | Stable Rust                            |
+| Frozen report splits                                                 | `nu scripts/test_freeze_evaluation_inputs.nu`                                                                                    | Nushell                                |
+| Replay evaluator and failure propagation                             | `nu scripts/test_evaluate_replay.nu target/debug/btimeline`                                                                      | Nushell                                |
+| Reference matching                                                   | `node scripts/test_compare_cactbot.ts`                                                                                           | Node 24+ or replace `node` with `bun`  |
+| Raw coverage and quality metrics                                     | `node scripts/test_evaluate_quality.ts`                                                                                          | Node 24+ or Bun                        |
+| Quality runner with real consumer and expected official-test failure | `node scripts/test_evaluate_quality.ts /home/ks2515/workspace/cactbot`                                                           | Node 24+ or Bun + cactbot dependencies |
+| Strict TypeScript check using existing cactbot dependencies          | `/home/ks2515/workspace/cactbot/node_modules/.bin/tsc -p scripts --typeRoots /home/ks2515/workspace/cactbot/node_modules/@types` | TypeScript + Node types from cactbot   |
 
 Cast pairing tests cover the last eligible start, exact actor/instance/ability matching, timestamp boundaries, and preservation of all unselected starts. Property tests exercise arbitrary pending-start lists; log-loading tests cover cancellation, interleaved instances, duplicate completions, and equal-time source order.
 
@@ -243,7 +252,7 @@ Example: `btimeline generate logs/example --mode alliance -o draft.yaml`. Hand-w
 | Early boss kills                | Retain observed suffixes from longer clears; shorter clears provide prefix samples and censor the remaining completions                        |
 | Nested choices                  | Recover observed dependent paths within a boss, e.g. Chort's consecutive Mortifying Flesh directions                                           |
 | Repeated helper waves           | Retain raw packet/instance evidence and separate overlapping sync windows, e.g. two-second Surface Missile waves                               |
-| Conditional instant helpers     | Exclude helpers without stable cast starts, e.g. Launch, and retain their packet evidence in `excludedSignals`                                  |
+| Conditional instant helpers     | Exclude helpers without stable cast starts, e.g. Launch, and retain their packet evidence in `excludedSignals`                                 |
 | Arena opens (`sealType: 3`)     | Model the consumer stopping on combat exit before the next attempt                                                                             |
 
 Unresolved paths remain reported. For example, `btimeline prepare logs/clyteum --mode dungeon --convert -o out/clyteum.yaml` recovers observed boss mechanics and branches. Check `outputCoverage` for omitted raw casts as well as replay results; passing replay alone does not establish complete coverage or cactbot runtime compatibility.
