@@ -1439,6 +1439,7 @@ fn compile(
         .map(|(i, _)| i)
         .collect();
     let mut candidates = BTreeMap::new();
+    // Preserve all casts in the final fallback, e.g. a rejected instant selector still needs a reference row.
     let mut unresolved: BTreeSet<_> = inputs
         .iter()
         .enumerate()
@@ -1448,9 +1449,12 @@ fn compile(
                 .iter()
                 .filter(|(_, signal)| {
                     signal.key.kind == "cast"
-                        && input.pull.phase_spans.iter().any(|&(id, lo, hi)| {
-                            disabled.contains(&id) && lo <= signal.time_ms && signal.time_ms <= hi
-                        })
+                        && (!branches
+                            || input.pull.phase_spans.iter().any(|&(id, lo, hi)| {
+                                disabled.contains(&id)
+                                    && lo <= signal.time_ms
+                                    && signal.time_ms <= hi
+                            }))
                 })
                 .map(move |(&index, _)| (i, index))
         })
@@ -1538,11 +1542,28 @@ fn compile(
     let mut position = 0;
     let mut section = None;
     let mut occupied = 0;
+    let mut pending_phase = false;
     let mut events = events.into_iter().map(Some).collect::<Vec<_>>();
     while position < slots.len() {
         let opening = boss_clocks && section != sections.get(position).copied();
         if let Some((after, variants)) = candidates.get(&position) {
             if let Err(error) = compiler.branch(variants, opening) {
+                // Isolate compile failures too, e.g. an instant alias in phase 2 must not erase phase 1's branches.
+                for (i, signals) in variants.iter().flatten() {
+                    let input = inputs.get(*i).context("Missing rejected branch input")?;
+                    rejected_phases.extend(
+                        input
+                            .pull
+                            .phase_spans
+                            .iter()
+                            .filter(|&&(_, lo, hi)| {
+                                signals
+                                    .iter()
+                                    .any(|signal| lo <= signal.time_ms && signal.time_ms <= hi)
+                            })
+                            .map(|&(id, _, _)| id),
+                    );
+                }
                 let mut report = report;
                 put(
                     RejectedExtension {
@@ -1613,8 +1634,29 @@ fn compile(
             }
             slot.evidence = "conditionalInstantHelper".into();
         }
+        let same_wave = |slot| {
+            let differences: Vec<_> = samples(slot, inputs)
+                .iter()
+                .filter_map(|(i, other)| {
+                    refs.iter()
+                        .find(|(owner, _)| owner == i)
+                        .map(|(_, signal)| signal.time_ms.abs_diff(other.time_ms))
+                })
+                .collect();
+            !differences.is_empty() && differences.iter().all(|&delta| delta <= 250)
+        };
+        let next_wave = slots.get(position + 1).is_some_and(same_wave);
+        let previous_wave = position
+            .checked_sub(1)
+            .and_then(|i| slots.get(i))
+            .is_some_and(same_wave);
+        // Every member can arrive first, e.g. Chaos and Exdeath need the same pre-entry drift window.
+        let pending_clocks = next_wave.then(|| compiler.clocks.clone());
         slot.alignment_slot = Some(position);
         occupied = compiler.emit(entry, &refs, slot, None)?;
+        if let Some(clocks) = pending_clocks {
+            compiler.clocks = clocks;
+        }
         let row = compiler.rows.last_mut().context("Missing common row")?;
         if opening {
             open_entry(row);
@@ -1624,7 +1666,11 @@ fn compile(
             .as_ref()
             .and_then(|s| s.window_ms)
             .is_some_and(|w| w.iter().any(|&v| v > 2500));
-        if wide && !opening && sync_enabled(row) {
+        // Defer isolation until after the wave, e.g. Chaos and Exdeath may arrive in either order.
+        pending_phase |= wide && !opening && sync_enabled(row) && (next_wave || previous_wave);
+        if (wide || pending_phase) && !opening && sync_enabled(row) && !next_wave && !previous_wave
+        {
+            pending_phase = false;
             let label = format!("phase-{}", compiler.phases.len());
             if let Entry::Event { jump, .. } = &mut row.0 {
                 *jump = Some(Jump {
@@ -1879,7 +1925,8 @@ fn compile(
                 Some((clock, at))
             })
             .max_by_key(|(_, origin)| *origin)
-            .context("Missing reactive anchor")?;
+            // InCombat owns the initial clock, e.g. an opening reference precedes the first boss sync.
+            .unwrap_or((0.0, 0));
         let key = path_key(signal);
         let round = reference_rounds
             .entry((i, (entry * 1000.0).round() as i64, key.clone()))
@@ -2022,6 +2069,10 @@ fn compile(
             else {
                 continue;
             };
+            // Disabled references cannot activate, e.g. an optional copy must not narrow a real boss sync's window.
+            if !sync.enabled {
+                continue;
+            }
             let key = serde_json::to_string(&(&sync.log, &sync.fields))?;
             if let Some(prior) = previous.insert(key, position) {
                 let (left, right) = compiler.rows.split_at_mut(position);

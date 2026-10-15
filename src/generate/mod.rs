@@ -108,6 +108,7 @@ mod phase;
 mod repeat;
 pub(crate) mod replay;
 mod report;
+mod schedule;
 pub use alignment::align;
 #[cfg(test)]
 use draft::generate;

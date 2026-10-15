@@ -76,7 +76,7 @@ fn alternatives(left: &[&Signal], right: &[&Signal]) -> bool {
 }
 
 // Helpers stop only after every interacting boss dies, e.g. one defeated overlapping boss is insufficient.
-fn boss_defeat(pull: &Pull, start: i64, end: i64) -> Option<i64> {
+pub(super) fn boss_defeat(pull: &Pull, start: i64, end: i64) -> Option<i64> {
     let bosses: BTreeSet<_> = pull
         .boss_interactions
         .iter()
@@ -478,10 +478,10 @@ pub(super) fn statistics(mut times: Vec<i64>) -> Result<TimeStatistics> {
 pub(super) struct Input {
     pub pull: Pull,
     pub log: CollectedLog,
-    report: Value,
+    pub report: Value,
     pub signals: BTreeMap<usize, Signal>,
     pub signal_indices: BTreeMap<usize, usize>,
-    catalog: Vec<Ability>,
+    pub catalog: Vec<Ability>,
     pub actors: BTreeMap<i64, String>,
 }
 
@@ -863,6 +863,12 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
         .collect::<Vec<_>>()
         .into_iter()
         .collect::<Result<Vec<_>>>()?;
+    // Build fixed phase schedules before mining divergent paths, e.g. randomized IDs need not fork a fixed clock.
+    if mode == GenerateMode::Raid
+        && let Some(schedule) = super::schedule::build(&key, &inputs, lookahead)?
+    {
+        return Ok(schedule);
+    }
     // The longest observed path provides positions, never permission to emit its exclusive branches.
     let reference = inputs
         .iter()

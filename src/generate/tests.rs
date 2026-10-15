@@ -925,19 +925,35 @@ fn p7_raw_discriminator_collision_refuses_the_extension() {
             30.0,
         )
         .unwrap();
-        assert_eq!(report["extensions"]["accepted"], false);
-        // Rejected candidates expose diagnostics only, e.g. no accepted branch or phase metadata.
-        assert!(report["extensions"]["reason"].is_string());
-        assert!(report["extensions"].get("branches").is_none());
-        assert!(report["extensions"].get("phases").is_none());
+        assert_eq!(report["extensions"]["accepted"], true);
+        // Reject dispatch while keeping observations, e.g. colliding helpers remain disabled reference rows.
+        let rejected = &report["extensions"]["rejectedBranchCandidate"];
+        assert_eq!(rejected["accepted"], false);
+        assert!(rejected["reason"].is_string());
+        assert_eq!(report["extensions"]["branches"], json!([]));
+        assert_eq!(report["extensions"]["phases"], json!([]));
         assert!(draft_events(&yaml).iter().all(|e| e["jump"].is_null()));
         assert!(
-            report["extensions"]["checks"]
+            rejected["checks"]
                 .as_array()
                 .unwrap()
                 .iter()
                 .any(|c| c["summary"]["ambiguousMatches"].as_u64().unwrap() > 0)
         );
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+        for slot in report["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|slot| slot["evidence"] == "unresolvedPath")
+        {
+            assert_eq!(
+                draft_events(&yaml)[slot["id"].as_u64().unwrap() as usize]["sync"]["enabled"],
+                false
+            );
+        }
     });
 }
 
@@ -1003,9 +1019,15 @@ fn p7_shared_prefix_and_configured_lookahead_preserve_deterministic_blocks() {
     );
 }
 
-#[test]
-fn p7_safe_common_phase_survives_a_rejected_branch() {
-    let a = [
+#[rstest]
+#[case::ordinary(false, false)]
+#[case::disabled_alias_reference(true, false)]
+#[case::simultaneous_phase_entry(false, true)]
+fn p7_safe_common_phase_survives_a_rejected_branch(
+    #[case] alias_reference: bool,
+    #[case] simultaneous: bool,
+) {
+    let mut a = vec![
         (1000, 10, 90001, "cast"),
         (2000, 11, 90002, "cast"),
         (3000, 11, 90005, "cast"),
@@ -1013,7 +1035,7 @@ fn p7_safe_common_phase_survives_a_rejected_branch() {
         (5000, 10, 90008, "cast"),
         (6000, 10, 90009, "cast"),
     ];
-    let b = [
+    let mut b = vec![
         (1000, 10, 90001, "cast"),
         (2000, 11, 90003, "cast"),
         (3000, 11, 90006, "cast"),
@@ -1021,7 +1043,29 @@ fn p7_safe_common_phase_survives_a_rejected_branch() {
         (15000, 10, 90008, "cast"),
         (16000, 10, 90009, "cast"),
     ];
-    let mut collision = multi_log("a", &a, 20000, true);
+    if simultaneous {
+        // Reversed arrivals must enter together, e.g. Chaos and Exdeath differ by 20ms in either direction.
+        a.push((5020, 11, 90010, "cast"));
+        for row in &mut b {
+            if row.0 >= 15000 {
+                row.0 += 20000;
+            }
+        }
+        b.push((34980, 11, 90010, "cast"));
+        // Entry drift exceeds the repeat interval, e.g. a 30s late pull still reaches the first 15s wave.
+        a.extend([
+            (20000, 10, 90008, "cast"),
+            (20020, 11, 90010, "cast"),
+            (21000, 10, 90011, "cast"),
+        ]);
+        b.extend([
+            (50000, 10, 90008, "cast"),
+            (49980, 11, 90010, "cast"),
+            (51000, 10, 90011, "cast"),
+        ]);
+    }
+    let end = if simultaneous { 60000 } else { 20000 };
+    let mut collision = multi_log("a", &a, end, true);
     let mut actor = collision["report"]["masterData"]["actors"][1].clone();
     actor["id"] = json!(12);
     collision["report"]["masterData"]["actors"]
@@ -1032,20 +1076,52 @@ fn p7_safe_common_phase_survives_a_rejected_branch() {
         .as_array_mut()
         .unwrap()
         .push(serde_json::to_value(cast_event(3000, 12, 90003, "cast")).unwrap());
-    collision["collection"]["eventCount"] = json!(7);
-    with_logs(&[collision, multi_log("b", &b, 20000, true)], |dir| {
+    collision["collection"]["eventCount"] = json!(a.len() + 1);
+    if alias_reference {
+        // An earlier disabled alias cannot shrink the drifting boss window, e.g. 5s and 15s clears need both edges.
+        collision["report"]["masterData"]["actors"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"id":13,"name":"Boss","gameID":2000013,"type":"NPC","subType":"NPC"}));
+        collision["report"]["fights"][0]["enemyNPCs"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"id":13,"gameID":2000013}));
+        collision["events"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::to_value(cast_event(3000, 13, 90008, "cast")).unwrap());
+        collision["collection"]["eventCount"] = json!(8);
+    }
+    with_logs(&[collision, multi_log("b", &b, end, true)], |dir| {
         let yaml = dir.join("phase.yaml");
         generate(dir, &yaml, GenerateMode::Raid).unwrap();
         let report: Value =
             serde_json::from_slice(&fs::read(yaml.with_extension("report.json")).unwrap()).unwrap();
-        assert_eq!(report["extensions"]["accepted"], true);
+        assert_eq!(
+            report["extensions"]["accepted"], true,
+            "{}",
+            report["extensions"]
+        );
         assert_eq!(report["extensions"]["branches"], json!([]));
         assert_eq!(report["extensions"]["phases"].as_array().unwrap().len(), 1);
         assert_eq!(
             report["extensions"]["rejectedBranchCandidate"]["accepted"],
             false
         );
-        assert_eq!(draft_events(&fs::read_to_string(&yaml).unwrap()).len(), 4);
+        assert_eq!(
+            draft_events(&fs::read_to_string(&yaml).unwrap()).len(),
+            if simultaneous {
+                12
+            } else if alias_reference {
+                9
+            } else {
+                8
+            }
+        );
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
         replay::replay_file(&yaml, dir, dir.join("phase.replay.json"), None).unwrap();
     });
 }
@@ -3074,6 +3150,266 @@ fn raid_phase_clocks_prevent_matching_a_choice_to_a_later_round() {
     });
 }
 
+#[rstest]
+#[case::ordinary(false, false, false, false)]
+#[case::merged_retry(true, false, false, false)]
+#[case::fanout(false, true, false, false)]
+#[case::literal_source(false, false, true, false)]
+#[case::long_phase(false, false, false, true)]
+fn phase_schedule_keeps_fixed_time_choices_and_recovers_merged_retries(
+    #[case] retry: bool,
+    #[case] fanout: bool,
+    #[case] literal_source: bool,
+    #[case] long_phase: bool,
+) {
+    let mut logs = Vec::new();
+    for (i, choice) in [90002, 90003, 90002].into_iter().enumerate() {
+        let mut rows = vec![
+            (1000, 10, 90001, "begincast"),
+            (2000, 10, 90001, "cast"),
+            (10000, 10, 90004, "begincast"),
+            (11000, 10, 90004, "cast"),
+            (15000, 10, choice, "begincast"),
+            (17000, 10, choice, "cast"),
+            (20000, 10, 90005, "cast"),
+        ];
+        if retry && i == 0 {
+            // The metadata omits the restart, e.g. P2 contains another P1 and P2 after an arena reload.
+            rows.extend([
+                (30000, 10, 90001, "begincast"),
+                (31000, 10, 90001, "cast"),
+                (40000, 10, 90004, "begincast"),
+                (41000, 10, 90004, "cast"),
+                (45000, 10, 90003, "begincast"),
+                (47000, 10, 90003, "cast"),
+                (50000, 10, 90005, "cast"),
+            ]);
+        }
+        if fanout {
+            // Multiple target packets still own one clock correction, e.g. a raidwide hits two players.
+            rows.push((17000, 10, choice, "cast"));
+            if i == 0 {
+                rows.push((18000, 10, 90007, "cast"));
+            }
+        }
+        if long_phase {
+            // A phase exceeding the initial grid gets room before its successor, e.g. 1600 seconds of combat.
+            for row in &mut rows {
+                if row.0 >= 10000 {
+                    row.0 += 1590000;
+                }
+            }
+            rows.push((1500000, 10, 90006, "cast"));
+        }
+        let mut log = multi_log(
+            &format!("schedule-{i}"),
+            &rows,
+            if long_phase {
+                1611000
+            } else if retry && i == 0 {
+                51000
+            } else {
+                21000
+            },
+            true,
+        );
+        log["report"]["fights"][0]["phaseTransitions"] = json!([{"id":1,"startTime":1000},{"id":2,"startTime":if long_phase {1601000} else {11000}}]);
+        if literal_source {
+            log["report"]["masterData"]["actors"][0]["name"] = json!("Boss (Prime)");
+        }
+        for event in log["events"].as_array_mut().unwrap() {
+            event["sourceInstance"] = json!(if event["timestamp"].as_i64().unwrap() >= 31000 {
+                2
+            } else {
+                1
+            });
+        }
+        if retry && i == 0 {
+            log["events"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"timestamp":26000,"type":"zonechange","fight":2,"zoneID":1}));
+            log["collection"]["eventCount"] = json!(rows.len() + 1);
+        }
+        logs.push(log);
+    }
+    with_logs(&logs, |dir| {
+        let output = dir.join("schedule.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            report["alignment"]["implementation"],
+            "phase-relative mechanic schedules"
+        );
+        assert_eq!(report["schedule"]["phases"].as_array().unwrap().len(), 2);
+        let choices: Vec<_> = report["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|slot| slot["abilityIds"] == json!([90002, 90003]))
+            .collect();
+        assert_eq!(choices.len(), 1);
+        assert_eq!(choices[0]["relativeMs"], 7000);
+        assert_eq!(choices[0]["predictive"], true);
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+        if retry {
+            assert_eq!(
+                report["schedule"]["segments"][0]["spans"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|span| span["phase"].as_i64().unwrap())
+                    .collect::<Vec<_>>(),
+                [1, 2, 1, 2]
+            );
+        }
+        if long_phase {
+            assert!(report["schedule"]["phases"][1]["atMs"].as_i64().unwrap() >= 2000000);
+        }
+        // A previously unseen ordering keeps the same phase clock, e.g. the holdout chooses Past instead of Future.
+        let mut holdout = logs[1].clone();
+        holdout["report"]["code"] = json!("schedule-holdout");
+        holdout["collection"]["reportCode"] = json!("schedule-holdout");
+        if fanout {
+            // Trace-only timing is not a prediction, e.g. a conditional effect may arrive six seconds early.
+            holdout["report"]["masterData"]["abilities"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"gameID":90007,"name":"Ability 90007","type":"1"}));
+            holdout["events"]
+                .as_array_mut()
+                .unwrap()
+                .push(serde_json::to_value(cast_event(13000, 10, 90007, "cast")).unwrap());
+            holdout["collection"]["eventCount"] =
+                json!(holdout["events"].as_array().unwrap().len());
+        }
+        with_file(&holdout, |input| {
+            let replay_output = dir.join("holdout.replay.json");
+            replay::replay_file(&output, input, &replay_output, None).unwrap();
+            let result: Value = serde_json::from_slice(&fs::read(&replay_output).unwrap()).unwrap();
+            assert_eq!(result["pulls"][0]["unrepresentedEventIndices"], json!([]));
+        });
+    });
+}
+
+#[test]
+fn phase_schedule_preserves_drifting_rounds_and_source_aliases_without_promoting_wipe_effects() {
+    let logs: Vec<_> = [0, 700, 1100]
+        .into_iter()
+        .enumerate()
+        .map(|(i, drift)| {
+            let source = if i == 2 { 11 } else { 10 };
+            let mut rows = vec![
+                (1000, 10, 90001, "begincast"),
+                (2000, 10, 90001, "cast"),
+                (10000, 10, 90004, "begincast"),
+                (11000, 10, 90004, "cast"),
+                (15000 + drift, source, 90002, "begincast"),
+                (17000 + drift, source, 90002, "cast"),
+                (18000 + drift, source, 90002, "begincast"),
+                (19000 + drift, source, 90002, "cast"),
+                (23000, 10, 90005, "cast"),
+            ];
+            if i == 0 {
+                // Copy attribution does not create another mechanic, e.g. Death Surge has boss and helper packets.
+                rows.push((17020, 11, 90002, "cast"));
+                // A one-pull early wipe reaction stays hidden, e.g. Death Shriek resolves when a debuff is removed.
+                rows.push((13000, 11, 90006, "cast"));
+            }
+            let mut log = multi_log(&format!("drift-{i}"), &rows, 24000, true);
+            log["report"]["fights"][0]["phaseTransitions"] =
+                json!([{"id":1,"startTime":1000},{"id":2,"startTime":11000}]);
+            log
+        })
+        .collect();
+    with_logs(&logs, |dir| {
+        let output = dir.join("drift.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        let rounds: Vec<_> = report["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|slot| slot["abilityIds"] == json!([90002]) && slot["selector"] != true)
+            .collect();
+        assert_eq!(
+            rounds.len(),
+            2,
+            "One fixed mechanic per round, e.g. 1.1s drift cannot split the 2s repeat."
+        );
+        for round in rounds {
+            assert_eq!(round["predictive"], true);
+            assert_eq!(round["required"], true);
+            assert_eq!(round["source"], "Boss");
+            assert_eq!(round["sourceAliases"], json!(["Helper"]));
+        }
+        let conditional = report["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|slot| slot["abilityIds"] == json!([90006]))
+            .unwrap();
+        assert_eq!(conditional["predictive"], false);
+        assert_eq!(conditional["evidence"], "conditionalReference");
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+    });
+}
+
+#[test]
+fn phase_schedule_keeps_visible_mechanics_when_nearby_packet_order_reverses() {
+    let logs: Vec<_> = [(15000, 15400), (15010, 15410), (16100, 16000)]
+        .into_iter()
+        .enumerate()
+        .map(|(i, (a, b))| {
+            let mut log = multi_log(
+                &format!("packet-order-{i}"),
+                &[
+                    (1000, 10, 90001, "begincast"),
+                    (2000, 10, 90001, "cast"),
+                    (10000, 10, 90004, "begincast"),
+                    (11000, 10, 90004, "cast"),
+                    (a, 10, 90002, "cast"),
+                    (b, 10, 90003, "cast"),
+                    (20000, 10, 90005, "cast"),
+                ],
+                21000,
+                true,
+            );
+            log["report"]["fights"][0]["phaseTransitions"] =
+                json!([{"id":1,"startTime":1000},{"id":2,"startTime":11000}]);
+            log
+        })
+        .collect();
+    with_logs(&logs, |dir| {
+        let output = dir.join("packet-order.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        let rows: Vec<_> = report["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|slot| {
+                slot["abilityIds"] == json!([90002]) || slot["abilityIds"] == json!([90003])
+            })
+            .collect();
+        assert_eq!(rows.len(), 2);
+        assert!(rows.iter().all(|row| row["predictive"] == true));
+        // A later completion must not move the clock backwards, e.g. End's packet follows Path despite its earlier median.
+        assert_eq!(rows[0]["syncEnabled"], false);
+        assert_eq!(rows[1]["syncEnabled"], true);
+    });
+}
+
 #[test]
 fn raid_phase_suffix_needs_explicit_defeat_of_every_overlapping_boss() {
     let mut long = multi_log(
@@ -3589,8 +3925,14 @@ fn raid_observed_suffix_is_preserved_without_a_common_successor() {
     });
 }
 
-#[test]
-fn raid_unresolved_phase_preserves_verified_branches_and_every_observed_cast() {
+#[rstest]
+#[case::replay_rejection(false, true)]
+#[case::ambiguous_discriminator(true, true)]
+#[case::ambiguous_without_phase_metadata(true, false)]
+fn raid_unresolved_phase_preserves_verified_branches_and_every_observed_cast(
+    #[case] ambiguous: bool,
+    #[case] phases: bool,
+) {
     let mut logs: Vec<_> = [(90002, 90005, 90012, 90015), (90003, 90006, 90013, 90016)]
         .into_iter()
         .enumerate()
@@ -3627,8 +3969,25 @@ fn raid_unresolved_phase_preserves_verified_branches_and_every_observed_cast() {
         false,
     ));
     for log in &mut logs {
-        log["report"]["fights"][0]["phaseTransitions"] =
-            json!([{"id":1,"startTime":1000},{"id":2,"startTime":19000}]);
+        if ambiguous {
+            // A helper alias blocks instant dispatch, e.g. the boss and helper share an Ability signature.
+            let choice = log["events"][5]["abilityGameID"].clone();
+            log["report"]["masterData"]["actors"][1]["name"] = json!("Boss");
+            log["events"].as_array_mut().unwrap().push(json!({
+                "timestamp":23001,"type":"cast","sourceID":11,"abilityGameID":choice
+            }));
+            if !phases {
+                // References before the first sync use fight start, e.g. an opening helper at 0.5 seconds.
+                log["events"].as_array_mut().unwrap().push(json!({
+                    "timestamp":1500,"type":"cast","sourceID":11,"abilityGameID":choice
+                }));
+            }
+            log["collection"]["eventCount"] = json!(log["events"].as_array().unwrap().len());
+        }
+        if phases {
+            log["report"]["fights"][0]["phaseTransitions"] =
+                json!([{"id":1,"startTime":1000},{"id":2,"startTime":19000}]);
+        }
     }
     with_logs(&logs, |dir| {
         let output = dir.join("isolated.yaml");
@@ -3636,12 +3995,25 @@ fn raid_unresolved_phase_preserves_verified_branches_and_every_observed_cast() {
         let report: Value =
             serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
                 .unwrap();
-        assert_eq!(report["extensions"]["unresolvedPhaseIds"], json!([2]));
-        assert!(
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+        assert_eq!(report["extensions"]["accepted"], true);
+        if phases {
+            assert_eq!(report["extensions"]["unresolvedPhaseIds"], json!([2]));
+        }
+        if ambiguous {
+            assert_eq!(
+                report["extensions"]["rejectedBranchCandidate"]["reason"],
+                "Ambiguous discriminator has no cast start"
+            );
+        }
+        assert_eq!(
             !report["extensions"]["branches"]
                 .as_array()
                 .unwrap()
-                .is_empty()
+                .is_empty(),
+            phases
         );
         assert!(
             report["slots"]
@@ -3651,9 +4023,6 @@ fn raid_unresolved_phase_preserves_verified_branches_and_every_observed_cast() {
                 .any(|slot| slot["abilityIds"] == json!([90030])
                     && slot["evidence"] == "unresolvedPath")
         );
-        for coverage in report["outputCoverage"].as_array().unwrap() {
-            assert_eq!(coverage["omittedEventIndices"], json!([]));
-        }
     });
 }
 

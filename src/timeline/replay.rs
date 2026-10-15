@@ -16,6 +16,8 @@ pub(crate) struct Signal {
 #[derive(Default)]
 pub(crate) struct Evidence {
     pub expected: BTreeMap<usize, BTreeSet<usize>>,
+    // Retain every audited packet separately from clock ownership, e.g. one raidwide sync represents eight targets.
+    pub observed_packets: BTreeMap<usize, BTreeSet<usize>>,
     pub censored: BTreeSet<usize>,
     pub missing: BTreeSet<usize>,
     // Preserve mandatory finite evidence, e.g. an exit jump cannot hide missing repeat rounds.
@@ -79,6 +81,8 @@ pub(crate) struct Row {
     pub matches: Vec<Match>,
     pub observations: Vec<Observation>,
     pub expected_event_indices: BTreeSet<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub packet_event_indices: Option<BTreeSet<usize>>,
     pub window_miss_event_indices: Vec<usize>,
 }
 
@@ -326,6 +330,7 @@ pub(crate) fn run(
             matches: Vec::new(),
             observations: Vec::new(),
             expected_event_indices: expected,
+            packet_event_indices: evidence.observed_packets.get(&entry_index).cloned(),
             window_miss_event_indices: Vec::new(),
         });
         predicates.push(pred);

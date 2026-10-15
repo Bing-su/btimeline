@@ -123,7 +123,7 @@ pub(super) fn signals(log: &crate::fflogs::model::CollectedLog) -> Result<Vec<Si
     Ok(result)
 }
 
-fn same_file(file: &str, input: &str) -> bool {
+pub(super) fn same_file(file: &str, input: &str) -> bool {
     fs::canonicalize(PathBuf::from_slash(file))
         .ok()
         .zip(fs::canonicalize(PathBuf::from_slash(input)).ok())
@@ -262,6 +262,14 @@ pub(super) fn evidence(
     log: &crate::fflogs::model::CollectedLog,
     peers: &BTreeMap<&str, &Pull>,
 ) -> Result<Evidence> {
+    // Audit phase schedules against independent source times, e.g. a retry reuses the same mechanic rows.
+    if report.get("schedule").is_some() {
+        ensure!(
+            report.get("group") == Some(&serde_json::to_value(key)?),
+            "Schedule input group differs from generation group"
+        );
+        return super::schedule::evidence(yaml, report, pull, log);
+    }
     if report.pointer("/repeats/accepted").and_then(Value::as_bool) == Some(true) {
         return super::repeat::fold_evidence(yaml, report, key, pull, log, peers);
     }
@@ -677,7 +685,31 @@ pub(crate) fn replay_file(
                     "Replay input changed after evidence inspection"
                 );
             }
-            let signals = signals(&source.log)?;
+            let mut signals = signals(&source.log)?;
+            if report.get("schedule").is_some() {
+                // A recorded arena reload stops the consumer clock, e.g. a merged ultimate log restarts at P1.
+                for index in super::schedule::reset_indices(&report, &source.pull, &source.log)? {
+                    let event = source
+                        .log
+                        .events
+                        .get(index)
+                        .context("Missing schedule reset")?;
+                    signals.push(Signal {
+                        index,
+                        at_ms: event.timestamp
+                            - source
+                                .log
+                                .report
+                                .fights
+                                .first()
+                                .context("Missing schedule fight")?
+                                .start_time,
+                        log: "CombatEnd",
+                        fields: BTreeMap::new(),
+                    });
+                }
+                signals.sort_by_key(|signal| (signal.at_ms, signal.index));
+            }
             if matches!(
                 report.get("mode").and_then(Value::as_str),
                 Some("dungeon" | "alliance")
@@ -695,6 +727,7 @@ pub(crate) fn replay_file(
             )?;
             let mut represented: BTreeSet<_> =
                 evidence.expected.values().flatten().copied().collect();
+            represented.extend(evidence.observed_packets.values().flatten());
             // Coverage includes the whole wave; activation still uses one representative, e.g. four Explosions.
             for signal in super::alignment::signals(&source.pull) {
                 if signal

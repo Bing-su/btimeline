@@ -417,6 +417,9 @@ pub(super) fn render(report: &Value) -> Result<String> {
 }
 
 fn render_multi(report: &Value) -> Result<String> {
+    if report.get("schedule").is_some() {
+        return render_schedule(report);
+    }
     let inputs = array_field(report, "inputs")?;
     let slots = array_field(report, "slots")?;
     let conflicts = array_field(report, "syncConflicts")?;
@@ -643,6 +646,90 @@ fn render_multi(report: &Value) -> Result<String> {
             out,
             "| 제한 | {} |",
             cell(limitation.as_str().context("Missing limitation")?)
+        )?;
+    }
+    Ok(out)
+}
+
+// Separate prediction from trace retention, e.g. zero omissions alone cannot establish a useful timeline.
+fn render_schedule(report: &Value) -> Result<String> {
+    let slots = array_field(report, "slots")?;
+    let mut out = String::from("# 페이즈별 기믹 타임라인\n\n| 항목 | 값 |\n| --- | ---: |\n");
+    writeln!(out, "| 입력 | {} |", array_field(report, "inputs")?.len())?;
+    writeln!(
+        out,
+        "| 예측 기믹 행 | {} |",
+        slots
+            .iter()
+            .filter(|slot| slot["predictive"] == true)
+            .count()
+    )?;
+    writeln!(
+        out,
+        "| 숨긴 조건부 증거 행 | {} |",
+        slots
+            .iter()
+            .filter(|slot| slot["evidence"] == "conditionalReference")
+            .count()
+    )?;
+    writeln!(out, "\n## 검증\n\n| 검사 | 실행 결과 |\n| --- | --- |")?;
+    for (key, label) in [
+        ("schemaAndSemantic", "Schema · semantic"),
+        ("replay", "원본 재생"),
+        ("cactbotParser", "cactbot parser"),
+        ("runtime", "runtime"),
+    ] {
+        writeln!(
+            out,
+            "| {label} | {} |",
+            if report
+                .get("validation")
+                .and_then(|validation| validation.get(key))
+                .and_then(Value::as_bool)
+                == Some(true)
+            {
+                "통과"
+            } else {
+                "미실행"
+            }
+        )?;
+    }
+    writeln!(
+        out,
+        "\n## 기믹\n\n시각은 관측한 페이즈 첫 시전 이후입니다. 페이즈 진입은 숨긴 StartsUsing sync로 선택합니다. ID 배열은 같은 시각의 대안이며, 종속 경로 전체가 독립이라는 주장은 아닙니다.\n\n| 페이즈 | 상대 시각 (초) | 기믹 | 능력 ID | 표본 | 예측 표시 |\n| --- | ---: | --- | --- | ---: | --- |"
+    )?;
+    for slot in slots.iter().filter(|slot| slot["selector"] != true) {
+        let ids = array_field(slot, "abilityIds")?
+            .iter()
+            .map(|id| {
+                id.as_i64()
+                    .map(|id| format!("{id:X}"))
+                    .context("Missing schedule ability")
+            })
+            .process_results(|mut ids| ids.join(" / "))?;
+        writeln!(
+            out,
+            "| {} | {:.1} | {} | {} | {} | {} |",
+            slot["phase"],
+            number_field(slot, "relativeMs")? as f64 / 1000.0,
+            cell(text_field(slot, "name")?),
+            ids,
+            array_field(slot, "samples")?.len(),
+            slot["predictive"]
+        )?;
+    }
+    writeln!(
+        out,
+        "\n## 포함률\n\n| 원본 | 증거에 보존한 cast | 예측에 포함한 cast | 누락 cast |\n| --- | ---: | ---: | ---: |"
+    )?;
+    for coverage in array_field(report, "outputCoverage")? {
+        writeln!(
+            out,
+            "| {} | {} | {} | {} |",
+            cell(text_field(coverage, "file")?),
+            array_field(coverage, "representedEventIndices")?.len(),
+            array_field(coverage, "predictiveEventIndices")?.len(),
+            array_field(coverage, "omittedEventIndices")?.len()
         )?;
     }
     Ok(out)
