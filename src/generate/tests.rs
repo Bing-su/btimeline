@@ -3514,6 +3514,250 @@ fn phase_schedule_keeps_fixed_time_choices_and_recovers_merged_retries(
 }
 
 #[test]
+fn wire_signals_keeps_a_single_same_boss_effect_as_a_castbar_alias() {
+    let mut log = multi_log(
+        "single-alias",
+        &[
+            (1000, 10, 90001, "begincast"),
+            (2000, 10, 90001, "cast"),
+            (2300, 10, 90002, "cast"),
+            (9000, 10, 90001, "begincast"),
+            (10000, 10, 90001, "cast"),
+            (10300, 10, 90002, "cast"),
+        ],
+        12000,
+        true,
+    );
+    for ability in log["report"]["masterData"]["abilities"]
+        .as_array_mut()
+        .unwrap()
+    {
+        ability["name"] = json!("One mechanic");
+    }
+    with_file(&log, |file| {
+        let source = load_one(file).unwrap();
+        let actors = source
+            .log
+            .report
+            .master_data
+            .actors
+            .iter()
+            .map(|actor| (actor.id, actor.name.clone()))
+            .collect();
+        let signals = multi::wire_signals(&source.pull, &source.log, &actors).unwrap();
+        // Each cue has one damage copy; the next castbar starts another mechanic rather than a burst.
+        assert!(
+            signals
+                .values()
+                .any(|signal| signal.event_indices == [1, 2])
+        );
+        assert!(
+            signals
+                .values()
+                .any(|signal| signal.event_indices == [4, 5])
+        );
+    });
+}
+
+#[test]
+fn unphased_fixed_permutations_keep_rounds_and_accept_unseen_orders() {
+    let log = |code: &str, order: [i64; 3]| {
+        let mut rows = vec![
+            (1000, 10, 90001, "begincast"),
+            (2000, 10, 90001, "cast"),
+            (10000, 10, 90002, "begincast"),
+            (16000, 10, 90002, "cast"),
+        ];
+        for (round, id) in order.into_iter().enumerate() {
+            let at = 16300 + round as i64 * 5200;
+            rows.push((at, 10, 90100 + id, "cast"));
+            rows.push((at + 200, 11, 90200 + id, "begincast"));
+            rows.push((at + 2200, 11, 90200 + id, "cast"));
+        }
+        rows.extend([
+            (31000, 10, 90003, "begincast"),
+            (32000, 10, 90003, "cast"),
+            (32700, 11, 90301, "cast"),
+            (33700, 11, 90301, "cast"),
+            (34000, 11, 90302, "cast"),
+            (34500, 11, 90302, "cast"),
+            (35000, 11, 90302, "cast"),
+        ]);
+        let mut value = multi_log(code, &rows, 38000, true);
+        for ability in value["report"]["masterData"]["abilities"]
+            .as_array_mut()
+            .unwrap()
+        {
+            let id = ability["gameID"].as_i64().unwrap();
+            if (90201..=90203).contains(&id) {
+                ability["name"] = json!(format!("Weapon {}", id - 90200));
+            } else if ![90001, 90003, 90301, 90302].contains(&id) {
+                ability["name"] = json!("Rotating Assault");
+            }
+        }
+        value
+    };
+    let logs = [
+        log("one", [3, 2, 1]),
+        log("two", [2, 1, 3]),
+        log("three", [1, 2, 3]),
+    ];
+    with_logs(&logs, |dir| {
+        let output = dir.join("permutations.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        assert!(
+            report.get("schedule").is_some(),
+            "Stable boss cast cues must establish a schedule without phase metadata"
+        );
+        let rounds: Vec<_> = report["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|slot| {
+                slot["source"] == "Boss"
+                    && slot["castStarted"] == false
+                    && slot["name"] == "Rotating Assault"
+            })
+            .collect();
+        assert_eq!(
+            rounds.len(),
+            3,
+            "The castbar completion must remain separate from three instant hits"
+        );
+        for round in rounds {
+            assert_eq!(round["abilityIds"], json!([90101, 90102, 90103]));
+        }
+        let mut holdout = log("unseen", [1, 3, 2]);
+        // Late clock drift exceeds the pulse interval; correspondence must follow the observed cast cue.
+        for event in holdout["events"].as_array_mut().unwrap() {
+            if event["timestamp"].as_i64().unwrap() >= 32000 {
+                event["timestamp"] = json!(event["timestamp"].as_i64().unwrap() + 1200);
+            }
+        }
+        with_file(&holdout, |file| {
+            let replay_path = dir.join("unseen.replay.json");
+            replay::replay_file(&output, file, &replay_path, None).unwrap();
+            let replay: Value = serde_json::from_slice(&fs::read(replay_path).unwrap()).unwrap();
+            assert_eq!(replay["pulls"][0]["unrepresentedEventIndices"], json!([]));
+        });
+        // A variable count is not a permutation, e.g. A,A,C cannot prove that B occurs in every round.
+        let mut inconsistent = logs.clone();
+        for event in inconsistent[0]["events"].as_array_mut().unwrap() {
+            for (from, to) in [(90102, 90103), (90202, 90203)] {
+                if event["abilityGameID"] == from {
+                    event["abilityGameID"] = json!(to);
+                }
+            }
+        }
+        with_logs(&inconsistent, |other| {
+            let output = other.join("inconsistent.yaml");
+            generate(other, &output, GenerateMode::Raid).unwrap();
+            let report: Value =
+                serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                    .unwrap();
+            assert!(report.get("schedule").is_none());
+        });
+        // Helper permutations cannot prove a boss clock, e.g. conditional reactions can keep a constant count.
+        let mut helpers = logs.clone();
+        for value in &mut helpers {
+            for event in value["events"].as_array_mut().unwrap() {
+                if (90101..=90103).contains(&event["abilityGameID"].as_i64().unwrap()) {
+                    event["sourceID"] = json!(11);
+                }
+            }
+        }
+        with_logs(&helpers, |other| {
+            let output = other.join("helpers.yaml");
+            generate(other, &output, GenerateMode::Raid).unwrap();
+            let report: Value =
+                serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                    .unwrap();
+            assert!(report.get("schedule").is_none());
+        });
+        // A same-named friendly cast can steal a sync; cue stability alone must not accept that schedule.
+        let mut collision = logs.clone();
+        collision[0]["report"]["masterData"]["actors"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"id":12,"gameID":99998,"name":"Boss","type":"Player","subType":""}));
+        collision[0]["report"]["fights"][0]["friendlyPlayers"] = json!([12]);
+        let events = collision[0]["events"].as_array_mut().unwrap();
+        events.push(serde_json::to_value(cast_event(1900, 12, 90001, "begincast")).unwrap());
+        events.sort_by_key(|event| event["timestamp"].as_i64().unwrap());
+        collision[0]["collection"]["eventCount"] = json!(events.len());
+        with_logs(&collision, |other| {
+            let output = other.join("collision.yaml");
+            generate(other, &output, GenerateMode::Raid).unwrap();
+            let report: Value =
+                serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                    .unwrap();
+            assert!(report.get("schedule").is_none());
+        });
+    });
+}
+
+#[test]
+fn phase_schedule_does_not_mix_same_named_boss_and_helper_casts_under_drift() {
+    let logs: Vec<_> = [0, 900, 1200]
+        .into_iter()
+        .enumerate()
+        .map(|(i, drift)| {
+            let mut log = multi_log(
+                &format!("shared-name-{i}"),
+                &[
+                    (1000, 10, 90001, "begincast"),
+                    (2000, 10, 90001, "cast"),
+                    (10000, 10, 90004, "begincast"),
+                    (11000, 10, 90004, "cast"),
+                    (12000 + drift, 10, 90002, "begincast"),
+                    (16000 + drift, 10, 90002, "cast"),
+                    (13000 + drift, 11, 90003, "begincast"),
+                    (17000 + drift, 11, 90003, "cast"),
+                    (23000, 10, 90005, "cast"),
+                ],
+                24000,
+                true,
+            );
+            log["report"]["fights"][0]["phaseTransitions"] = json!([
+                {"id":1,"startTime":1000},{"id":2,"startTime":11000}
+            ]);
+            log["report"]["masterData"]["actors"][1]["name"] = json!("Boss");
+            for ability in log["report"]["masterData"]["abilities"]
+                .as_array_mut()
+                .unwrap()
+            {
+                if [90002, 90003].iter().any(|id| ability["gameID"] == *id) {
+                    ability["name"] = json!("Shared label");
+                }
+            }
+            log
+        })
+        .collect();
+    with_logs(&logs, |dir| {
+        let output = dir.join("roles.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        let slots: Vec<_> = report["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|slot| slot["name"] == "Shared label")
+            .collect();
+        assert_eq!(slots.len(), 2);
+        for (slot, id) in slots.iter().zip([90002, 90003]) {
+            assert_eq!(slot["abilityIds"], json!([id]));
+            assert_eq!(slot["required"], true);
+            assert_eq!(slot["samples"].as_array().unwrap().len(), 3);
+        }
+    });
+}
+
+#[test]
 fn phase_schedule_preserves_drifting_rounds_and_source_aliases_without_promoting_wipe_effects() {
     let logs: Vec<_> = [0, 700, 1100]
         .into_iter()

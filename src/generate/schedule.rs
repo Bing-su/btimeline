@@ -20,6 +20,10 @@ struct Phase {
     ability: i64,
     delay_ms: i64,
     at_ms: i64,
+    #[serde(default)]
+    inferred: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    cue_times_ms: Vec<i64>,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -44,6 +48,8 @@ struct Sample {
     time_ms: i64,
     block_entry_ms: i64,
     relative_ms: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    alignment_ms: Option<i64>,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -52,6 +58,8 @@ struct Slot {
     id: usize,
     phase: i64,
     source: String,
+    #[serde(default)]
+    role: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     source_aliases: Vec<String>,
     name: String,
@@ -73,6 +81,22 @@ struct Slot {
 }
 
 impl Slot {
+    fn alignment_ms(&self) -> Result<i64> {
+        let at = |sample: &Sample| sample.alignment_ms.unwrap_or(sample.relative_ms);
+        // A compacted burst retains its onset clock, e.g. x5 must not align to its middle hit.
+        let times = if self.burst_offsets_ms.is_empty() {
+            self.samples.iter().map(at).collect()
+        } else {
+            self.samples
+                .iter()
+                .into_group_map_by(|sample| (&sample.file, sample.segment))
+                .into_values()
+                .filter_map(|samples| samples.into_iter().map(at).min())
+                .collect()
+        };
+        Ok(statistics(times)?.median_ms.round() as i64)
+    }
+
     fn sources(&self) -> impl Iterator<Item = &String> {
         std::iter::once(&self.source).chain(&self.source_aliases)
     }
@@ -91,6 +115,32 @@ fn actor_names(log: &CollectedLog) -> BTreeMap<i64, String> {
         .collect()
 }
 
+fn boss_slot(slot: &Slot, inputs: &[Input]) -> bool {
+    slot.samples.iter().any(|sample| {
+        inputs
+            .iter()
+            .find(|input| input.pull.file == sample.file)
+            .is_some_and(|input| {
+                input.pull.occurrences.iter().any(|row| {
+                    sample.event_indices.contains(&row.event_index) && row.role.ends_with("/Boss")
+                })
+            })
+    })
+}
+
+fn cue_clock(cues: &[i64], phase: &Phase, span: &Segment, at: i64) -> i64 {
+    if phase.inferred
+        && let Some((position, &observed)) =
+            cues.iter().enumerate().rev().find(|(position, observed)| {
+                **observed <= at && *position < phase.cue_times_ms.len()
+            })
+        && let Some(&expected) = phase.cue_times_ms.get(position)
+    {
+        return at - observed + expected;
+    }
+    at - span.origin_ms
+}
+
 // Recover resets from a new instance of the phase's opening cast, e.g. a merged FFLogs P2 contains another P1.
 fn segments(pull: &Pull, log: &CollectedLog, phases: &[Phase]) -> Result<Vec<Segment>> {
     let actors = actor_names(log);
@@ -105,6 +155,12 @@ fn segments(pull: &Pull, log: &CollectedLog, phases: &[Phase]) -> Result<Vec<Seg
         .iter()
         .map(|&(id, lo, _)| (lo, id))
         .collect();
+    if let [phase] = phases
+        && phase.inferred
+    {
+        // A stable unphased fight has one clock, e.g. permuted attack IDs do not create phase boundaries.
+        boundaries = BTreeMap::from([(0, phase.id)]);
+    }
     for phase in phases {
         let mut instances = BTreeSet::new();
         for row in pull
@@ -193,6 +249,7 @@ fn sample(input: &Input, segment: usize, origin: i64, signal: &Signal) -> Sample
         time_ms: signal.time_ms,
         block_entry_ms: origin,
         relative_ms: signal.time_ms - origin,
+        alignment_ms: None,
     }
 }
 
@@ -462,30 +519,183 @@ fn compact_bursts(slots: Vec<Slot>, entries: Vec<Entry>) -> Result<(Vec<Slot>, V
     Ok((compact_slots, compact_entries))
 }
 
+// Require independent, matching cast-cue prefixes before inferring a clock without FFLogs phases.
+fn stable_cast_cues(inputs: &[Input]) -> bool {
+    if inputs
+        .iter()
+        .map(|input| &input.pull.report)
+        .unique()
+        .count()
+        < 3
+    {
+        return false;
+    }
+    let cues: Vec<Vec<_>> = inputs
+        .iter()
+        .map(|input| {
+            input
+                .pull
+                .occurrences
+                .iter()
+                .filter(|row| row.kind == "begincast" && row.role.ends_with("/Boss"))
+                .sorted_by_key(|row| (row.relative_ms, row.event_index))
+                .collect()
+        })
+        .collect();
+    let Some(reference) = cues.iter().max_by_key(|rows| rows.len()) else {
+        return false;
+    };
+    let Some(first) = reference.first() else {
+        return false;
+    };
+    inputs.iter().zip(&cues).all(|(input, rows)| {
+        let Some(opening) = rows.first() else {
+            return false;
+        };
+        rows.len() >= 3
+            && opening.ability_id == first.ability_id
+            && rows
+                .iter()
+                .all(|row| row.actor_game_id == first.actor_game_id)
+            && rows.iter().filter_map(|row| row.instance).unique().count() <= 1
+            && !input
+                .log
+                .events
+                .iter()
+                .any(|event| event.kind == "zonechange")
+            && rows.iter().zip(reference.iter()).all(|(row, expected)| {
+                (row.relative_ms - opening.relative_ms)
+                    .abs_diff(expected.relative_ms - first.relative_ms)
+                    <= 2500
+            })
+            && rows.len()
+                >= reference
+                    .iter()
+                    .take_while(|expected| {
+                        expected.relative_ms - first.relative_ms + opening.relative_ms
+                            <= input.pull.end_ms - 2500
+                    })
+                    .count()
+    })
+}
+
+// A constant multiset proves a permutation family; require boss evidence before inferring its clock.
+#[expect(
+    clippy::indexing_slicing,
+    reason = "Family indices originate from this slice and slot fields change without resizing it"
+)]
+fn generalize_permutations(slots: &mut [Slot], inputs: &[Input]) -> bool {
+    let mut pending: BTreeSet<_> = slots
+        .iter()
+        .enumerate()
+        .filter(|(_, slot)| slot.required && !slot.selector)
+        .map(|(index, _)| index)
+        .collect();
+    let mut boss_permutation = false;
+    while let Some(first) = pending.pop_first() {
+        let mut family = BTreeSet::from([first]);
+        let mut ids: BTreeSet<_> = slots[first].ability_ids.iter().copied().collect();
+        loop {
+            let peers: Vec<_> = pending
+                .iter()
+                .copied()
+                .filter(|&index| {
+                    slots[index].phase == slots[first].phase
+                        && slots[index].source == slots[first].source
+                        && slots[index].source_aliases == slots[first].source_aliases
+                        && slots[index].role == slots[first].role
+                        && slots[index].cast_started == slots[first].cast_started
+                        && slots[index].ability_ids.iter().any(|id| ids.contains(id))
+                })
+                .collect();
+            if peers.is_empty() {
+                break;
+            }
+            for index in peers {
+                pending.remove(&index);
+                family.insert(index);
+                ids.extend(slots[index].ability_ids.iter().copied());
+            }
+        }
+        if ids.len() < 2
+            || family.len() < 2
+            || !family
+                .iter()
+                .any(|&index| slots[index].ability_ids.len() > 1)
+        {
+            continue;
+        }
+        let counts: Vec<BTreeMap<_, usize>> = inputs
+            .iter()
+            .map(|input| {
+                let mut counts = BTreeMap::new();
+                for sample in family
+                    .iter()
+                    .flat_map(|&index| &slots[index].samples)
+                    .filter(|sample| sample.file == input.pull.file)
+                {
+                    *counts.entry(sample.ability_id).or_default() += 1;
+                }
+                counts
+            })
+            .collect();
+        if counts.iter().any(|counts| counts.is_empty())
+            || counts.windows(2).any(|pair| pair[0] != pair[1])
+        {
+            continue;
+        }
+        let name = inputs
+            .iter()
+            .flat_map(|input| &input.log.report.master_data.abilities)
+            .filter(|ability| ids.contains(&ability.game_id))
+            .map(|ability| ability.name.clone())
+            .sorted()
+            .dedup()
+            .join(" / ");
+        boss_permutation |= family.iter().any(|&index| boss_slot(&slots[index], inputs));
+        for index in family {
+            slots[index].ability_ids = ids.iter().copied().collect();
+            slots[index].name = name.clone();
+            slots[index].evidence = "fixedTimePermutation".into();
+        }
+    }
+    boss_permutation
+}
+
 pub(super) fn build(
     key: &GroupKey,
     inputs: &[Input],
     lookahead: f64,
 ) -> Result<Option<(String, Value)>> {
-    if inputs.iter().any(|input| input.pull.phase_spans.is_empty()) {
+    let inferred =
+        inputs.iter().all(|input| input.pull.phase_spans.is_empty()) && stable_cast_cues(inputs);
+    if !inferred && inputs.iter().any(|input| input.pull.phase_spans.is_empty()) {
         return Ok(None);
     }
-    let ids: Vec<_> = inputs
+    let spans: Vec<_> = inputs
         .iter()
-        .max_by_key(|input| input.pull.phase_spans.len())
+        .map(|input| {
+            if inferred {
+                vec![(0, 0, input.pull.end_ms)]
+            } else {
+                input.pull.phase_spans.clone()
+            }
+        })
+        .collect();
+    let ids: Vec<_> = spans
+        .iter()
+        .max_by_key(|spans| spans.len())
         .into_iter()
-        .flat_map(|input| &input.pull.phase_spans)
+        .flatten()
         .map(|&(id, _, _)| id)
         .unique()
         .collect();
-    if ids.len() < 2 {
+    if ids.len() < 2 && !inferred {
         return Ok(None);
     }
     // A fixed schedule requires one observed phase order, e.g. an alternate phase graph keeps the path compiler.
-    for input in inputs {
-        let positions: Option<Vec<_>> = input
-            .pull
-            .phase_spans
+    for spans in &spans {
+        let positions: Option<Vec<_>> = spans
             .iter()
             .map(|&(id, _, _)| ids.iter().position(|phase| *phase == id))
             .collect();
@@ -500,13 +710,8 @@ pub(super) fn build(
     let mut phases = Vec::new();
     for id in ids {
         let mut openings: BTreeMap<(String, i64), Vec<i64>> = BTreeMap::new();
-        for input in inputs {
-            for &(_, lo, hi) in input
-                .pull
-                .phase_spans
-                .iter()
-                .filter(|&&(phase, _, _)| phase == id)
-            {
+        for (input, spans) in inputs.iter().zip(&spans) {
+            for &(_, lo, hi) in spans.iter().filter(|&&(phase, _, _)| phase == id) {
                 if let Some(row) = input
                     .pull
                     .occurrences
@@ -551,6 +756,8 @@ pub(super) fn build(
             ability,
             delay_ms,
             at_ms,
+            inferred,
+            cue_times_ms: Vec::new(),
         });
     }
     // A shared opening cannot identify two phases, e.g. a repeated raidwide alone needs the legacy path model.
@@ -594,6 +801,28 @@ pub(super) fn build(
         ensure!(next <= i64::MAX / 4, "Schedule exceeds replay clock range");
     }
     let mut observations = Vec::new();
+    let cue_times: Vec<Vec<_>> = inputs
+        .iter()
+        .map(|input| {
+            input
+                .pull
+                .occurrences
+                .iter()
+                .filter(|row| row.kind == "begincast" && row.role.ends_with("/Boss"))
+                .map(|row| row.relative_ms)
+                .sorted()
+                .collect()
+        })
+        .collect();
+    let cue_reference = cue_times.iter().max_by_key(|cues| cues.len());
+    if inferred {
+        let reference = cue_reference.context("Missing inferred clock")?;
+        let opening = reference.first().context("Missing inferred opening")?;
+        phases
+            .first_mut()
+            .context("Missing inferred phase")?
+            .cue_times_ms = reference.iter().map(|at| at - opening).collect();
+    }
     for (i, input) in inputs.iter().enumerate() {
         for (segment, span) in spans
             .get(i)
@@ -630,39 +859,56 @@ pub(super) fn build(
                     .context("Missing schedule ability")?
                     .name
                     .clone();
+                let mut observed = sample(input, segment, span.origin_ms, signal);
+                if inferred {
+                    // Match rounds on the preceding cast cue while retaining actual times for rendering and replay.
+                    let cues = cue_times.get(i).context("Missing inferred cast cues")?;
+                    let phase = phases
+                        .iter()
+                        .find(|phase| phase.id == span.phase)
+                        .context("Missing inferred phase")?;
+                    observed.alignment_ms = Some(cue_clock(cues, phase, span, signal.time_ms));
+                }
                 observations.push((
                     span.phase,
                     source,
                     name,
+                    signal.key.role.clone(),
                     signal.event_indices.iter().any(|index| {
                         input.pull.occurrences.iter().any(|row| {
                             row.event_index == *index && row.start_timestamp_ms.is_some()
                         })
                     }),
-                    sample(input, segment, span.origin_ms, signal),
+                    observed,
                 ));
             }
         }
     }
-    observations.sort_by_key(|(phase, source, name, started, sample)| {
+    observations.sort_by_key(|(phase, source, name, role, started, sample)| {
         (
             *phase,
             source.clone(),
             name.clone(),
+            role.clone(),
             *started,
-            sample.relative_ms,
+            sample.alignment_ms.unwrap_or(sample.relative_ms),
             sample.file.clone(),
             sample.segment,
         )
     });
     let mut slots: Vec<Slot> = Vec::new();
-    for (phase, source, name, started, sample) in observations {
+    for (phase, source, name, role, started, sample) in observations {
         let found = slots.iter_mut().rev().find(|slot| {
             slot.phase == phase
                 && slot.source == source
                 && slot.name == name
+                && slot.role == role
                 && slot.cast_started == started
-                && sample.relative_ms.abs_diff(slot.relative_ms) <= 750
+                && sample
+                    .alignment_ms
+                    .unwrap_or(sample.relative_ms)
+                    .abs_diff(slot.relative_ms)
+                    <= 750
                 && slot.samples.iter().all(|other| {
                     other.file != sample.file
                         || other.segment != sample.segment
@@ -676,10 +922,11 @@ pub(super) fn build(
                 id: 0,
                 phase,
                 source,
+                role,
                 source_aliases: Vec::new(),
                 name,
                 at_ms: 0,
-                relative_ms: sample.relative_ms,
+                relative_ms: sample.alignment_ms.unwrap_or(sample.relative_ms),
                 ability_ids: Vec::new(),
                 samples: vec![sample],
                 evidence: "phaseSchedule".into(),
@@ -718,11 +965,15 @@ pub(super) fn build(
             if !same_source && !shared_id {
                 continue;
             }
+            // Same-named boss castbars and helper hits can overlap after drift; shared IDs prove aliases.
+            if a.role != b.role && !shared_id {
+                continue;
+            }
             let mut times = a
                 .samples
                 .iter()
                 .chain(&b.samples)
-                .map(|sample| sample.relative_ms);
+                .map(|sample| sample.alignment_ms.unwrap_or(sample.relative_ms));
             let first = times.next().context("Empty mechanic round")?;
             let (lo, hi) = times.fold((first, first), |(lo, hi), at| (lo.min(at), hi.max(at)));
             if hi.abs_diff(lo) > 1500
@@ -768,8 +1019,9 @@ pub(super) fn build(
                 && !b.samples.is_empty()
                 && a.phase == b.phase
                 && a.source == b.source
+                && a.role == b.role
                 && a.cast_started == b.cast_started
-                && a.relative_ms.abs_diff(b.relative_ms) <= 250
+                && a.alignment_ms()?.abs_diff(b.alignment_ms()?) <= 250
                 && !a.samples.iter().any(|a| {
                     b.samples
                         .iter()
@@ -861,6 +1113,21 @@ pub(super) fn build(
     // A conditional reaction is evidence rather than a forecast, e.g. a missed tower must not become a timeline bar.
     let (mut slots, excluded): (Vec<_>, Vec<_>) =
         slots.into_iter().partition(|slot| slot.predictive);
+    if inferred {
+        let common_end = spans
+            .iter()
+            .flatten()
+            .map(|span| span.end_ms - span.origin_ms)
+            .min()
+            .unwrap_or(0);
+        // Keep genuinely variable boss paths in the path compiler; only a censored suffix may lack support.
+        if excluded.iter().any(|slot| {
+            slot.cast_started && slot.relative_ms <= common_end && boss_slot(slot, inputs)
+        }) || !generalize_permutations(&mut slots, inputs)
+        {
+            return Ok(None);
+        }
+    }
     for phase in &phases {
         let samples: Vec<_> = inputs
             .iter()
@@ -878,6 +1145,7 @@ pub(super) fn build(
                         time_ms: span.origin_ms,
                         block_entry_ms: span.origin_ms,
                         relative_ms: 0,
+                        alignment_ms: None,
                     })
                 })
             })
@@ -886,6 +1154,7 @@ pub(super) fn build(
             id: 0,
             phase: phase.id,
             source: phase.source.clone(),
+            role: "NPC/Boss".into(),
             source_aliases: Vec::new(),
             name: "--sync--".into(),
             at_ms: phase.at_ms,
@@ -1048,6 +1317,17 @@ pub(super) fn build(
         "repeats":{"accepted":false,"reason":"Phase schedules retain finite rounds."},
         "limitations":["Conditional or insufficiently supported effects are excluded; evidence remains in excludedSignals.","Phase transitions require observed boss cast starts; ACT reset capture remains unverified."],
         "validation":{"schemaAndSemantic":true,"replay":false,"cactbotParser":false,"runtime":false}});
+    if inferred {
+        for input in inputs {
+            let evidence = evidence(&yaml, &report, &input.pull, &input.log)?;
+            let signals = super::replay::signals(&input.log)?;
+            // Cue agreement is only a candidate, e.g. a helper collision must keep the existing path compiler.
+            if !crate::timeline::replay::run(&yaml, &signals, input.pull.end_ms, &evidence)?.passed
+            {
+                return Ok(None);
+            }
+        }
+    }
     Ok(Some((yaml, report)))
 }
 
@@ -1106,6 +1386,29 @@ pub(super) fn evidence(
     )?;
     let spans = segments(pull, log, &phases)?;
     let slots: Vec<Slot> = serde_json::from_value(report["slots"].clone())?;
+    let cue_times: Vec<_> = pull
+        .occurrences
+        .iter()
+        .filter(|row| row.kind == "begincast" && row.role.ends_with("/Boss"))
+        .map(|row| row.relative_ms)
+        .sorted()
+        .collect();
+    let aligned_slots: BTreeMap<_, _> = slots
+        .iter()
+        .map(|slot| {
+            let inferred = phases
+                .iter()
+                .any(|phase| phase.id == slot.phase && phase.inferred);
+            Ok((
+                slot.id,
+                if inferred {
+                    slot.alignment_ms()?
+                } else {
+                    slot.relative_ms
+                },
+            ))
+        })
+        .collect::<Result<_>>()?;
     let timeline: crate::timeline::Timeline = serde_saphyr::from_str(yaml)?;
     let entries: Vec<_> = timeline
         .entries
@@ -1131,12 +1434,20 @@ pub(super) fn evidence(
             .filter(|sample| super::replay::same_file(&sample.file, &pull.file))
             .collect();
         for span in spans.iter().filter(|span| span.phase == slot.phase) {
+            let phase = phases
+                .iter()
+                .find(|phase| phase.id == span.phase)
+                .context("Missing replay phase")?;
+            let slot_ms = *aligned_slots
+                .get(&slot.id)
+                .context("Missing aligned slot")?;
             if slot.selector {
                 expected.extend(span.opening);
                 continue;
             }
             for (index, raw) in log.events.iter().enumerate() {
                 let at = raw.timestamp - start;
+                let aligned_ms = cue_clock(&cue_times, phase, span, at);
                 if raw.kind == "cast"
                     && span.start_ms <= at
                     && at <= span.end_ms
@@ -1144,10 +1455,11 @@ pub(super) fn evidence(
                     && raw
                         .ability_game_id
                         .is_some_and(|id| slot.ability_ids.contains(&id))
-                    && ((at - span.origin_ms).abs_diff(slot.relative_ms) < 2500
-                        || slot.burst_offsets_ms.iter().any(|offset| {
-                            (at - span.origin_ms).abs_diff(slot.relative_ms + offset) < 2500
-                        }))
+                    && (aligned_ms.abs_diff(slot_ms) < 2500
+                        || slot
+                            .burst_offsets_ms
+                            .iter()
+                            .any(|offset| aligned_ms.abs_diff(slot_ms + offset) < 2500))
                 {
                     // The closest same-ID row owns the event, e.g. adjacent two-second tankbuster ticks stay distinct.
                     let nearest = slots
@@ -1166,7 +1478,13 @@ pub(super) fn evidence(
                                 std::iter::once(0)
                                     .chain(other.burst_offsets_ms.iter().copied())
                                     .map(|offset| {
-                                        (at - span.origin_ms).abs_diff(other.relative_ms + offset)
+                                        aligned_ms.abs_diff(
+                                            aligned_slots
+                                                .get(&other.id)
+                                                .copied()
+                                                .unwrap_or(other.relative_ms)
+                                                + offset,
+                                        )
                                     })
                                     .min()
                                     .unwrap_or(u64::MAX),

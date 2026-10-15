@@ -166,11 +166,15 @@ btimeline prepare logs/r12s --encounter 105 --convert -o out/r12s-p2.yaml
 
 Raid inputs with a consistent phase order and distinct observed boss opening casts use phase schedules before branch mining. Mechanics align by phase, source, name, and elapsed time from the opening cast. This prevents repeated IDs and helper packet order from shifting a mechanic into another round. Inputs without those anchors continue through the existing path compiler.
 
+Without FFLogs phase metadata, a schedule requires matching boss cast-cue prefixes from at least three independent reports and a demonstrated boss permutation. Each permutation preserves the observed count of every ability across inputs, for example `A/B/C` and `B/C/A`. The generator aligns rounds against the preceding boss cast cue, retains actual timestamps for rendering, and accepts the inferred schedule only when every training input replays successfully. Helper-only permutations keep the path compiler.
+
 | Evidence                                                         | Generated behavior                                                                     |
 | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | Same mechanic, fixed time, different IDs                         | One mechanic row with an ID array                                                      |
 | Same round split by timing drift                                 | Reconcile samples within a 1.5-second span before measuring occurrence frequency       |
 | Same mechanic and observed ID attributed to different sources    | One mechanic row with observed source aliases                                          |
+| Same display name shared by a boss castbar and a helper attack   | Separate mechanics unless a shared ability ID proves an alias                          |
+| Proven permutation with an unseen order of known IDs             | Keep finite rounds with explicit ID arrays; retain each round's raw samples            |
 | Mutually exclusive effects at the same time                      | One displayed alternative, such as `Future's End / Past's End`                         |
 | Frequent completion observed in at least 80% of reached segments | Predictive row; occurrence is mandatory only if invariant                              |
 | Conditional or unstable completion                               | Exclude from the timeline; retain raw evidence in `excludedSignals`                    |

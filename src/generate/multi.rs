@@ -598,7 +598,34 @@ pub(super) fn wire_signals(
                                     && (251..=2500)
                                         .contains(&row.relative_ms.abs_diff(orphan.time_ms))
                             });
+                            let next_start = pull
+                                .occurrences
+                                .iter()
+                                .filter(|row| {
+                                    row.kind == "begincast"
+                                        && row.actor_game_id == orphan.key.actor_game_id
+                                        && row.role == orphan.key.role
+                                        && row.relative_ms > orphan.time_ms
+                                })
+                                .map(|row| row.relative_ms)
+                                .min()
+                                .unwrap_or(pull.end_ms);
+                            // Separate a boss's multi-hit sequence, e.g. three Assault Evolved weapons after one castbar.
+                            let boss_sequence = orphan.key.role.ends_with("/Boss")
+                                && pull.occurrences.iter().any(|row| {
+                                    row.kind == "cast"
+                                        && row.start_timestamp_ms.is_none()
+                                        && row.actor_game_id == orphan.key.actor_game_id
+                                        && row.role == orphan.key.role
+                                        && row.relative_ms > orphan.time_ms + 750
+                                        && row.relative_ms < next_start
+                                        && log.report.master_data.abilities.iter().any(|ability| {
+                                            ability.game_id == row.ability_id
+                                                && ability.name == name
+                                        })
+                                });
                             !repeated_effect
+                                && !boss_sequence
                                 && signal.time_ms.abs_diff(other.time_ms) <= 750
                                 && !pull.occurrences.iter().any(|row| {
                                     row.kind == "begincast"
