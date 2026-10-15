@@ -21,6 +21,46 @@ btimeline prepare logs/example --name "Example Fight" --encounter 105 --difficul
 
 Use a new output name for each run; existing outputs are not overwritten. With `--convert`, the YAML output must differ from the sibling `.txt` path, and existing text is checked before generation. Keep outputs outside the input log directory. An empty draft cannot pass replay; a failure returns an error and retains the draft and available diagnostic reports for inspection. Successful input replay checks the logs used to generate the draft; it does not establish holdout or cactbot runtime compatibility. The separate `convert` command remains available for edited drafts.
 
+## Timeline quality
+
+Generation prefers a normal, repeatable fight over a transcription of every supplied log. Inputs are validated before selection; source files are never changed.
+
+| Available evidence | Generation inputs |
+| --- | --- |
+| At least three clears | Use clears; exclude wipe logs from inference |
+| At least three uninterrupted clears | Also exclude successful logs containing earlier boss attempts |
+| Fewer than three clears, but three substantial progression pulls | Exclude wipes with fewer than one quarter of the longest boss-start trace |
+| Insufficient evidence for selection | Retain the available pulls |
+
+Excluded files still receive diagnostic replay. `inputSelection` records paths, reasons, and hashes. `replay.validation.replay` checks inputs that were not excluded, while `allInputsPassed` includes diagnostics. New holdout files always gate replay; exclusion applies only to the exact recorded file and hash. Clear-based generation does not promise wipe-only enrage paths.
+
+| Event evidence | Output |
+| --- | --- |
+| Supported, predictable mechanic or observed branch | Timeline row |
+| Conditional completion below schedule support, or an unstarted conditional helper | `excludedSignals` evidence; no timeline row |
+| Regular cast cues delimit overlapping waves of identical mandatory hits | Separate castbar and hidden timing cues from `xN` damage rows; duration measures first to last hit |
+| At least three consecutive identical, mandatory phase-schedule hits within 2.5 seconds, all already unsynced | One `xN` row with a duration; all raw packets remain represented |
+| Different mechanic between hits, different IDs, optional hits, or independent sync | Keep separate rows |
+
+`outputCoverage` distinguishes represented, intentionally excluded, and accidentally omitted event indices. An exclusion is not prediction coverage. See [the cactbot comparison and limits](agent/timeline-quality.md).
+
+## Raid checkpoints
+
+Raid directories with separate checkpoint encounters, such as R12S P1 and P2, generate one timeline by default. Each encounter keeps its own inference inputs and clock; its opening cast selects the correct range, including direct entry after a checkpoint wipe.
+
+```sh
+btimeline prepare logs/r12s --convert -o out/r12s.yaml
+btimeline prepare logs/r12s --encounter 105 --convert -o out/r12s-p2.yaml
+```
+
+| Required evidence | Purpose |
+| --- | --- |
+| Shared game zone, difficulty and boss identity | Reject unrelated fights |
+| Consistent encounter order within shared reports | Establish segment order without guessing from encounter numbers |
+| Stable opening cast unique to each encounter | Select the segment during a continuous run or direct checkpoint entry |
+
+`segments` records each local draft, its report, clock offset and entry mapping. Clocks occupy separate 1000-second ranges; this does not estimate the real intermission duration. Unsupported combinations retain the explicit `--encounter` selection error.
+
 ## Phase schedules
 
 Raid inputs with a consistent phase order and distinct observed boss opening casts use phase schedules before branch mining. Mechanics align by phase, source, name, and elapsed time from the opening cast. This prevents repeated IDs and helper packet order from shifting a mechanic into another round. Inputs without those anchors continue through the existing path compiler.
@@ -32,12 +72,12 @@ Raid inputs with a consistent phase order and distinct observed boss opening cas
 | Same mechanic and observed ID attributed to different sources    | One mechanic row with observed source aliases                                          |
 | Mutually exclusive effects at the same time                      | One displayed alternative, such as `Future's End / Past's End`                         |
 | Frequent completion observed in at least 80% of reached segments | Predictive row; occurrence is mandatory only if invariant                              |
-| Conditional or unstable completion                               | Hidden `--reference--` row with raw evidence retained                                  |
+| Conditional or unstable completion                               | Exclude from the timeline; retain raw evidence in `excludedSignals`                     |
 | Multiple target/helper packets                                   | All packets retained; one packet owns the internal clock correction                    |
 | Nearby mechanics whose packet order varies                       | Keep both forecasts and let the later row own the clock correction                     |
 | New instance of a phase opening cast inside an FFLogs phase      | Restore the repeated phase segment; recorded arena reload stops replay before re-entry |
 
-`outputCoverage.predictiveEventIndices` measures prediction coverage separately from `representedEventIndices`. Conditional reference retention alone does not establish a useful forecast. See [the algorithm and Dancing Mad comparison](agent/phase-schedules.md).
+`outputCoverage.predictiveEventIndices` measures prediction coverage separately from `representedEventIndices`. Schedule support requires observations in at least two input files; repeated attempts in one file cannot supply that support alone.
 
 After `prepare --convert`, measure predictions in the actual cactbot engine using an existing cactbot checkout with its dependencies installed:
 
@@ -105,7 +145,7 @@ Example: `btimeline generate logs/example --mode alliance -o draft.yaml`. Hand-w
 | Early boss kills                | Retain observed suffixes from longer clears; shorter clears provide prefix samples and censor the remaining completions                        |
 | Nested choices                  | Recover observed dependent paths within a boss, e.g. Chort's consecutive Mortifying Flesh directions                                           |
 | Repeated helper waves           | Retain raw packet/instance evidence and separate overlapping sync windows, e.g. two-second Surface Missile waves                               |
-| Conditional instant helpers     | Helpers seen conditionally without any cast start remain visible with sync disabled, e.g. Launch; they do not select a branch                  |
+| Conditional instant helpers     | Exclude helpers without stable cast starts, e.g. Launch, and retain their packet evidence in `excludedSignals`                                  |
 | Arena opens (`sealType: 3`)     | Model the consumer stopping on combat exit before the next attempt                                                                             |
 
 Unresolved paths remain reported. For example, `btimeline prepare logs/clyteum --mode dungeon --convert -o out/clyteum.yaml` recovers observed boss mechanics and branches. Check `outputCoverage` for omitted raw casts as well as replay results; passing replay alone does not establish complete coverage or cactbot runtime compatibility.
