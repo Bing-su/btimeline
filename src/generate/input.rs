@@ -349,12 +349,17 @@ pub fn inspect(paths: &[impl AsRef<Path>]) -> Result<Vec<Group>> {
         // Compare normalized actor identities below; P4/P5 retain any observed sequence differences.
         let peers = groups.entry(key).or_default();
         for peer in peers.iter() {
-            for actor in pull.actors.values() {
+            for (id, actor) in &pull.actors {
+                // Virtual IDs are report-local, e.g. 2000036 can mean unrelated boss and helper actors.
+                if pull.virtual_actors.contains_key(id) {
+                    continue;
+                }
                 ensure!(
-                    !peer
-                        .actors
-                        .values()
-                        .any(|old| old.0 == actor.0 && old.1 != actor.1),
+                    !peer.actors.iter().any(|(old_id, old)| !peer
+                        .virtual_actors
+                        .contains_key(old_id)
+                        && old.0 == actor.0
+                        && old.1 != actor.1),
                     "Actor role conflict for game ID {}",
                     actor.0
                 );

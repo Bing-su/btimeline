@@ -204,18 +204,55 @@ fn unbounded_holdout_cannot_hide_a_changed_loop(#[case] scenario: &str) {
             assert!(
                 replay::replay_file(&output, &path, dir.join("changed.replay.json"), None).is_err()
             );
-            if scenario == "opening" {
-                let result: Value =
-                    serde_json::from_slice(&fs::read(dir.join("changed.replay.json")).unwrap())
-                        .unwrap();
-                assert!(
-                    result["pulls"][0]["replay"]["summary"]["missing"]
-                        .as_u64()
-                        .unwrap()
-                        > 0
-                );
-                assert_eq!(result["validation"]["allInputsPassed"], false);
-            }
+            let result: Value =
+                serde_json::from_slice(&fs::read(dir.join("changed.replay.json")).unwrap())
+                    .unwrap();
+            assert!(
+                result["pulls"][0]["replay"]["summary"]["missing"]
+                    .as_u64()
+                    .unwrap()
+                    > 0
+            );
+            assert_eq!(result["validation"]["allInputsPassed"], false);
+        },
+    );
+}
+
+#[test]
+fn unbounded_excluded_wipe_keeps_failed_sequence_diagnostic() {
+    let mut wipe = unbounded_log("excluded", 3, 1);
+    wipe["report"]["fights"][0]["kill"] = json!(false);
+    wipe["events"][8]["abilityGameID"] = json!(91000);
+    with_logs(
+        &[
+            unbounded_log("a", 3, 1),
+            unbounded_log("b", 3, 1),
+            unbounded_log("c", 3, 1),
+            wipe,
+        ],
+        |dir| {
+            let output = dir.join("loop.yaml");
+            prepare(dir, &output, &[]).unwrap();
+            let result: Value =
+                serde_json::from_slice(&fs::read(output.with_extension("replay.json")).unwrap())
+                    .unwrap();
+            assert_eq!(result["validation"]["replay"], true);
+            assert_eq!(result["validation"]["allInputsPassed"], false);
+            let excluded = result["pulls"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|pull| pull["report"] == "excluded")
+                .unwrap();
+            // Changed wipe mechanics must fail visibly, e.g. they cannot abort the selected-clear result.
+            assert_eq!(excluded["excludedFromGeneration"], true);
+            assert_eq!(excluded["replay"]["passed"], false);
+            assert!(
+                !excluded["unrepresentedEventIndices"]
+                    .as_array()
+                    .unwrap()
+                    .is_empty()
+            );
         },
     );
 }
@@ -4083,6 +4120,55 @@ fn phase_schedule_does_not_mix_same_named_boss_and_helper_casts_under_drift() {
 }
 
 #[test]
+fn phase_schedule_reuses_proven_source_aliases_across_rounds() {
+    let make = |code: &str, source| {
+        let rows = [
+            (1000, 10, 90001, "begincast"),
+            (2000, 10, 90001, "cast"),
+            (5000, 11, 90002, "cast"),
+            (10000, 10, 90003, "begincast"),
+            (11000, 10, 90003, "cast"),
+            (15000, source, 90002, "cast"),
+            (20000, 12, 90002, "cast"),
+            (25000, 11, 90004, "cast"),
+        ];
+        let mut log = multi_log(code, &rows, 30000, true);
+        log["report"]["masterData"]["actors"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"id":12,"name":"Copy","gameID":99903,"type":"NPC","subType":"NPC"}));
+        log["report"]["fights"][0]["enemyNPCs"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"id":12,"gameID":99903}));
+        log["report"]["fights"][0]["phaseTransitions"] =
+            json!([{"id":1,"startTime":1000},{"id":2,"startTime":11000}]);
+        log
+    };
+    with_logs(&[make("a", 11), make("b", 12), make("c", 12)], |dir| {
+        let output = dir.join("aliases.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let mut holdout = make("holdout", 11);
+        // Only a proven same-phase, same-ID alias transfers, e.g. Copy can replace Helper at 20s.
+        holdout["events"][6]["sourceID"] = json!(11);
+        let path = dir.join("holdout.json");
+        fs::write(&path, serde_json::to_vec(&holdout).unwrap()).unwrap();
+        replay::replay_file(&output, &path, dir.join("holdout.replay.json"), None).unwrap();
+        let replay: Value =
+            serde_json::from_slice(&fs::read(dir.join("holdout.replay.json")).unwrap()).unwrap();
+        assert_eq!(replay["pulls"][0]["unrepresentedEventIndices"], json!([]));
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        for slot in report["slots"].as_array().unwrap() {
+            if slot["phase"] == 1 || slot["abilityIds"] == json!([90004]) {
+                assert!(slot.get("sourceAliases").is_none());
+            }
+        }
+    });
+}
+
+#[test]
 fn phase_schedule_preserves_drifting_rounds_and_source_aliases_without_promoting_wipe_effects() {
     let logs: Vec<_> = [0, 700, 1100]
         .into_iter()
@@ -5077,6 +5163,62 @@ fn single_draft_replay_keeps_distinct_alias_rows() {
 #[rstest]
 #[case::with_metadata(true)]
 #[case::without_metadata(false)]
+fn raid_final_same_wave_choice_retains_unresolved_casts(#[case] metadata: bool) {
+    let logs: Vec<_> = [90002, 90003]
+        .into_iter()
+        .enumerate()
+        .map(|(i, choice)| {
+            let mut log = multi_log(
+                &format!("wave-{i}"),
+                &[
+                    (1000, 10, 90001, "cast"),
+                    (4000, 10, choice, "begincast"),
+                    (5000, 10, choice, "cast"),
+                    (5050, 10, choice + 10, "cast"),
+                    (5100, 10, 90004, "cast"),
+                ],
+                6000,
+                true,
+            );
+            if metadata {
+                log["report"]["fights"][0]["phaseTransitions"] = json!([{"id":1,"startTime":1000}]);
+            }
+            log
+        })
+        .collect();
+    with_logs(&logs, |dir| {
+        let output = dir.join("wave.yaml");
+        prepare(dir, &output, &[]).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+        // Same-wave dispatch is unproven, e.g. A/X/C and B/Y/C have no later safe merge.
+        let events = draft_events(&fs::read_to_string(&output).unwrap());
+        for choice in [90002, 90003, 90012, 90013] {
+            let slot = report["slots"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|slot| slot["abilityIds"] == json!([choice]))
+                .unwrap();
+            assert_eq!(slot["evidence"], "unresolvedPath");
+            assert_eq!(
+                events
+                    .iter()
+                    .find(|event| event["name"] == format!("Ability {choice}"))
+                    .unwrap()["sync"]["enabled"],
+                false
+            );
+        }
+    });
+}
+
+#[rstest]
+#[case::with_metadata(true)]
+#[case::without_metadata(false)]
 fn raid_observed_suffix_is_preserved_without_a_common_successor(#[case] metadata: bool) {
     let mut short = multi_log(
         "short",
@@ -6065,6 +6207,24 @@ fn encounter_and_difficulty_selectors_resolve_overlapping_names() {
             serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
                 .unwrap();
         assert_eq!(report["group"], json!({"encounter":123456,"difficulty":10}));
+    });
+}
+
+#[test]
+fn report_local_virtual_ids_do_not_conflict_across_actor_roles() {
+    let mut first = sample();
+    first["report"]["masterData"]["actors"][0]["gameID"] = json!(2000010);
+    first["report"]["fights"][0]["enemyNPCs"][0]["gameID"] = json!(2000010);
+    let mut second = first.clone();
+    second["report"]["code"] = json!("other-report");
+    second["collection"]["reportCode"] = json!("other-report");
+    second["report"]["masterData"]["actors"][0]["subType"] = json!("NPC");
+    // Report-local actor 10 can name a different enemy, e.g. a helper instead of a boss.
+    second["report"]["masterData"]["actors"][0]["name"] = json!("Other helper");
+    with_file(&first, |a| {
+        with_file(&second, |b| {
+            assert_eq!(inspect(&[a, b]).unwrap()[0].pulls.len(), 2);
+        });
     });
 }
 

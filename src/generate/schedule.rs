@@ -1127,6 +1127,39 @@ pub(super) fn build(
             slot.evidence = "conditionalReference".into();
         }
     }
+    // Reuse proven aliases in later rounds, e.g. Sadistic Screech can alternate helper attribution.
+    let aliases: Vec<_> = slots
+        .iter()
+        .filter(|slot| slot.predictive && !slot.source_aliases.is_empty())
+        .map(|slot| {
+            (
+                slot.phase,
+                slot.role.clone(),
+                slot.cast_started,
+                slot.ability_ids.clone(),
+                slot.sources().cloned().collect::<Vec<_>>(),
+            )
+        })
+        .collect();
+    for slot in &mut slots {
+        for (phase, role, started, ids, sources) in &aliases {
+            if slot.phase == *phase
+                && slot.role == *role
+                && slot.cast_started == *started
+                && slot.ability_ids.iter().any(|id| ids.contains(id))
+                && slot.sources().any(|source| sources.contains(source))
+            {
+                slot.source_aliases = slot
+                    .sources()
+                    .chain(sources)
+                    .filter(|source| *source != &slot.source)
+                    .cloned()
+                    .sorted()
+                    .dedup()
+                    .collect();
+            }
+        }
+    }
     // A conditional reaction is evidence rather than a forecast, e.g. a missed tower must not become a timeline bar.
     let (mut slots, excluded): (Vec<_>, Vec<_>) =
         slots.into_iter().partition(|slot| slot.predictive);

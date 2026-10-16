@@ -925,12 +925,20 @@ pub(super) fn extend_evidence(
                         .is_some_and(|step| step.matches(signal, &raw, log))
                 });
                 let Some(found) = found else {
-                    anyhow::bail!(
-                        "loop sequence/context differs in {} section {} at event {:?}",
-                        pull.file,
-                        cycle.section,
-                        signal.event_indices.first()
-                    );
+                    let p = *pending.first().context("Missing pending loop step")?;
+                    let slot = if p == 0 {
+                        cycle.opening_slot
+                    } else {
+                        *cycle
+                            .body_slots
+                            .get((p - 1) % cycle.width)
+                            .context("Missing changed loop slot")?
+                    };
+                    // Keep sequence failures in replay evidence, e.g. an excluded wipe must remain diagnostic.
+                    result
+                        .required_missing
+                        .insert(*entries.get(slot).context("Missing changed loop entry")?);
+                    break;
                 };
                 let p = pending.remove(found);
                 let slot = if p == 0 {

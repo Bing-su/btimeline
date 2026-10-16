@@ -1726,6 +1726,17 @@ fn compile(
         && reactive.is_empty()
         && unresolved.is_empty()
         && !phase_suffix
+        && (slots.is_empty()
+            || report
+                .get("outputCoverage")
+                .and_then(Value::as_array)
+                .is_some_and(|coverage| {
+                    coverage.iter().all(|row| {
+                        row.get("omittedEventIndices")
+                            .and_then(Value::as_array)
+                            .is_some_and(Vec::is_empty)
+                    })
+                }))
     {
         return Ok((yaml, report));
     }
@@ -1834,6 +1845,31 @@ fn compile(
                     suffixes.insert((i, index));
                     reactive.insert((i, index));
                 }
+            }
+        }
+    }
+    // Deferred paths can run out of merge anchors, e.g. A/X/C versus B/Y/C in the final packet wave.
+    for (i, input) in inputs.iter().enumerate() {
+        let mut represented: BTreeSet<_> = compiler
+            .rows
+            .iter()
+            .filter_map(|(_, slot)| slot.as_ref())
+            .flat_map(|slot| &slot.samples)
+            .filter(|sample| sample.file == input.pull.file)
+            .flat_map(|sample| sample.event_indices.iter().copied())
+            .collect();
+        represented.extend(
+            observations
+                .iter()
+                .filter_map(|(&(owner, _), &(_, index))| (owner == i).then_some(index).flatten()),
+        );
+        for (&index, signal) in &input.signals {
+            if signal.key.kind == "cast"
+                && !represented.contains(&index)
+                && !reactive.contains(&(i, index))
+            {
+                unresolved.insert((i, index));
+                reactive.insert((i, index));
             }
         }
     }
