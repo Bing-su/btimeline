@@ -23,6 +23,8 @@ pub(super) fn load_one(path: &Path) -> Result<Source> {
     let data: CollectedLog = serde_path_to_error::deserialize(&mut deserializer)?;
     // Consume the whole file, e.g. reject a second JSON value after an otherwise valid log.
     deserializer.end()?;
+    // Release raw bytes before building normalized events, e.g. several large pulls load in parallel.
+    drop(bytes);
     data.validate().context("Invalid collection")?;
     let report = &data.report;
     let events = &data.events;
@@ -235,7 +237,7 @@ pub(super) fn load_one(path: &Path) -> Result<Source> {
             name: fight.name.clone(),
             kill: fight.kill,
             end_ms: end - start,
-            occurrences,
+            occurrences: occurrences.into(),
             actors,
             actor_names: master
                 .actors
@@ -463,15 +465,20 @@ pub(super) fn filter_boss_spans(pull: &mut Pull, report: &Value) -> Result<()> {
         pull.raw_occurrences = Some(pull.occurrences.clone());
     }
     pull.boss_spans = super::sections::spans(report)?;
-    pull.occurrences.retain(|row| {
-        spans.iter().any(|span| {
-            span["startMs"]
-                .as_i64()
-                .is_some_and(|at| row.relative_ms >= at)
-                && span["endMs"]
+    pull.occurrences = pull
+        .occurrences
+        .iter()
+        .filter(|row| {
+            spans.iter().any(|span| {
+                span["startMs"]
                     .as_i64()
-                    .is_some_and(|at| row.relative_ms <= at)
+                    .is_some_and(|at| row.relative_ms >= at)
+                    && span["endMs"]
+                        .as_i64()
+                        .is_some_and(|at| row.relative_ms <= at)
+            })
         })
-    });
+        .cloned()
+        .collect();
     Ok(())
 }

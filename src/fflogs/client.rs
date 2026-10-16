@@ -283,7 +283,7 @@ impl Client {
             response.status()
         );
 
-        let data: Value = response
+        let mut data: Value = response
             .body_mut()
             .read_json()
             .context("Invalid FFLogs GraphQL JSON")?;
@@ -294,7 +294,7 @@ impl Client {
             );
         }
         let data = data
-            .get("data")
+            .get_mut("data")
             .filter(|data| data.is_object())
             .context("Missing FFLogs GraphQL data")?;
         if let Some(budget) = &self.budget {
@@ -315,7 +315,7 @@ impl Client {
                 budget.points.set(budget.max_points);
             }
         }
-        Ok(data.clone())
+        Ok(data.take())
     }
 
     pub(super) fn metadata(&self, code: &str, fight_id: Option<i64>) -> Result<Value> {
@@ -390,7 +390,7 @@ impl Client {
         let mut events = Vec::new();
         let mut page_starts = Vec::new();
         loop {
-            let page = self.query(
+            let mut page = self.query(
                 EVENTS,
                 EventVariables {
                     code,
@@ -399,15 +399,15 @@ impl Client {
                     end,
                 },
             )?;
-            let page = page.get("events").context("Missing event page")?;
+            let page = page.get_mut("events").context("Missing event page")?;
             let rows = page
-                .get("data")
-                .and_then(Value::as_array)
+                .get_mut("data")
+                .and_then(Value::as_array_mut)
                 .context("Invalid event array")?;
             ensure!(rows.iter().all(Value::is_object), "Invalid event record");
             page_starts.push(cursor);
-            // Preserve API order, duplicates and optional fields for later timeline analysis.
-            events.extend(rows.iter().cloned());
+            // Move raw records without cloning nested fields; preserve order and duplicates for analysis.
+            events.append(rows);
             let next = page
                 .get("nextPageTimestamp")
                 .context("Missing pagination cursor")?;

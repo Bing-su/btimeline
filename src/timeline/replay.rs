@@ -194,23 +194,40 @@ fn predicate(sync: &Sync) -> Result<Predicate> {
     })
 }
 
+impl Signal {
+    // Format once per observed event, e.g. hundreds of candidate sync rows share this same line.
+    fn network_line(&self) -> Option<String> {
+        let prefix = match self.log {
+            "Ability" => "21|",
+            "StartsUsing" => "20|",
+            _ => return None,
+        };
+        let mut line = String::with_capacity(
+            prefix.len()
+                + CAST_FIELDS.len()
+                + CAST_FIELDS
+                    .iter()
+                    .filter_map(|key| self.fields.get(*key))
+                    .map(String::len)
+                    .sum::<usize>(),
+        );
+        line.push_str(prefix);
+        // Unknown ACT fields stay empty, e.g. sourceId is not a supported predicate.
+        for key in CAST_FIELDS {
+            line.push_str(self.fields.get(key).map_or("", String::as_str));
+            line.push('|');
+        }
+        Some(line)
+    }
+}
+
 impl Predicate {
-    fn matches(&self, signal: &Signal) -> bool {
+    fn matches(&self, line: Option<&str>) -> bool {
         self.supported
-            && self.regex.as_ref().is_some_and(|regex| {
-                // Unknown ACT fields stay empty and unconstrained, e.g. sourceId is not a supported predicate.
-                let mut line = match signal.log {
-                    "Ability" => "21|",
-                    "StartsUsing" => "20|",
-                    _ => return false,
-                }
-                .to_owned();
-                for key in CAST_FIELDS {
-                    line.push_str(signal.fields.get(key).map_or("", String::as_str));
-                    line.push('|');
-                }
-                regex.find(&line).is_some()
-            })
+            && self
+                .regex
+                .as_ref()
+                .is_some_and(|regex| line.is_some_and(|line| regex.find(line).is_some()))
     }
 }
 
@@ -412,6 +429,8 @@ pub(crate) fn run(
     };
     // Include a final tick so a scheduled forcejump cannot disappear just because no cast follows it.
     for signal in signals.iter().map(Some).chain(std::iter::once(None)) {
+        let line = signal.and_then(Signal::network_line);
+        let line = line.as_deref();
         let at = signal.map_or(end_ms, |s| s.at_ms);
         // Preserve the stopped clock during travel, e.g. only an active sync can restart after CombatEnd.
         let mut remaining = if running { at - elapsed } else { 0 };
@@ -445,7 +464,7 @@ pub(crate) fn run(
                 break;
             }
             if from == clock + remaining
-                && signal.is_some_and(|signal| {
+                && signal.is_some_and(|_| {
                     predicates
                         .iter()
                         .zip(&rows)
@@ -454,7 +473,7 @@ pub(crate) fn run(
                             !spent.contains(&j)
                                 && pred.as_ref().is_some_and(|p| {
                                     p.enabled
-                                        && p.matches(signal)
+                                        && p.matches(line)
                                         && from >= row.at_ms - p.window[0]
                                         && from < row.at_ms + p.window[1]
                                 })
@@ -464,7 +483,7 @@ pub(crate) fn run(
                 if predicates
                     .get(i)
                     .and_then(Option::as_ref)
-                    .is_some_and(|p| signal.is_some_and(|s| p.matches(s)))
+                    .is_some_and(|p| p.matches(line))
                     && !predicates
                         .iter()
                         .zip(&rows)
@@ -474,7 +493,7 @@ pub(crate) fn run(
                                 && !spent.contains(&j)
                                 && pred.as_ref().is_some_and(|p| {
                                     p.enabled
-                                        && signal.is_some_and(|s| p.matches(s))
+                                        && p.matches(line)
                                         && from >= row.at_ms - p.window[0]
                                         && from < row.at_ms + p.window[1]
                                 })
@@ -543,7 +562,7 @@ pub(crate) fn run(
                 !spent.contains(i)
                     && pred.as_ref().is_some_and(|p| {
                         p.enabled
-                            && p.matches(signal)
+                            && p.matches(line)
                             && clock >= row.at_ms - p.window[0]
                             && clock < row.at_ms + p.window[1]
                     })
@@ -556,27 +575,30 @@ pub(crate) fn run(
             .iter()
             .any(|i| destinations.get(*i).is_some_and(Option::is_some))
         {
-            let concurrent: BTreeSet<_> = signals
-                .iter()
-                .filter(|s| s.at_ms == signal.at_ms)
-                .flat_map(|s| {
-                    predicates
-                        .iter()
-                        .zip(&rows)
-                        .enumerate()
-                        .filter(|(i, (pred, row))| {
-                            !spent.contains(i)
-                                && destinations.get(*i).is_some_and(Option::is_some)
-                                && pred.as_ref().is_some_and(|p| {
-                                    p.enabled
-                                        && p.matches(s)
-                                        && clock >= row.at_ms - p.window[0]
-                                        && clock < row.at_ms + p.window[1]
-                                })
-                        })
-                        .map(|(i, _)| i)
-                })
-                .collect();
+            let concurrent: BTreeSet<_> = signals.iter().filter(|s| s.at_ms == signal.at_ms).fold(
+                BTreeSet::new(),
+                |mut concurrent, s| {
+                    let line = s.network_line();
+                    concurrent.extend(
+                        predicates
+                            .iter()
+                            .zip(&rows)
+                            .enumerate()
+                            .filter(|(i, (pred, row))| {
+                                !spent.contains(i)
+                                    && destinations.get(*i).is_some_and(Option::is_some)
+                                    && pred.as_ref().is_some_and(|p| {
+                                        p.enabled
+                                            && p.matches(line.as_deref())
+                                            && clock >= row.at_ms - p.window[0]
+                                            && clock < row.at_ms + p.window[1]
+                                    })
+                            })
+                            .map(|(i, _)| i),
+                    );
+                    concurrent
+                },
+            );
             if concurrent.len() > 1
                 && !concurrent.iter().all(|&i| {
                     rows.get(i).is_some_and(|row| {
@@ -605,7 +627,7 @@ pub(crate) fn run(
                 if predicates
                     .get(i)
                     .and_then(Option::as_ref)
-                    .is_some_and(|p| p.supported && !p.matches(signal))
+                    .is_some_and(|p| p.supported && !p.matches(line))
                 {
                     summary.dependency_violations += 1;
                 }

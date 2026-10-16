@@ -13,10 +13,11 @@ use super::{draft, replay};
 use crate::timeline::{Destination, Entry, Jump, JumpWhen, LogType, NetworkSync, Sync, Timeline};
 
 type Samples<'a> = Vec<(usize, &'a Signal)>;
-type Paths<'a> = Vec<Vec<(usize, Vec<&'a Signal>)>>;
+type PathSamples<'a> = Vec<(usize, Vec<&'a Signal>)>;
+type Paths<'a> = Vec<PathSamples<'a>>;
 
 // Copies can reverse their packet order, so retain starts from every member of the merged cast.
-fn started_signals(inputs: &[Input]) -> BTreeSet<SignalKey> {
+fn started_signals(inputs: &[Input]) -> BTreeSet<SignalKey<&str>> {
     inputs
         .iter()
         .flat_map(|input| {
@@ -36,7 +37,7 @@ fn started_signals(inputs: &[Input]) -> BTreeSet<SignalKey> {
 }
 
 // Unstarted fan-out effects are references, e.g. a final Stray Apocalypse packet cannot dispatch a path.
-fn instant_helpers(inputs: &[Input]) -> BTreeSet<SignalKey> {
+fn instant_helpers(inputs: &[Input]) -> BTreeSet<SignalKey<&str>> {
     let fanout: BTreeSet<_> = inputs
         .iter()
         .flat_map(|input| input.signals.values())
@@ -64,7 +65,7 @@ fn instant_helpers(inputs: &[Input]) -> BTreeSet<SignalKey> {
     }
     let mut rapid_followups = BTreeSet::new();
     for input in inputs {
-        let mut times: BTreeMap<SignalKey, Vec<i64>> = BTreeMap::new();
+        let mut times: BTreeMap<SignalKey<&str>, Vec<i64>> = BTreeMap::new();
         for signal in input
             .signals
             .values()
@@ -318,10 +319,10 @@ fn paths<'a>(
     after: &Value,
     inputs: &'a [Input],
     boss_clocks: bool,
-    helpers: &BTreeSet<SignalKey>,
+    helpers: &BTreeSet<SignalKey<&str>>,
     reactive: &mut BTreeSet<(usize, usize)>,
 ) -> Result<Paths<'a>> {
-    let mut variants: BTreeMap<Vec<SignalKey>, Vec<(usize, Vec<&Signal>)>> = BTreeMap::new();
+    let mut variants: BTreeMap<Vec<SignalKey<&str>>, PathSamples<'_>> = BTreeMap::new();
     for (i, input) in inputs.iter().enumerate() {
         let Some(end) = sample_index(after, &input.pull.file) else {
             continue;
@@ -346,11 +347,9 @@ fn paths<'a>(
             // Keep the opening path but exclude earlier bosses, e.g. X→P→C starts after travel.
             ordered.retain(|signal| lo <= signal.time_ms && signal.time_ms <= hi);
         }
-        ordered.sort_by_key(|s| {
-            (
-                super::alignment::signal_order(s),
-                s.event_indices.first().copied(),
-            )
+        ordered.sort_by(|a, b| {
+            (super::alignment::signal_order(a), a.event_indices.first())
+                .cmp(&(super::alignment::signal_order(b), b.event_indices.first()))
         });
         let lo = start
             .and_then(|start| {
@@ -774,7 +773,7 @@ impl<'a> Compiler<'a> {
 
     // Group by selector first so differing tails still dispatch together, e.g. X→P/Q versus Y→R.
     fn group_paths(&self, variants: Paths<'a>) -> Result<Vec<Paths<'a>>> {
-        let mut groups: BTreeMap<SignalKey, Paths<'_>> = BTreeMap::new();
+        let mut groups: BTreeMap<SignalKey<&str>, Paths<'_>> = BTreeMap::new();
         for path in variants {
             let (i, casts) = path.first().context("Missing path choice")?;
             let signal = casts.first().context("Missing path choice")?;
@@ -789,8 +788,8 @@ impl<'a> Compiler<'a> {
             // Only the wire signature can dispatch, e.g. Kefka's boss and helper copies cannot be sibling choices.
             let mut key = path_key(signal);
             key.actor_game_id = 0;
-            key.actor_name = Some(source.clone());
-            key.role.clear();
+            key.actor_name = Some(source.as_str());
+            key.role = "";
             groups.entry(key).or_default().push(path);
         }
         let mut merged: Vec<Paths<'_>> = Vec::new();
@@ -898,7 +897,7 @@ impl<'a> Compiler<'a> {
         let shortened = path_suffixes(variants, prefix)?;
         let variants = &shortened;
         let opening = opening && prefix == 0;
-        let mut orders: BTreeMap<Vec<SignalKey>, Vec<(usize, Vec<&Signal>)>> = BTreeMap::new();
+        let mut orders: BTreeMap<Vec<SignalKey<&str>>, PathSamples<'_>> = BTreeMap::new();
         for (i, casts) in variants.iter().flatten() {
             let count = casts.first().map_or(0, |first| {
                 casts

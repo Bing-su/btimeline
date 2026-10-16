@@ -13,13 +13,13 @@ use super::{GroupKey, Pull, inspect};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct SignalKey {
+pub(super) struct SignalKey<S = String> {
     pub actor_game_id: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub actor_name: Option<String>,
-    pub role: String,
+    pub actor_name: Option<S>,
+    pub role: S,
     pub ability_id: i64,
-    pub kind: String,
+    pub kind: S,
     pub count: usize,
     pub instances: usize,
 }
@@ -38,18 +38,38 @@ pub(super) struct Signal {
 }
 
 // Align the mechanic rather than its fan-out, e.g. the same cast can hit three or four targets.
-pub(super) fn match_key(signal: &Signal) -> SignalKey {
-    let mut key = signal.key.clone();
-    key.count = 1;
-    key.instances = 1;
-    key
+pub(super) fn match_key(signal: &Signal) -> SignalKey<&str> {
+    SignalKey {
+        actor_game_id: signal.key.actor_game_id,
+        actor_name: signal.key.actor_name.as_deref(),
+        role: &signal.key.role,
+        ability_id: signal.key.ability_id,
+        kind: &signal.key.kind,
+        count: 1,
+        instances: 1,
+    }
+}
+
+impl SignalKey<&str> {
+    // Own only retained evidence, e.g. repeat steps outlive the input signal used for comparison.
+    pub(super) fn into_owned(self) -> SignalKey {
+        SignalKey {
+            actor_game_id: self.actor_game_id,
+            actor_name: self.actor_name.map(str::to_owned),
+            role: self.role.to_owned(),
+            ability_id: self.ability_id,
+            kind: self.kind.to_owned(),
+            count: self.count,
+            instances: self.instances,
+        }
+    }
 }
 
 // Independent actors can swap arrivals; one named caster's own effects retain measured order.
-pub(super) fn signal_order(signal: &Signal) -> (i64, Option<String>, i64, bool, SignalKey) {
+pub(super) fn signal_order(signal: &Signal) -> (i64, Option<&str>, i64, bool, SignalKey<&str>) {
     (
         signal.wave_ms,
-        signal.source_name.clone(),
+        signal.source_name.as_deref(),
         // Keep measured sequence across wave boundaries, e.g. Chort's helper precedes its final hit.
         signal.time_ms,
         !signal.key.role.ends_with("/Boss"),
@@ -116,7 +136,7 @@ pub(super) fn signals(pull: &Pull) -> Vec<Signal> {
     let mut groups: Vec<SignalGroup> = Vec::new();
     let mut positions: BTreeMap<(usize, i64, i64, &str), usize> = BTreeMap::new();
     let mut start_groups = BTreeMap::new();
-    for row in &pull.occurrences {
+    for row in pull.occurrences.iter() {
         let virtual_name = pull.virtual_actors.get(&row.actor_id);
         let actor_game_id = if virtual_name.is_some() {
             0
@@ -149,7 +169,7 @@ pub(super) fn signals(pull: &Pull) -> Vec<Signal> {
                             || (start_group.is_some() && group.start_group == start_group))
                         && (row
                             .instance
-                            .is_some_and(|instance| !signal.instance_ids.contains(&instance))
+                            .is_some_and(|instance| !group.instances.contains(&instance))
                             || (row.instance.is_none() && row.start_event_index.is_none())))
                     .then_some(position)
                 })
@@ -168,7 +188,6 @@ pub(super) fn signals(pull: &Pull) -> Vec<Signal> {
                 if let Some(instance) = row.instance {
                     group.instances.insert(instance);
                     signal.key.instances = group.instances.len().max(1);
-                    signal.instance_ids = group.instances.iter().copied().collect();
                 }
             }
             continue;
@@ -194,14 +213,21 @@ pub(super) fn signals(pull: &Pull) -> Vec<Signal> {
                 time_ms: row.relative_ms,
                 wave_ms: row.relative_ms,
                 event_indices: vec![row.event_index],
-                instance_ids: seen.iter().copied().collect(),
+                instance_ids: Vec::new(),
             },
             instances: seen,
             last_ms: row.relative_ms,
             start_group,
         });
     }
-    let mut result: Vec<_> = groups.into_iter().map(|group| group.signal).collect();
+    // Materialize each sorted instance list once, e.g. an eight-target cast can share one instance.
+    let mut result: Vec<_> = groups
+        .into_iter()
+        .map(|mut group| {
+            group.signal.instance_ids = group.instances.into_iter().collect();
+            group.signal
+        })
+        .collect();
     // Equivalent simultaneous mechanics have no packet order, e.g. Spelldriver/Spellscatter can swap.
     result.sort_by_key(|signal| signal.time_ms);
     let mut start = 0;
@@ -217,7 +243,7 @@ pub(super) fn signals(pull: &Pull) -> Vec<Signal> {
             for signal in signals.iter_mut() {
                 signal.wave_ms = wave;
             }
-            signals.sort_by_key(signal_order);
+            signals.sort_by(|a, b| signal_order(a).cmp(&signal_order(b)));
         }
         start = end;
     }
@@ -244,8 +270,8 @@ fn is_boss_cast(signal: &Signal) -> bool {
         && pairs.iter().filter(|(_, right)| right.is_some()).count() == right.len()
 }))]
 fn paired_keys(
-    left: &[SignalKey],
-    right: &[SignalKey],
+    left: &[SignalKey<&str>],
+    right: &[SignalKey<&str>],
 ) -> Result<Vec<(Option<usize>, Option<usize>)>> {
     let mut pairs = Vec::new();
     for op in capture_diff_slices(Algorithm::Myers, left, right) {
@@ -487,19 +513,12 @@ fn section(
     })
 }
 
-fn align_segments(left_pull: &Pull, right_pull: &Pull) -> Result<Vec<Segment>> {
-    let mut left = signals(left_pull);
-    let mut right = signals(right_pull);
-    // Keep simultaneous helpers on the same side of each anchor: A+H equals H+A.
-    // Preserve helper-only path context and raw replay order.
-    // ponytail: normalize single-anchor batches; multiple anchors need bundle-aware segmentation.
-    for signals in [&mut left, &mut right] {
-        for batch in signals.chunk_by_mut(|a, b| a.time_ms == b.time_ms) {
-            if batch.iter().filter(|s| is_boss_cast(s)).count() == 1 {
-                batch.sort_by(|a, b| a.key.cmp(&b.key));
-            }
-        }
-    }
+fn align_segments(
+    left_pull: &Pull,
+    right_pull: &Pull,
+    left: &[Signal],
+    right: &[Signal],
+) -> Result<Vec<Segment>> {
     // An identical opening boss signal corrects pull-start offset before finding repeat anchors.
     let entry = match (left.first(), right.first()) {
         (Some(a), Some(b)) if match_key(a) == match_key(b) && a.key.role.ends_with("/Boss") => {
@@ -508,7 +527,7 @@ fn align_segments(left_pull: &Pull, right_pull: &Pull) -> Result<Vec<Segment>> {
         _ => (0, 0),
     };
     // Keep helper context when bounding boss candidates; A→helpers→B differs from an early A→B wipe.
-    let anchor_pairs = observed_pairs(&left, &right, left_pull, right_pull, entry, boss_pairs)?;
+    let anchor_pairs = observed_pairs(left, right, left_pull, right_pull, entry, boss_pairs)?;
     let matched: Vec<_> = anchor_pairs
         .into_iter()
         .filter_map(|(left, right)| Some((left?, right?)))
@@ -577,8 +596,19 @@ fn segment_relation(slots: &[Slot]) -> &'static str {
 }
 
 pub(super) fn compare(left_pull: &Pull, right_pull: &Pull) -> Result<Comparison> {
-    let segments = align_segments(left_pull, right_pull)?;
-    let reversed = align_segments(right_pull, left_pull)?;
+    let mut left = signals(left_pull);
+    let mut right = signals(right_pull);
+    // Reuse grouped signals in both directions; keep A+H equivalent to H+A around a single anchor.
+    // shortcut: normalize single-anchor batches; multiple anchors need bundle-aware segmentation.
+    for signals in [&mut left, &mut right] {
+        for batch in signals.chunk_by_mut(|a, b| a.time_ms == b.time_ms) {
+            if batch.iter().filter(|s| is_boss_cast(s)).count() == 1 {
+                batch.sort_by(|a, b| a.key.cmp(&b.key));
+            }
+        }
+    }
+    let segments = align_segments(left_pull, right_pull, &left, &right)?;
+    let reversed = align_segments(right_pull, left_pull, &right, &left)?;
     // Only correspondence changes count: independent exclusive paths may interleave differently.
     let forward: Vec<_> = segments
         .iter()
@@ -591,8 +621,8 @@ pub(super) fn compare(left_pull: &Pull, right_pull: &Pull) -> Result<Comparison>
         })
         .collect();
     let reverse: Vec<_> = reversed
-        .iter()
-        .flat_map(|s| &s.slots)
+        .into_iter()
+        .flat_map(|s| s.slots)
         .filter_map(|s| {
             Some((
                 s.right.as_ref()?.event_indices.first().copied()?,
@@ -600,9 +630,9 @@ pub(super) fn compare(left_pull: &Pull, right_pull: &Pull) -> Result<Comparison>
             ))
         })
         .collect();
-    let repeated_anchor_keys: Vec<SignalKey> = signals(left_pull)
+    let repeated_anchor_keys: Vec<SignalKey> = left
         .into_iter()
-        .chain(signals(right_pull))
+        .chain(right)
         .filter(is_boss_cast)
         .counts_by(|signal| signal.key)
         .into_iter()
@@ -937,6 +967,40 @@ mod tests {
     }
 
     #[test]
+    fn filtering_a_shared_pull_preserves_raw_and_peer_evidence() {
+        let original = pull(
+            "a",
+            true,
+            500,
+            &[
+                (100, 1, "NPC/Boss", 10, "cast"),
+                (300, 1, "NPC/Boss", 11, "cast"),
+            ],
+        );
+        let mut filtered = original.clone();
+        assert!(std::sync::Arc::ptr_eq(
+            &original.occurrences,
+            &filtered.occurrences
+        ));
+
+        // A selected boss span must leave earlier raw casts available to retries and peer comparisons.
+        super::super::input::filter_boss_spans(
+            &mut filtered,
+            &serde_json::json!({
+                "bossSegments": [{"startMs": 200, "endMs": 500}]
+            }),
+        )
+        .unwrap();
+        assert_eq!(original.occurrences.len(), 2);
+        assert_eq!(filtered.occurrences.len(), 1);
+        assert_eq!(filtered.occurrences[0].event_index, 1);
+        assert!(std::sync::Arc::ptr_eq(
+            &original.occurrences,
+            filtered.raw_occurrences.as_ref().unwrap()
+        ));
+    }
+
+    #[test]
     fn simultaneous_interleaved_instances_keep_count() {
         let mut pull = pull(
             "a",
@@ -948,10 +1012,10 @@ mod tests {
                 (100, 2, "NPC/NPC", 10, "cast"),
             ],
         );
-        for row in &mut pull.occurrences {
+        for row in std::sync::Arc::make_mut(&mut pull.occurrences) {
             row.simultaneous = 1;
         }
-        pull.occurrences[2].instance = Some(20);
+        std::sync::Arc::make_mut(&mut pull.occurrences)[2].instance = Some(20);
         let signals = signals(&pull);
         assert_eq!(signals.len(), 2);
         assert_eq!(signals[0].key.count, 2);

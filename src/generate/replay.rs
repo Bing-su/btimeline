@@ -521,9 +521,12 @@ pub(super) fn evidence(
                     continue;
                 };
                 let mut reference = (*peer).clone();
-                reference
+                reference.occurrences = reference
                     .occurrences
-                    .retain(|row| lo <= row.relative_ms && row.relative_ms <= hi);
+                    .iter()
+                    .filter(|row| lo <= row.relative_ms && row.relative_ms <= hi)
+                    .cloned()
+                    .collect();
                 reference.boss_spans = vec![(lo, hi)];
                 reference.end_ms = hi;
                 relations.insert(file, multi::correspondence(&reference, &target)?.0);

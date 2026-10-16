@@ -4,6 +4,7 @@ mod sections;
 
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::sync::Arc;
 
 use input::load_one;
 use path_slash::PathExt as _;
@@ -46,13 +47,14 @@ pub struct Pull {
     pub name: String,
     pub kill: bool,
     pub end_ms: i64,
-    pub occurrences: Vec<Occurrence>,
+    // Share immutable evidence across replay variants, e.g. packet auditing restores the raw slice.
+    pub occurrences: Arc<[Occurrence]>,
     #[serde(skip)]
     actors: BTreeMap<i64, (i64, String)>,
     #[serde(skip)]
     actor_names: BTreeMap<i64, String>,
     #[serde(skip)]
-    raw_occurrences: Option<Vec<Occurrence>>,
+    raw_occurrences: Option<Arc<[Occurrence]>>,
     #[serde(skip)]
     virtual_actors: BTreeMap<i64, String>,
     #[serde(skip)]

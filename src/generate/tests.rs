@@ -6298,7 +6298,7 @@ proptest! {
                 rows.iter().map(|row| row.event_index).collect::<Vec<_>>(),
                 expected
             );
-            for row in rows {
+            for row in rows.iter() {
                 assert_eq!(row.timestamp_ms, times[row.event_index]);
                 assert_eq!(row.relative_ms, times[row.event_index] - 1000);
             }

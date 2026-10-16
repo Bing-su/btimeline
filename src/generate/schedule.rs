@@ -443,7 +443,9 @@ fn cue_bursts(mut slots: Vec<Slot>, inputs: &[Input]) -> Result<Vec<Slot>> {
         .map(|(_, s)| s)
         .collect();
     kept.extend(added);
-    kept.sort_by_key(|s| (s.at_ms, !s.selector, s.source.clone(), s.name.clone()));
+    kept.sort_by(|a, b| {
+        (a.at_ms, !a.selector, &a.source, &a.name).cmp(&(b.at_ms, !b.selector, &b.source, &b.name))
+    });
     for (id, slot) in kept.iter_mut().enumerate() {
         slot.id = id;
     }
@@ -884,17 +886,32 @@ pub(super) fn build(
             }
         }
     }
-    observations.sort_by_key(|(phase, source, name, role, started, sample)| {
+    // Compare borrowed fields so ordering observations does not repeatedly allocate caster/file names.
+    observations.sort_by(|a, b| {
+        let (phase, source, name, role, started, sample) = a;
+        let (other_phase, other_source, other_name, other_role, other_started, other_sample) = b;
         (
-            *phase,
-            source.clone(),
-            name.clone(),
-            role.clone(),
-            *started,
+            phase,
+            source,
+            name,
+            role,
+            started,
             sample.alignment_ms.unwrap_or(sample.relative_ms),
-            sample.file.clone(),
+            &sample.file,
             sample.segment,
         )
+            .cmp(&(
+                other_phase,
+                other_source,
+                other_name,
+                other_role,
+                other_started,
+                other_sample
+                    .alignment_ms
+                    .unwrap_or(other_sample.relative_ms),
+                &other_sample.file,
+                other_sample.segment,
+            ))
     });
     let mut slots: Vec<Slot> = Vec::new();
     for (phase, source, name, role, started, sample) in observations {
@@ -1171,13 +1188,8 @@ pub(super) fn build(
             sync_window_ms: None,
         });
     }
-    slots.sort_by_key(|slot| {
-        (
-            slot.at_ms,
-            !slot.selector,
-            slot.source.clone(),
-            slot.name.clone(),
-        )
+    slots.sort_by(|a, b| {
+        (a.at_ms, !a.selector, &a.source, &a.name).cmp(&(b.at_ms, !b.selector, &b.source, &b.name))
     });
     let mut entries = vec![Entry::Note { text: "Phase schedules: fixed-time alternatives share a mechanic row; conditional reactions are excluded and documented in the generation report.".into() }];
     for (i, slot) in slots.iter_mut().enumerate() {

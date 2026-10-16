@@ -222,7 +222,7 @@ pub(super) fn build(
         .map(|g| {
             g.pulls
                 .iter()
-                .flat_map(|p| &p.occurrences)
+                .flat_map(|p| p.occurrences.iter())
                 .filter(|r| r.kind == "begincast")
                 .map(|r| r.ability_id)
                 .collect()

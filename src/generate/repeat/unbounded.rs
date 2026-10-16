@@ -22,7 +22,7 @@ struct Step {
 
 // Ignore target fan-out and transient helper instance numbers; boss attempts are bounded separately.
 fn key(signal: &Signal) -> SignalKey {
-    let mut key = alignment::match_key(signal);
+    let mut key = alignment::match_key(signal).into_owned();
     key.ability_id = 0;
     key
 }

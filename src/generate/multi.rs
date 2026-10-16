@@ -133,8 +133,12 @@ pub(super) fn correspondence(left: &Pull, right: &Pull) -> Result<(Correspondenc
             let mut a = left.clone();
             let mut b = right.clone();
             for (pull, start, end) in [(&mut a, lo, hi), (&mut b, other_lo, other_hi)] {
-                pull.occurrences
-                    .retain(|row| start <= row.relative_ms && row.relative_ms <= end);
+                pull.occurrences = pull
+                    .occurrences
+                    .iter()
+                    .filter(|row| start <= row.relative_ms && row.relative_ms <= end)
+                    .cloned()
+                    .collect();
                 pull.end_ms = end;
             }
             let (mut relation, order_sensitive) = path_correspondence(&a, &b)?;
@@ -222,8 +226,12 @@ pub(super) fn correspondence(left: &Pull, right: &Pull) -> Result<(Correspondenc
                 (&mut a, left_start, left_end),
                 (&mut b, right_start, right_end),
             ] {
-                pull.occurrences
-                    .retain(|row| start <= row.relative_ms && row.relative_ms <= end);
+                pull.occurrences = pull
+                    .occurrences
+                    .iter()
+                    .filter(|row| start <= row.relative_ms && row.relative_ms <= end)
+                    .cloned()
+                    .collect();
                 // Bound correspondence to this boss, e.g. movement cannot align a later boss's helper.
                 pull.end_ms = end;
             }
