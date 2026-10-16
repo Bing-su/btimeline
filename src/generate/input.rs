@@ -237,6 +237,11 @@ pub(super) fn load_one(path: &Path) -> Result<Source> {
             end_ms: end - start,
             occurrences,
             actors,
+            actor_names: master
+                .actors
+                .iter()
+                .map(|actor| (actor.id, actor.name.clone()))
+                .collect(),
             raw_occurrences: None,
             // FFLogs virtual IDs include the report-local actor ID, e.g. 2000031 versus 2001111.
             virtual_actors: master

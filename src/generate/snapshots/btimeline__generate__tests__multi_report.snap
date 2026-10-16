@@ -98,7 +98,7 @@ expression: stable
   },
   "inputSelection": {
     "excluded": [],
-    "policy": "Prefer at least three clears, then uninterrupted clears; otherwise exclude only wipes below one quarter of the longest boss-start trace when three substantial observations remain. Excluded inputs are replayed diagnostically, not used to infer mechanics.",
+    "policy": "Prefer at least three clears, then uninterrupted clears; retain longer final boss attempts to observe repeated suffixes. Otherwise exclude only wipes below one quarter of the longest boss-start trace when three substantial observations remain. Excluded inputs are replayed diagnostically, not used to infer mechanics.",
     "selected": [
       "[input]/fight_0.json",
       "[input]/fight_1.json"

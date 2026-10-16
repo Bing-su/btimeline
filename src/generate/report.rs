@@ -653,6 +653,9 @@ fn render_multi(report: &Value) -> Result<String> {
     if let Some(repeats) = report.get("repeats") {
         writeln!(out, "\n## 반복 압축\n\n| 항목 | 값 |\n| --- | --- |")?;
         writeln!(out, "| 후보 채택 | {} |", repeats["accepted"])?;
+        if repeats.get("kind").and_then(Value::as_str) == Some("unbounded") {
+            writeln!(out, "| 반복 유형 | 전투 종료까지 반복 (`forcejump`) |")?;
+        }
         writeln!(out, "| 독립 lookahead (ms) | {} |", repeats["lookaheadMs"])?;
         writeln!(out, "| 실제 parser/runtime | 미실행 |")?;
         writeln!(

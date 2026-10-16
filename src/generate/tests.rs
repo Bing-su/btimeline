@@ -78,6 +78,260 @@ fn repeat_log(code: &str, width: usize, kill: bool) -> Value {
     log
 }
 
+// Each boss has an introduction followed by the same three-step cycle, including a truncated final cycle.
+fn unbounded_log(code: &str, rounds: i64, bosses: i64) -> Value {
+    let mut rows = Vec::new();
+    for boss in 0..bosses {
+        let actor = 10 + boss * 2;
+        let base = boss * 100_000;
+        rows.push((base + 1000, actor, 91000, "cast"));
+        for round in 0..rounds {
+            for (offset, ability) in [(5000, 91001), (9000, 91002), (13000, 91003)] {
+                rows.push((base + round * 20_000 + offset, actor, ability, "cast"));
+            }
+        }
+    }
+    let mut log = multi_log(code, &rows, (bosses - 1) * 100_000 + rounds * 20_000, true);
+    for boss in 1..bosses {
+        let actor = 10 + boss * 2;
+        log["report"]["masterData"]["actors"].as_array_mut().unwrap().push(json!({"id":actor,"name":format!("Boss {boss}"),"gameID":99901+boss*2,"type":"NPC","subType":"Boss"}));
+        log["report"]["fights"][0]["enemyNPCs"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"id":actor,"gameID":99901+boss*2}));
+    }
+    log
+}
+
+#[rstest]
+#[case::one_boss(1, "dungeon")]
+#[case::three_bosses(3, "dungeon")]
+#[case::raid(1, "raid")]
+fn unbounded_boss_suffix_replays_additional_holdout_rounds(
+    #[case] bosses: i64,
+    #[case] mode: &str,
+) {
+    with_logs(
+        &[
+            unbounded_log("train-a", 3, bosses),
+            unbounded_log("train-b", 3, bosses),
+        ],
+        |dir| {
+            let output = dir.join("unbounded.yaml");
+            prepare(dir, &output, &["--mode", mode, "--convert"]).unwrap();
+            let report: Value =
+                serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                    .unwrap();
+            assert_eq!(
+                report["repeats"]["kind"], "unbounded",
+                "{}",
+                report["unboundedRepeatCandidates"]
+            );
+            assert_eq!(
+                report["repeats"]["loops"].as_array().unwrap().len(),
+                usize::try_from(bosses).unwrap()
+            );
+            let text = fs::read_to_string(output.with_extension("txt")).unwrap();
+            assert_eq!(
+                text.matches(" forcejump \"").count(),
+                usize::try_from(bosses).unwrap()
+            );
+            let holdout = dir.join("holdout.json");
+            fs::write(
+                &holdout,
+                serde_json::to_vec(&unbounded_log("holdout", 4, bosses)).unwrap(),
+            )
+            .unwrap();
+            replay::replay_file(&output, &holdout, dir.join("holdout.replay.json"), None).unwrap();
+            let replay: Value =
+                serde_json::from_slice(&fs::read(dir.join("holdout.replay.json")).unwrap())
+                    .unwrap();
+            assert_eq!(replay["validation"]["allInputsPassed"], true, "{replay}");
+            for slot in report["slots"].as_array().unwrap() {
+                assert_eq!(
+                    slot["time"]["sampleCount"],
+                    slot["samples"].as_array().unwrap().len()
+                );
+            }
+            assert!(
+                report["outputCoverage"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .all(|coverage| coverage["omittedEventIndices"]
+                        .as_array()
+                        .unwrap()
+                        .is_empty())
+            );
+        },
+    );
+}
+
+#[rstest]
+#[case::missing_step("missing")]
+#[case::missing_opening("opening")]
+#[case::different_source("source")]
+#[case::different_targetability("targetability")]
+fn unbounded_holdout_cannot_hide_a_changed_loop(#[case] scenario: &str) {
+    with_logs(
+        &[unbounded_log("a", 3, 1), unbounded_log("b", 3, 1)],
+        |dir| {
+            let output = dir.join("loop.yaml");
+            prepare(dir, &output, &["--mode", "dungeon"]).unwrap();
+            let mut holdout = unbounded_log("changed", 4, 1);
+            match scenario {
+                "missing" => {
+                    holdout["events"].as_array_mut().unwrap().remove(8);
+                }
+                "opening" => {
+                    // A different suffix outlives the expected loop, e.g. later boss casts prove this is no short clear.
+                    for event in holdout["events"].as_array_mut().unwrap().iter_mut().skip(1) {
+                        event["abilityGameID"] = json!(91000);
+                    }
+                }
+                "source" => {
+                    holdout["events"][8]["sourceID"] = json!(11);
+                }
+                "targetability" => {
+                    holdout["events"].as_array_mut().unwrap().push(json!({"timestamp":40000,"type":"targetabilityupdate","sourceID":10,"targetID":10,"targetable":false,"fight":2}));
+                }
+                _ => assert!(scenario.is_empty(), "unknown fixture"),
+            }
+            holdout["collection"]["eventCount"] =
+                json!(holdout["events"].as_array().unwrap().len());
+            let path = dir.join("changed.json");
+            fs::write(&path, serde_json::to_vec(&holdout).unwrap()).unwrap();
+            assert!(
+                replay::replay_file(&output, &path, dir.join("changed.replay.json"), None).is_err()
+            );
+            if scenario == "opening" {
+                let result: Value =
+                    serde_json::from_slice(&fs::read(dir.join("changed.replay.json")).unwrap())
+                        .unwrap();
+                assert!(
+                    result["pulls"][0]["replay"]["summary"]["missing"]
+                        .as_u64()
+                        .unwrap()
+                        > 0
+                );
+                assert_eq!(result["validation"]["allInputsPassed"], false);
+            }
+        },
+    );
+}
+
+#[rstest]
+#[case::before_opening(1, 4000)]
+#[case::during_cycle(3, 12000)]
+fn unbounded_short_clear_censors_the_remaining_cycle(#[case] count: usize, #[case] end: i64) {
+    with_logs(
+        &[unbounded_log("a", 3, 1), unbounded_log("b", 3, 1)],
+        |dir| {
+            let output = dir.join("loop.yaml");
+            prepare(dir, &output, &["--mode", "dungeon"]).unwrap();
+            let mut holdout = unbounded_log("short", 2, 1);
+            holdout["events"].as_array_mut().unwrap().truncate(count);
+            holdout["collection"]["eventCount"] = json!(count);
+            for field in [
+                "/report/endTime",
+                "/report/fights/0/endTime",
+                "/collection/endTime",
+            ] {
+                *holdout.pointer_mut(field).unwrap() = json!(end);
+            }
+            let path = dir.join("short.json");
+            fs::write(&path, serde_json::to_vec(&holdout).unwrap()).unwrap();
+            replay::replay_file(&output, &path, dir.join("short.replay.json"), None).unwrap();
+        },
+    );
+}
+
+#[test]
+fn unbounded_same_wave_keeps_reversed_holdout_packet_order() {
+    let wave = |code: &str| {
+        let mut log = unbounded_log(code, 3, 1);
+        for event in log["events"].as_array_mut().unwrap() {
+            if event["abilityGameID"] == 91003 {
+                event["timestamp"] = json!(event["timestamp"].as_i64().unwrap() - 4000);
+            }
+        }
+        log
+    };
+    with_logs(&[wave("a"), wave("b")], |dir| {
+        let output = dir.join("loop.yaml");
+        prepare(dir, &output, &["--mode", "dungeon"]).unwrap();
+        let mut holdout = wave("holdout");
+        for event in holdout["events"].as_array_mut().unwrap() {
+            if event["abilityGameID"] == 91002 {
+                event["timestamp"] = json!(event["timestamp"].as_i64().unwrap() + 20);
+            }
+        }
+        let path = dir.join("holdout.json");
+        fs::write(&path, serde_json::to_vec(&holdout).unwrap()).unwrap();
+        replay::replay_file(&output, &path, dir.join("holdout.replay.json"), None).unwrap();
+    });
+}
+
+#[test]
+fn unbounded_single_long_report_keeps_finite_rows() {
+    with_logs(
+        &[unbounded_log("a", 3, 1), unbounded_log("b", 1, 1)],
+        |dir| {
+            let output = dir.join("loop.yaml");
+            prepare(dir, &output, &["--mode", "dungeon", "--convert"]).unwrap();
+            let text = fs::read_to_string(output.with_extension("txt")).unwrap();
+            assert!(!text.contains(" forcejump \""));
+        },
+    );
+}
+
+#[rstest]
+#[case::opening_only(1, "matching", false)]
+#[case::opening_and_effect(2, "matching", false)]
+#[case::continued_body(3, "matching", true)]
+#[case::different_effect(2, "changed", false)]
+#[case::delayed_effect(2, "delayed", false)]
+fn unbounded_truncated_next_cycle_requires_a_matching_prefix(
+    #[case] prefix: usize,
+    #[case] effect: &str,
+    #[case] accepted: bool,
+) {
+    // A returning cast/effect can precede a different body, e.g. Chort switches to Bodyweight.
+    let logs: Vec<_> = ["a", "b"]
+        .into_iter()
+        .map(|code| {
+            let mut log = unbounded_log(code, 2, 1);
+            log["events"].as_array_mut().unwrap().truncate(4 + prefix);
+            // Match a delayed effect too, e.g. Gloom resolves about 750ms after its cast.
+            log["events"][2]["timestamp"] = json!(6750);
+            if prefix >= 2 {
+                log["events"][5]["timestamp"] =
+                    json!(26750 + if effect == "delayed" { 5000 } else { 0 });
+                if effect == "changed" {
+                    log["events"][5]["abilityGameID"] = json!(91003);
+                }
+            }
+            log["collection"]["eventCount"] = json!(4 + prefix);
+            log
+        })
+        .collect();
+    with_logs(&logs, |dir| {
+        let output = dir.join("loop.yaml");
+        prepare(dir, &output, &["--mode", "dungeon", "--convert"]).unwrap();
+        let text = fs::read_to_string(output.with_extension("txt")).unwrap();
+        assert_eq!(text.contains(" forcejump \""), accepted);
+        if accepted {
+            let holdout = dir.join("holdout.json");
+            let mut log = unbounded_log("holdout", 4, 1);
+            for round in 0..4 {
+                log["events"][2 + round * 3]["timestamp"] = json!(6750 + round * 20000);
+            }
+            fs::write(&holdout, serde_json::to_vec(&log).unwrap()).unwrap();
+            replay::replay_file(&output, &holdout, dir.join("holdout.replay.json"), None).unwrap();
+        }
+    });
+}
+
 #[rstest]
 #[case::single_cast(1, GenerateMode::Raid)]
 #[case::boss_and_helper(2, GenerateMode::Raid)]
@@ -2051,11 +2305,16 @@ fn generation_prunes_only_short_wipes_with_enough_progression_evidence(
 }
 
 #[rstest]
-#[case::three_clean_clears(3, 1)]
-#[case::two_clean_clears(2, 0)]
+#[case::three_clean_clears(3, 1, false, 0)]
+#[case::two_clean_clears(2, 0, false, 0)]
+#[case::longer_final_attempt(3, 0, true, 0)]
+#[case::corroborates_one_long_clear(3, 0, true, 1)]
+#[case::covered_by_two_long_clears(3, 1, true, 2)]
 fn dungeon_selection_requires_three_clean_clears_before_excluding_retries(
     #[case] count: usize,
     #[case] excluded: usize,
+    #[case] longer: bool,
+    #[case] long_clean_count: usize,
 ) {
     let mut logs: Vec<_> = (0..count)
         .map(|i| {
@@ -2067,6 +2326,13 @@ fn dungeon_selection_requires_three_clean_clears_before_excluding_retries(
             )
         })
         .collect();
+    // Preserve a second long observation, e.g. one clean Chort clear cannot establish consensus alone.
+    for log in logs.iter_mut().take(long_clean_count) {
+        log["events"].as_array_mut().unwrap().push(
+            json!({"timestamp":6500,"type":"cast","sourceID":10,"abilityGameID":90002,"fight":2}),
+        );
+        log["collection"]["eventCount"] = json!(3);
+    }
     let mut retry = multi_log(
         "retry",
         &[
@@ -2086,6 +2352,11 @@ fn dungeon_selection_requires_three_clean_clears_before_excluding_retries(
         json!({"timestamp":8000,"type":"instancesealupdate","sealType":3,"fight":2}),
     );
     retry["collection"]["eventCount"] = json!(4);
+    if longer {
+        // Keep only the final attempt's extra observation, e.g. it exposes a later cycle despite an earlier wipe.
+        retry["events"].as_array_mut().unwrap().push(json!({"timestamp":22500,"type":"cast","sourceID":10,"sourceInstance":2,"abilityGameID":90002,"fight":2}));
+        retry["collection"]["eventCount"] = json!(5);
+    }
     logs.push(retry);
     with_logs(&logs, |dir| {
         let output = dir.join("clean.yaml");
@@ -3130,6 +3401,60 @@ fn multi_boss_recovers_independent_paths_in_each_boss() {
         for coverage in report["outputCoverage"].as_array().unwrap() {
             assert_eq!(coverage["omittedEventIndices"], json!([]));
         }
+    });
+}
+
+#[rstest]
+#[case::one_caster(10)]
+#[case::helper_before_boss(11)]
+fn nearby_sequential_casts_do_not_branch_at_the_packet_wave_boundary(#[case] actor: i64) {
+    // Both logs observe B then A; crossing 250ms must not turn that into an A/B choice.
+    let logs: Vec<_> = [222, 265]
+        .into_iter()
+        .map(|gap| {
+            let mut log = multi_log(
+                &format!("gap-{gap}"),
+                &[
+                    (1000, 10, 90001, "cast"),
+                    (5000, actor, 90003, "cast"),
+                    (5000 + gap, 10, 90002, "cast"),
+                    (9000, 10, 90004, "cast"),
+                ],
+                10000,
+                true,
+            );
+            if actor == 11 {
+                // The boss and its helper share the wire name, e.g. both Chort actors emit their own IDs.
+                log["report"]["masterData"]["actors"][1]["name"] = json!("Boss");
+                log["report"]["masterData"]["actors"][1]["gameID"] = json!(2000011);
+                log["report"]["fights"][0]["enemyNPCs"][1]["gameID"] = json!(2000011);
+            }
+            log
+        })
+        .collect();
+    with_logs(&logs, |dir| {
+        let output = dir.join("sequential.yaml");
+        prepare(dir, &output, &["--mode", "dungeon", "--convert"]).unwrap();
+        let text = fs::read_to_string(output.with_extension("txt")).unwrap();
+        assert!(!text.contains("branch-"), "{text}");
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        let ids: Vec<_> = report["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|slot| slot["abilityIds"].clone())
+            .collect();
+        assert_eq!(
+            ids,
+            vec![
+                json!([90001]),
+                json!([90003]),
+                json!([90002]),
+                json!([90004])
+            ]
+        );
     });
 }
 

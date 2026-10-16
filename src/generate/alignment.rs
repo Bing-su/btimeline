@@ -28,6 +28,8 @@ pub(super) struct SignalKey {
 #[serde(rename_all = "camelCase")]
 pub(super) struct Signal {
     pub key: SignalKey,
+    #[serde(skip)]
+    pub source_name: Option<String>,
     pub time_ms: i64,
     #[serde(skip)]
     pub wave_ms: i64,
@@ -43,10 +45,13 @@ pub(super) fn match_key(signal: &Signal) -> SignalKey {
     key
 }
 
-// Put the caster before its same-wave effects, e.g. a 1ms helper offset cannot change the chosen path.
-pub(super) fn signal_order(signal: &Signal) -> (i64, bool, SignalKey) {
+// Independent actors can swap arrivals; one named caster's own effects retain measured order.
+pub(super) fn signal_order(signal: &Signal) -> (i64, Option<String>, i64, bool, SignalKey) {
     (
         signal.wave_ms,
+        signal.source_name.clone(),
+        // Keep measured sequence across wave boundaries, e.g. Chort's helper precedes its final hit.
+        signal.time_ms,
         !signal.key.role.ends_with("/Boss"),
         match_key(signal),
     )
@@ -175,6 +180,7 @@ pub(super) fn signals(pull: &Pull) -> Vec<Signal> {
         let seen: BTreeSet<i64> = row.instance.into_iter().collect();
         groups.push(SignalGroup {
             signal: Signal {
+                source_name: pull.actor_names.get(&row.actor_id).cloned(),
                 key: SignalKey {
                     actor_game_id,
                     actor_name: virtual_name.cloned(),
@@ -707,6 +713,10 @@ mod tests {
                 })
                 .collect(),
             actors: Default::default(),
+            actor_names: rows
+                .iter()
+                .map(|row| (row.1, format!("Actor {}", row.1)))
+                .collect(),
             raw_occurrences: None,
             virtual_actors: Default::default(),
             boss_spans: Vec::new(),

@@ -271,6 +271,9 @@ pub(super) fn evidence(
     if report.get("segments").is_some() {
         return super::combined::evidence(yaml, report, key, pull, log, peers);
     }
+    if report.pointer("/repeats/accepted").and_then(Value::as_bool) == Some(true) {
+        return super::repeat::fold_evidence(yaml, report, key, pull, log, peers);
+    }
     // Audit phase schedules against independent source times, e.g. a retry reuses the same mechanic rows.
     if report.get("schedule").is_some() {
         ensure!(
@@ -278,9 +281,6 @@ pub(super) fn evidence(
             "Schedule input group differs from generation group"
         );
         return super::schedule::evidence(yaml, report, pull, log);
-    }
-    if report.pointer("/repeats/accepted").and_then(Value::as_bool) == Some(true) {
-        return super::repeat::fold_evidence(yaml, report, key, pull, log, peers);
     }
     let timeline: crate::timeline::Timeline = serde_saphyr::from_str(yaml)?;
     let entries: Vec<_> = timeline

@@ -395,6 +395,8 @@ fn paths<'a>(
                     .map(|ability| &ability.name);
                 (
                     signal.wave_ms,
+                    &signal.source_name,
+                    signal.time_ms,
                     !signal.key.role.ends_with("/Boss"),
                     signal.key.actor_game_id,
                     &signal.key.actor_name,

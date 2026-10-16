@@ -269,6 +269,15 @@ Unresolved paths remain reported. For example, `btimeline prepare logs/clyteum -
 
 `btimeline generate LOG_DIRECTORY --lookahead 30 -o draft.yaml` compiles observed discriminated paths into label/sync jumps and derives transition windows from corrected clocks. Candidates must pass raw-signal replay; unsafe candidates retain the common draft with rejection evidence. See [P7 policy and verification](docs/p7-branches.md).
 
-## Conditional repeats (P8)
+## Repeated boss mechanics
 
-The same `generate` command compresses an independent adjacent repeat only when actor/instance/start/targetability context agrees, distinct exits are reached in both wipe and clear reports, and raw-signal replay passes. Insufficient evidence keeps finite rows and rejection reasons in JSON/Markdown. See [P8 policy and verification](docs/p8-repeats.md).
+The same `generate` and `prepare` commands detect repeats without additional flags. Insufficient evidence keeps finite rows and rejection reasons in JSON/Markdown.
+
+| Repeat               | Generated behavior                                                                                  | Required evidence                                                                                                                                                 |
+| -------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Conditional (P8)     | Sync jumps to continuation and a distinct exit                                                      | Matching actor/instance/start/targetability context, an exit reached in wipe and clear reports, and raw replay                                                    |
+| Repeated boss suffix | A label and `forcejump` for each supported boss; next-round lookahead continues across the boundary | An observed cycle followed by its opening and at least two matching next steps in at least two reports, matching role/start/targetability context, and raw replay |
+
+Boss suffixes preserve the introduction and finite source evidence. Short clears censor future mechanics; holdouts can contain more rounds than the training logs. Long final boss attempts remain eligible even when their dungeon run contains an earlier wipe. Branching or disabled repeat bodies remain finite. Observed repeats extrapolate the recorded suffix; they do not prove that an unseen later phase cannot exist.
+
+For example, `btimeline prepare logs/clyteum --mode dungeon --convert -o out/clyteum.yaml` writes repeat evidence under `repeats` in the generation report. Check raw coverage and actual consumer forecasts as described above.

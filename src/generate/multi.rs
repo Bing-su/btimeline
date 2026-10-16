@@ -909,10 +909,9 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
     if mode == GenerateMode::Raid
         && let Some(schedule) = super::schedule::build(&key, &inputs, lookahead)?
     {
-        return Ok((
-            schedule.0,
-            super::selection::annotate(schedule.1, selection)?,
-        ));
+        let (yaml, report) =
+            super::repeat::unbounded::compress(schedule.0, schedule.1, &inputs, lookahead)?;
+        return Ok((yaml, super::selection::annotate(report, selection)?));
     }
     // The longest observed path provides positions, never permission to emit its exclusive branches.
     let reference = inputs
@@ -1265,7 +1264,8 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
     })?;
     let (yaml, report) = super::phase::expand(yaml, report, &inputs, lookahead)?;
     let (yaml, report) = super::repeat::compress(yaml, report, &inputs, lookahead)?;
-    let (yaml, mut report) = super::sections::separate(yaml, report, lookahead)?;
+    let (yaml, report) = super::sections::separate(yaml, report, lookahead)?;
+    let (yaml, mut report) = super::repeat::unbounded::compress(yaml, report, &inputs, lookahead)?;
     super::sections::check(
         &yaml,
         &mut report,

@@ -12,6 +12,8 @@ use super::{Pull, draft, replay};
 use crate::fflogs::model::CollectedLog;
 use crate::timeline::{Destination, Entry, Jump, JumpWhen, Sync, Timeline};
 
+pub(super) mod unbounded;
+
 // Compare observable context, e.g. identical ability IDs on different helper instances are distinct.
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -180,6 +182,25 @@ pub(super) fn fold_evidence(
             .flatten()
             .copied()
             .collect();
+        if repeats["kind"] == "unbounded" {
+            result.observed_packets.insert(
+                entry,
+                old.iter()
+                    .filter_map(|index| finite.observed_packets.get(index))
+                    .flatten()
+                    .copied()
+                    .collect(),
+            );
+            if old.iter().any(|index| finite.unordered.contains(index)) {
+                result.unordered.insert(entry);
+            }
+            if old
+                .iter()
+                .any(|index| finite.packet_wave_selectors.contains(index))
+            {
+                result.packet_wave_selectors.insert(entry);
+            }
+        }
         let unresolved = old.iter().any(|index| {
             !finite.expected.contains_key(index)
                 && !finite.censored.contains(index)
@@ -218,6 +239,9 @@ pub(super) fn fold_evidence(
     }
     // Require every unresolved finite occurrence, e.g. an early exit cannot skip its continuation gap.
     result.required_missing = result.missing.clone();
+    if repeats["kind"] == "unbounded" {
+        unbounded::extend_evidence(&timeline, report, pull, log, &mut result)?;
+    }
     Ok(result)
 }
 

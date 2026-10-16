@@ -364,20 +364,51 @@ pub(crate) fn run(
         "Invalid preview horizon"
     );
     let mut previews = Vec::new();
-    let preview = |rows: &[Row], source_ms, clock_ms, moment| Preview {
-        source_ms,
-        clock_ms,
-        moment,
-        horizon_ms,
-        entry_indices: rows
-            .iter()
-            .filter(|row| {
-                row.at_ms >= clock_ms
-                    && row.at_ms <= clock_ms + horizon_ms
-                    && !timeline.hide_names.contains(&row.name)
-            })
-            .map(|row| row.entry_index)
-            .collect(),
+    let preview = |rows: &[Row], source_ms, clock_ms, moment| {
+        let mut cursor = clock_ms;
+        let mut remaining = horizon_ms;
+        let mut indices = Vec::new();
+        let mut wrapped = false;
+        // Follow scheduled jumps independently of observed syncs, e.g. show B across an A→A loop boundary.
+        for _ in 0..10_000 {
+            let next = rows
+                .iter()
+                .enumerate()
+                .filter(|(i, row)| {
+                    always.get(*i) == Some(&true)
+                        && row.at_ms >= cursor
+                        && row.at_ms <= cursor + remaining
+                })
+                .min_by_key(|(i, row)| (row.at_ms, *i));
+            let limit = next.map_or(cursor + remaining, |(_, row)| row.at_ms);
+            indices.extend(
+                rows.iter()
+                    .filter(|row| {
+                        row.at_ms >= cursor
+                            && (!wrapped || row.at_ms > cursor)
+                            && row.at_ms <= limit
+                            && !timeline.hide_names.contains(&row.name)
+                    })
+                    .map(|row| row.entry_index),
+            );
+            let Some((i, row)) = next else { break };
+            let Some(to) = destinations.get(i).copied().flatten() else {
+                break;
+            };
+            if to == row.at_ms || (wrapped && row.at_ms == cursor) {
+                break;
+            }
+            remaining -= row.at_ms - cursor;
+            cursor = to;
+            wrapped = true;
+        }
+        Preview {
+            source_ms,
+            clock_ms,
+            moment,
+            horizon_ms,
+            entry_indices: indices,
+        }
     };
     // Include a final tick so a scheduled forcejump cannot disappear just because no cast follows it.
     for signal in signals.iter().map(Some).chain(std::iter::once(None)) {
@@ -1174,6 +1205,33 @@ mod tests {
         let cycle = play(vec![force], &[], &[], &[0], 1000);
         assert!(!cycle.passed);
         assert_eq!(cycle.summary.wrong_jumps, 1);
+    }
+
+    #[test]
+    fn forcejump_preview_crosses_a_backward_loop_boundary() {
+        let mut repeat = event(20.0, "A");
+        repeat["jump"] = json!({"to":5.0,"when":"always"});
+        let result = play(
+            vec![event(5.0, "A"), event(10.0, "B"), repeat],
+            &[
+                signal(0, 5000, "A"),
+                signal(1, 10000, "B"),
+                signal(2, 20000, "A"),
+            ],
+            &[(0, &[0]), (1, &[1]), (2, &[2])],
+            &[],
+            20000,
+        );
+        assert!(result.passed);
+        let before = result
+            .previews
+            .iter()
+            .find(|preview| preview.moment == "beforeJump")
+            .unwrap();
+        assert!(
+            before.entry_indices.starts_with(&[2, 1, 2, 1, 2]),
+            "the 30s forecast must include later B events across both wraps"
+        );
     }
 
     #[test]

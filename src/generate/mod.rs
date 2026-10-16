@@ -50,6 +50,8 @@ pub struct Pull {
     #[serde(skip)]
     actors: BTreeMap<i64, (i64, String)>,
     #[serde(skip)]
+    actor_names: BTreeMap<i64, String>,
+    #[serde(skip)]
     raw_occurrences: Option<Vec<Occurrence>>,
     #[serde(skip)]
     virtual_actors: BTreeMap<i64, String>,

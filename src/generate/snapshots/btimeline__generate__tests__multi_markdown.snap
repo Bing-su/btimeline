@@ -69,7 +69,7 @@ expression: "report::render(&stable).unwrap()"
 | 생성에 사용 | 2 |
 | 제외 · 진단 재생 | 0 |
 
-Prefer at least three clears, then uninterrupted clears; otherwise exclude only wipes below one quarter of the longest boss-start trace when three substantial observations remain. Excluded inputs are replayed diagnostically, not used to infer mechanics.
+Prefer at least three clears, then uninterrupted clears; retain longer final boss attempts to observe repeated suffixes. Otherwise exclude only wipes below one quarter of the longest boss-start trace when three substantial observations remain. Excluded inputs are replayed diagnostically, not used to infer mechanics.
 
 | 제외 원본 | 사유 | 보스 시전 시작 수 |
 | --- | --- | ---: |
