@@ -1141,14 +1141,27 @@ fn p7_phase_window_uses_corrected_clock_and_rejects_out_of_sample_arrival(
                 mode != GenerateMode::Dungeon
             );
             let entries = draft_events(&fs::read_to_string(&yaml).unwrap());
-            assert_eq!(entries[1]["at"], 10.5);
+            assert_eq!(
+                entries[1]["at"],
+                if mode == GenerateMode::Raid {
+                    10.5
+                } else {
+                    1009.0
+                }
+            );
             assert_eq!(entries[1]["sync"]["window"], json!([5.0, 5.1]));
             assert_eq!(entries[1]["jump"]["when"], "sync");
             let report: Value =
                 serde_json::from_slice(&fs::read(yaml.with_extension("report.json")).unwrap())
                     .unwrap();
-            assert_eq!(report["slots"][1]["clockTime"]["minMs"], 5500);
-            assert_eq!(report["slots"][1]["clockTime"]["maxMs"], 15500);
+            // Section rebasing moves the clock, e.g. the 1.5s opening becomes 1000s in boss modes.
+            let offset = if mode == GenerateMode::Raid {
+                0
+            } else {
+                998500
+            };
+            assert_eq!(report["slots"][1]["clockTime"]["minMs"], 5500 + offset);
+            assert_eq!(report["slots"][1]["clockTime"]["maxMs"], 15500 + offset);
             assert_eq!(report["extensions"]["phases"].as_array().unwrap().len(), 1);
             for (name, arrival, passed) in [
                 ("early", 5500, true),
@@ -4963,6 +4976,7 @@ fn raid_late_completion_aliases_share_the_observed_start_and_keep_raw_coverage(
     #[case] start_offset: i64,
     #[case] completion_offset: i64,
     #[case] rows: usize,
+    #[values("raid", "alliance")] mode: &str,
 ) {
     let logs: Vec<_> = [0, 1]
         .into_iter()
@@ -4998,7 +5012,7 @@ fn raid_late_completion_aliases_share_the_observed_start_and_keep_raw_coverage(
         .collect();
     with_logs(&logs, |dir| {
         let output = dir.join("aliases.yaml");
-        prepare(dir, &output, &[]).unwrap();
+        prepare(dir, &output, &["--mode", mode]).unwrap();
         let report: Value =
             serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
                 .unwrap();
@@ -6684,6 +6698,173 @@ fn dungeon_keeps_mechanics_inside_boss_segments() {
                 fs::remove_file(path).unwrap();
             }
         }
+    });
+}
+
+// Repeated IDs still need a monotone clock, e.g. partial Shadow Lord captures cannot reverse two rounds.
+#[rstest]
+#[case::dungeon(GenerateMode::Dungeon)]
+#[case::alliance(GenerateMode::Alliance)]
+fn boss_consensus_cannot_reverse_repeated_casts_between_inputs(#[case] mode: GenerateMode) {
+    let mut logs = [
+        multi_log(
+            "one",
+            &[
+                (21917, 10, 90001, "cast"),
+                (35513, 10, 90002, "cast"),
+                (38141, 10, 90003, "cast"),
+                (40729, 10, 90003, "cast"),
+            ],
+            80000,
+            true,
+        ),
+        multi_log(
+            "two",
+            &[
+                (10925, 10, 90005, "cast"),
+                (17304, 10, 90002, "cast"),
+                (18108, 11, 90004, "begincast"),
+                (19935, 10, 90003, "cast"),
+                (20072, 11, 90004, "cast"),
+                (22516, 10, 90003, "cast"),
+                (25099, 10, 90003, "cast"),
+                (25506, 11, 90004, "cast"),
+                (72775, 10, 90006, "cast"),
+            ],
+            80000,
+            true,
+        ),
+    ];
+    for log in &mut logs {
+        log["report"]["masterData"]["actors"][1]["gameID"] = json!(2_000_011);
+        log["report"]["masterData"]["actors"][1]["name"] = json!("Boss");
+        log["report"]["fights"][0]["enemyNPCs"][1]["gameID"] = json!(2_000_011);
+    }
+    with_logs(&logs, |dir| {
+        let output = dir.join("order.yaml");
+        generate(dir, &output, mode).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        let slots = report.get("alignmentSlots").unwrap_or(&report["slots"]);
+        let mut latest = std::collections::BTreeMap::new();
+        for slot in slots.as_array().unwrap() {
+            for sample in slot["samples"].as_array().unwrap() {
+                let at = sample["timeMs"].as_i64().unwrap();
+                let previous = latest.entry(sample["file"].as_str().unwrap()).or_insert(0);
+                assert!(
+                    at + 250 >= *previous,
+                    "Common correspondence reversed a repeated cast: {sample}"
+                );
+                *previous = (*previous).max(at);
+            }
+        }
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(coverage["omittedEventIndices"], json!([]));
+        }
+        replay::replay_file(&output, dir, dir.join("order.replay.json"), None).unwrap();
+    });
+}
+
+// A rejected late clock must retain earlier evidence, e.g. Shadow Lord has a partial opening capture.
+#[rstest]
+#[case::dungeon(GenerateMode::Dungeon)]
+#[case::alliance(GenerateMode::Alliance)]
+fn boss_mode_partial_opening_preserves_unresolved_casts(#[case] mode: GenerateMode) {
+    let logs = [
+        multi_log(
+            "one",
+            &[(35513, 10, 90002, "cast"), (36003, 11, 90003, "cast")],
+            40000,
+            true,
+        ),
+        multi_log(
+            "two",
+            &[
+                (10925, 10, 90001, "cast"),
+                (17304, 10, 90002, "cast"),
+                (17797, 11, 90003, "cast"),
+                (22516, 10, 90004, "cast"),
+            ],
+            30000,
+            true,
+        ),
+    ];
+    with_logs(&logs, |dir| {
+        let output = dir.join("partial.yaml");
+        generate(dir, &output, mode).unwrap();
+        let report: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("report.json")).unwrap())
+                .unwrap();
+        for coverage in report["outputCoverage"].as_array().unwrap() {
+            assert_eq!(
+                coverage["omittedEventIndices"],
+                json!([]),
+                "{}",
+                report["extensions"]
+            );
+        }
+    });
+}
+
+// A boss may start long after combat begins, e.g. an alliance pull includes the preceding trash.
+#[rstest]
+#[case::dungeon("dungeon")]
+#[case::alliance("alliance")]
+fn single_boss_entry_accepts_holdout_travel_time(#[case] mode: &str) {
+    let log = |code: &str, delay: i64| {
+        multi_log(
+            code,
+            &[
+                (5000 + delay, 10, 90001, "cast"),
+                (15000 + delay, 10, 90002, "cast"),
+                (25000 + delay, 10, 90003, "cast"),
+            ],
+            30000 + delay,
+            true,
+        )
+    };
+    with_logs(&[log("one", 0), log("two", 500)], |dir| {
+        let output = dir.join("entry.yaml");
+        prepare(dir, &output, &["--mode", mode]).unwrap();
+        with_file(&log("holdout", 73000), |file| {
+            replay::replay_file(&output, file, dir.join("holdout.replay.json"), None).unwrap();
+        });
+    });
+}
+
+// Any simultaneous boss can arrive first, e.g. Ark Angels reverse their opening packet order.
+#[test]
+fn alliance_entry_opens_every_member_of_an_unordered_boss_wave() {
+    let log =
+        |code: &str, reverse: bool, delay: i64| {
+            let (a, b) = if reverse { (1050, 1000) } else { (1000, 1050) };
+            let mut log = multi_log(
+                code,
+                &[
+                    (a + delay, 10, 90001, "cast"),
+                    (b + delay, 12, 90002, "cast"),
+                    (10000 + delay, 10, 90003, "cast"),
+                    (10100 + delay, 12, 90004, "cast"),
+                ],
+                15000 + delay,
+                true,
+            );
+            log["report"]["masterData"]["actors"].as_array_mut().unwrap().push(
+            json!({"id":12,"name":"Second Boss","gameID":99903,"type":"NPC","subType":"Boss"}),
+        );
+            log["report"]["fights"][0]["enemyNPCs"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"id":12,"gameID":99903}));
+            log
+        };
+    with_logs(&[log("one", false, 0), log("two", true, 0)], |dir| {
+        let output = dir.join("wave.yaml");
+        prepare(dir, &output, &["--mode", "alliance"]).unwrap();
+        with_file(&log("holdout", true, 73000), |file| {
+            replay::replay_file(&output, file, dir.join("holdout.replay.json"), None).unwrap();
+        });
     });
 }
 

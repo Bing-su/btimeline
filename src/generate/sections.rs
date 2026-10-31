@@ -124,7 +124,6 @@ pub(super) fn separate(yaml: String, mut report: Value, lookahead: f64) -> Resul
         .iter()
         .map(|slot| slot_section(slot, &inputs, report.get("input").is_some()))
         .collect::<Result<Vec<_>>>()?;
-    // Retries also need an entry from zero, e.g. a lone boss respawns at 17s after combat stops.
     let isolated = inputs
         .iter()
         .map(|input| {
@@ -136,7 +135,13 @@ pub(super) fn separate(yaml: String, mut report: Value, lookahead: f64) -> Resul
             })
         })
         .collect::<Result<Vec<_>>>()?;
-    if events.is_empty() || !isolated.into_iter().any(|isolated| isolated) {
+    // A lone boss also needs an entry clock, e.g. Fafnir can follow a minute of alliance trash.
+    // Keep an unproven opening finite, e.g. a later repeating attack cannot identify initial entry.
+    if events.is_empty()
+        || (!isolated.into_iter().any(|isolated| isolated)
+            && !matches!(events.first().and_then(|&index| timeline.entries.get(index)),
+                Some(Entry::Event { sync: Some(Sync::Network(sync)), .. }) if sync.enabled))
+    {
         return Ok((yaml, report));
     }
     ensure!(
@@ -198,6 +203,23 @@ pub(super) fn separate(yaml: String, mut report: Value, lookahead: f64) -> Resul
             .find(|(index, _)| matches!(timeline.entries.get(**index), Some(Entry::Event { sync: Some(Sync::Network(sync)), .. }) if sync.enabled))
             .map(|(&index, _)| index).context("Boss section has no safe entry sync")?;
         let mut entry_indices = vec![entry_index];
+        let entry_at = time(
+            timeline
+                .entries
+                .get(entry_index)
+                .context("Missing section entry")?,
+        )
+        .context("Missing entry time")?;
+        // Open the whole initial packet wave, e.g. any Ark Angel can sync before its peers arrive.
+        entry_indices.extend(events.iter().zip(&ids).enumerate().filter_map(
+            |(position, (&index, &section))| {
+                (index != entry_index && section == id
+                    && slots.get(position)?["evidence"] == "unorderedPacketWave"
+                    && time(timeline.entries.get(index)?)?.abs_diff(entry_at) <= 250
+                    && matches!(timeline.entries.get(index), Some(Entry::Event { sync: Some(Sync::Network(sync)), .. }) if sync.enabled))
+                .then_some(index)
+            },
+        ));
         // Open every first branch choice, e.g. boss 2 may start with either X or Y after a reset.
         if let Some(branches) = report
             .pointer("/extensions/branches")

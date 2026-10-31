@@ -101,6 +101,8 @@ bun scripts/verify_official_cactbot.ts out/fight.txt \
 
 Raw coverage distinguishes representation, intentional exclusion and unexplained omissions. Dungeon/alliance raw accounting uses the reported boss spans and retains outside-scope indices explicitly. Forecast probes still derive from generated evidence, so inspect independent raw coverage and reference-only mechanics as well as the forecast rate. Locale/runtime/browser and live ACT delivery require separate validation.
 
+The [expanded alliance and previous-tier raid verification](agent/expanded-raid-verification.md) records 30 new Jeuno/R1S/R5S clears, frozen report holdouts, localized repairs and remaining quality failures. Its checked-in manifests support repeatable evaluation against the same raw bytes.
+
 ## Generate and validate a draft
 
 `prepare` runs `generate`, YAML schema/semantic validation, and raw-log replay in order. It accepts the same options as `generate`, including group selection and generation mode. The boolean `--convert` flag defaults to false; add it to convert to cactbot text after validation and replay succeed.

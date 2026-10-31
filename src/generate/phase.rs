@@ -553,6 +553,45 @@ impl<'a> Compiler<'a> {
         let Some(Sync::Network(sync)) = sync else {
             anyhow::bail!("Missing phase sync")
         };
+        // A censored sample still has raw packets, e.g. a post-defeat helper can steal a corrected suffix sync.
+        if sync.enabled
+            && target.is_none()
+            && self.inputs.iter().enumerate().any(|(i, input)| {
+                if samples.iter().any(|(owner, _)| *owner == i) {
+                    return false;
+                }
+                let Some(&(wall, clock)) = self.clocks.get(i) else {
+                    return false;
+                };
+                let Some(fight) = input.log.report.fights.first() else {
+                    return false;
+                };
+                input.log.events.iter().any(|event| {
+                    let corrected = event.timestamp - fight.start_time - wall + clock;
+                    at - before <= corrected
+                        && corrected < at + after
+                        && samples.iter().any(|(owner, signal)| {
+                            event.kind == signal.key.kind
+                                && self.inputs.get(*owner).is_some_and(|observed| {
+                                    signal.event_indices.iter().any(|&index| {
+                                        observed.log.events.get(index).is_some_and(|sample| {
+                                            event.ability_game_id == sample.ability_game_id
+                                                && event
+                                                    .source_id
+                                                    .and_then(|id| input.actors.get(&id))
+                                                    == sample
+                                                        .source_id
+                                                        .and_then(|id| observed.actors.get(&id))
+                                        })
+                                    })
+                                })
+                        })
+                })
+            })
+        {
+            sync.enabled = false;
+            *note = Some("Sync disabled: an unrepresented raw cast matches on a censored pull's corrected clock.".into());
+        }
         if target.is_none()
             && self
                 .blocks

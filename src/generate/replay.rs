@@ -322,20 +322,21 @@ pub(super) fn evidence(
         .iter()
         .map(|actor| (actor.id, actor.name.clone()))
         .collect();
-    // Only multi-pull raid rows use merged wire casts; single drafts and dungeon retries retain raw representatives.
-    let representatives: BTreeMap<_, _> = if !single && report["mode"] == "raid" {
-        multi::wire_signals(pull, log, &actors)?
-            .iter()
-            .flat_map(|(&index, signal)| {
-                signal
-                    .event_indices
-                    .iter()
-                    .map(move |&event| (event, index))
-            })
-            .collect()
-    } else {
-        BTreeMap::new()
-    };
+    // Match generation's merged raid/alliance casts; single drafts and dungeon retries retain raw representatives.
+    let representatives: BTreeMap<_, _> =
+        if !single && matches!(report["mode"].as_str(), Some("raid" | "alliance")) {
+            multi::wire_signals(pull, log, &actors)?
+                .iter()
+                .flat_map(|(&index, signal)| {
+                    signal
+                        .event_indices
+                        .iter()
+                        .map(move |&event| (event, index))
+                })
+                .collect()
+        } else {
+            BTreeMap::new()
+        };
     let mut relations = BTreeMap::new();
     let mut result = Evidence::default();
     for (&entry, slot) in entries.iter().zip(slots) {
@@ -588,7 +589,8 @@ pub(super) fn evidence(
     if let Some(raw) = packet_pull.raw_occurrences.take() {
         packet_pull.occurrences = raw;
     }
-    let packets: Vec<_> = if !single && report["mode"] == "raid" {
+    let packets: Vec<_> = if !single && matches!(report["mode"].as_str(), Some("raid" | "alliance"))
+    {
         multi::wire_signals(&packet_pull, log, &actors)?
             .into_values()
             .collect()

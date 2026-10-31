@@ -511,7 +511,7 @@ fn prepare(file: &str, mode: GenerateMode) -> Result<Input> {
         .iter()
         .map(|actor| (actor.id, actor.name.clone()))
         .collect();
-    let signals = if mode == GenerateMode::Raid {
+    let signals = if matches!(mode, GenerateMode::Raid | GenerateMode::Alliance) {
         wire_signals(&pull, &log, &actors)?
     } else {
         alignment::signals(&pull)
@@ -998,6 +998,7 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
     let mut anchor_indices: Option<Vec<Option<usize>>> = None;
     let mut block_id = 0;
     let mut previous_at = 0.0_f64;
+    let mut latest_samples = BTreeMap::new();
     let mut boss_section = None;
     for (&event_index, signal) in reference_signals
         .iter()
@@ -1014,11 +1015,19 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
             if section != boss_section {
                 // A new boss starts its own anchors, e.g. a slow Eye clear must not hide Chort's opening.
                 anchor_indices = None;
+                latest_samples.clear();
                 boss_section = section;
             }
         }
+        // Timing tie-breaking cannot cross a prior common cast, e.g. two Umbra Smash rounds 2.6s apart.
         let Some(Consensus { samples, censored }) =
-            consensus_samples(&inputs, &relations, reference, event_index)?
+            consensus_samples(&inputs, &relations, reference, event_index)?.filter(|consensus| {
+                consensus.samples.iter().all(|(i, sample)| {
+                    latest_samples
+                        .get(i)
+                        .is_none_or(|&previous| sample.time_ms >= previous - 250)
+                })
+            })
         else {
             omitted.push(OmittedSignal {
                 file: Some(
@@ -1130,6 +1139,10 @@ pub(super) fn build(group: Group, mode: GenerateMode, lookahead: f64) -> Result<
             continue;
         }
         previous_at = at;
+        for &(i, sample) in &samples {
+            let latest = latest_samples.entry(i).or_insert(sample.time_ms);
+            *latest = (*latest).max(sample.time_ms);
+        }
         let name = ids
             .iter()
             .map(|id| {
