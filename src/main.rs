@@ -2,7 +2,7 @@ mod cli;
 mod fflogs;
 mod generate;
 mod output;
-mod timeline;
+mod time;
 
 use anyhow::Result;
 use usage_rs::Run;

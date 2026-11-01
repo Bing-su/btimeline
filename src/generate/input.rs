@@ -8,17 +8,14 @@ use std::path::Path;
 use anyhow::{Context, Result, ensure};
 use garde::Validate;
 use indicatif::{ParallelProgressIterator, ProgressStyle};
-use itertools::Itertools;
 use rayon::prelude::*;
-use serde_json::Value;
 
 use super::pairing::{PendingStart, start_for};
-use super::{Group, GroupKey, Occurrence, Pull, Source, sha256, slash_path};
+use super::{Group, GroupKey, Occurrence, Pull, Source, slash_path};
 use crate::fflogs::model::CollectedLog;
 
-pub(super) fn load_one(path: &Path) -> Result<Source> {
+fn load_one(path: &Path) -> Result<Source> {
     let bytes = fs::read(path)?;
-    let sha256 = sha256(&bytes);
     let mut deserializer = serde_json::Deserializer::from_slice(&bytes);
     let data: CollectedLog = serde_path_to_error::deserialize(&mut deserializer)?;
     // Consume the whole file, e.g. reject a second JSON value after an otherwise valid log.
@@ -60,17 +57,7 @@ pub(super) fn load_one(path: &Path) -> Result<Source> {
             transitions.push((id, at));
         }
     }
-    let phase_spans = transitions
-        .iter()
-        .enumerate()
-        .map(|(i, &(id, at))| {
-            let lo = if i == 0 { 0 } else { at - start };
-            let hi = transitions
-                .get(i + 1)
-                .map_or(end - start, |&(_, next)| next - start - 1);
-            (id, lo, hi)
-        })
-        .collect();
+
     let key = GroupKey {
         encounter: fight.encounter_id,
         difficulty: fight.difficulty,
@@ -102,6 +89,7 @@ pub(super) fn load_one(path: &Path) -> Result<Source> {
         ensure!(actors.contains_key(&id), "Enemy player reference mismatch");
         enemies.insert(id);
     }
+
     let mut indexed = Vec::new();
     for (index, event) in events.iter().enumerate() {
         let at = event.timestamp;
@@ -194,37 +182,9 @@ pub(super) fn load_one(path: &Path) -> Result<Source> {
         });
     }
     // Include melee-only bosses in combat ownership, e.g. damage proves survival without a cast.
-    let boss_interactions = events
-        .iter()
-        .flat_map(|event| {
-            [event.source_id, event.target_id]
-                .into_iter()
-                .flatten()
-                .filter(|id| {
-                    actors
-                        .get(id)
-                        .is_some_and(|actor| actor.1.ends_with("/Boss"))
-                })
-                .map(|id| (id, event.timestamp - start))
-        })
-        .collect();
+
     // Retain actual defeat evidence, e.g. HP reaches zero before the arena opens or death is logged.
-    let boss_deaths = events
-        .iter()
-        .filter(|event| event.kind == "damage")
-        .filter_map(|event| {
-            let actor = event.target_id?;
-            let resources = event.extra.get("targetResources")?;
-            (actors.get(&actor)?.1.ends_with("/Boss")
-                && resources.get("hitPoints").and_then(Value::as_i64) == Some(0)
-                && resources
-                    .get("maxHitPoints")
-                    .and_then(Value::as_i64)
-                    .is_some_and(|hp| hp > 0))
-            .then_some((actor, event.timestamp - start))
-        })
-        .collect();
-    let party_defeat_ms = party_defeat(&data);
+
     Ok(Source {
         key,
         pull: Pull {
@@ -239,12 +199,6 @@ pub(super) fn load_one(path: &Path) -> Result<Source> {
             end_ms: end - start,
             occurrences: occurrences.into(),
             actors,
-            actor_names: master
-                .actors
-                .iter()
-                .map(|actor| (actor.id, actor.name.clone()))
-                .collect(),
-            raw_occurrences: None,
             // FFLogs virtual IDs include the report-local actor ID, e.g. 2000031 versus 2001111.
             virtual_actors: master
                 .actors
@@ -252,73 +206,8 @@ pub(super) fn load_one(path: &Path) -> Result<Source> {
                 .filter(|actor| actor.id.checked_add(2_000_000) == Some(actor.game_id))
                 .map(|actor| (actor.id, actor.name.clone()))
                 .collect(),
-            boss_spans: Vec::new(),
-            boss_interactions,
-            boss_deaths,
-            phase_spans,
-            party_defeat_ms,
         },
-        log: data,
-        sha256,
     })
-}
-
-// FFLogs can end after the actual wipe; explicit deaths and revivals bound unobserved follow-ups.
-fn party_defeat(log: &crate::fflogs::model::CollectedLog) -> Option<i64> {
-    let fight = log.report.fights.first()?;
-    if fight.kill {
-        return None;
-    }
-    let friendly = fight
-        .extra
-        .get("friendlyPlayers")?
-        .as_array()?
-        .iter()
-        .map(Value::as_i64)
-        .collect::<Option<BTreeSet<_>>>()?;
-    let actors = &log.report.master_data.actors;
-    if friendly
-        .iter()
-        .any(|id| !actors.iter().any(|actor| actor.id == *id))
-    {
-        return None;
-    }
-    let players: BTreeSet<_> = actors
-        .iter()
-        .filter(|actor| {
-            friendly.contains(&actor.id) && actor.kind == "Player" && actor.sub_type != "LimitBreak"
-        })
-        .map(|actor| actor.id)
-        .collect();
-    if players.is_empty() {
-        return None;
-    }
-    let mut dead = BTreeSet::new();
-    let mut defeated = None;
-    for event in log.events.iter().sorted_by_key(|event| event.timestamp) {
-        if event.kind == "death"
-            && let Some(target) = event.target_id.filter(|id| players.contains(id))
-        {
-            dead.insert(target);
-            if dead.len() == players.len() {
-                defeated = Some(event.timestamp - fight.start_time);
-            }
-        }
-        if event.kind == "resurrect"
-            && let Some(target) = event.target_id
-        {
-            dead.remove(&target);
-        }
-        if matches!(event.kind.as_str(), "cast" | "begincast")
-            && let Some(source) = event.source_id
-        {
-            dead.remove(&source);
-        }
-        if dead.len() != players.len() {
-            defeated = None;
-        }
-    }
-    defeated
 }
 
 pub fn inspect(paths: &[impl AsRef<Path>]) -> Result<Vec<Group>> {
@@ -367,123 +256,9 @@ pub fn inspect(paths: &[impl AsRef<Path>]) -> Result<Vec<Group>> {
         }
         peers.push(pull);
     }
-    Ok(groups
+    let groups = groups
         .into_iter()
         .map(|(key, pulls)| Group { key, pulls })
-        .collect())
-}
-
-#[cfg(test)]
-pub(super) fn select_group(
-    input: &Path,
-    name: Option<&str>,
-    encounter: Option<i64>,
-    difficulty: Option<i64>,
-) -> Result<Group> {
-    let mut groups = select_groups(input, name, encounter, difficulty)?;
-    let choices = group_choices(&groups);
-    ensure!(
-        groups.len() == 1,
-        "Select exactly one compatible group with --name or --encounter / --difficulty (matched {}); available: {choices}",
-        groups.len()
-    );
-    groups.pop().context("Missing selected group")
-}
-
-pub(super) fn group_choices(groups: &[Group]) -> String {
-    groups
-        .iter()
-        .map(|group| {
-            format!(
-                "{} (--encounter {} --difficulty {}, {} pulls)",
-                group
-                    .pulls
-                    .iter()
-                    .map(|p| p.name.as_str())
-                    .sorted()
-                    .dedup()
-                    .join(" / "),
-                group.key.encounter,
-                group.key.difficulty,
-                group.pulls.len()
-            )
-        })
-        .join(", ")
-}
-
-pub(super) fn select_groups(
-    input: &Path,
-    name: Option<&str>,
-    encounter: Option<i64>,
-    difficulty: Option<i64>,
-) -> Result<Vec<Group>> {
-    let mut paths = Vec::new();
-    let mut pending = vec![input.to_path_buf()];
-    // Do not follow directory symlinks: a log tree must not recurse through a cycle.
-    while let Some(path) = pending.pop() {
-        if path.is_dir() {
-            for entry in fs::read_dir(&path)? {
-                let entry = entry?;
-                let kind = entry.file_type()?;
-                if kind.is_dir()
-                    || (kind.is_file()
-                        && entry.path().extension().is_some_and(|e| e == "json")
-                        && !entry
-                            .file_name()
-                            .to_string_lossy()
-                            .ends_with(".report.json"))
-                {
-                    pending.push(entry.path());
-                }
-            }
-        } else {
-            paths.push(path);
-        }
-    }
-    paths.sort();
-    let groups = inspect(&paths)?;
-    let choices = group_choices(&groups);
-    let selected: Vec<_> = groups
-        .into_iter()
-        .filter(|group| {
-            name.is_none_or(|name| group.pulls.iter().any(|pull| pull.name == name))
-                && encounter.is_none_or(|id| group.key.encounter == id)
-                && difficulty.is_none_or(|id| group.key.difficulty == id)
-        })
         .collect();
-    ensure!(
-        !selected.is_empty(),
-        "Select exactly one compatible group with --name or --encounter / --difficulty (matched {}); available: {choices}",
-        selected.len()
-    );
-    Ok(selected)
-}
-
-// Filter only normalized correspondence; raw casts still expose accidental sync activation.
-// For example, a helper before the first boss interaction stays in collision/replay evidence.
-pub(super) fn filter_boss_spans(pull: &mut Pull, report: &Value) -> Result<()> {
-    let spans = report["bossSegments"]
-        .as_array()
-        .context("Missing boss segments")?;
-    // Retain retry paths for raw replay, e.g. consensus uses the final attempt without erasing wipes.
-    if pull.raw_occurrences.is_none() {
-        pull.raw_occurrences = Some(pull.occurrences.clone());
-    }
-    pull.boss_spans = super::sections::spans(report)?;
-    pull.occurrences = pull
-        .occurrences
-        .iter()
-        .filter(|row| {
-            spans.iter().any(|span| {
-                span["startMs"]
-                    .as_i64()
-                    .is_some_and(|at| row.relative_ms >= at)
-                    && span["endMs"]
-                        .as_i64()
-                        .is_some_and(|at| row.relative_ms <= at)
-            })
-        })
-        .cloned()
-        .collect();
-    Ok(())
+    Ok(groups)
 }

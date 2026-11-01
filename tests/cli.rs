@@ -6,38 +6,74 @@ use serde_json::Value;
 const INPUT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/pull.json");
 
 #[test]
-fn help_version_and_invalid_arguments_use_process_exit_codes() {
-    let directory = tempfile::tempdir().expect("temporary output directory");
-    let output = directory.path().join("unused.yaml");
-    cargo_bin_cmd!("btimeline").arg("--help").assert().success();
-    let version = cargo_bin_cmd!("btimeline")
-        .arg("--version")
+fn inspect_rejects_invalid_input_and_preserves_json_boundaries() {
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("input.json");
+    let original: Value = serde_json::from_slice(&fs::read(INPUT).unwrap()).unwrap();
+    let mut invalid = Vec::new();
+    for (pointer, value) in [
+        ("/collection/complete", serde_json::json!(false)),
+        ("/collection/eventCount", serde_json::json!(999)),
+        ("/collection/schemaVersion", serde_json::json!(2)),
+        ("/collection/startTime", serde_json::json!(-1)),
+        ("/collection/endTime", serde_json::json!(999)),
+        ("/collection/pageStartTimes", serde_json::json!([])),
+        (
+            "/collection/pageStartTimes",
+            serde_json::json!([1000, 1000]),
+        ),
+        ("/collection/reportCode", serde_json::json!("wrong")),
+        ("/collection/pageCount", serde_json::json!(2)),
+        ("/collection/nextPageTimestamp", serde_json::json!(1500)),
+        ("/events/0/timestamp", serde_json::json!(21001)),
+        ("/events/0/abilityGameID", serde_json::json!(42)),
+        ("/events/0/fight", serde_json::json!(3)),
+        ("/events/0/timestamp", serde_json::json!("invalid")),
+    ] {
+        let mut data = original.clone();
+        *data.pointer_mut(pointer).unwrap() = value;
+        invalid.push(data);
+    }
+    for transitions in [
+        serde_json::json!({}),
+        serde_json::json!([{"id":"one","startTime":1000}]),
+        serde_json::json!([{"id":1,"startTime":999}]),
+        serde_json::json!([{"id":1,"startTime":21001}]),
+        serde_json::json!([{"id":1,"startTime":1000},{"id":2,"startTime":1000}]),
+        serde_json::json!([{"id":1,"startTime":1500},{"id":2,"startTime":1400}]),
+    ] {
+        let mut data = original.clone();
+        data["report"]["fights"][0]["phaseTransitions"] = transitions;
+        invalid.push(data);
+    }
+    for data in invalid {
+        fs::write(&input, serde_json::to_vec(&data).unwrap()).unwrap();
+        cargo_bin_cmd!("btimeline")
+            .args(["inspect", input.to_str().unwrap()])
+            .assert()
+            .failure();
+    }
+    let mut wrong_type = original.clone();
+    wrong_type["events"][0]["timestamp"] = "invalid".into();
+    fs::write(&input, serde_json::to_vec(&wrong_type).unwrap()).unwrap();
+    let error = cargo_bin_cmd!("btimeline")
+        .args(["inspect", input.to_str().unwrap()])
+        .assert()
+        .failure();
+    assert!(String::from_utf8_lossy(&error.get_output().stderr).contains("events[0].timestamp"));
+    let bytes = serde_json::to_vec(&original).unwrap();
+    for suffix in ["{}", "garbage"] {
+        fs::write(&input, [bytes.as_slice(), suffix.as_bytes()].concat()).unwrap();
+        cargo_bin_cmd!("btimeline")
+            .args(["inspect", input.to_str().unwrap()])
+            .assert()
+            .failure();
+    }
+    fs::write(&input, [bytes.as_slice(), b" \n\t"].concat()).unwrap();
+    cargo_bin_cmd!("btimeline")
+        .args(["inspect", input.to_str().unwrap()])
         .assert()
         .success();
-    assert!(
-        String::from_utf8_lossy(&version.get_output().stdout).contains(env!("CARGO_PKG_VERSION"))
-    );
-    cargo_bin_cmd!("btimeline")
-        .args(["generate", INPUT, "-o"])
-        .arg(&output)
-        .args(["--mode", "invalid"])
-        .assert()
-        .code(2);
-    assert!(!output.exists());
-}
-
-#[test]
-fn piped_inspection_keeps_stdout_json_and_progress_hidden() {
-    let result = cargo_bin_cmd!("btimeline")
-        .args(["inspect-inputs", INPUT])
-        .assert()
-        .success()
-        .stderr("");
-    let groups: Value = serde_json::from_slice(&result.get_output().stdout).expect("JSON stdout");
-    assert_eq!(
-        groups.pointer("/0/pulls/0/report"),
-        Some(&Value::from("synthetic"))
-    );
 }
 
 #[test]
@@ -77,48 +113,4 @@ fn fflogs_tools_load_dotenv_without_exposing_credentials() {
     let stderr = String::from_utf8_lossy(&result.get_output().stderr);
     assert!(stderr.contains("Cannot load .env"));
     assert!(!stderr.contains("private-test-value"));
-}
-
-#[test]
-fn prepare_replays_all_casts_and_converts_only_when_requested() {
-    for convert in [false, true] {
-        let directory = tempfile::tempdir().expect("temporary output directory");
-        let output = directory.path().join("draft.yaml");
-        let mut command = cargo_bin_cmd!("btimeline");
-        command.args(["prepare", INPUT, "-o"]).arg(&output);
-        if convert {
-            command.arg("--convert");
-        }
-        command.assert().success();
-        let yaml = fs::read_to_string(&output).expect("generated YAML");
-        let timeline: Value =
-            serde_saphyr::from_str(&yaml).expect("valid YAML after major upgrade");
-        assert_eq!(timeline.get("schemaVersion"), Some(&Value::from(1)));
-        let replay: Value = serde_json::from_slice(
-            &fs::read(output.with_extension("replay.json")).expect("replay report"),
-        )
-        .expect("valid replay JSON");
-        assert_eq!(
-            replay.get("status"),
-            Some(&Value::from("internally_validated"))
-        );
-        assert_eq!(
-            replay.pointer("/pulls/0/replay/summary/matches"),
-            Some(&Value::from(3))
-        );
-        assert_eq!(
-            replay.pointer("/pulls/0/unrepresentedEventIndices"),
-            Some(&Value::from(Vec::<usize>::new()))
-        );
-        assert_eq!(output.with_extension("txt").exists(), convert);
-
-        // Fail before publishing anything, e.g. rerunning prepare preserves every existing artifact.
-        let previous = fs::read(&output).expect("existing draft");
-        cargo_bin_cmd!("btimeline")
-            .args(["prepare", INPUT, "-o"])
-            .arg(&output)
-            .assert()
-            .failure();
-        assert_eq!(fs::read(&output).expect("preserved draft"), previous);
-    }
 }

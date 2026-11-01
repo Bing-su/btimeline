@@ -9,22 +9,15 @@ anyhow = "1"
 backon = { version = "1.6", default-features = false, features = ["std-blocking-sleep"] }
 base64 = "0.23"
 camino = "1"
-contracts = "0.6"
 dotenvy = "0.15"
 garde = { version = "0.23", default-features = false, features = ["derive", "regex"] }
 indicatif = { version = "0.18", features = ["rayon"] }
-itertools = "0.15"
-jsonschema = { version = "0.58", default-features = false }
 path-slash = "0.2"
 rayon = "1"
-regress = "0.12"
 ring = "0.17"
-schemars = "1.2"
 serde = { version = "1", features = ["derive", "rc"] }
 serde_json = "1"
 serde_path_to_error = "0.1"
-serde-saphyr = { version = "2", default-features = false, features = ["deserialize", "serialize"] }
-similar = { version = "3", default-features = false }
 tempfile = "3"
 tracing = "0.1"
 tracing-subscriber = "0.3"
@@ -33,9 +26,8 @@ usage-rs = { version = "7", features = ["completions"] }
 
 [dev-dependencies]
 assert_cmd = "2.2"
-insta = { version = "1.49", features = ["json"] }
-proptest = { version = "1.11", default-features = false, features = ["std"] }
-rstest = { version = "0.27", default-features = false }
+proptest = { version = "1", default-features = false, features = ["std"] }
+rstest = { version = "0.28", default-features = false }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 wiremock = "0.6"
 

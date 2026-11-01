@@ -1,22 +1,18 @@
 mod input;
 mod pairing;
-mod sections;
 
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use input::load_one;
 use path_slash::PathExt as _;
 use serde::{Deserialize, Serialize};
-
-use crate::fflogs::model::CollectedLog;
 
 // Align equivalent FFLogs segments; an encounter ID can identify one checkpoint segment of a battle.
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct GroupKey {
-    encounter: i64,
-    difficulty: i64,
+    pub(crate) encounter: i64,
+    pub(crate) difficulty: i64,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -52,21 +48,7 @@ pub struct Pull {
     #[serde(skip)]
     actors: BTreeMap<i64, (i64, String)>,
     #[serde(skip)]
-    actor_names: BTreeMap<i64, String>,
-    #[serde(skip)]
-    raw_occurrences: Option<Arc<[Occurrence]>>,
-    #[serde(skip)]
     virtual_actors: BTreeMap<i64, String>,
-    #[serde(skip)]
-    boss_spans: Vec<(i64, i64)>,
-    #[serde(skip)]
-    boss_interactions: Vec<(i64, i64)>,
-    #[serde(skip)]
-    boss_deaths: Vec<(i64, i64)>,
-    #[serde(skip)]
-    phase_spans: Vec<(i64, i64, i64)>,
-    #[serde(skip)]
-    party_defeat_ms: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -79,17 +61,6 @@ pub struct Group {
 struct Source {
     key: GroupKey,
     pull: Pull,
-    log: CollectedLog,
-    sha256: String,
-}
-
-// Bind evidence to the bytes actually parsed, e.g. an added friendly cast invalidates the old hash too.
-fn sha256(bytes: &[u8]) -> String {
-    ring::digest::digest(&ring::digest::SHA256, bytes)
-        .as_ref()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
 }
 
 fn slash_path(path: &Path) -> String {
@@ -105,22 +76,4 @@ fn slash_path(path: &Path) -> String {
     }
 }
 
-mod alignment;
-mod combined;
-mod draft;
-mod multi;
-mod phase;
-mod repeat;
-pub(crate) mod replay;
-mod report;
-mod schedule;
-mod selection;
-pub use alignment::align;
-#[cfg(test)]
-use draft::generate;
-pub use draft::{GenerateMode, generate_selected};
 pub use input::inspect;
-pub use report::markdown_file;
-
-#[cfg(test)]
-mod tests;
