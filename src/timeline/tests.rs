@@ -53,6 +53,9 @@ fn branch_constraints_and_replay_capability_are_separate() {
     }"#;
     let model = parse(body).unwrap();
     assert_eq!(model.event_count, 3);
+    let rotation = model.phases.first().unwrap().loops.first().unwrap();
+    assert_eq!(rotation.id, "rotation");
+    assert_eq!(rotation.branches.first().unwrap().options.len(), 2);
     let input = recording(0, serde_json::json!([])).unwrap();
     replay(&model, &input).unwrap_err();
     for invalid in [
@@ -71,6 +74,40 @@ fn branch_constraints_and_replay_capability_are_separate() {
     ] {
         assert!(parse(&invalid).is_err(), "Accepted {invalid}");
     }
+}
+
+#[test]
+fn option_loop_preserves_exit_and_body() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        phase "p" {
+            enter "Start"
+            branch "b" open=0.0 close=3.0 {
+                option "a" {
+                    when "A"
+                    loop "hold" start=1.0 every=5.0 {
+                        until "End" at=2.0 before=1.0
+                        event "pulse" 1.0 name="Pulse"
+                        on-exit { event "end" 1.0 name="End"; }
+                    }
+                }
+                option "b" { when "B"; }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let phase = model.phases.first().unwrap();
+    let option = phase.branches.first().unwrap().options.first().unwrap();
+    let hold = option.loops.first().unwrap();
+    assert_eq!((hold.start, hold.every), (10, 50));
+    assert_eq!(hold.untils.len(), 1);
+    assert_eq!(hold.events.first().unwrap().id, "pulse");
+    assert_eq!(hold.on_exit.first().unwrap().id, "end");
+    let error = replay(&model, &recording(0, serde_json::json!([])).unwrap())
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("loop hold"));
 }
 
 #[test]

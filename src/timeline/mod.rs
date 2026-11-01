@@ -61,6 +61,7 @@ pub(crate) struct Phase {
     enters: Vec<Signal>,
     events: Vec<Event>,
     branches: Vec<Branch>,
+    loops: Vec<Loop>,
 }
 
 #[derive(Debug)]
@@ -78,6 +79,18 @@ struct BranchOption {
     whens: Vec<Signal>,
     requires: Vec<(String, String)>,
     events: Vec<Event>,
+    loops: Vec<Loop>,
+}
+
+#[derive(Debug)]
+struct Loop {
+    id: String,
+    start: Tick,
+    every: Tick,
+    untils: Vec<Signal>,
+    events: Vec<Event>,
+    branches: Vec<Branch>,
+    on_exit: Vec<Event>,
 }
 
 #[derive(Debug)]

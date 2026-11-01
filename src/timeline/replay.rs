@@ -757,10 +757,22 @@ impl<'a> Replay<'a> {
 }
 
 pub(crate) fn replay(timeline: &Timeline, input: &Recording) -> Result<Vec<Record>> {
+    let loops = timeline.phases.iter().flat_map(|phase| {
+        phase.loops.iter().chain(
+            phase
+                .branches
+                .iter()
+                .flat_map(|branch| branch.options.iter().flat_map(|option| &option.loops)),
+        )
+    });
+    let mut unsupported = timeline.controls.clone();
+    for item in loops {
+        unsupported.push(format!("loop {} (start {:.1}s, every {:.1}s, {} untils, {} events, {} branches, {} exit events)", item.id, item.start as f64 / 10.0, item.every as f64 / 10.0, item.untils.len(), item.events.len(), item.branches.len(), item.on_exit.len()));
+    }
     ensure!(
-        timeline.controls.is_empty(),
+        unsupported.is_empty(),
         "Replay does not yet support: {}",
-        timeline.controls.join(", ")
+        unsupported.join(", ")
     );
     validate_recording(input)?;
     let mut state = Replay {

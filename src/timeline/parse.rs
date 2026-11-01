@@ -4,7 +4,19 @@ use anyhow::{Context, Result, bail, ensure};
 use kdl::{KdlNode, KdlValue};
 use regress::Regex;
 
-use super::{Branch, BranchOption, Event, Field, MAX_MS, Merge, Phase, Signal, Tick, Timeline};
+use super::{
+    Branch,
+    BranchOption,
+    Event,
+    Field,
+    Loop,
+    MAX_MS,
+    Merge,
+    Phase,
+    Signal,
+    Tick,
+    Timeline,
+};
 
 fn children(node: &KdlNode) -> &[KdlNode] {
     node.children().map_or(&[], |doc| doc.nodes())
@@ -279,6 +291,7 @@ struct Validation {
     phase_refs: Vec<String>,
     controls: Vec<String>,
     branches: BTreeMap<String, Branch>,
+    loops: BTreeMap<String, Loop>,
     event_count: usize,
 }
 
@@ -330,7 +343,7 @@ impl Validation {
         }
         self.event_count += 1;
         Ok(Event {
-            order: self.event_count,
+            order: node.span().offset(),
             id,
             at,
             name,
@@ -427,11 +440,13 @@ impl Validation {
         }
         ensure!(!whens.is_empty(), "option requires at least one when");
         let events = self.body(&body, "option", every.is_some(), close - 1, every, source)?;
+        let loops = self.take_loops(&body)?;
         Ok(BranchOption {
             id: option,
             whens,
             requires,
             events,
+            loops,
         })
     }
 
@@ -494,11 +509,13 @@ impl Validation {
                     .context("Missing parsed branch")
             })
             .collect::<Result<Vec<_>>>()?;
+        let loops = self.take_loops(&body)?;
         Ok(Phase {
             id,
             enters,
             events,
             branches,
+            loops,
         })
     }
 
@@ -561,33 +578,65 @@ impl Validation {
     fn loop_node(&mut self, node: &KdlNode, source: &str) -> Result<()> {
         shape(node, 1, &["start", "every"])?;
         let id = self.id(node)?;
-        self.controls.push(format!("loop {id}"));
-        property_time(node, "start")?.context("loop requires start")?;
+        let start = property_time(node, "start")?.context("loop requires start")?;
         let every = property_time(node, "every")?.context("loop requires every")?;
         ensure!(every > 0, "loop every must be positive");
         let mut body = Vec::new();
-        let mut untils = 0;
+        let mut untils = Vec::new();
         let mut exits = 0;
+        let mut on_exit = Vec::new();
         for child in children(node) {
             match child.name().value() {
                 "until" => {
-                    signal(child, "until")?;
-                    untils += 1;
+                    untils.push(signal(child, "until")?);
                 }
                 "on-exit" => {
                     shape(child, 0, &[])?;
                     exits += 1;
-                    self.body(children(child), "on-exit", false, 0, None, source)?;
+                    on_exit = self.body(children(child), "on-exit", false, 0, None, source)?;
                 }
                 _ => body.push(child.clone()),
             }
         }
         ensure!(
-            exits <= 1 && (exits == 0 || untils > 0),
+            exits <= 1 && (exits == 0 || !untils.is_empty()),
             "on-exit requires until and may occur only once"
         );
-        self.body(&body, "loop", true, 0, Some(every), source)?;
+        let events = self.body(&body, "loop", true, 0, Some(every), source)?;
+        let branches = body
+            .iter()
+            .filter(|node| node.name().value() == "branch")
+            .map(|node| {
+                self.branches
+                    .remove(&arg_string(node, 0)?)
+                    .context("Missing parsed branch")
+            })
+            .collect::<Result<Vec<_>>>()?;
+        self.loops.insert(
+            id.clone(),
+            Loop {
+                id,
+                start,
+                every,
+                untils,
+                events,
+                branches,
+                on_exit,
+            },
+        );
         Ok(())
+    }
+
+    fn take_loops(&mut self, nodes: &[KdlNode]) -> Result<Vec<Loop>> {
+        nodes
+            .iter()
+            .filter(|node| node.name().value() == "loop")
+            .map(|node| {
+                self.loops
+                    .remove(&arg_string(node, 0)?)
+                    .context("Missing parsed loop")
+            })
+            .collect()
     }
 
     fn references(&self) -> Result<()> {
