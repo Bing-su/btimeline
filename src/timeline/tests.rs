@@ -232,6 +232,101 @@ fn phase_sync_does_not_move_an_active_loop_branch() {
 }
 
 #[test]
+fn phase_and_loop_branches_report_competing_choices() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            branch "outer" open=0.0 close=3.0 {
+                option "one" { when "A"; }
+                option "two" { when "P"; }
+            }
+            loop "rotation" start=0.0 every=10.0 {
+                branch "inner" open=0.0 close=3.0 {
+                    option "one" { when "A"; }
+                    option "two" { when "N"; }
+                }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        2500,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"A","fields":{}},
+            {"at_ms":1500,"type":"N","fields":{}},
+            {"at_ms":1600,"type":"P","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "ambiguous" && r.at_ms == 1000)
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "option" && r.detail == "inner/two")
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "option" && r.detail == "outer/two")
+    );
+    assert!(
+        !output
+            .iter()
+            .any(|r| r.action == "option" && r.detail.ends_with("/one"))
+    );
+}
+
+#[test]
+fn phase_option_sync_does_not_shift_an_active_nested_branch() {
+    let model = parse(r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            branch "outer" open=0.0 close=3.0 {
+                option "one" { when "O"; event "outer-hit" 4.0 name="Outer" { sync 4.0 "Sync" before=4.0 after=4.0; }; }
+                option "two" { when "P"; }
+            }
+            loop "rotation" start=0.0 every=10.0 {
+                branch "inner" open=2.0 close=4.0 {
+                    option "one" { when "N"; }
+                    option "two" { when "M"; }
+                }
+            }
+        }
+    }"#).unwrap();
+    let input = recording(
+        3500,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"O","fields":{}},
+            {"at_ms":2000,"type":"Sync","fields":{}},
+            {"at_ms":2500,"type":"N","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("outer-hit:") && r.at_ms == 2000)
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "option" && r.detail == "inner/one" && r.at_ms == 2500)
+    );
+}
+
+#[test]
 fn phase_sync_at_nested_loop_start_runs_before_the_start_timer() {
     let model = parse(
         r#"timeline 1 "x" {
@@ -269,6 +364,48 @@ fn phase_sync_at_nested_loop_start_runs_before_the_start_timer() {
         output
             .iter()
             .any(|r| r.action == "option" && r.detail == "choice/right" && r.at_ms == 4000)
+    );
+}
+
+#[test]
+fn phase_option_sync_at_nested_loop_start_runs_before_the_start_timer() {
+    let model = parse(r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            branch "outer" open=0.0 close=2.0 {
+                option "one" { when "O"; event "anchor" 0.0 name="Anchor" { sync 0.0 "Sync" before=0.0 after=3.0; }; }
+                option "two" { when "P"; }
+            }
+            loop "rotation" start=2.0 every=10.0 {
+                branch "choice" open=0.0 close=3.0 {
+                    option "left" { when "A"; }
+                    option "right" { when "B"; }
+                }
+            }
+        }
+    }"#).unwrap();
+    let input = recording(
+        4000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":500,"type":"O","fields":{}},
+            {"at_ms":2000,"type":"Sync","fields":{}},
+            {"at_ms":2500,"type":"A","fields":{}},
+            {"at_ms":3500,"type":"B","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        !output
+            .iter()
+            .any(|r| r.action == "option" && r.detail == "choice/left")
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "option" && r.detail == "choice/right" && r.at_ms == 3500)
     );
 }
 
@@ -1497,6 +1634,7 @@ fn finite_loop_exit_window_reports_unresolved_but_keeps_repeating() {
 
 #[rstest]
 #[case::multiple_loops_with_nested_branch(r#"loop "l" start=0.0 every=2.0 { branch "b" open=0.0 close=1.0 { option "a" { when "A"; }; option "b" { when "B"; }; }; }; loop "m" start=3.0 every=2.0 {};"#, "only loop")]
+#[case::option_loop_with_nested_branch(r#"branch "outer" open=0.0 close=1.0 { option "a" { when "A"; loop "m" start=0.0 every=2.0 {}; }; option "b" { when "B"; }; }; loop "l" start=0.0 every=2.0 { branch "b" open=0.0 close=1.0 { option "a" { when "C"; }; option "b" { when "D"; }; }; };"#, "no option contains a loop")]
 fn unsupported_loop_combinations_are_rejected(#[case] body: &str, #[case] reason: &str) {
     let source = format!("timeline 1 \"x\" {{ phase \"p\" {{ enter \"Start\"; {body} }} }}");
     let model = parse(&source).unwrap();

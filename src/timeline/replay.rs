@@ -1195,7 +1195,9 @@ impl<'a> Replay<'a> {
         let Some(phase) = &self.phase else {
             return false;
         };
-        if sync_targets(&phase.definition.events, &phase.clock, observation).is_empty() {
+        if sync_targets(&phase.definition.events, &phase.clock, observation).is_empty()
+            && branch_sync_targets(phase, observation).is_empty()
+        {
             return false;
         }
         let at = observation.at_ms;
@@ -1867,8 +1869,12 @@ fn validate_nested_repeat(phase: &Phase, repeat: &Loop, input: &Recording) -> Re
     ensure!(
         phase.loops.len() == 1
             && phase.loops.first().is_some_and(|item| item.id == repeat.id)
-            && phase.branches.is_empty(),
-        "Replay supports branches inside a loop only when it is the phase's only loop and the phase has no other branches"
+            && phase
+                .branches
+                .iter()
+                .flat_map(|branch| &branch.options)
+                .all(|option| option.loops.is_empty()),
+        "Replay supports branches inside a loop only when it is the phase's only loop and no option contains a loop"
     );
     let cycles = input.end_ms / (repeat.every * 100);
     let branch_count = i64::try_from(repeat.branches.len()).unwrap_or(i64::MAX);
