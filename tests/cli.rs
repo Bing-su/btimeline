@@ -206,6 +206,65 @@ fn mine_preserves_wipes_simultaneous_events_and_existing_output() {
     assert_eq!(fs::read_to_string(output).unwrap(), text);
 }
 
+#[rstest::rstest]
+#[case(1000)]
+#[case(1555)]
+#[case(21000)]
+fn phase_boundaries_survive_inspection_and_mining(#[case] timestamp: i64) {
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("phases.json");
+    let output = dir.path().join("process.kdl");
+    let mut data: Value = serde_json::from_slice(&fs::read(INPUT).unwrap()).unwrap();
+    data["report"]["fights"][0]["phaseTransitions"] =
+        serde_json::json!([{"id":2,"startTime":timestamp}]);
+    fs::write(&input, serde_json::to_vec(&data).unwrap()).unwrap();
+    let inspection = cargo_bin_cmd!("btimeline")
+        .arg("inspect")
+        .arg(&input)
+        .assert()
+        .success();
+    let inspected: Value = serde_json::from_slice(&inspection.get_output().stdout).unwrap();
+    let phases = inspected[0]["pulls"][0]["phase_transitions"]
+        .as_array()
+        .unwrap();
+    assert_eq!(phases.len(), 1);
+    assert_eq!(phases[0]["id"], 2);
+    for (field, expected_ms) in [
+        ("timestamp_seconds", timestamp),
+        ("relative_seconds", timestamp - 1000),
+    ] {
+        let actual = phases[0][field].as_f64().unwrap();
+        assert!((actual - expected_ms as f64 / 1000.0).abs() < 1e-9);
+    }
+    cargo_bin_cmd!("btimeline")
+        .arg("mine")
+        .arg(&input)
+        .arg("-o")
+        .arg(&output)
+        .assert()
+        .success();
+    let document: kdl::KdlDocument = fs::read_to_string(output).unwrap().parse().unwrap();
+    let trace = document.nodes()[0]
+        .children()
+        .unwrap()
+        .nodes()
+        .iter()
+        .find(|node| node.name().value() == "trace")
+        .unwrap();
+    let boundary = trace
+        .children()
+        .unwrap()
+        .nodes()
+        .iter()
+        .find(|node| node.name().value() == "phase-boundary")
+        .unwrap();
+    assert_eq!(boundary.get(0).unwrap().as_integer(), Some(2));
+    assert_eq!(
+        boundary.get("at_ms").unwrap().as_integer(),
+        Some(i128::from(timestamp - 1000))
+    );
+}
+
 #[test]
 fn timeline_validation_and_replay_are_accessible_without_overwriting_inputs() {
     let timeline = concat!(

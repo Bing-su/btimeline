@@ -11,15 +11,14 @@ use indicatif::{ParallelProgressIterator, ProgressStyle};
 use rayon::prelude::*;
 
 use super::pairing::{PendingStart, start_for};
-use super::{Group, GroupKey, Occurrence, Pull, Source, slash_path};
+use super::{Group, GroupKey, Occurrence, PhaseTransition, Pull, Source, slash_path};
 use crate::fflogs::model::CollectedLog;
 
-// Validate optional phase boundaries even when inspection only exports casts.
-fn validate_transitions(fight: &crate::fflogs::model::Fight) -> Result<()> {
+// Preserve reported boundaries as evidence, e.g. a checkpoint need not be an execution phase.
+fn phase_transitions(fight: &crate::fflogs::model::Fight) -> Result<Vec<PhaseTransition>> {
     let start = fight.start_time;
     let end = fight.end_time;
-    // Bound repeated mechanics to their observed phase, e.g. P2's first Past's End cannot match its second round.
-    let mut transitions = Vec::new();
+    let mut transitions = Vec::<PhaseTransition>::new();
     if let Some(value) = fight
         .extra
         .get("phaseTransitions")
@@ -35,13 +34,17 @@ fn validate_transitions(fight: &crate::fflogs::model::Fight) -> Result<()> {
                     && at <= end
                     && transitions
                         .last()
-                        .is_none_or(|&(_, previous)| previous < at),
+                        .is_none_or(|previous| previous.timestamp_ms < at),
                 "Invalid phase transition time range"
             );
-            transitions.push((id, at));
+            transitions.push(PhaseTransition {
+                id,
+                timestamp_ms: at,
+                relative_ms: at - start,
+            });
         }
     }
-    Ok(())
+    Ok(transitions)
 }
 
 // Validate all raw references before filtering, e.g. friendly events remain checked.
@@ -178,7 +181,7 @@ fn source_from_collected(path: &Path, data: &CollectedLog) -> Result<Source> {
     let end = fight.end_time;
     ensure!(start >= 0 && end >= start, "Invalid fight time range");
     ensure!(!fight.in_progress, "Fight still in progress");
-    validate_transitions(fight)?;
+    let phase_transitions = phase_transitions(fight)?;
 
     let key = GroupKey {
         encounter: fight.encounter_id,
@@ -231,6 +234,7 @@ fn source_from_collected(path: &Path, data: &CollectedLog) -> Result<Source> {
             name: fight.name.clone(),
             kill: fight.kill,
             end_ms: end - start,
+            phase_transitions,
             occurrences: occurrences.into(),
             actors,
             // FFLogs virtual IDs include the report-local actor ID, e.g. 2000031 versus 2001111.

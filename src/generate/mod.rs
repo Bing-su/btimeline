@@ -34,6 +34,13 @@ pub struct Occurrence {
 }
 
 #[derive(Clone, Debug, Serialize)]
+pub struct PhaseTransition {
+    pub id: i64,
+    pub timestamp_ms: i64,
+    pub relative_ms: i64,
+}
+
+#[derive(Clone, Debug, Serialize)]
 pub struct Pull {
     pub file: String,
     pub report: String,
@@ -44,6 +51,7 @@ pub struct Pull {
     pub name: String,
     pub kill: bool,
     pub end_ms: i64,
+    pub phase_transitions: Vec<PhaseTransition>,
     // Share immutable evidence across replay variants, e.g. packet auditing restores the raw slice.
     pub occurrences: Arc<[Occurrence]>,
     #[serde(skip)]

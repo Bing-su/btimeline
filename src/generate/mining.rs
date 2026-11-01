@@ -32,6 +32,7 @@ struct Pull {
     fight: i64,
     kill: bool,
     end_ms: i64,
+    phase_transitions: Vec<super::PhaseTransition>,
     batches: Vec<Batch>,
 }
 
@@ -134,6 +135,12 @@ fn trace_node(pull: &Pull, ids: &BTreeMap<String, String>) -> Result<KdlNode> {
     prop(&mut trace, "sha256", pull.hash.as_str());
     prop(&mut trace, "kill", pull.kill);
     prop(&mut trace, "end_ms", i128::from(pull.end_ms));
+    for transition in &pull.phase_transitions {
+        let mut boundary = KdlNode::new("phase-boundary");
+        argument(&mut boundary, i128::from(transition.id));
+        prop(&mut boundary, "at_ms", i128::from(transition.relative_ms));
+        trace.ensure_children().nodes_mut().push(boundary);
+    }
     for batch in &pull.batches {
         let key = serde_json::to_string(&batch.signals)?;
         let mut observation = KdlNode::new("observed");
@@ -305,6 +312,7 @@ pub(crate) fn mine(inputs: &[Utf8PathBuf], output: &Path) -> Result<()> {
             fight: pull.fight,
             kill: pull.kill,
             end_ms: pull.end_ms,
+            phase_transitions: pull.phase_transitions.clone(),
             batches: batches(pull, &log)?,
         });
     }
