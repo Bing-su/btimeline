@@ -60,6 +60,85 @@ fn transform_number(value: &mut serde_json::Value, to_seconds: bool) -> Result<(
     }
 }
 
+// Rename field selectors with their exported values, e.g. cast_ms -> cast_seconds.
+fn field_times(fields: &mut [serde_json::Value]) {
+    for field in fields {
+        if let serde_json::Value::String(name) = field
+            && let Some(base) = name.strip_suffix("_ms")
+        {
+            *name = format!("{base}_seconds");
+        }
+    }
+}
+
+// Convert one object together so nested time fields keep duplicate-name checks.
+fn object_times(
+    object: &mut serde_json::Map<String, serde_json::Value>,
+    to_seconds: bool,
+) -> Result<()> {
+    let keys: Vec<String> = object.keys().cloned().collect();
+    for key in keys {
+        let count_name = match (to_seconds, key.as_str()) {
+            (true, "over2500Ms") => Some("over2_5Seconds"),
+            (true, "over10000Ms") => Some("over10Seconds"),
+            (false, "over2_5Seconds") => Some("over2500Ms"),
+            (false, "over10Seconds") => Some("over10000Ms"),
+            _ => None,
+        };
+        if let Some(name) = count_name {
+            let count = object.remove(&key).context("Missing count")?;
+            ensure!(!object.contains_key(name), "Duplicate count field");
+            object.insert(name.into(), count);
+            continue;
+        }
+        if !to_seconds && (key.ends_with("_ms") || key.ends_with("Ms")) {
+            anyhow::bail!("Millisecond field is not accepted: {key}");
+        }
+        if key == "removeProperty"
+            && let Some(serde_json::Value::String(property)) = object.get_mut(&key)
+        {
+            if to_seconds && property == "cast_ms" {
+                *property = "cast_seconds".into();
+            }
+            if !to_seconds && property == "cast_ms" {
+                anyhow::bail!("Millisecond property is not accepted");
+            }
+            if !to_seconds && property == "cast_seconds" {
+                *property = "cast_ms".into();
+            }
+        }
+        if key == "fields"
+            && to_seconds
+            && let Some(serde_json::Value::Array(fields)) = object.get_mut(&key)
+        {
+            field_times(fields);
+        }
+        let replacement = if to_seconds {
+            key.strip_suffix("_ms")
+                .map(|base| format!("{base}_seconds"))
+                .or_else(|| key.strip_suffix("Ms").map(|base| format!("{base}Seconds")))
+        } else {
+            key.strip_suffix("_seconds")
+                .map(|base| format!("{base}_ms"))
+                .or_else(|| key.strip_suffix("Seconds").map(|base| format!("{base}Ms")))
+        };
+        if let Some(replacement) = replacement {
+            let mut value = object.remove(&key).context("Missing time field")?;
+            transform_number(&mut value, to_seconds)
+                .with_context(|| format!("Invalid time field: {key}"))?;
+            ensure!(
+                !object.contains_key(&replacement),
+                "Duplicate time field: {replacement}"
+            );
+            object.insert(replacement, value);
+        } else if let Some(child) = object.get_mut(&key) {
+            json_times(child, to_seconds)?;
+        }
+    }
+
+    Ok(())
+}
+
 pub(crate) fn json_times(value: &mut serde_json::Value, to_seconds: bool) -> Result<()> {
     match value {
         serde_json::Value::Array(items) => {
@@ -68,71 +147,7 @@ pub(crate) fn json_times(value: &mut serde_json::Value, to_seconds: bool) -> Res
             }
         }
         serde_json::Value::Object(object) => {
-            let keys: Vec<String> = object.keys().cloned().collect();
-            for key in keys {
-                let count_name = match (to_seconds, key.as_str()) {
-                    (true, "over2500Ms") => Some("over2_5Seconds"),
-                    (true, "over10000Ms") => Some("over10Seconds"),
-                    (false, "over2_5Seconds") => Some("over2500Ms"),
-                    (false, "over10Seconds") => Some("over10000Ms"),
-                    _ => None,
-                };
-                if let Some(name) = count_name {
-                    let count = object.remove(&key).context("Missing count")?;
-                    ensure!(!object.contains_key(name), "Duplicate count field");
-                    object.insert(name.into(), count);
-                    continue;
-                }
-                if !to_seconds && (key.ends_with("_ms") || key.ends_with("Ms")) {
-                    anyhow::bail!("Millisecond field is not accepted: {key}");
-                }
-                if key == "removeProperty"
-                    && let Some(serde_json::Value::String(property)) = object.get_mut(&key)
-                {
-                    if to_seconds && property == "cast_ms" {
-                        *property = "cast_seconds".into();
-                    }
-                    if !to_seconds && property == "cast_ms" {
-                        anyhow::bail!("Millisecond property is not accepted");
-                    }
-                    if !to_seconds && property == "cast_seconds" {
-                        *property = "cast_ms".into();
-                    }
-                }
-                if key == "fields"
-                    && to_seconds
-                    && let Some(serde_json::Value::Array(fields)) = object.get_mut(&key)
-                {
-                    for field in fields {
-                        if let serde_json::Value::String(name) = field
-                            && let Some(base) = name.strip_suffix("_ms")
-                        {
-                            *name = format!("{base}_seconds");
-                        }
-                    }
-                }
-                let replacement = if to_seconds {
-                    key.strip_suffix("_ms")
-                        .map(|base| format!("{base}_seconds"))
-                        .or_else(|| key.strip_suffix("Ms").map(|base| format!("{base}Seconds")))
-                } else {
-                    key.strip_suffix("_seconds")
-                        .map(|base| format!("{base}_ms"))
-                        .or_else(|| key.strip_suffix("Seconds").map(|base| format!("{base}Ms")))
-                };
-                if let Some(replacement) = replacement {
-                    let mut value = object.remove(&key).context("Missing time field")?;
-                    transform_number(&mut value, to_seconds)
-                        .with_context(|| format!("Invalid time field: {key}"))?;
-                    ensure!(
-                        !object.contains_key(&replacement),
-                        "Duplicate time field: {replacement}"
-                    );
-                    object.insert(replacement, value);
-                } else if let Some(child) = object.get_mut(&key) {
-                    json_times(child, to_seconds)?;
-                }
-            }
+            object_times(object, to_seconds)?;
         }
         _ => {}
     }

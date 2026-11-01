@@ -14,26 +14,10 @@ use super::pairing::{PendingStart, start_for};
 use super::{Group, GroupKey, Occurrence, Pull, Source, slash_path};
 use crate::fflogs::model::CollectedLog;
 
-fn load_one(path: &Path) -> Result<Source> {
-    let bytes = fs::read(path)?;
-    let mut deserializer = serde_json::Deserializer::from_slice(&bytes);
-    let data: CollectedLog = serde_path_to_error::deserialize(&mut deserializer)?;
-    // Consume the whole file, e.g. reject a second JSON value after an otherwise valid log.
-    deserializer.end()?;
-    // Release raw bytes before building normalized events, e.g. several large pulls load in parallel.
-    drop(bytes);
-    data.validate().context("Invalid collection")?;
-    let report = &data.report;
-    let events = &data.events;
-    let fight = report
-        .fights
-        .first()
-        .context("Expected exactly one fight")?;
-    let master = &report.master_data;
+// Validate optional phase boundaries even when inspection only exports casts.
+fn validate_transitions(fight: &crate::fflogs::model::Fight) -> Result<()> {
     let start = fight.start_time;
     let end = fight.end_time;
-    ensure!(start >= 0 && end >= start, "Invalid fight time range");
-    ensure!(!fight.in_progress, "Fight still in progress");
     // Bound repeated mechanics to their observed phase, e.g. P2's first Past's End cannot match its second round.
     let mut transitions = Vec::new();
     if let Some(value) = fight
@@ -57,39 +41,19 @@ fn load_one(path: &Path) -> Result<Source> {
             transitions.push((id, at));
         }
     }
+    Ok(())
+}
 
-    let key = GroupKey {
-        encounter: fight.encounter_id,
-        difficulty: fight.difficulty,
-    };
-    ensure!(key.encounter > 0, "Invalid encounter ID");
-    let mut actors = BTreeMap::new();
-    for actor in &master.actors {
-        let value = (actor.game_id, format!("{}/{}", actor.kind, actor.sub_type));
-        ensure!(
-            actors.insert(actor.id, value).is_none(),
-            "Duplicate actor ID"
-        );
-    }
-    let mut abilities = BTreeSet::new();
-    for ability in &master.abilities {
-        ensure!(abilities.insert(ability.game_id), "Duplicate ability ID");
-    }
-    let mut enemies = BTreeSet::new();
-    for enemy in fight.enemy_npcs.iter().chain(&fight.enemy_pets) {
-        ensure!(
-            actors
-                .get(&enemy.id)
-                .is_some_and(|actor| actor.0 == enemy.game_id),
-            "Enemy actor reference mismatch"
-        );
-        enemies.insert(enemy.id);
-    }
-    for &id in fight.enemy_players.iter().flatten() {
-        ensure!(actors.contains_key(&id), "Enemy player reference mismatch");
-        enemies.insert(id);
-    }
-
+// Validate all raw references before filtering, e.g. friendly events remain checked.
+fn indexed_casts(
+    events: &[crate::fflogs::model::Event],
+    fight: &crate::fflogs::model::Fight,
+    actors: &BTreeMap<i64, (i64, String)>,
+    enemies: &BTreeSet<i64>,
+    abilities: &BTreeSet<i64>,
+) -> Result<Vec<(i64, usize, i64, i64)>> {
+    let start = fight.start_time;
+    let end = fight.end_time;
     let mut indexed = Vec::new();
     for (index, event) in events.iter().enumerate() {
         let at = event.timestamp;
@@ -126,7 +90,16 @@ fn load_one(path: &Path) -> Result<Source> {
         );
         indexed.push((at, index, actor, ability));
     }
-    actors.retain(|id, _| enemies.contains(id));
+    Ok(indexed)
+}
+
+// Pair casts without losing source indices or equal-time source order.
+fn paired_occurrences(
+    events: &[crate::fflogs::model::Event],
+    mut indexed: Vec<(i64, usize, i64, i64)>,
+    actors: &BTreeMap<i64, (i64, String)>,
+    start: i64,
+) -> Result<Vec<Occurrence>> {
     indexed.sort_by_key(|&(at, _, _, _)| at); // Stable: source order survives equal timestamps.
     let mut starts: Vec<PendingStart> = Vec::new();
     let mut occurrences: Vec<Occurrence> = Vec::with_capacity(indexed.len());
@@ -181,6 +154,66 @@ fn load_one(path: &Path) -> Result<Source> {
             completion_event_index: None,
         });
     }
+    Ok(occurrences)
+}
+
+fn load_one(path: &Path) -> Result<Source> {
+    let bytes = fs::read(path)?;
+    let mut deserializer = serde_json::Deserializer::from_slice(&bytes);
+    let data: CollectedLog = serde_path_to_error::deserialize(&mut deserializer)?;
+    // Consume the whole file, e.g. reject a second JSON value after an otherwise valid log.
+    deserializer.end()?;
+    // Release raw bytes before building normalized events, e.g. several large pulls load in parallel.
+    drop(bytes);
+    data.validate().context("Invalid collection")?;
+    let report = &data.report;
+    let events = &data.events;
+    let fight = report
+        .fights
+        .first()
+        .context("Expected exactly one fight")?;
+    let master = &report.master_data;
+    let start = fight.start_time;
+    let end = fight.end_time;
+    ensure!(start >= 0 && end >= start, "Invalid fight time range");
+    ensure!(!fight.in_progress, "Fight still in progress");
+    validate_transitions(fight)?;
+
+    let key = GroupKey {
+        encounter: fight.encounter_id,
+        difficulty: fight.difficulty,
+    };
+    ensure!(key.encounter > 0, "Invalid encounter ID");
+    let mut actors = BTreeMap::new();
+    for actor in &master.actors {
+        let value = (actor.game_id, format!("{}/{}", actor.kind, actor.sub_type));
+        ensure!(
+            actors.insert(actor.id, value).is_none(),
+            "Duplicate actor ID"
+        );
+    }
+    let mut abilities = BTreeSet::new();
+    for ability in &master.abilities {
+        ensure!(abilities.insert(ability.game_id), "Duplicate ability ID");
+    }
+    let mut enemies = BTreeSet::new();
+    for enemy in fight.enemy_npcs.iter().chain(&fight.enemy_pets) {
+        ensure!(
+            actors
+                .get(&enemy.id)
+                .is_some_and(|actor| actor.0 == enemy.game_id),
+            "Enemy actor reference mismatch"
+        );
+        enemies.insert(enemy.id);
+    }
+    for &id in fight.enemy_players.iter().flatten() {
+        ensure!(actors.contains_key(&id), "Enemy player reference mismatch");
+        enemies.insert(id);
+    }
+
+    let indexed = indexed_casts(events, fight, &actors, &enemies, &abilities)?;
+    actors.retain(|id, _| enemies.contains(id));
+    let occurrences = paired_occurrences(events, indexed, &actors, start)?;
     // Include melee-only bosses in combat ownership, e.g. damage proves survival without a cast.
 
     // Retain actual defeat evidence, e.g. HP reaches zero before the arena opens or death is logged.
@@ -238,11 +271,12 @@ pub fn inspect(paths: &[impl AsRef<Path>]) -> Result<Vec<Group>> {
         // Compare normalized actor identities below; P4/P5 retain any observed sequence differences.
         let peers = groups.entry(key).or_default();
         for peer in peers.iter() {
-            for (id, actor) in &pull.actors {
+            for (_, actor) in pull
+                .actors
+                .iter()
+                .filter(|(id, _)| !pull.virtual_actors.contains_key(id))
+            {
                 // Virtual IDs are report-local, e.g. 2000036 can mean unrelated boss and helper actors.
-                if pull.virtual_actors.contains_key(id) {
-                    continue;
-                }
                 ensure!(
                     !peer.actors.iter().any(|(old_id, old)| !peer
                         .virtual_actors

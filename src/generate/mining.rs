@@ -88,6 +88,163 @@ fn batches(pull: &super::Pull, log: &CollectedLog) -> Result<Vec<Batch>> {
         .collect())
 }
 
+// Serialize signal multiplicity without inventing separate graph activities.
+fn activity_node(
+    id: &str,
+    signals: &[Signal],
+    ability_names: &BTreeMap<i64, std::collections::BTreeSet<String>>,
+    observations: i128,
+    first: usize,
+    last: usize,
+) -> Result<KdlNode> {
+    let mut activity = KdlNode::new("activity");
+    argument(&mut activity, id);
+    prop(&mut activity, "observations", observations);
+    prop(&mut activity, "first_seen", i128::try_from(first)?);
+    prop(&mut activity, "last_seen_in_kills", i128::try_from(last)?);
+    let mut counts = BTreeMap::<&Signal, usize>::new();
+    for signal in signals {
+        *counts.entry(signal).or_default() += 1;
+    }
+    for (signal, count) in counts {
+        let mut node = KdlNode::new("signal");
+        argument(&mut node, signal.kind.as_str());
+        prop(&mut node, "id", format!("{:X}", signal.ability));
+        prop(&mut node, "source", signal.source.as_str());
+        if let Some(names) = ability_names.get(&signal.ability)
+            && names.len() == 1
+            && let Some(name) = names.first()
+        {
+            prop(&mut node, "name", name.as_str());
+        }
+        if count > 1 {
+            prop(&mut node, "count", i128::try_from(count)?);
+        }
+        activity.ensure_children().nodes_mut().push(node);
+    }
+
+    Ok(activity)
+}
+
+// Preserve evidence independently of graph discovery, e.g. censored wipe traces.
+fn trace_node(pull: &Pull, ids: &BTreeMap<String, String>) -> Result<KdlNode> {
+    let mut trace = KdlNode::new("trace");
+    argument(&mut trace, format!("{}/{}", pull.report, pull.fight));
+    prop(&mut trace, "source", pull.source.as_str());
+    prop(&mut trace, "sha256", pull.hash.as_str());
+    prop(&mut trace, "kill", pull.kill);
+    prop(&mut trace, "end_ms", i128::from(pull.end_ms));
+    for batch in &pull.batches {
+        let key = serde_json::to_string(&batch.signals)?;
+        let mut observation = KdlNode::new("observed");
+        argument(
+            &mut observation,
+            ids.get(&key).context("Missing trace activity")?.as_str(),
+        );
+        prop(&mut observation, "at_ms", i128::from(batch.at_ms));
+        for index in &batch.indices {
+            argument(&mut observation, i128::try_from(*index)?);
+        }
+        trace.ensure_children().nodes_mut().push(observation);
+    }
+
+    Ok(trace)
+}
+
+// Render the discovered graph deterministically before publishing a new output file.
+fn process_document(
+    group: &super::Group,
+    language: Option<&str>,
+    ability_names: &BTreeMap<i64, std::collections::BTreeSet<String>>,
+    pulls: &[Pull],
+) -> Result<KdlDocument> {
+    let mut log = EventLog::new();
+    let mut signals_by_key = BTreeMap::new();
+    let mut starts = BTreeMap::<String, usize>::new();
+    let mut ends = BTreeMap::<String, usize>::new();
+    for pull in pulls {
+        let mut trace = Trace::new();
+        for batch in &pull.batches {
+            let key = serde_json::to_string(&batch.signals)?;
+            signals_by_key.insert(key.clone(), batch.signals.clone());
+            trace.events.push(Event::new(key));
+        }
+        if let Some(first) = pull.batches.first() {
+            *starts
+                .entry(serde_json::to_string(&first.signals)?)
+                .or_default() += 1;
+        }
+        if pull.kill
+            && let Some(last) = pull.batches.last()
+        {
+            *ends
+                .entry(serde_json::to_string(&last.signals)?)
+                .or_default() += 1;
+        }
+        log.traces.push(trace);
+    }
+    ensure!(
+        !signals_by_key.is_empty(),
+        "No enemy cast observations found"
+    );
+    let graph = discover_dfg(&log);
+    let ids: BTreeMap<_, _> = signals_by_key
+        .keys()
+        .enumerate()
+        .map(|(i, key)| (key.clone(), format!("a{}", i + 1)))
+        .collect();
+    let mut doc = KdlDocument::new();
+    let mut root = KdlNode::new("process");
+    argument(&mut root, 1_i128);
+    prop(&mut root, "algorithm", "directly-follows");
+    prop(&mut root, "encounter", i128::from(group.key.encounter));
+    prop(&mut root, "difficulty", i128::from(group.key.difficulty));
+    prop(&mut root, "language", language.unwrap_or(""));
+    for (key, signals) in &signals_by_key {
+        let node = activity_node(
+            ids.get(key).context("Missing activity ID")?,
+            signals,
+            ability_names,
+            i128::from(
+                *graph
+                    .activities
+                    .get(key)
+                    .context("Missing activity frequency")?,
+            ),
+            *starts.get(key).unwrap_or(&0),
+            *ends.get(key).unwrap_or(&0),
+        )?;
+        root.ensure_children().nodes_mut().push(node);
+    }
+    let mut edges: Vec<_> = graph.directly_follows_relations.iter().collect();
+    edges.sort_by(|a, b| a.0.cmp(b.0));
+    for ((from, to), count) in edges {
+        let mut edge = KdlNode::new("follows");
+        argument(
+            &mut edge,
+            ids.get(from.as_ref())
+                .context("Missing source activity")?
+                .as_str(),
+        );
+        argument(
+            &mut edge,
+            ids.get(to.as_ref())
+                .context("Missing target activity")?
+                .as_str(),
+        );
+        prop(&mut edge, "observations", i128::from(*count));
+        root.ensure_children().nodes_mut().push(edge);
+    }
+    for pull in pulls {
+        root.ensure_children()
+            .nodes_mut()
+            .push(trace_node(pull, &ids)?);
+    }
+    doc.nodes_mut().push(root);
+    doc.autoformat();
+    Ok(doc)
+}
+
 pub(crate) fn mine(inputs: &[Utf8PathBuf], output: &Path) -> Result<()> {
     let hashes: BTreeMap<_, _> = inputs
         .iter()
@@ -151,138 +308,6 @@ pub(crate) fn mine(inputs: &[Utf8PathBuf], output: &Path) -> Result<()> {
             batches: batches(pull, &log)?,
         });
     }
-    let mut log = EventLog::new();
-    let mut signals_by_key = BTreeMap::new();
-    let mut starts = BTreeMap::<String, usize>::new();
-    let mut ends = BTreeMap::<String, usize>::new();
-    for pull in &pulls {
-        let mut trace = Trace::new();
-        for batch in &pull.batches {
-            let key = serde_json::to_string(&batch.signals)?;
-            signals_by_key.insert(key.clone(), batch.signals.clone());
-            trace.events.push(Event::new(key));
-        }
-        if let Some(first) = pull.batches.first() {
-            *starts
-                .entry(serde_json::to_string(&first.signals)?)
-                .or_default() += 1;
-        }
-        if pull.kill
-            && let Some(last) = pull.batches.last()
-        {
-            *ends
-                .entry(serde_json::to_string(&last.signals)?)
-                .or_default() += 1;
-        }
-        log.traces.push(trace);
-    }
-    ensure!(
-        !signals_by_key.is_empty(),
-        "No enemy cast observations found"
-    );
-    let graph = discover_dfg(&log);
-    let ids: BTreeMap<_, _> = signals_by_key
-        .keys()
-        .enumerate()
-        .map(|(i, key)| (key.clone(), format!("a{}", i + 1)))
-        .collect();
-    let mut doc = KdlDocument::new();
-    let mut root = KdlNode::new("process");
-    argument(&mut root, 1_i128);
-    prop(&mut root, "algorithm", "directly-follows");
-    prop(&mut root, "encounter", i128::from(group.key.encounter));
-    prop(&mut root, "difficulty", i128::from(group.key.difficulty));
-    prop(&mut root, "language", language.as_deref().unwrap_or(""));
-    for (key, signals) in &signals_by_key {
-        let mut activity = KdlNode::new("activity");
-        argument(
-            &mut activity,
-            ids.get(key).context("Missing activity ID")?.as_str(),
-        );
-        prop(
-            &mut activity,
-            "observations",
-            i128::from(
-                *graph
-                    .activities
-                    .get(key)
-                    .context("Missing activity frequency")?,
-            ),
-        );
-        prop(
-            &mut activity,
-            "first_seen",
-            i128::try_from(*starts.get(key).unwrap_or(&0))?,
-        );
-        prop(
-            &mut activity,
-            "last_seen_in_kills",
-            i128::try_from(*ends.get(key).unwrap_or(&0))?,
-        );
-        let mut counts = BTreeMap::<&Signal, usize>::new();
-        for signal in signals {
-            *counts.entry(signal).or_default() += 1;
-        }
-        for (signal, count) in counts {
-            let mut node = KdlNode::new("signal");
-            argument(&mut node, signal.kind.as_str());
-            prop(&mut node, "id", format!("{:X}", signal.ability));
-            prop(&mut node, "source", signal.source.as_str());
-            if let Some(names) = ability_names.get(&signal.ability)
-                && names.len() == 1
-                && let Some(name) = names.first()
-            {
-                prop(&mut node, "name", name.as_str());
-            }
-            if count > 1 {
-                prop(&mut node, "count", i128::try_from(count)?);
-            }
-            activity.ensure_children().nodes_mut().push(node);
-        }
-        root.ensure_children().nodes_mut().push(activity);
-    }
-    let mut edges: Vec<_> = graph.directly_follows_relations.iter().collect();
-    edges.sort_by(|a, b| a.0.cmp(b.0));
-    for ((from, to), count) in edges {
-        let mut edge = KdlNode::new("follows");
-        argument(
-            &mut edge,
-            ids.get(from.as_ref())
-                .context("Missing source activity")?
-                .as_str(),
-        );
-        argument(
-            &mut edge,
-            ids.get(to.as_ref())
-                .context("Missing target activity")?
-                .as_str(),
-        );
-        prop(&mut edge, "observations", i128::from(*count));
-        root.ensure_children().nodes_mut().push(edge);
-    }
-    for pull in &pulls {
-        let mut trace = KdlNode::new("trace");
-        argument(&mut trace, format!("{}/{}", pull.report, pull.fight));
-        prop(&mut trace, "source", pull.source.as_str());
-        prop(&mut trace, "sha256", pull.hash.as_str());
-        prop(&mut trace, "kill", pull.kill);
-        prop(&mut trace, "end_ms", i128::from(pull.end_ms));
-        for batch in &pull.batches {
-            let key = serde_json::to_string(&batch.signals)?;
-            let mut observation = KdlNode::new("observed");
-            argument(
-                &mut observation,
-                ids.get(&key).context("Missing trace activity")?.as_str(),
-            );
-            prop(&mut observation, "at_ms", i128::from(batch.at_ms));
-            for index in &batch.indices {
-                argument(&mut observation, i128::try_from(*index)?);
-            }
-            trace.ensure_children().nodes_mut().push(observation);
-        }
-        root.ensure_children().nodes_mut().push(trace);
-    }
-    doc.nodes_mut().push(root);
-    doc.autoformat();
+    let doc = process_document(group, language.as_deref(), &ability_names, &pulls)?;
     crate::output::write_new(&[(output, doc.to_string().as_bytes())])
 }
