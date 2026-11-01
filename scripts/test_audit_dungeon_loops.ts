@@ -1,6 +1,11 @@
 // A matching opener is insufficient: preserve complete bodies, alternatives and source identity.
 import assert from "node:assert/strict";
-import { completeCycles, type Pattern, type Observation } from "./audit_dungeon_loops.ts";
+import {
+  completeCycles,
+  representedNodes,
+  type Pattern,
+  type Observation,
+} from "./audit_dungeon_loops.ts";
 const p = (id: string, time: number): Pattern => ({
   ids: id.split("|"),
   sources: ["Boss"],
@@ -63,4 +68,28 @@ assert.equal(
 assert.throws(() => completeCycles(rows, [], p("A", 3)));
 assert.throws(() => completeCycles([...rows].reverse(), body, p("A", 3)));
 assert.throws(() => completeCycles([sample("A", -1)], body, p("A", 3)));
+assert.deepEqual(
+  [
+    ...representedNodes(
+      {
+        events: [{ observation_nodes: { a: 1, b: 2 } }],
+        loops: [
+          {
+            events: [
+              {
+                observations: [
+                  { trace: "a", observation_nodes: [3, 4] },
+                  { trace: "a", observation_nodes: [4, 5] },
+                  { trace: "b", observation_nodes: [6] },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      "a",
+    ),
+  ],
+  [1, 3, 4, 5],
+);
 console.log("dungeon loop audit tests passed");

@@ -9,6 +9,23 @@ import { compareFiles } from "./compare_cactbot.ts";
 export type Pattern = { ids: string[]; sources: string[]; time: number; name: string };
 export type Observation = { id: string; source: string; at: number; node: number };
 
+// Bind rendered definitions to raw nodes; repeated iterations are not additional finite definitions.
+export function representedNodes(evidence: any, trace: string): Set<number> {
+  const finite = evidence.events.flatMap((event: any) =>
+    Object.entries(event.observation_nodes ?? {})
+      .filter(([key]) => key === trace)
+      .map(([, node]) => node as number),
+  );
+  const repeated = (evidence.loops ?? []).flatMap((loop: any) =>
+    (loop.events ?? []).flatMap((event: any) =>
+      event.observations
+        .filter((observation: any) => observation.trace === trace)
+        .flatMap((observation: any) => observation.observation_nodes),
+    ),
+  );
+  return new Set([...finite, ...repeated]);
+}
+
 const matches = (pattern: Pattern, sample: Observation) =>
   pattern.ids.includes(sample.id) &&
   (!pattern.sources.length || pattern.sources.includes(sample.source));
@@ -183,25 +200,13 @@ export async function audit(evidenceFile: string, referenceFile: string, cactbot
           unique.set(JSON.stringify(cycle.nodes), { ...cycle, span: range });
       }
       const cycles = [...unique.values()];
-      const represented = new Set(
-        evidence.events.flatMap(
-          (event: { activity: unknown; samples: { trace: string; at_ms: number }[] }) =>
-            event.samples
-              .filter((sample) => sample.trace === input.trace)
-              .map((sample) => JSON.stringify([event.activity, sample.at_ms])),
-        ),
-      );
+      const represented = representedNodes(evidence, input.trace);
       const firstAbilityOffset = Math.round(body[0].time * 1000) - Math.round(loop.jump! * 1000);
       const coverage = cycles.map((cycle) => ({
         ...cycle,
         first_ability_offset_ms: firstAbilityOffset,
         period_ms: cycle.observed_span_ms + firstAbilityOffset,
-        emitted_samples: cycle.body_nodes.filter((index) => {
-          const node = graph.nodes.find((node: { index: number }) => node.index === index);
-          return represented.has(
-            JSON.stringify([node.activity, input.observations[node.observation].at_ms]),
-          );
-        }).length,
+        emitted_samples: cycle.body_nodes.filter((index) => represented.has(index)).length,
       }));
       traces.push({
         trace: input.trace,
