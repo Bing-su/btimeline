@@ -462,3 +462,38 @@ fn wipe_records_censored_events_for_each_attempt(#[case] wipe_at: i64) {
         }
     }
 }
+
+#[test]
+fn all_observations_at_a_timestamp_precede_scheduled_events() {
+    let model = parse(
+        r#"timeline 1 "Same timestamp" {
+        start "Start"
+        wipe "Wipe"
+        phase "p" {
+            enter "Start"
+            event "hit" 1.0 name="Hit"
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        1500,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Unrelated","fields":{}},
+            {"at_ms":1000,"type":"Wipe","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let records = replay(&model, &input).unwrap();
+    assert!(
+        !records
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("hit:"))
+    );
+    assert!(
+        records
+            .iter()
+            .any(|r| r.action == "unobserved" && r.detail == "hit" && r.at_ms == 1000)
+    );
+}

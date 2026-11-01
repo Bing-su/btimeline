@@ -321,7 +321,7 @@ impl<'a> Replay<'a> {
         );
     }
 
-    // Apply one observation as a transaction: control first, sync only when unconsumed, then events.
+    // Apply observations in source order before firing events at the same raw timestamp.
     fn observe(&mut self, observation: &Observation) {
         let at = observation.at_ms;
         self.advance(at, false);
@@ -338,7 +338,6 @@ impl<'a> Replay<'a> {
         if lifecycle.is_none() && !enter && self.fight.is_some() {
             self.synchronize(observation);
         }
-        self.advance(at, true);
     }
 
     // A wipe censors the current attempt just like a recording ending before its future events.
@@ -380,8 +379,15 @@ pub(crate) fn replay(timeline: &Timeline, input: &Recording) -> Result<Vec<Recor
         run: 0,
         out: Vec::new(),
     };
-    for observation in &input.observations {
+    let mut observations = input.observations.iter().peekable();
+    while let Some(observation) = observations.next() {
         state.observe(observation);
+        if observations
+            .peek()
+            .is_none_or(|next| next.at_ms != observation.at_ms)
+        {
+            state.advance(observation.at_ms, true);
+        }
     }
     Ok(state.finish(input.end_ms))
 }
