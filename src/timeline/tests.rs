@@ -353,3 +353,65 @@ proptest! {
         prop_assert!(records.windows(2).all(|pair| pair.first().zip(pair.get(1)).is_some_and(|(a,b)| a.at_ms <= b.at_ms)));
     }
 }
+
+#[rstest]
+#[case::same_signal("when \"Ability\" id=\"A\";", "when \"Ability\" id=\"A\";", true)]
+#[case::different_ids("when \"Ability\" id=\"A\";", "when \"Ability\" id=\"B\";", false)]
+#[case::different_types("when \"StartsUsing\" id=\"A\";", "when \"Ability\" id=\"A\";", false)]
+#[case::one_unconstrained("when \"Ability\";", "when \"Ability\" id=\"A\";", true)]
+#[case::different_sources(
+    "when \"Ability\" id=\"A\" source=\"Boss\";",
+    "when \"Ability\" id=\"A\" source=\"Add\";",
+    false
+)]
+#[case::alternative_overlap(
+    "when \"Ability\" { field \"id\" \"A\" \"B\"; };",
+    "when \"Ability\" id=\"B\";",
+    true
+)]
+#[case::regex_is_unknown(
+    "when \"Ability\" { regex \"id\" \"A.*\"; };",
+    "when \"Ability\" id=\"A001\";",
+    false
+)]
+fn unconditional_literal_option_overlap(
+    #[case] left: &str,
+    #[case] right: &str,
+    #[case] overlaps: bool,
+) {
+    let source = format!(
+        r#"timeline 1 "Test" {{
+        phase "p" {{
+            enter "Start"
+            branch "choice" open=0.0 close=10.0 {{
+                option "left" {{ {left} }}
+                option "right" {{ {right} }}
+            }}
+        }}
+    }}"#
+    );
+    let result = parse(&source);
+    if overlaps {
+        assert!(format!("{:#}", result.unwrap_err()).contains("Conflicting unconditional options"));
+    } else {
+        assert!(result.is_ok(), "{result:?}");
+    }
+}
+
+#[test]
+fn matching_signals_with_mutually_exclusive_prior_choices_are_allowed() {
+    let source = r#"timeline 1 "Choices" {
+        phase "p" {
+            enter "Start"
+            branch "first" open=0.0 close=5.0 {
+                option "left" { when "A"; }
+                option "right" { when "B"; }
+            }
+            branch "second" open=6.0 close=10.0 {
+                option "left" { requires "first" "left"; when "Ability" id="A"; }
+                option "right" { requires "first" "right"; when "Ability" id="A"; }
+            }
+        }
+    }"#;
+    parse(source).unwrap();
+}

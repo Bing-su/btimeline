@@ -87,6 +87,61 @@ fn location(source: &str, node: &KdlNode) -> String {
     format!("{} at {line}:{col}", node.name().value())
 }
 
+// Prove overlap only for literal conditions; regex intersections remain unknown.
+fn literal_signals_overlap(left: &Signal, right: &Signal) -> bool {
+    if left.kind != right.kind {
+        return false;
+    }
+    let literals = |s: &Signal| s.fields.values().all(|v| matches!(v, Field::Literal(_)));
+    if !literals(left) || !literals(right) {
+        return false;
+    }
+    left.fields.iter().all(|(name, a)| {
+        let Some(b) = right.fields.get(name) else {
+            return true;
+        };
+        match (a, b) {
+            (Field::Literal(a), Field::Literal(b)) => a.iter().any(|value| b.contains(value)),
+            _ => false,
+        }
+    })
+}
+
+// Only unconditional options can be proven reachable without analysing earlier branches.
+fn validate_option_overlaps(node: &KdlNode) -> Result<()> {
+    let options: Vec<_> = children(node)
+        .iter()
+        .filter(|child| child.name().value() == "option")
+        .filter(|child| {
+            !children(child)
+                .iter()
+                .any(|part| part.name().value() == "requires")
+        })
+        .collect();
+    let candidates = options
+        .iter()
+        .map(|option| {
+            let whens = children(option)
+                .iter()
+                .filter(|part| part.name().value() == "when")
+                .map(|part| signal(part, "when"))
+                .collect::<Result<Vec<_>>>()?;
+            Ok((arg_string(option, 0)?, whens))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    for (index, (left_id, left)) in candidates.iter().enumerate() {
+        for (right_id, right) in candidates.iter().skip(index + 1) {
+            ensure!(
+                !left
+                    .iter()
+                    .any(|a| right.iter().any(|b| literal_signals_overlap(a, b))),
+                "Conflicting unconditional options {left_id} and {right_id}: distinguish their signals"
+            );
+        }
+    }
+    Ok(())
+}
+
 // Keep literal and regex field validation identical across signal roles.
 fn signal_fields(node: &KdlNode, reserved: &[&str]) -> Result<BTreeMap<String, Field>> {
     let mut fields = BTreeMap::new();
@@ -463,6 +518,7 @@ impl Validation {
             }
         }
         ensure!(options.len() >= 2, "branch needs at least two options");
+        validate_option_overlaps(node)?;
         self.options.insert(id, options);
         Ok(())
     }
