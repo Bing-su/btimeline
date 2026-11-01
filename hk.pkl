@@ -3,6 +3,8 @@ import "package://github.com/jdx/hk/releases/download/v2.5.0/hk@2.5.0#/Builtins.
 // Using a coding agent? See https://hk.jdx.dev/agents
 
 local linters = new Mapping {
+    ["check-case-conflict"] = Builtins.check_case_conflict
+    ["check-merge-conflict"] = Builtins.check_merge_conflict
     ["trailing-whitespace"] = Builtins.trailing_whitespace
     ["newlines"] = Builtins.newlines
     ["mixed-line-ending"] = Builtins.mixed_line_ending
@@ -28,3 +30,11 @@ local linters = new Mapping {
 }
 
 steps = linters
+
+hooks {
+    ["commit-msg"] {
+        steps {
+            ["check-conventional-commit"] = Builtins.check_conventional_commit
+        }
+    }
+}
