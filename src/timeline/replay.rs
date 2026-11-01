@@ -93,6 +93,15 @@ struct PhaseState<'a> {
     definition: &'a Phase,
     clock: Clock,
     branches: Vec<BranchState>,
+    repeat: Option<RepeatState>,
+}
+
+#[derive(Default)]
+struct RepeatState {
+    current: Option<Clock>,
+    exited: bool,
+    exit: Option<ActivePath>,
+    unresolved: bool,
 }
 
 enum BranchAction {
@@ -181,6 +190,7 @@ impl<'a> PhaseState<'a> {
                 .iter()
                 .map(|_| BranchState::default())
                 .collect(),
+            repeat: definition.loops.first().map(|_| RepeatState::default()),
         }
     }
 }
@@ -359,6 +369,103 @@ fn unobserved_paths(phase: &PhaseState<'_>, at: i64, run: usize, out: &mut Vec<R
     }
 }
 
+fn due(at: i64, limit: i64, inclusive: bool) -> bool {
+    at < limit || (inclusive && at == limit)
+}
+
+// Close each completed iteration before emitting the next iteration's events.
+fn advance_repeat(
+    phase: &mut PhaseState<'_>,
+    at: i64,
+    inclusive: bool,
+    out: &mut Vec<Record>,
+    run: usize,
+) {
+    let (Some(definition), Some(state)) = (phase.definition.loops.first(), phase.repeat.as_mut())
+    else {
+        return;
+    };
+    if let Some(path) = &mut state.exit {
+        emit(
+            &definition.on_exit,
+            &mut path.clock,
+            at,
+            inclusive,
+            out,
+            run,
+        );
+    }
+    if state.exited {
+        return;
+    }
+    let start = phase.clock.base_ms + definition.start * 100;
+    if state.current.is_none() && due(start, at, inclusive) {
+        state.current = Some(Clock {
+            base_ms: start,
+            ..Clock::default()
+        });
+    }
+    let Some(clock) = &mut state.current else {
+        return;
+    };
+    let period = definition.every * 100;
+    while due(clock.base_ms + period, at, inclusive) {
+        emit(
+            &definition.events,
+            clock,
+            clock.base_ms + period,
+            false,
+            out,
+            run,
+        );
+        clock.base_ms += period;
+        clock.processed.clear();
+    }
+    emit(&definition.events, clock, at, inclusive, out, run);
+}
+
+// Report a missed finite exit only after all alternative windows have ended.
+fn repeat_unresolved(phase: &mut PhaseState<'_>, at: i64, out: &mut Vec<Record>, run: usize) {
+    let (Some(definition), Some(state)) = (phase.definition.loops.first(), phase.repeat.as_mut())
+    else {
+        return;
+    };
+    if state.exited || state.unresolved || definition.untils.is_empty() {
+        return;
+    }
+    let end = definition
+        .untils
+        .iter()
+        .map(|signal| signal.at.zip(signal.after).map(|(at, after)| at + after))
+        .collect::<Option<Vec<_>>>();
+    let Some(end) = end.and_then(|ends| ends.into_iter().max()) else {
+        return;
+    };
+    if elapsed(phase.clock.base_ms, at) <= end {
+        return;
+    }
+    state.unresolved = true;
+    record(
+        out,
+        (phase.clock.base_ms + (end + 1) * 100 - 50).max(0),
+        "unresolved",
+        definition.id.clone(),
+        run,
+    );
+}
+
+fn unobserved_repeat(phase: &PhaseState<'_>, at: i64, out: &mut Vec<Record>, run: usize) {
+    let (Some(definition), Some(state)) = (phase.definition.loops.first(), &phase.repeat) else {
+        return;
+    };
+    if let Some(clock) = &state.current {
+        unobserved(&definition.events, clock, at, run, out);
+    }
+    if let Some(path) = &state.exit {
+        unobserved(&definition.on_exit, &path.clock, at, run, out);
+    }
+}
+
 struct Replay<'a> {
     timeline: &'a Timeline,
     fight: Option<Clock>,
@@ -391,7 +498,34 @@ impl<'a> Replay<'a> {
                 self.run,
             );
             advance_paths(phase, at, inclusive, &mut self.out, self.run);
+            advance_repeat(phase, at, inclusive, &mut self.out, self.run);
         }
+    }
+
+    fn repeat_observation(&mut self, observation: &Observation) -> bool {
+        let Some(phase) = &mut self.phase else {
+            return false;
+        };
+        let (Some(definition), Some(state)) =
+            (phase.definition.loops.first(), phase.repeat.as_mut())
+        else {
+            return false;
+        };
+        let time = elapsed(phase.clock.base_ms, observation.at_ms);
+        if state.exited || !matches_any(&definition.untils, observation, time) {
+            return false;
+        }
+        state.exited = true;
+        state.current = None;
+        state.exit = Some(active_path(phase.clock.base_ms, observation.at_ms));
+        record(
+            &mut self.out,
+            observation.at_ms,
+            "until",
+            definition.id.clone(),
+            self.run,
+        );
+        true
     }
 
     // Window comparisons use rounded phase time, including at the observation boundary.
@@ -697,6 +831,9 @@ impl<'a> Replay<'a> {
         let at = observation.at_ms;
         self.advance(at, false);
         self.advance_branches(at, false);
+        if let Some(phase) = &mut self.phase {
+            repeat_unresolved(phase, at, &mut self.out, self.run);
+        }
         let candidates = self.enter_candidates(observation);
         let lifecycle = self.lifecycle(observation);
         if let Some(role) = lifecycle {
@@ -710,6 +847,7 @@ impl<'a> Replay<'a> {
         if lifecycle.is_none()
             && !enter
             && self.fight.is_some()
+            && !self.repeat_observation(observation)
             && !self.branch_observation(observation)
         {
             self.synchronize(observation);
@@ -737,12 +875,16 @@ impl<'a> Replay<'a> {
                 &mut self.out,
             );
             unobserved_paths(phase, end_ms, self.run, &mut self.out);
+            unobserved_repeat(phase, end_ms, &mut self.out, self.run);
         }
     }
 
     fn finish(mut self, end_ms: i64) -> Vec<Record> {
         self.advance(end_ms, true);
         self.advance_branches(end_ms, false);
+        if let Some(phase) = &mut self.phase {
+            repeat_unresolved(phase, end_ms, &mut self.out, self.run);
+        }
         self.record_unobserved(end_ms);
         // Controls precede same-time events; authored events keep document order across paths.
         self.out.sort_by_key(|record| {
@@ -756,25 +898,56 @@ impl<'a> Replay<'a> {
     }
 }
 
-pub(crate) fn replay(timeline: &Timeline, input: &Recording) -> Result<Vec<Record>> {
-    let loops = timeline.phases.iter().flat_map(|phase| {
-        phase.loops.iter().chain(
-            phase
-                .branches
-                .iter()
-                .flat_map(|branch| branch.options.iter().flat_map(|option| &option.loops)),
-        )
-    });
-    let mut unsupported = timeline.controls.clone();
-    for item in loops {
-        unsupported.push(format!("loop {} (start {:.1}s, every {:.1}s, {} untils, {} events, {} branches, {} exit events)", item.id, item.start as f64 / 10.0, item.every as f64 / 10.0, item.untils.len(), item.events.len(), item.branches.len(), item.on_exit.len()));
-    }
+fn validate_repeat_support(timeline: &Timeline, input: &Recording) -> Result<()> {
     ensure!(
-        unsupported.is_empty(),
+        timeline.controls.is_empty(),
         "Replay does not yet support: {}",
-        unsupported.join(", ")
+        timeline.controls.join(", ")
     );
+    for phase in &timeline.phases {
+        if let Some(repeat) = phase
+            .branches
+            .iter()
+            .flat_map(|branch| &branch.options)
+            .flat_map(|option| &option.loops)
+            .next()
+        {
+            anyhow::bail!(
+                "Replay does not yet support loop {} inside an option",
+                repeat.id
+            );
+        }
+        ensure!(
+            phase.loops.len() <= 1,
+            "Replay does not yet support multiple loops in one phase"
+        );
+        let Some(repeat) = phase.loops.first() else {
+            continue;
+        };
+        ensure!(
+            phase.branches.is_empty() && repeat.branches.is_empty(),
+            "Replay does not yet support branches and loops in the same phase"
+        );
+        ensure!(
+            phase
+                .events
+                .iter()
+                .chain(&repeat.events)
+                .chain(&repeat.on_exit)
+                .all(|event| event.syncs.is_empty()),
+            "Replay does not yet support phase or loop syncs in a phase containing a loop"
+        );
+        ensure!(
+            input.end_ms / (repeat.every * 100) <= 1_000_000,
+            "Recording spans more than one million possible loop iterations; shorten the recording"
+        );
+    }
+    Ok(())
+}
+
+pub(crate) fn replay(timeline: &Timeline, input: &Recording) -> Result<Vec<Record>> {
     validate_recording(input)?;
+    validate_repeat_support(timeline, input)?;
     let mut state = Replay {
         timeline,
         fight: None,
