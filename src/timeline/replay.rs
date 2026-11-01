@@ -368,10 +368,48 @@ fn repeat_sync_targets<'a>(
     phase: &PhaseState<'a>,
     observation: &Observation,
 ) -> Vec<(SyncOwner<'a>, Tick)> {
-    let (Some(repeat), Some(state)) = (phase.definition.loops.first(), phase.repeats.first())
-    else {
-        return Vec::new();
-    };
+    let at = observation.at_ms;
+    let running = phase.repeats.iter().any(|state| state.current.is_some());
+    let eligible_start = (!running)
+        .then(|| {
+            phase
+                .definition
+                .loops
+                .iter()
+                .zip(&phase.repeats)
+                .position(|(repeat, state)| {
+                    !state.exited
+                        && !state.blocked
+                        && state.current.is_none()
+                        && phase.clock.base_ms + repeat.start * 100 == at
+                })
+        })
+        .flatten();
+    phase
+        .definition
+        .loops
+        .iter()
+        .zip(&phase.repeats)
+        .enumerate()
+        .flat_map(|(index, (repeat, state))| {
+            repeat_sync_targets_one(
+                phase,
+                repeat,
+                state,
+                observation,
+                eligible_start == Some(index),
+            )
+        })
+        .collect()
+}
+
+fn repeat_sync_targets_one<'a>(
+    phase: &PhaseState<'a>,
+    repeat: &'a Loop,
+    state: &RepeatState,
+    observation: &Observation,
+    eligible_start: bool,
+) -> Vec<(SyncOwner<'a>, Tick)> {
     let mut targets = Vec::new();
     if let Some(path) = &state.exit {
         targets.extend(
@@ -387,8 +425,9 @@ fn repeat_sync_targets<'a>(
     }
     let at = observation.at_ms;
     let boundary = !state.exited
+        && !state.blocked
         && state.current.as_ref().map_or_else(
-            || phase.clock.base_ms + repeat.start * 100 == at,
+            || eligible_start,
             |clock| clock.base_ms + repeat.every * 100 == at,
         );
     let boundary_clock = Clock {
@@ -411,13 +450,22 @@ fn repeat_sync_targets<'a>(
 }
 
 // At a boundary the observation can synchronize the new iteration before its zero-time event.
-fn prepare_repeat_boundary(phase: &mut PhaseState<'_>, at: i64) {
-    let (Some(definition), Some(state)) =
-        (phase.definition.loops.first(), phase.repeats.first_mut())
+fn prepare_repeat_boundary(phase: &mut PhaseState<'_>, id: &str, at: i64) {
+    let Some(index) = phase
+        .definition
+        .loops
+        .iter()
+        .position(|repeat| repeat.id == id)
     else {
         return;
     };
-    if state.exited {
+    let (Some(definition), Some(state)) = (
+        phase.definition.loops.get(index),
+        phase.repeats.get_mut(index),
+    ) else {
+        return;
+    };
+    if state.exited || state.blocked {
         return;
     }
     let start = phase.clock.base_ms + definition.start * 100;
@@ -459,13 +507,51 @@ fn enter_repeat_after_jump(
     out: &mut Vec<Record>,
     run: usize,
 ) -> Result<()> {
-    let (Some(repeat), Some(state)) = (phase.definition.loops.first(), phase.repeats.first_mut())
-    else {
-        return Ok(());
-    };
-    if state.exited || state.current.is_some() || target <= repeat.start {
-        return Ok(());
+    let mut pending: Vec<_> = phase
+        .definition
+        .loops
+        .iter()
+        .zip(&phase.repeats)
+        .enumerate()
+        .filter(|(_, (repeat, state))| {
+            !state.exited && !state.blocked && state.current.is_none() && target > repeat.start
+        })
+        .map(|(index, (repeat, _))| (repeat.start, index))
+        .collect();
+    pending.sort_unstable();
+    let mut running = phase.repeats.iter().any(|state| state.current.is_some());
+    for (_, index) in pending {
+        let (Some(repeat), Some(state)) = (
+            phase.definition.loops.get(index),
+            phase.repeats.get_mut(index),
+        ) else {
+            continue;
+        };
+        if running {
+            state.blocked = true;
+            record(
+                out,
+                at,
+                "violation",
+                format!("Concurrent loop {}", repeat.id),
+                run,
+            );
+            continue;
+        }
+        enter_repeat_after_jump_one(repeat, state, at, target, out, run)?;
+        running = true;
     }
+    Ok(())
+}
+
+fn enter_repeat_after_jump_one(
+    repeat: &Loop,
+    state: &mut RepeatState,
+    at: i64,
+    target: Tick,
+    out: &mut Vec<Record>,
+    run: usize,
+) -> Result<()> {
     let offset = target - repeat.start;
     let completed = offset / repeat.every;
     let position = offset % repeat.every;
@@ -527,21 +613,17 @@ fn correct_phase(
         run,
     );
     correct_paths(phase, at, target, out, run);
-    if let (Some(repeat), Some(path)) = (
-        phase.definition.loops.first(),
-        phase
-            .repeats
-            .first_mut()
-            .and_then(|state| state.exit.as_mut()),
-    ) {
-        correct(
-            &repeat.on_exit,
-            &mut path.clock,
-            at,
-            target - path.anchor,
-            out,
-            run,
-        );
+    for (repeat, state) in phase.definition.loops.iter().zip(&mut phase.repeats) {
+        if let Some(path) = &mut state.exit {
+            correct(
+                &repeat.on_exit,
+                &mut path.clock,
+                at,
+                target - path.anchor,
+                out,
+                run,
+            );
+        }
     }
     Ok(())
 }
@@ -1125,15 +1207,21 @@ impl<'a> Replay<'a> {
                 &mut self.out,
                 self.run,
             ),
-            (SyncOwner::Repeat(_), Some(phase), _) => {
-                prepare_repeat_boundary(phase, at);
-                if let (Some(repeat), Some(clock)) = (
-                    phase.definition.loops.first(),
-                    phase
-                        .repeats
-                        .first_mut()
-                        .and_then(|state| state.current.as_mut()),
-                ) {
+            (SyncOwner::Repeat(id), Some(phase), _) => {
+                prepare_repeat_boundary(phase, id, at);
+                let index = phase
+                    .definition
+                    .loops
+                    .iter()
+                    .position(|repeat| repeat.id == *id);
+                if let Some((repeat, clock)) = index.and_then(|i| {
+                    phase.definition.loops.get(i).zip(
+                        phase
+                            .repeats
+                            .get_mut(i)
+                            .and_then(|state| state.current.as_mut()),
+                    )
+                }) {
                     correct(&repeat.events, clock, at, *target, &mut self.out, self.run);
                 }
             }
@@ -1231,28 +1319,6 @@ impl<'a> Replay<'a> {
     }
 }
 
-fn has_phase_sync(phase: &Phase) -> bool {
-    phase.events.iter().any(|event| !event.syncs.is_empty())
-        || phase.branches.iter().any(|branch| {
-            branch
-                .options
-                .iter()
-                .flat_map(|option| &option.events)
-                .any(|event| !event.syncs.is_empty())
-                || branch
-                    .merge
-                    .as_ref()
-                    .is_some_and(|merge| merge.events.iter().any(|event| !event.syncs.is_empty()))
-        })
-        || phase.loops.iter().any(|repeat| {
-            repeat
-                .events
-                .iter()
-                .chain(&repeat.on_exit)
-                .any(|event| !event.syncs.is_empty())
-        })
-}
-
 fn validate_repeat_support(timeline: &Timeline, input: &Recording) -> Result<()> {
     for phase in &timeline.phases {
         if let Some(repeat) = phase
@@ -1267,10 +1333,6 @@ fn validate_repeat_support(timeline: &Timeline, input: &Recording) -> Result<()>
                 repeat.id
             );
         }
-        ensure!(
-            phase.loops.len() <= 1 || !has_phase_sync(phase),
-            "Replay does not yet support syncs in a phase with multiple loops"
-        );
         for repeat in &phase.loops {
             ensure!(
                 repeat.branches.is_empty(),

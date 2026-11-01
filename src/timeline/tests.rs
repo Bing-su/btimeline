@@ -196,14 +196,6 @@ fn finite_loop_exit_window_reports_unresolved_but_keeps_repeating() {
 }
 
 #[rstest]
-#[case::two_loops_with_sync(
-    r#"event "e" 1.0 name="E" { sync 1.0 "S"; }; loop "l" start=0.0 every=2.0 {}; loop "m" start=4.0 every=2.0 {};"#,
-    "syncs in a phase with multiple loops"
-)]
-#[case::sync_in_second_loop(
-    r#"loop "l" start=0.0 every=2.0 {}; loop "m" start=4.0 every=2.0 { event "e" 1.0 name="E" { sync 1.0 "S"; }; };"#,
-    "syncs in a phase with multiple loops"
-)]
 #[case::branch_in_loop(r#"loop "l" start=0.0 every=2.0 { branch "b" open=0.0 close=1.0 { option "a" { when "A"; }; option "b" { when "B"; }; }; };"#, "branches inside")]
 fn unsupported_loop_combinations_are_rejected(#[case] body: &str, #[case] reason: &str) {
     let source = format!("timeline 1 \"x\" {{ phase \"p\" {{ enter \"Start\"; {body} }} }}");
@@ -419,6 +411,257 @@ fn one_signal_matching_multiple_loop_exits_is_ambiguous() {
             .any(|r| r.action == "ambiguous" && r.at_ms == 1000)
     );
     assert!(!output.iter().any(|r| r.action == "until"));
+}
+
+#[test]
+fn second_loop_sync_moves_only_its_iterations() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            loop "first" start=0.0 every=1.0 {
+                until "EndFirst" at=2.0 before=0.0
+                event "a" 0.0 name="A"
+            }
+            loop "second" start=2.0 every=2.0 {
+                until "EndSecond" at=5.0 before=0.0
+                event "b" 1.0 name="B" { sync 1.0 "Sync" before=1.0 after=1.0; }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        6000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":2000,"type":"EndFirst","fields":{}},
+            {"at_ms":2500,"type":"Sync","fields":{}},
+            {"at_ms":5000,"type":"EndSecond","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    let b: Vec<_> = output
+        .iter()
+        .filter(|r| r.action == "event" && r.detail.starts_with("b:"))
+        .map(|r| r.at_ms)
+        .collect();
+    assert_eq!(b, [2500, 4500]);
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "sync" && r.detail.starts_with("second"))
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "until" && r.detail == "second" && r.at_ms == 5000)
+    );
+    assert!(!output.iter().any(|r| r.action == "violation"));
+}
+
+#[test]
+fn exit_sync_corrects_all_active_exit_paths() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            loop "first" start=10.0 every=2.0 {
+                until "EndFirst" at=1.0 before=0.0
+                on-exit { event "a" 3.0 name="A" { sync 3.0 "Sync" before=2.0 after=2.0; }; }
+            }
+            loop "second" start=12.0 every=2.0 {
+                until "EndSecond" at=2.0 before=0.0
+                on-exit { event "b" 3.0 name="B"; }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        6000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"EndFirst","fields":{}},
+            {"at_ms":2000,"type":"EndSecond","fields":{}},
+            {"at_ms":3000,"type":"Sync","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("a:") && r.at_ms == 3000)
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("b:") && r.at_ms == 4000)
+    );
+    assert!(!output.iter().any(|r| r.action == "violation"));
+}
+
+#[test]
+fn phase_sync_skipping_multiple_loop_starts_blocks_the_later_loop() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            event "anchor" 7.0 name="Anchor" { sync 7.0 "Sync" before=7.0 after=7.0; }
+            loop "second" start=3.0 every=2.0 { event "b" 0.0 name="B"; }
+            loop "first" start=2.0 every=2.0 { event "a" 0.0 name="A"; }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        4500,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Sync","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "violation" && r.detail.contains("second") && r.at_ms == 1000)
+    );
+    assert_eq!(
+        output
+            .iter()
+            .filter(|r| r.action == "skipped" && r.detail == "a")
+            .count(),
+        3
+    );
+    assert!(
+        !output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("b:"))
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("a:") && r.at_ms == 2000)
+    );
+}
+
+#[test]
+fn second_loop_can_sync_at_the_same_timestamp_as_first_loop_exit() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            loop "first" start=0.0 every=1.0 { until "EndFirst" at=2.0 before=0.0; }
+            loop "second" start=2.0 every=2.0 {
+                event "b" 0.0 name="B" { sync 0.0 "Sync" before=0.0 after=0.0; }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        2200,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":2000,"type":"EndFirst","fields":{}},
+            {"at_ms":2000,"type":"Sync","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "sync" && r.detail.starts_with("second") && r.at_ms == 2000)
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("b:") && r.at_ms == 2000)
+    );
+    assert!(!output.iter().any(|r| r.action == "violation"));
+}
+
+#[test]
+fn blocked_loop_cannot_sync_at_its_start_boundary() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            loop "first" start=0.0 every=2.0 { event "a" 0.0 name="A"; }
+            loop "second" start=1.0 every=2.0 {
+                event "b" 0.0 name="B" { sync 0.0 "Sync" before=0.0 after=0.0; }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        2000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Sync","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "violation" && r.detail.contains("second"))
+    );
+    assert!(
+        !output
+            .iter()
+            .any(|r| r.action == "sync" || (r.action == "event" && r.detail.starts_with("b:")))
+    );
+}
+
+#[test]
+fn phase_and_loop_sync_matching_one_observation_are_ambiguous() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            event "phase-hit" 3.0 name="Phase" { sync 1.0 "Sync" before=1.0 after=1.0; }
+            loop "first" start=0.0 every=2.0 {
+                event "a" 0.0 name="A" { sync 0.5 "Sync" before=1.0 after=1.0; }
+            }
+            loop "second" start=10.0 every=2.0 { event "b" 0.0 name="B"; }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        3500,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":500,"type":"Sync","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "ambiguous" && r.at_ms == 500)
+    );
+    assert!(!output.iter().any(|r| r.action == "sync"));
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("phase-hit:") && r.at_ms == 3000)
+    );
 }
 
 #[test]
