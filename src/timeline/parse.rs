@@ -4,7 +4,7 @@ use anyhow::{Context, Result, bail, ensure};
 use kdl::{KdlNode, KdlValue};
 use regress::Regex;
 
-use super::{Event, Field, MAX_MS, Phase, Signal, Tick, Timeline};
+use super::{Branch, BranchOption, Event, Field, MAX_MS, Merge, Phase, Signal, Tick, Timeline};
 
 fn children(node: &KdlNode) -> &[KdlNode] {
     node.children().map_or(&[], |doc| doc.nodes())
@@ -278,6 +278,7 @@ struct Validation {
     requires: Vec<(String, String, String)>,
     phase_refs: Vec<String>,
     controls: Vec<String>,
+    branches: BTreeMap<String, Branch>,
     event_count: usize,
 }
 
@@ -395,35 +396,42 @@ impl Validation {
         every: Option<Tick>,
         source: &str,
         options: &mut BTreeSet<String>,
-    ) -> Result<()> {
+    ) -> Result<BranchOption> {
         shape(child, 1, &[])?;
         let option = arg_string(child, 0)?;
-        ensure!(options.insert(option), "Duplicate option in {branch}");
+        ensure!(
+            options.insert(option.clone()),
+            "Duplicate option in {branch}"
+        );
 
         let mut body = Vec::new();
-        let mut whens = 0;
+        let mut whens = Vec::new();
+        let mut requires = Vec::new();
         for part in children(child) {
             match part.name().value() {
                 "when" => {
-                    signal(part, "when")?;
-                    whens += 1;
+                    whens.push(signal(part, "when")?);
                 }
                 "requires" => {
                     shape(part, 2, &[])?;
                     ensure!(children(part).is_empty(), "requires has no children");
-                    self.requires.push((
-                        branch.to_owned(),
-                        arg_string(part, 0)?,
-                        arg_string(part, 1)?,
-                    ));
+                    let target = arg_string(part, 0)?;
+                    let choice = arg_string(part, 1)?;
+                    self.requires
+                        .push((branch.to_owned(), target.clone(), choice.clone()));
+                    requires.push((target, choice));
                 }
                 _ => body.push(part.clone()),
             }
         }
-        ensure!(whens > 0, "option requires at least one when");
-        self.body(&body, "option", every.is_some(), close - 1, every, source)?;
-
-        Ok(())
+        ensure!(!whens.is_empty(), "option requires at least one when");
+        let events = self.body(&body, "option", every.is_some(), close - 1, every, source)?;
+        Ok(BranchOption {
+            id: option,
+            whens,
+            requires,
+            events,
+        })
     }
 
     // Bound common-path events using every alternative merge window.
@@ -433,11 +441,11 @@ impl Validation {
         in_loop: bool,
         every: Option<Tick>,
         source: &str,
-    ) -> Result<()> {
+    ) -> Result<Merge> {
         shape(child, 0, &[])?;
 
         let mut body = Vec::new();
-        let mut whens = 0;
+        let mut whens = Vec::new();
         let mut latest_merge = 0;
         for part in children(child) {
             if part.name().value() != "when" {
@@ -452,12 +460,11 @@ impl Validation {
                 );
                 latest_merge = latest_merge.max(s.at.unwrap_or(0) + s.after.unwrap_or(0));
             }
-            whens += 1;
+            whens.push(s);
         }
-        ensure!(whens > 0, "merge requires when");
-        self.body(&body, "merge", in_loop, latest_merge, every, source)?;
-
-        Ok(())
+        ensure!(!whens.is_empty(), "merge requires when");
+        let events = self.body(&body, "merge", in_loop, latest_merge, every, source)?;
+        Ok(Merge { whens, events })
     }
 
     // Keep phase-local signals and their source diagnostics together.
@@ -477,7 +484,21 @@ impl Validation {
         }
         ensure!(!enters.is_empty(), "phase requires enter");
         let events = self.body(&body, "phase", false, 0, None, source)?;
-        Ok(Phase { id, enters, events })
+        let branches = body
+            .iter()
+            .filter(|node| node.name().value() == "branch")
+            .map(|node| {
+                self.branches
+                    .remove(&arg_string(node, 0)?)
+                    .context("Missing parsed branch")
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Phase {
+            id,
+            enters,
+            events,
+            branches,
+        })
     }
 
     fn branch(
@@ -489,7 +510,6 @@ impl Validation {
     ) -> Result<()> {
         shape(node, 1, &["open", "close"])?;
         let id = self.id(node)?;
-        self.controls.push(format!("branch {id}"));
         let open = property_time(node, "open")?.context("branch requires open")?;
         let close = property_time(node, "close")?.context("branch requires close")?;
         ensure!(open < close, "branch needs open < close");
@@ -497,29 +517,43 @@ impl Validation {
             ensure!(close <= every, "branch close exceeds iteration");
         }
         let mut options = BTreeSet::new();
-        let mut merges = 0;
+        let mut parsed_options = Vec::new();
+        let mut merge = None;
         for child in children(node) {
             match child.name().value() {
                 "option" => {
-                    self.option_node(child, &id, close, every, source, &mut options)
-                        .with_context(|| location(source, child))?;
+                    parsed_options.push(
+                        self.option_node(child, &id, close, every, source, &mut options)
+                            .with_context(|| location(source, child))?,
+                    );
                 }
                 "merge" => {
-                    merges += 1;
                     ensure!(
-                        merges == 1,
+                        merge.is_none(),
                         "Only one merge per branch at {}",
                         location(source, child)
                     );
-                    self.merge_node(child, in_loop, every, source)
-                        .with_context(|| location(source, child))?;
+                    merge = Some(
+                        self.merge_node(child, in_loop, every, source)
+                            .with_context(|| location(source, child))?,
+                    );
                 }
                 name => bail!("Unknown branch child {name} at {}", location(source, child)),
             }
         }
         ensure!(options.len() >= 2, "branch needs at least two options");
         validate_option_overlaps(node)?;
-        self.options.insert(id, options);
+        self.options.insert(id.clone(), options);
+        self.branches.insert(
+            id.clone(),
+            Branch {
+                id,
+                open,
+                close,
+                options: parsed_options,
+                merge,
+            },
+        );
         Ok(())
     }
 

@@ -74,6 +74,41 @@ fn branch_constraints_and_replay_capability_are_separate() {
 }
 
 #[test]
+fn phase_branch_preserves_conditions_and_schedules_for_replay() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        phase "p" {
+            enter "Start"
+            branch "first" open=0.0 close=5.0 {
+                option "left" { when "A" id="1"; event "left-hit" 1.0 name="Left"; }
+                option "right" { when "B"; }
+                merge { when "C" at=6.0 before=1.0 after=1.0; event "shared" 2.0 name="Shared"; }
+            }
+            branch "second" open=7.0 close=9.0 {
+                option "one" { when "D"; requires "first" "left"; }
+                option "two" { when "E"; }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let branches = &model.phases[0].branches;
+    assert_eq!(branches.len(), 2);
+    assert_eq!(branches[0].options[0].events[0].id, "left-hit");
+    assert!(branches[0].options[0].whens[0].matches("A", &[("id".into(), "1".into())].into(), 0));
+    assert_eq!(branches[0].merge.as_ref().unwrap().events[0].id, "shared");
+    assert_eq!(
+        branches[1].options[0].requires,
+        [("first".into(), "left".into())]
+    );
+    let error = replay(&model, &recording(0, serde_json::json!([])).unwrap())
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("branch first"));
+    assert!(error.contains("branch second"));
+}
+
+#[test]
 fn lifecycle_cancels_same_time_events_and_restarts_fresh() {
     let model = parse(include_str!("../../tests/fixtures/timeline/basic.kdl")).unwrap();
     let input: Recording =

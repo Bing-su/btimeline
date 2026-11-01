@@ -59,6 +59,30 @@ pub(crate) struct Phase {
     id: String,
     enters: Vec<Signal>,
     events: Vec<Event>,
+    branches: Vec<Branch>,
+}
+
+#[derive(Debug)]
+struct Branch {
+    id: String,
+    open: Tick,
+    close: Tick,
+    options: Vec<BranchOption>,
+    merge: Option<Merge>,
+}
+
+#[derive(Debug)]
+struct BranchOption {
+    id: String,
+    whens: Vec<Signal>,
+    requires: Vec<(String, String)>,
+    events: Vec<Event>,
+}
+
+#[derive(Debug)]
+struct Merge {
+    whens: Vec<Signal>,
+    events: Vec<Event>,
 }
 
 #[derive(Debug)]

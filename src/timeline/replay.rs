@@ -366,10 +366,42 @@ impl<'a> Replay<'a> {
 }
 
 pub(crate) fn replay(timeline: &Timeline, input: &Recording) -> Result<Vec<Record>> {
+    let mut unsupported = timeline.controls.clone();
+    for branch in timeline.phases.iter().flat_map(|phase| &phase.branches) {
+        let options = branch
+            .options
+            .iter()
+            .map(|option| {
+                format!(
+                    "{}: {} signals, {} requirements, {} events",
+                    option.id,
+                    option.whens.len(),
+                    option.requires.len(),
+                    option.events.len()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; ");
+        let merge = branch.merge.as_ref().map_or_else(String::new, |merge| {
+            format!(
+                ", merge: {} signals, {} events",
+                merge.whens.len(),
+                merge.events.len()
+            )
+        });
+        unsupported.push(format!(
+            "branch {} ({:.1}..{:.1}s; {}{})",
+            branch.id,
+            branch.open as f64 / 10.0,
+            branch.close as f64 / 10.0,
+            options,
+            merge
+        ));
+    }
     ensure!(
-        timeline.controls.is_empty(),
+        unsupported.is_empty(),
         "Replay currently supports lifecycle, phase, event and sync only; unsupported: {}",
-        timeline.controls.join(", ")
+        unsupported.join(", ")
     );
     validate_recording(input)?;
     let mut state = Replay {
