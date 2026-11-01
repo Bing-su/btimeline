@@ -17,6 +17,14 @@ btimeline generate first.json second.json third.json --mode raid -o timeline.kdl
 
 `mine`은 동일한 분석 결과를 사람이 확인할 때 쓰는 선택적 명령이다. 생성기가 디스크에 중간 KDL을 기록하거나 그 파일을 다시 읽지는 않는다.
 
+## 진행 구조와 시간 추정의 분리 계획
+
+다음 구현은 [진행 그래프와 시간 추정의 분리 계획](PROGRESSION_AND_TIMING.md)을 따른다. 현재 아래에 설명한 고유 기준점 중심 생성기를 발생 단위 진행 그래프 구성과 별도 시간 추정으로 나눌 계획이며, 단계 분리는 아직 미구현이다. 그래프는 발생·부분 순서·선택 이력·반복과 원본 대응을 보존하고, 시간 추정은 그 구조를 수정하지 않고 경로별 예정 시각·변동·근거를 붙인다. 고유 시각 기준점이 없거나 시간 추정이 실패한 발생도 그래프에서 삭제하지 않는다.
+
+**시간은 정확히 재현할 필요가 없고 사용하기에 충분하면 된다.** 작은 기록 차이를 제거하고 기믹의 순서·선택·회차를 알아볼 수 있는 근사 일정을 목표로 한다. 0.1초는 표현 단위이며 실제 전투와 100ms 이내로 맞춘다는 보장이 아니다. 표시 시각의 실용성과 sync·window의 실행 안전성은 별도로 검증한다. 원본 시간은 파동·부분 순서·종료 판단에도 계속 사용하며 보존한다.
+
+입력은 기존처럼 FFLogs JSON과 mode만 받는다. 새 그래프·시간표를 수동 입력으로 요구하거나 KDL 실행에 evidence를 의존시키지 않는다. 이 계획은 기존 runtime 시계·시간 단위·문법을 바꾸지 않는다.
+
 ## 게임 신호와 mode 정책
 
 cactbot의 고정 커밋 `e79ea7f16093be5b80cda0e2d5bc8eb899d6fb4b`를 참고한다. [R9S](https://github.com/OverlayPlugin/cactbot/blob/e79ea7f16093be5b80cda0e2d5bc8eb899d6fb4b/ui/raidboss/data/07-dt/raid/r9s.txt#L8-L14)와 [Valigarmanda](https://github.com/OverlayPlugin/cactbot/blob/e79ea7f16093be5b80cda0e2d5bc8eb899d6fb4b/ui/raidboss/data/07-dt/trial/valigarmanda.txt#L13-L16)는 InCombat 시작, 시전·능력 ID와 NPC 이름에 의한 동기화를 사용한다. 아래 표는 이 근거를 사용하는 생성기의 정책이며 cactbot의 모든 콘텐츠에 동일한 규칙이 있다는 뜻은 아니다.
