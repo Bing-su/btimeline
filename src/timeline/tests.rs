@@ -1449,6 +1449,32 @@ fn matching_signals_with_mutually_exclusive_prior_choices_are_allowed() {
 }
 
 #[rstest]
+#[case::identical_requirements("left", true)]
+#[case::conflicting_requirements("right", false)]
+fn option_cannot_require_two_choices_of_the_same_branch(#[case] second: &str, #[case] valid: bool) {
+    let source = format!(
+        r#"timeline 1 "x" {{
+        phase "p" {{
+            enter "Start"
+            branch "first" open=0.0 close=1.0 {{
+                option "left" {{ when "A"; }}
+                option "right" {{ when "B"; }}
+            }}
+            branch "next" open=1.0 close=2.0 {{
+                option "one" {{ when "C"; requires "first" "left"; requires "first" "{second}"; }}
+                option "two" {{ when "D"; }}
+            }}
+        }}
+    }}"#
+    );
+    let result = parse(&source);
+    assert_eq!(result.is_ok(), valid);
+    if let Err(error) = result {
+        assert!(format!("{error:#}").contains("conflicting choices for first"));
+    }
+}
+
+#[rstest]
 #[case::early(500)]
 #[case::at_event(1000)]
 fn wipe_records_censored_events_for_each_attempt(#[case] wipe_at: i64) {

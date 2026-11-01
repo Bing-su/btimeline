@@ -430,6 +430,15 @@ impl Validation {
                     ensure!(children(part).is_empty(), "requires has no children");
                     let target = arg_string(part, 0)?;
                     let choice = arg_string(part, 1)?;
+                    ensure!(
+                        requires
+                            .iter()
+                            .all(
+                                |(required_branch, required_choice)| required_branch != &target
+                                    || required_choice == &choice
+                            ),
+                        "Option {branch}/{option} requires conflicting choices for {target}"
+                    );
                     self.requires
                         .push((branch.to_owned(), target.clone(), choice.clone()));
                     requires.push((target, choice));
