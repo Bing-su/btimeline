@@ -46,6 +46,7 @@ impl Signal {
 
 #[derive(Debug)]
 pub(crate) struct Event {
+    order: usize,
     id: String,
     at: Tick,
     name: String,

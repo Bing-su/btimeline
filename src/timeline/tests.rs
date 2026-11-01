@@ -329,6 +329,41 @@ fn selection_close_uses_rounded_phase_time(#[case] at_ms: i64, #[case] selected:
 }
 
 #[test]
+fn simultaneous_events_across_branch_and_phase_follow_document_order() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            branch "b" open=0.0 close=3.0 {
+                option "a" { when "A"; event "branch-hit" 1.0 name="Branch"; }
+                option "b" { when "B"; }
+            }
+            event "phase-hit" 2.0 name="Phase"
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        3000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"A","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    let events: Vec<_> = output
+        .iter()
+        .filter(|r| r.action == "event")
+        .map(|r| r.detail.as_str())
+        .collect();
+    assert!(
+        matches!(events.as_slice(), [first, second] if first.starts_with("branch-hit:") && second.starts_with("phase-hit:"))
+    );
+}
+
+#[test]
 fn lifecycle_cancels_same_time_events_and_restarts_fresh() {
     let model = parse(include_str!("../../tests/fixtures/timeline/basic.kdl")).unwrap();
     let input: Recording =

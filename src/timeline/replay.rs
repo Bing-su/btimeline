@@ -28,6 +28,8 @@ pub(crate) struct Record {
     pub(crate) action: String,
     pub(crate) detail: String,
     pub(crate) run: usize,
+    #[serde(skip)]
+    event_order: Option<usize>,
 }
 
 #[derive(Default)]
@@ -194,6 +196,7 @@ fn record(out: &mut Vec<Record>, at_ms: i64, action: &str, detail: impl Into<Str
         action: action.into(),
         detail: detail.into(),
         run,
+        event_order: None,
     });
 }
 
@@ -229,6 +232,9 @@ fn emit(
             ),
             run,
         );
+        if let Some(record) = out.last_mut() {
+            record.event_order = Some(event.order);
+        }
     }
 }
 
@@ -738,8 +744,14 @@ impl<'a> Replay<'a> {
         self.advance(end_ms, true);
         self.advance_branches(end_ms, false);
         self.record_unobserved(end_ms);
-        // Stable ties retain transition order across independent fight and phase schedules.
-        self.out.sort_by_key(|record| record.at_ms);
+        // Controls precede same-time events; authored events keep document order across paths.
+        self.out.sort_by_key(|record| {
+            (
+                record.at_ms,
+                record.event_order.is_some(),
+                record.event_order,
+            )
+        });
         self.out
     }
 }

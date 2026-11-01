@@ -330,6 +330,7 @@ impl Validation {
         }
         self.event_count += 1;
         Ok(Event {
+            order: self.event_count,
             id,
             at,
             name,
