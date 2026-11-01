@@ -34,6 +34,9 @@ struct Pull {
     end_ms: i64,
     phase_transitions: Vec<super::PhaseTransition>,
     batches: Vec<Batch>,
+    start_ms: i64,
+    actors: BTreeMap<i64, String>,
+    events: Vec<crate::fflogs::model::Event>,
 }
 
 fn argument(node: &mut KdlNode, value: impl Into<kdl::KdlValue>) {
@@ -154,6 +157,24 @@ fn trace_node(pull: &Pull, ids: &BTreeMap<String, String>) -> Result<KdlNode> {
         }
         trace.ensure_children().nodes_mut().push(observation);
     }
+    // Keep all packets independently of cast selection, e.g. target-only markers and unknown fields.
+    for (index, event) in pull.events.iter().enumerate() {
+        let mut raw = KdlNode::new("raw-event");
+        argument(&mut raw, i128::try_from(index)?);
+        prop(
+            &mut raw,
+            "at_ms",
+            i128::from(event.timestamp - pull.start_ms),
+        );
+        prop(&mut raw, "type", event.kind.as_str());
+        for (field, actor) in [("source", event.source_id), ("target", event.target_id)] {
+            if let Some(name) = actor.and_then(|id| pull.actors.get(&id)) {
+                prop(&mut raw, field, name.as_str());
+            }
+        }
+        prop(&mut raw, "data", serde_json::to_string(event)?);
+        trace.ensure_children().nodes_mut().push(raw);
+    }
 
     Ok(trace)
 }
@@ -191,8 +212,8 @@ fn process_document(
         log.traces.push(trace);
     }
     ensure!(
-        !signals_by_key.is_empty(),
-        "No enemy cast observations found"
+        pulls.iter().any(|pull| !pull.events.is_empty()),
+        "No observations found"
     );
     let graph = discover_dfg(&log);
     let ids: BTreeMap<_, _> = signals_by_key
@@ -314,6 +335,15 @@ pub(crate) fn mine(inputs: &[Utf8PathBuf], output: &Path) -> Result<()> {
             end_ms: pull.end_ms,
             phase_transitions: pull.phase_transitions.clone(),
             batches: batches(pull, &log)?,
+            start_ms: log.collection.start_time as i64,
+            actors: log
+                .report
+                .master_data
+                .actors
+                .iter()
+                .map(|actor| (actor.id, actor.name.clone()))
+                .collect(),
+            events: log.events,
         });
     }
     let doc = process_document(group, language.as_deref(), &ability_names, &pulls)?;

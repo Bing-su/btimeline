@@ -190,12 +190,16 @@ fn mine_preserves_wipes_simultaneous_events_and_existing_output() {
         .filter(|n| n.name().value() == "trace")
         .collect();
     assert_eq!(traces.len(), 2);
-    assert!(
-        traces
-            .iter()
-            .any(|n| n.get("kill").unwrap().as_bool() == Some(false)
-                && n.children().unwrap().nodes().len() == 1)
-    );
+    assert!(traces.iter().any(|n| {
+        n.get("kill").unwrap().as_bool() == Some(false)
+            && n.children()
+                .unwrap()
+                .nodes()
+                .iter()
+                .filter(|node| node.name().value() == "observed")
+                .count()
+                == 1
+    }));
     cargo_bin_cmd!("btimeline")
         .arg("mine")
         .arg(&first_path)
@@ -262,6 +266,52 @@ fn phase_boundaries_survive_inspection_and_mining(#[case] timestamp: i64) {
     assert_eq!(
         boundary.get("at_ms").unwrap().as_integer(),
         Some(i128::from(timestamp - 1000))
+    );
+}
+
+#[rstest::rstest]
+#[case("applybuff")]
+#[case("headmarker")]
+#[case("tether")]
+#[case("unknown-future-event")]
+fn mine_retains_non_cast_packets_without_inventing_activities(#[case] kind: &str) {
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("signals.json");
+    let output = dir.path().join("process.kdl");
+    let mut data: Value = serde_json::from_slice(&fs::read(INPUT).unwrap()).unwrap();
+    let event = serde_json::json!({"timestamp":1555,"type":kind,"targetID":10,
+        "extraData":{"values":[1,null,true,"text"]}});
+    data["events"] = serde_json::json!([event]);
+    data["collection"]["eventCount"] = 1.into();
+    fs::write(&input, serde_json::to_vec(&data).unwrap()).unwrap();
+    cargo_bin_cmd!("btimeline")
+        .arg("mine")
+        .arg(&input)
+        .arg("-o")
+        .arg(&output)
+        .assert()
+        .success();
+    let document: kdl::KdlDocument = fs::read_to_string(output).unwrap().parse().unwrap();
+    let nodes = document.nodes()[0].children().unwrap().nodes();
+    assert!(!nodes.iter().any(|node| node.name().value() == "activity"));
+    let trace = nodes
+        .iter()
+        .find(|node| node.name().value() == "trace")
+        .unwrap();
+    let packets = trace.children().unwrap().nodes();
+    assert_eq!(packets.len(), 1);
+    let packet = &packets[0];
+    assert_eq!(packet.name().value(), "raw-event");
+    assert_eq!(packet.get(0).unwrap().as_integer(), Some(0));
+    assert_eq!(packet.get("at_ms").unwrap().as_integer(), Some(555));
+    assert!(packet.get("source").is_none());
+    assert_eq!(
+        packet.get("target").unwrap().as_string(),
+        Some("Synthetic Boss")
+    );
+    assert_eq!(
+        serde_json::from_str::<Value>(packet.get("data").unwrap().as_string().unwrap()).unwrap(),
+        event
     );
 }
 
