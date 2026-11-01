@@ -380,6 +380,42 @@ fn compare_rejects_incomplete_fflogs_input() {
     assert!(String::from_utf8_lossy(&result.get_output().stderr).contains("Incomplete collection"));
 }
 
+#[rstest::rstest]
+#[case("basic", "basic.json", "replayed", 2)]
+#[case("basic", "empty.json", "no_observations", 0)]
+#[case("basic", "fflogs", "not_started", 0)]
+#[case("fflogs-native", "fflogs", "replayed", 1)]
+fn compare_reports_whether_replay_started(
+    #[case] timeline: &str,
+    #[case] recording: &str,
+    #[case] status: &str,
+    #[case] started_runs: usize,
+) {
+    let fixtures = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/timeline");
+    let directory = tempfile::tempdir().unwrap();
+    let path = match recording {
+        "fflogs" => std::path::PathBuf::from(INPUT),
+        "empty.json" => {
+            let path = directory.path().join(recording);
+            fs::write(&path, r#"{"version":1,"end_ms":0,"observations":[]}"#).unwrap();
+            path
+        }
+        _ => fixtures.join(recording),
+    };
+    let result = cargo_bin_cmd!("btimeline")
+        .arg("compare")
+        .arg(fixtures.join(format!("{timeline}.kdl")))
+        .arg(&path)
+        .arg("--json")
+        .assert()
+        .success();
+    let output: Value = serde_json::from_slice(&result.get_output().stdout).unwrap();
+    let summary = &output["summaries"][path.to_str().unwrap()];
+    assert_eq!(summary["status"], status);
+    assert_eq!(summary["started_runs"], started_runs);
+    assert_eq!(summary["observations"] == 0, status == "no_observations");
+}
+
 #[test]
 fn compare_orders_late_fflogs_events_without_losing_original_indices() {
     let timeline = concat!(

@@ -71,6 +71,7 @@ impl Run for CompareCommand {
         let model = crate::timeline::parse(&std::fs::read_to_string(&self.timeline)?)
             .with_context(|| format!("Validating {}", self.timeline))?;
         let mut results = std::collections::BTreeMap::new();
+        let mut summaries = std::collections::BTreeMap::new();
         let mut has_fflogs = false;
         for path in &self.recordings {
             let bytes = std::fs::read(path).with_context(|| format!("Reading recording {path}"))?;
@@ -87,11 +88,10 @@ impl Run for CompareCommand {
                     serde_json::from_slice(&bytes)
                         .with_context(|| format!("Reading recording {path}"))?
                 };
-            results.insert(
-                path.as_str(),
-                crate::timeline::replay(&model, &recording)
-                    .with_context(|| format!("Replaying {path}"))?,
-            );
+            let records = crate::timeline::replay(&model, &recording)
+                .with_context(|| format!("Replaying {path}"))?;
+            summaries.insert(path.as_str(), recording.summary(&records));
+            results.insert(path.as_str(), records);
         }
         let mut not_checked = vec!["missing-signal coverage", "game accuracy"];
         if has_fflogs {
@@ -102,6 +102,7 @@ impl Run for CompareCommand {
                 std::io::stdout().lock(),
                 &serde_json::json!({
                     "recordings": results,
+                    "summaries": summaries,
                     "not_checked": not_checked
                 }),
             )?;
@@ -110,6 +111,9 @@ impl Run for CompareCommand {
         }
         for (path, records) in results {
             println!("{path}");
+            if let Some(summary) = summaries.get(path) {
+                println!("  {summary}");
+            }
             for record in records {
                 println!(
                     "  {:.1}s [run {}] {} {}",

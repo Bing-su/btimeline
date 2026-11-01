@@ -25,6 +25,45 @@ pub(crate) struct Recording {
 }
 
 #[derive(Debug, Serialize)]
+pub(crate) struct ReplaySummary {
+    status: &'static str,
+    observations: usize,
+    started_runs: usize,
+}
+
+impl Recording {
+    // Report whether replay ran, e.g. an ACT start cannot be inferred from FFLogs casts.
+    pub(crate) fn summary(&self, records: &[Record]) -> ReplaySummary {
+        let started_runs = records
+            .iter()
+            .filter(|record| record.action == "start")
+            .count();
+        let status = if self.observations.is_empty() {
+            "no_observations"
+        } else if started_runs == 0 {
+            "not_started"
+        } else {
+            "replayed"
+        };
+        ReplaySummary {
+            status,
+            observations: self.observations.len(),
+            started_runs,
+        }
+    }
+}
+
+impl std::fmt::Display for ReplaySummary {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} ({} observations, {} started runs)",
+            self.status, self.observations, self.started_runs
+        )
+    }
+}
+
+#[derive(Debug, Serialize)]
 pub(crate) struct Record {
     pub(crate) at_ms: i64,
     pub(crate) action: String,
