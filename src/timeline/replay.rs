@@ -359,6 +359,52 @@ fn branch_sync_targets<'a>(
         .collect()
 }
 
+fn repeat_sync_targets<'a>(
+    phase: &PhaseState<'a>,
+    observation: &Observation,
+) -> Vec<(SyncOwner<'a>, Tick)> {
+    let (Some(repeat), Some(state)) = (phase.definition.loops.first(), phase.repeat.as_ref())
+    else {
+        return Vec::new();
+    };
+    let mut targets = Vec::new();
+    if let Some(path) = &state.exit {
+        targets.extend(
+            sync_targets(&repeat.on_exit, &path.clock, observation)
+                .into_iter()
+                .map(|t| {
+                    (
+                        SyncOwner::Phase(phase.definition.id.as_str()),
+                        path.anchor + t,
+                    )
+                }),
+        );
+    }
+    let at = observation.at_ms;
+    let boundary = !state.exited
+        && state.current.as_ref().map_or_else(
+            || phase.clock.base_ms + repeat.start * 100 == at,
+            |clock| clock.base_ms + repeat.every * 100 == at,
+        );
+    let boundary_clock = Clock {
+        base_ms: at,
+        ..Clock::default()
+    };
+    let clock = if boundary {
+        Some(&boundary_clock)
+    } else {
+        state.current.as_ref()
+    };
+    if let Some(clock) = clock {
+        targets.extend(
+            sync_targets(&repeat.events, clock, observation)
+                .into_iter()
+                .map(|t| (SyncOwner::Repeat(repeat.id.as_str()), t)),
+        );
+    }
+    targets
+}
+
 // At a boundary the observation can synchronize the new iteration before its zero-time event.
 fn prepare_repeat_boundary(phase: &mut PhaseState<'_>, at: i64) {
     let (Some(definition), Some(state)) = (phase.definition.loops.first(), phase.repeat.as_mut())
@@ -397,6 +443,45 @@ fn correct_paths(
             correct(events, &mut path.clock, at, target - path.anchor, out, run);
         }
     }
+}
+
+fn correct_phase(
+    phase: &mut PhaseState<'_>,
+    at: i64,
+    target: Tick,
+    out: &mut Vec<Record>,
+    run: usize,
+) -> Result<()> {
+    if let (Some(repeat), Some(state)) = (phase.definition.loops.first(), phase.repeat.as_ref()) {
+        ensure!(
+            state.exited || state.current.is_some() || target <= repeat.start,
+            "Cannot replay phase sync across the start of loop {}; this transition is not defined yet",
+            repeat.id
+        );
+    }
+    correct(
+        &phase.definition.events,
+        &mut phase.clock,
+        at,
+        target,
+        out,
+        run,
+    );
+    correct_paths(phase, at, target, out, run);
+    if let (Some(repeat), Some(path)) = (
+        phase.definition.loops.first(),
+        phase.repeat.as_mut().and_then(|state| state.exit.as_mut()),
+    ) {
+        correct(
+            &repeat.on_exit,
+            &mut path.clock,
+            at,
+            target - path.anchor,
+            out,
+            run,
+        );
+    }
+    Ok(())
 }
 
 fn unobserved_paths(phase: &PhaseState<'_>, at: i64, run: usize, out: &mut Vec<Record>) {
@@ -463,7 +548,13 @@ fn advance_repeat(
 }
 
 // Report a missed finite exit only after all alternative windows have ended.
-fn repeat_unresolved(phase: &mut PhaseState<'_>, at: i64, out: &mut Vec<Record>, run: usize) {
+fn repeat_unresolved(
+    phase: &mut PhaseState<'_>,
+    at: i64,
+    corrected: bool,
+    out: &mut Vec<Record>,
+    run: usize,
+) {
     let (Some(definition), Some(state)) = (phase.definition.loops.first(), phase.repeat.as_mut())
     else {
         return;
@@ -483,9 +574,10 @@ fn repeat_unresolved(phase: &mut PhaseState<'_>, at: i64, out: &mut Vec<Record>,
         return;
     }
     state.unresolved = true;
+    let ended_at = (phase.clock.base_ms + (end + 1) * 100 - 50).max(0);
     record(
         out,
-        (phase.clock.base_ms + (end + 1) * 100 - 50).max(0),
+        if corrected { at } else { ended_at },
         "unresolved",
         definition.id.clone(),
         run,
@@ -798,7 +890,7 @@ impl<'a> Replay<'a> {
         }
     }
 
-    fn synchronize(&mut self, observation: &Observation) {
+    fn synchronize(&mut self, observation: &Observation) -> Result<()> {
         let at = observation.at_ms;
         let mut targets = BTreeSet::new();
         if let Some(clock) = self.fight.as_ref() {
@@ -815,19 +907,7 @@ impl<'a> Replay<'a> {
                     .map(|t| (SyncOwner::Phase(phase.definition.id.as_str()), t)),
             );
             targets.extend(branch_sync_targets(phase, observation));
-            if let (Some(repeat), Some(clock)) = (
-                phase.definition.loops.first(),
-                phase
-                    .repeat
-                    .as_ref()
-                    .and_then(|state| state.current.as_ref()),
-            ) {
-                targets.extend(
-                    sync_targets(&repeat.events, clock, observation)
-                        .into_iter()
-                        .map(|t| (SyncOwner::Repeat(repeat.id.as_str()), t)),
-                );
-            }
+            targets.extend(repeat_sync_targets(phase, observation));
         }
         if targets.len() > 1 {
             record(
@@ -837,22 +917,14 @@ impl<'a> Replay<'a> {
                 "Multiple sync destinations; clocks unchanged",
                 self.run,
             );
-            return;
+            return Ok(());
         }
         let Some((owner, target)) = targets.first() else {
-            return;
+            return Ok(());
         };
         match (owner, self.phase.as_mut(), self.fight.as_mut()) {
             (SyncOwner::Phase(_), Some(phase), _) => {
-                correct(
-                    &phase.definition.events,
-                    &mut phase.clock,
-                    at,
-                    *target,
-                    &mut self.out,
-                    self.run,
-                );
-                correct_paths(phase, at, *target, &mut self.out, self.run);
+                correct_phase(phase, at, *target, &mut self.out, self.run)?
             }
             (SyncOwner::Fight, _, Some(clock)) => correct(
                 &self.timeline.events,
@@ -863,6 +935,7 @@ impl<'a> Replay<'a> {
                 self.run,
             ),
             (SyncOwner::Repeat(_), Some(phase), _) => {
+                prepare_repeat_boundary(phase, at);
                 if let (Some(repeat), Some(clock)) = (
                     phase.definition.loops.first(),
                     phase
@@ -889,15 +962,16 @@ impl<'a> Replay<'a> {
             ),
             self.run,
         );
+        Ok(())
     }
 
     // Apply observations in source order before firing events at the same raw timestamp.
-    fn observe(&mut self, observation: &Observation) {
+    fn observe(&mut self, observation: &Observation) -> Result<()> {
         let at = observation.at_ms;
         self.advance(at, false);
         self.advance_branches(at, false);
         if let Some(phase) = &mut self.phase {
-            repeat_unresolved(phase, at, &mut self.out, self.run);
+            repeat_unresolved(phase, at, false, &mut self.out, self.run);
         }
         let candidates = self.enter_candidates(observation);
         let lifecycle = self.lifecycle(observation);
@@ -915,12 +989,13 @@ impl<'a> Replay<'a> {
             && !self.repeat_observation(observation)
             && !self.branch_observation(observation)
         {
-            if let Some(phase) = &mut self.phase {
-                prepare_repeat_boundary(phase, at);
-            }
-            self.synchronize(observation);
+            self.synchronize(observation)?;
             self.advance_branches(at, true);
+            if let Some(phase) = &mut self.phase {
+                repeat_unresolved(phase, at, true, &mut self.out, self.run);
+            }
         }
+        Ok(())
     }
 
     // A wipe censors the current attempt just like a recording ending before its future events.
@@ -951,7 +1026,7 @@ impl<'a> Replay<'a> {
         self.advance(end_ms, true);
         self.advance_branches(end_ms, false);
         if let Some(phase) = &mut self.phase {
-            repeat_unresolved(phase, end_ms, &mut self.out, self.run);
+            repeat_unresolved(phase, end_ms, false, &mut self.out, self.run);
         }
         self.record_unobserved(end_ms);
         // Controls precede same-time events; authored events keep document order across paths.
@@ -997,14 +1072,6 @@ fn validate_repeat_support(timeline: &Timeline, input: &Recording) -> Result<()>
             "Replay does not yet support branches and loops in the same phase"
         );
         ensure!(
-            phase
-                .events
-                .iter()
-                .chain(&repeat.on_exit)
-                .all(|event| event.syncs.is_empty()),
-            "Replay does not yet support phase or on-exit syncs in a phase containing a loop"
-        );
-        ensure!(
             input.end_ms / (repeat.every * 100) <= 1_000_000,
             "Recording spans more than one million possible loop iterations; shorten the recording"
         );
@@ -1025,7 +1092,7 @@ pub(crate) fn replay(timeline: &Timeline, input: &Recording) -> Result<Vec<Recor
     };
     let mut observations = input.observations.iter().peekable();
     while let Some(observation) = observations.next() {
-        state.observe(observation);
+        state.observe(observation)?;
         if observations
             .peek()
             .is_none_or(|next| next.at_ms != observation.at_ms)

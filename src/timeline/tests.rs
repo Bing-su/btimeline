@@ -196,10 +196,6 @@ fn finite_loop_exit_window_reports_unresolved_but_keeps_repeating() {
 }
 
 #[rstest]
-#[case::phase_sync(
-    r#"event "e" 1.0 name="E" { sync 1.0 "S"; }; loop "l" start=0.0 every=2.0 {};"#,
-    "sync"
-)]
 #[case::two_loops(
     r#"loop "l" start=0.0 every=2.0 {}; loop "m" start=4.0 every=2.0 {};"#,
     "multiple loops"
@@ -345,6 +341,215 @@ fn loop_exit_has_priority_over_iteration_sync() {
         !output
             .iter()
             .any(|r| r.action == "sync" || r.action == "event")
+    );
+}
+
+#[test]
+fn exit_sync_shifts_phase_and_exit_events_together() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            event "phase-hit" 4.0 name="Phase"
+            loop "l" start=5.0 every=2.0 {
+                until "Stop" at=1.0 before=1.0
+                event "pulse" 0.0 name="Pulse"
+                on-exit {
+                    event "exit-hit" 2.0 name="Exit" { sync 2.0 "Sync" before=2.0 after=2.0; }
+                }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        5000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Stop","fields":{}},
+            {"at_ms":2000,"type":"Sync","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("exit-hit:") && r.at_ms == 2000)
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("phase-hit:") && r.at_ms == 3000)
+    );
+    assert!(
+        !output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("pulse:"))
+    );
+}
+
+#[test]
+fn phase_sync_does_not_move_an_active_iteration() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            event "phase-hit" 6.0 name="Phase" { sync 5.0 "Sync" before=5.0 after=5.0; }
+            loop "l" start=0.0 every=2.0 {
+                until "Stop" at=7.0 before=0.0 after=0.0
+                event "pulse" 0.0 name="Pulse"
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        5000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Sync","fields":{}},
+            {"at_ms":3000,"type":"Stop","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    let pulses: Vec<_> = output
+        .iter()
+        .filter(|r| r.action == "event" && r.detail.starts_with("pulse:"))
+        .map(|r| r.at_ms)
+        .collect();
+    assert_eq!(pulses, [0, 2000]);
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("phase-hit:") && r.at_ms == 2000)
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "until" && r.at_ms == 3000)
+    );
+}
+
+#[test]
+fn replay_rejects_undefined_forward_sync_past_a_pending_loop_start() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            event "phase-hit" 5.0 name="Phase" { sync 5.0 "Sync" before=5.0 after=5.0; }
+            loop "l" start=3.0 every=2.0 { event "pulse" 0.0 name="Pulse"; }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        6000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Sync","fields":{}}
+        ]),
+    )
+    .unwrap();
+    assert!(
+        replay(&model, &input)
+            .unwrap_err()
+            .to_string()
+            .contains("across the start")
+    );
+}
+
+#[test]
+fn phase_sync_moves_a_pending_loop_start() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            event "anchor" 2.0 name="Anchor" { sync 2.0 "Sync" before=2.0 after=2.0; }
+            loop "l" start=5.0 every=2.0 { event "pulse" 0.0 name="Pulse"; }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        4500,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Sync","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("pulse:") && r.at_ms == 4000)
+    );
+}
+
+#[test]
+fn phase_sync_at_loop_start_precedes_starting_the_loop() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            event "anchor" 0.0 name="Anchor" { sync 0.0 "Sync" before=0.0 after=3.0; }
+            loop "l" start=2.0 every=2.0 { event "pulse" 0.0 name="Pulse"; }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        4500,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":2000,"type":"Sync","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    let pulses: Vec<_> = output
+        .iter()
+        .filter(|r| r.action == "event" && r.detail.starts_with("pulse:"))
+        .map(|r| r.at_ms)
+        .collect();
+    assert_eq!(pulses, [4000]);
+}
+
+#[test]
+fn phase_sync_reports_expired_exit_window_at_the_correction() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            event "anchor" 5.0 name="Anchor" { sync 5.0 "Sync" before=5.0 after=5.0; }
+            loop "l" start=0.0 every=2.0 {
+                until "Stop" at=2.0 before=0.0 after=0.0
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        2000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Sync","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "unresolved" && r.detail == "l" && r.at_ms == 1000)
     );
 }
 
