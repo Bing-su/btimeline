@@ -113,12 +113,16 @@ struct RepeatState {
     exit: Option<ActivePath>,
     unresolved: bool,
     blocked: bool,
+    branches: Vec<BranchState>,
 }
 
 enum BranchAction {
     Select(usize, usize),
     Merge(usize),
     Conflict(usize),
+    RepeatSelect(usize, usize, usize),
+    RepeatMerge(usize, usize),
+    RepeatConflict(usize, usize),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -789,7 +793,50 @@ fn start_repeats(
             },
             ..Clock::default()
         });
+        state.branches = definition
+            .branches
+            .iter()
+            .map(|_| BranchState::default())
+            .collect();
         running = true;
+    }
+}
+
+// Each iteration owns fresh branch state; earlier selections remain in fight history.
+fn advance_nested_branches(
+    definition: &Loop,
+    state: &mut RepeatState,
+    at: i64,
+    inclusive: bool,
+    out: &mut Vec<Record>,
+    run: usize,
+    history: &mut BTreeMap<String, Option<String>>,
+) {
+    let Some(clock) = &state.current else {
+        return;
+    };
+    let base = clock.base_ms;
+    let time = elapsed(base, at);
+    for (branch, branch_state) in definition.branches.iter().zip(&mut state.branches) {
+        if !branch_state.opened && time >= branch.open {
+            branch_state.opened = true;
+            history.insert(branch.id.clone(), None);
+        }
+        if branch_state.opened && !branch_state.closed && time >= branch.close {
+            branch_state.closed = true;
+            if branch_state.selected.is_none() {
+                record(
+                    out,
+                    (base + branch.close * 100 - 50).max(0),
+                    "unresolved",
+                    branch.id.clone(),
+                    run,
+                );
+            }
+        }
+        for (events, path) in branch_state.paths_mut(branch) {
+            emit(events, &mut path.clock, at, inclusive, out, run);
+        }
     }
 }
 
@@ -801,6 +848,7 @@ fn advance_repeat(
     inclusive: bool,
     out: &mut Vec<Record>,
     run: usize,
+    history: &mut BTreeMap<String, Option<String>>,
 ) {
     if let Some(path) = &mut state.exit {
         emit(
@@ -815,11 +863,16 @@ fn advance_repeat(
     if state.exited {
         return;
     }
-    let Some(clock) = &mut state.current else {
+    let Some(clock) = &state.current else {
         return;
     };
     let period = definition.every * 100;
-    while due(clock.base_ms + period, at, inclusive) {
+    let mut boundary = clock.base_ms + period;
+    while due(boundary, at, inclusive) {
+        advance_nested_branches(definition, state, boundary, false, out, run, history);
+        let Some(clock) = &mut state.current else {
+            return;
+        };
         emit(
             &definition.events,
             clock,
@@ -831,7 +884,17 @@ fn advance_repeat(
         clock.base_ms += period;
         clock.zero_at = None;
         clock.processed.clear();
+        boundary = clock.base_ms + period;
+        state.branches = definition
+            .branches
+            .iter()
+            .map(|_| BranchState::default())
+            .collect();
     }
+    advance_nested_branches(definition, state, at, inclusive, out, run, history);
+    let Some(clock) = &mut state.current else {
+        return;
+    };
     emit(&definition.events, clock, at, inclusive, out, run);
 }
 
@@ -841,10 +904,11 @@ fn advance_repeats(
     inclusive: bool,
     out: &mut Vec<Record>,
     run: usize,
+    history: &mut BTreeMap<String, Option<String>>,
 ) {
     start_repeats(phase, at, inclusive, out, run);
     for (entry, state) in phase.loops.iter().zip(&mut phase.repeats) {
-        advance_repeat(entry.definition, state, at, inclusive, out, run);
+        advance_repeat(entry.definition, state, at, inclusive, out, run, history);
     }
 }
 
@@ -921,6 +985,11 @@ fn unobserved_repeat_one(
 ) {
     if let Some(clock) = &state.current {
         unobserved(&definition.events, clock, at, run, out);
+        for (branch, branch_state) in definition.branches.iter().zip(&state.branches) {
+            for (events, path) in branch_state.paths(branch) {
+                unobserved(events, &path.clock, at, run, out);
+            }
+        }
     }
     if let Some(path) = &state.exit {
         unobserved(&definition.on_exit, &path.clock, at, run, out);
@@ -934,6 +1003,49 @@ struct Replay<'a> {
     history: BTreeMap<String, Option<String>>,
     run: usize,
     out: Vec<Record>,
+}
+
+fn nested_actions_for_loop(
+    loop_index: usize,
+    definition: &Loop,
+    state: &RepeatState,
+    observation: &Observation,
+    history: &BTreeMap<String, Option<String>>,
+) -> (Vec<BranchAction>, Vec<String>) {
+    let Some(clock) = &state.current else {
+        return (Vec::new(), Vec::new());
+    };
+    let time = elapsed(clock.base_ms, observation.at_ms);
+    let mut actions = Vec::new();
+    let mut unresolved = Vec::new();
+    for (index, (branch, branch_state)) in
+        definition.branches.iter().zip(&state.branches).enumerate()
+    {
+        if !branch_state.opened || branch_state.merge.is_some() {
+            continue;
+        }
+        if branch
+            .merge
+            .as_ref()
+            .is_some_and(|merge| matches_any(&merge.whens, observation, time))
+        {
+            actions.push(BranchAction::RepeatMerge(loop_index, index));
+        }
+        if branch_state.closed {
+            continue;
+        }
+        let (choices, missing) =
+            option_actions(branch, branch_state, index, time, observation, history);
+        actions.extend(choices.into_iter().filter_map(|choice| match choice {
+            BranchAction::Select(_, option) => {
+                Some(BranchAction::RepeatSelect(loop_index, index, option))
+            }
+            BranchAction::Conflict(_) => Some(BranchAction::RepeatConflict(loop_index, index)),
+            _ => None,
+        }));
+        unresolved.extend(missing);
+    }
+    (actions, unresolved)
 }
 
 impl<'a> Replay<'a> {
@@ -959,7 +1071,54 @@ impl<'a> Replay<'a> {
                 self.run,
             );
             advance_paths(phase, at, inclusive, &mut self.out, self.run);
-            advance_repeats(phase, at, inclusive, &mut self.out, self.run);
+            advance_repeats(
+                phase,
+                at,
+                inclusive,
+                &mut self.out,
+                self.run,
+                &mut self.history,
+            );
+        }
+    }
+
+    // Prepare a new iteration for a signal at its boundary without firing zero-time events.
+    fn prepare_nested_boundary(&mut self, at: i64) {
+        let Some(phase) = &mut self.phase else {
+            return;
+        };
+        if !phase
+            .loops
+            .iter()
+            .any(|entry| !entry.definition.branches.is_empty())
+        {
+            return;
+        }
+        start_repeats(phase, at, true, &mut self.out, self.run);
+        for (entry, state) in phase.loops.iter().zip(&mut phase.repeats) {
+            let Some(clock) = &mut state.current else {
+                continue;
+            };
+            if clock.base_ms + entry.definition.every * 100 == at {
+                clock.base_ms = at;
+                clock.zero_at = None;
+                clock.processed.clear();
+                state.branches = entry
+                    .definition
+                    .branches
+                    .iter()
+                    .map(|_| BranchState::default())
+                    .collect();
+            }
+            advance_nested_branches(
+                entry.definition,
+                state,
+                at,
+                false,
+                &mut self.out,
+                self.run,
+                &mut self.history,
+            );
         }
     }
 
@@ -1106,6 +1265,29 @@ impl<'a> Replay<'a> {
             actions.extend(candidates);
             unresolved.extend(missing);
         }
+        let (nested, missing) = self.nested_branch_actions(observation);
+        actions.extend(nested);
+        unresolved.extend(missing);
+        (actions, unresolved)
+    }
+
+    fn nested_branch_actions(&self, observation: &Observation) -> (Vec<BranchAction>, Vec<String>) {
+        let Some(phase) = &self.phase else {
+            return (Vec::new(), Vec::new());
+        };
+        let mut actions = Vec::new();
+        let mut unresolved = Vec::new();
+        for (loop_index, (entry, state)) in phase.loops.iter().zip(&phase.repeats).enumerate() {
+            let (nested, missing) = nested_actions_for_loop(
+                loop_index,
+                entry.definition,
+                state,
+                observation,
+                &self.history,
+            );
+            actions.extend(nested);
+            unresolved.extend(missing);
+        }
         (actions, unresolved)
     }
 
@@ -1133,10 +1315,19 @@ impl<'a> Replay<'a> {
         let Some(action) = actions.first() else {
             return !unresolved.is_empty();
         };
+        if matches!(
+            action,
+            BranchAction::RepeatSelect(..)
+                | BranchAction::RepeatMerge(..)
+                | BranchAction::RepeatConflict(..)
+        ) {
+            return self.nested_branch_observation(action, observation);
+        }
         let phase = self.phase.as_mut().expect("branch actions require a phase");
         let (index, option) = match action {
             BranchAction::Select(index, option) => (*index, Some(*option)),
             BranchAction::Merge(index) | BranchAction::Conflict(index) => (*index, None),
+            _ => return true,
         };
         let (Some(branch), Some(state)) = (
             phase.definition.branches.get(index),
@@ -1194,6 +1385,86 @@ impl<'a> Replay<'a> {
                 format!("Conflicting option for {}", branch.id),
                 self.run,
             ),
+            _ => {}
+        }
+        true
+    }
+
+    fn nested_branch_observation(
+        &mut self,
+        action: &BranchAction,
+        observation: &Observation,
+    ) -> bool {
+        let (loop_index, branch_index) = match action {
+            BranchAction::RepeatSelect(loop_index, branch_index, _)
+            | BranchAction::RepeatMerge(loop_index, branch_index)
+            | BranchAction::RepeatConflict(loop_index, branch_index) => {
+                (*loop_index, *branch_index)
+            }
+            _ => return false,
+        };
+        let Some(phase) = &mut self.phase else {
+            return false;
+        };
+        let (Some(entry), Some(repeat_state)) = (
+            phase.loops.get(loop_index),
+            phase.repeats.get_mut(loop_index),
+        ) else {
+            return false;
+        };
+        let (Some(clock), Some(branch), Some(state)) = (
+            repeat_state.current.as_ref(),
+            entry.definition.branches.get(branch_index),
+            repeat_state.branches.get_mut(branch_index),
+        ) else {
+            return false;
+        };
+        match action {
+            BranchAction::RepeatSelect(_, _, option_index) => {
+                let Some(option) = branch.options.get(*option_index) else {
+                    return false;
+                };
+                state.selected = Some(*option_index);
+                state.option = Some(active_path(clock.base_ms, observation.at_ms));
+                self.history
+                    .insert(branch.id.clone(), Some(option.id.clone()));
+                record(
+                    &mut self.out,
+                    observation.at_ms,
+                    "option",
+                    format!("{}/{}", branch.id, option.id),
+                    self.run,
+                );
+            }
+            BranchAction::RepeatMerge(_, _) => {
+                if state.selected.is_none() && !state.closed {
+                    record(
+                        &mut self.out,
+                        observation.at_ms,
+                        "unresolved",
+                        branch.id.clone(),
+                        self.run,
+                    );
+                }
+                state.closed = true;
+                state.option = None;
+                state.merge = Some(active_path(clock.base_ms, observation.at_ms));
+                record(
+                    &mut self.out,
+                    observation.at_ms,
+                    "merge",
+                    branch.id.clone(),
+                    self.run,
+                );
+            }
+            BranchAction::RepeatConflict(_, _) => record(
+                &mut self.out,
+                observation.at_ms,
+                "ambiguous",
+                format!("Conflicting option for {}", branch.id),
+                self.run,
+            ),
+            _ => return false,
         }
         true
     }
@@ -1378,16 +1649,34 @@ impl<'a> Replay<'a> {
         if enter {
             self.enter_phase(&candidates, at);
         }
-        if lifecycle.is_none()
-            && !enter
-            && self.fight.is_some()
-            && !self.control_observation(observation)
-        {
-            self.synchronize(observation)?;
-            self.advance_branches(at, true);
-            if let Some(phase) = &mut self.phase {
-                repeat_unresolved(phase, at, true, &mut self.out, self.run);
+        if lifecycle.is_none() && !enter && self.fight.is_some() {
+            self.observe_control(observation)?;
+        }
+        Ok(())
+    }
+
+    fn observe_control(&mut self, observation: &Observation) -> Result<()> {
+        let exits = self.repeat_matches(observation);
+        let has_nested = self.phase.as_ref().is_some_and(|phase| {
+            phase
+                .loops
+                .iter()
+                .any(|entry| !entry.definition.branches.is_empty())
+        });
+        let previous_history = (has_nested && exits.len() == 1).then(|| self.history.clone());
+        self.prepare_nested_boundary(observation.at_ms);
+        let exits_without_branch =
+            previous_history.is_some() && self.branch_actions(observation).0.is_empty();
+        if self.control_observation(observation) {
+            if let (true, Some(history)) = (exits_without_branch, previous_history) {
+                self.history = history;
             }
+            return Ok(());
+        }
+        self.synchronize(observation)?;
+        self.advance_branches(observation.at_ms, true);
+        if let Some(phase) = &mut self.phase {
+            repeat_unresolved(phase, observation.at_ms, true, &mut self.out, self.run);
         }
         Ok(())
     }
@@ -1444,16 +1733,53 @@ fn validate_repeat_support(timeline: &Timeline, input: &Recording) -> Result<()>
                 .flat_map(|branch| branch.options.iter().flat_map(|option| &option.loops)),
         );
         for repeat in repeats {
-            ensure!(
-                repeat.branches.is_empty(),
-                "Replay does not yet support branches inside a loop"
-            );
+            if !repeat.branches.is_empty() {
+                validate_nested_repeat(phase, repeat, input)?;
+            }
             ensure!(
                 input.end_ms / (repeat.every * 100) <= 1_000_000,
                 "Recording spans more than one million possible loop iterations; shorten the recording"
             );
         }
     }
+    Ok(())
+}
+
+fn validate_nested_repeat(phase: &Phase, repeat: &Loop, input: &Recording) -> Result<()> {
+    ensure!(
+        phase.loops.len() == 1
+            && phase.loops.first().is_some_and(|item| item.id == repeat.id)
+            && phase.branches.is_empty(),
+        "Replay supports branches inside a loop only when it is the phase's only loop and the phase has no other branches"
+    );
+    let events = phase
+        .events
+        .iter()
+        .chain(&repeat.events)
+        .chain(&repeat.on_exit)
+        .chain(
+            repeat
+                .branches
+                .iter()
+                .flat_map(|branch| branch.options.iter().flat_map(|option| &option.events)),
+        )
+        .chain(
+            repeat
+                .branches
+                .iter()
+                .filter_map(|branch| branch.merge.as_ref())
+                .flat_map(|merge| &merge.events),
+        );
+    ensure!(
+        events.into_iter().all(|event| event.syncs.is_empty()),
+        "Replay does not yet support phase or loop syncs when a loop contains branches"
+    );
+    let cycles = input.end_ms / (repeat.every * 100);
+    let branch_count = i64::try_from(repeat.branches.len()).unwrap_or(i64::MAX);
+    ensure!(
+        cycles.saturating_mul(branch_count) <= 1_000_000,
+        "Recording spans more than one million possible loop branch instances; shorten the recording"
+    );
     Ok(())
 }
 
