@@ -1,0 +1,132 @@
+---
+source: tests/generation_attempts.rs
+expression: scope
+---
+{
+  "ambiguous_peer": [],
+  "anchor": {
+    "identifier": {
+      "Ability": 46376
+    },
+    "kind": "cast",
+    "source": "Synthetic Boss",
+    "target": null
+  },
+  "anchor_at_ms": 1000,
+  "edit_cost": 0,
+  "events": [
+    {
+      "at_ms": 1000,
+      "batch": 0,
+      "event": {
+        "activity": {
+          "identifier": {
+            "Ability": 46376
+          },
+          "kind": "cast",
+          "source": "Synthetic Boss",
+          "target": null
+        },
+        "reference_at_ms": 1000
+      },
+      "status": "matched"
+    },
+    {
+      "event": {
+        "activity": {
+          "identifier": {
+            "Ability": 46378
+          },
+          "kind": "cast",
+          "source": "Synthetic Boss",
+          "target": null
+        },
+        "reference_at_ms": 7000
+      },
+      "reason": "suffix after every optimal endpoint",
+      "status": "unobserved"
+    },
+    {
+      "event": {
+        "activity": {
+          "identifier": {
+            "Ability": 46379
+          },
+          "kind": "cast",
+          "source": "Synthetic Boss",
+          "target": null
+        },
+        "reference_at_ms": 9000
+      },
+      "reason": "suffix after every optimal endpoint",
+      "status": "unobserved"
+    },
+    {
+      "event": {
+        "activity": {
+          "identifier": {
+            "Ability": 46380
+          },
+          "kind": "cast",
+          "source": "Synthetic Boss",
+          "target": null
+        },
+        "reference_at_ms": 11000
+      },
+      "reason": "suffix after every optimal endpoint",
+      "status": "unobserved"
+    },
+    {
+      "event": {
+        "activity": {
+          "identifier": {
+            "Ability": 46381
+          },
+          "kind": "cast",
+          "source": "Synthetic Boss",
+          "target": null
+        },
+        "reference_at_ms": 13000
+      },
+      "reason": "suffix after every optimal endpoint",
+      "status": "unobserved"
+    },
+    {
+      "at_ms": 3000,
+      "batch": 1,
+      "event": {
+        "activity": {
+          "identifier": {
+            "Ability": 46377
+          },
+          "kind": "cast",
+          "source": "Synthetic Boss",
+          "target": null
+        },
+        "reference_at_ms": 3000
+      },
+      "status": "matched"
+    },
+    {
+      "event": {
+        "activity": {
+          "identifier": {
+            "Ability": 46377
+          },
+          "kind": "cast",
+          "source": "Synthetic Boss",
+          "target": null
+        },
+        "reference_at_ms": 5000
+      },
+      "reason": "suffix after every optimal endpoint",
+      "status": "unobserved"
+    }
+  ],
+  "peer_only": [],
+  "reference_anchor_at_ms": 1000,
+  "reference_group_endpoints": [
+    1
+  ],
+  "status": "evaluated"
+}

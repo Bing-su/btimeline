@@ -5,6 +5,8 @@ use serde_json::{Value, json};
 
 use super::{Pull, Signal, alignment};
 
+mod attempts;
+
 pub(in crate::generate) struct Event {
     pub signal: Signal,
     pub samples: BTreeMap<String, i64>,
@@ -70,14 +72,15 @@ fn trace(pull: &Pull) -> String {
 fn interval<'a>(
     pull: &'a Pull,
     left: i64,
-    right: i64,
+    right: Option<i64>,
     source: &Option<String>,
     include: &impl Fn(&Signal) -> bool,
 ) -> Result<Vec<Group<'a>>, &'static str> {
+    let end = right.unwrap_or(pull.end_ms);
     if pull
         .phase_transitions
         .iter()
-        .any(|phase| left < phase.relative_ms && phase.relative_ms < right)
+        .any(|phase| left < phase.relative_ms && phase.relative_ms < end)
     {
         return Err("phase boundary");
     }
@@ -92,17 +95,17 @@ fn interval<'a>(
         for signal in &selected {
             *counts.entry(*signal).or_insert(0) += 1;
         }
-        if frame.at_ms < left || frame.at_ms > right || selected.is_empty() {
+        if frame.at_ms < left || frame.at_ms > end || selected.is_empty() {
             continue;
         }
-        if selected.len() > 1 && (frame.at_ms == left || frame.at_ms == right) {
+        if selected.len() > 1 && (frame.at_ms == left || Some(frame.at_ms) == right) {
             return Err("unordered boundary");
         }
-        if frame.at_ms == left || frame.at_ms == right {
+        if frame.at_ms == left || Some(frame.at_ms) == right {
             continue;
         }
         if frame.at_ms - left <= super::common::ORDER_RESOLUTION_MS
-            || right - frame.at_ms <= super::common::ORDER_RESOLUTION_MS
+            || right.is_some_and(|right| right - frame.at_ms <= super::common::ORDER_RESOLUTION_MS)
         {
             return Err("unordered boundary");
         }
@@ -299,7 +302,8 @@ pub(super) fn expand(
                     let id = trace(pull);
                     let start = a.get(&id).ok_or((id.clone(), "missing bound"))?;
                     let end = b.get(&id).ok_or((id.clone(), "missing bound"))?;
-                    interval(pull, *start, *end, source, &include).map_err(|reason| (id, reason))
+                    interval(pull, *start, Some(*end), source, &include)
+                        .map_err(|reason| (id, reason))
                 })
                 .collect::<Result<Vec<_>, _>>();
             match rows {
@@ -316,6 +320,12 @@ pub(super) fn expand(
             .iter()
             .map(|pull| unrepresented(pull, &result.events, &include)),
     );
+    result.diagnostics.extend(attempts::checks(
+        pulls,
+        completed.first().context("Missing reference")?,
+        &result.events,
+        &include,
+    )?);
     Ok(result)
 }
 
