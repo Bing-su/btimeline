@@ -2,6 +2,7 @@ mod input;
 mod mining;
 mod pairing;
 mod render;
+mod timing;
 
 use std::collections::BTreeMap;
 use std::path::Path;

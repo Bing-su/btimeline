@@ -3,10 +3,23 @@ use std::collections::BTreeMap;
 use anyhow::{Context, Result, ensure};
 use kdl::KdlNode;
 
-use super::{Analysis, Branch, Identifier, Mode, Rendered, anchor, prop, schedule, signal, slug};
+use super::{
+    Analysis,
+    Branch,
+    Identifier,
+    Mode,
+    Progression,
+    Rendered,
+    anchor,
+    prop,
+    schedule,
+    signal,
+    slug,
+};
 
 pub(super) fn render(
     analysis: &Analysis,
+    progression: &Progression,
     choices: &[Branch],
     zeros: &BTreeMap<String, i64>,
 ) -> Result<Rendered> {
@@ -49,10 +62,15 @@ pub(super) fn render(
             let anchors = path
                 .events
                 .iter()
-                .map(|row| anchor(analysis, row))
+                .map(|row| anchor(analysis, progression, row))
                 .collect::<Result<Vec<_>>>()?;
-            let (events, mut evidence) =
-                schedule(&anchors, &path.triggers, Mode::Raid, Some(&context))?;
+            let (events, mut evidence) = schedule(
+                &anchors,
+                &path.triggers,
+                Mode::Raid,
+                Some(&context),
+                progression,
+            )?;
             option.ensure_children().nodes_mut().extend(events);
             for row in &mut evidence {
                 let fields = row.as_object_mut().context("Invalid branch evidence")?;

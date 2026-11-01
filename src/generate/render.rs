@@ -7,7 +7,8 @@ use camino::Utf8PathBuf;
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 use serde_json::{Value, json};
 
-use super::mining::{Analysis, Branch, CommonEvent, Identifier, Signal};
+use super::mining::{Analysis, Branch, CommonEvent, Identifier, Progression, Signal};
+use super::timing::{self, median};
 
 mod branches;
 
@@ -32,22 +33,12 @@ impl FromStr for Mode {
     }
 }
 
-fn median(values: impl Iterator<Item = i64>) -> Result<i64> {
-    let mut values: Vec<_> = values.collect();
-    ensure!(!values.is_empty(), "Missing timing samples");
-    values.sort_unstable();
-    values
-        .get((values.len() - 1) / 2)
-        .copied()
-        .context("Missing median")
-}
-
 struct Anchor {
     activity: Signal,
     name: String,
     source: String,
     ability: String,
-    samples: BTreeMap<String, i64>,
+    observations: BTreeMap<String, usize>,
     occurrence: Option<usize>,
     alignment: Value,
 }
@@ -59,7 +50,7 @@ struct Prepared {
     diagnostics: Vec<Value>,
 }
 
-fn anchor(analysis: &Analysis, row: &CommonEvent) -> Result<Anchor> {
+fn anchor(analysis: &Analysis, progression: &Progression, row: &CommonEvent) -> Result<Anchor> {
     let activity = row.signal.clone();
     let Identifier::Ability(ability) = activity.identifier else {
         anyhow::bail!("Cast requires an ability ID")
@@ -84,14 +75,14 @@ fn anchor(analysis: &Analysis, row: &CommonEvent) -> Result<Anchor> {
         name,
         source,
         ability: format!("{ability:X}"),
-        samples: row.samples.clone(),
+        observations: progression.bind(&row.signal, &row.samples)?,
         occurrence: row.occurrence,
         alignment: row.evidence.clone(),
     })
 }
 
 // Consume the shared in-memory mining result; generation never requires a serialized graph input.
-fn anchors(analysis: &Analysis, mode: Mode) -> Result<Prepared> {
+fn anchors(analysis: &Analysis, progression: &Progression, mode: Mode) -> Result<Prepared> {
     let include = |signal: &Signal| {
         signal.kind == "cast"
             && (matches!(mode, Mode::Raid)
@@ -110,7 +101,7 @@ fn anchors(analysis: &Analysis, mode: Mode) -> Result<Prepared> {
     let events = common
         .events
         .iter()
-        .map(|row| anchor(analysis, row))
+        .map(|row| anchor(analysis, progression, row))
         .collect::<Result<Vec<_>>>()?;
     let seen: BTreeSet<_> = common
         .events
@@ -177,19 +168,27 @@ fn starts(mode: Mode, origins: &[&Anchor]) -> Vec<KdlNode> {
     }
 }
 
-fn clocks(anchors: &[Anchor], mode: Mode) -> Result<(BTreeMap<String, i64>, Vec<&Anchor>)> {
+fn clocks<'a>(
+    anchors: &'a [Anchor],
+    progression: &Progression,
+    mode: Mode,
+) -> Result<(BTreeMap<String, i64>, Vec<&'a Anchor>)> {
     ensure!(!anchors.is_empty(), "Missing timing samples");
-    let mut zeros = BTreeMap::new();
-    for trace in anchors
+    let samples = anchors
         .iter()
-        .flat_map(|anchor| anchor.samples.keys())
+        .map(|anchor| progression.samples(&anchor.observations))
+        .collect::<Result<Vec<_>>>()?;
+    let mut zeros = BTreeMap::new();
+    for trace in samples
+        .iter()
+        .flat_map(BTreeMap::keys)
         .collect::<BTreeSet<_>>()
     {
         let zero = match mode {
             Mode::Raid => 0,
-            _ => *anchors
+            _ => *samples
                 .iter()
-                .filter_map(|anchor| anchor.samples.get(trace))
+                .filter_map(|samples| samples.get(trace))
                 .min()
                 .context("Missing boss origin")?,
         };
@@ -199,12 +198,13 @@ fn clocks(anchors: &[Anchor], mode: Mode) -> Result<(BTreeMap<String, i64>, Vec<
         Mode::Raid => Vec::new(),
         _ => anchors
             .iter()
-            .filter(|anchor| {
-                anchor
-                    .samples
+            .zip(&samples)
+            .filter(|(_, samples)| {
+                samples
                     .iter()
                     .any(|(trace, at)| zeros.get(trace) == Some(at))
             })
+            .map(|(anchor, _)| anchor)
             .collect(),
     };
     Ok((zeros, origins))
@@ -218,49 +218,24 @@ fn slug(name: &str) -> String {
         .join("-")
 }
 
-#[derive(serde::Serialize)]
-struct Sample<'a> {
-    trace: &'a str,
-    at_ms: i64,
-    origin_ms: i64,
-    offset_ms: i64,
-}
-
 fn schedule(
     anchors: &[Anchor],
     zeros: &BTreeMap<String, i64>,
     mode: Mode,
     context: Option<&str>,
+    progression: &Progression,
 ) -> Result<(Vec<KdlNode>, Vec<Value>)> {
     let mut events = Vec::new();
     let mut evidence = Vec::new();
     let mut used = BTreeSet::new();
     for anchor in anchors {
-        let samples = anchor
-            .samples
-            .iter()
-            .map(|(trace, at)| {
-                let zero = zeros.get(trace).context("Missing origin sample")?;
-                Ok(Sample {
-                    trace,
-                    at_ms: *at,
-                    origin_ms: *zero,
-                    offset_ms: at - zero,
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-        ensure!(
-            samples
-                .iter()
-                .all(|sample| (0..=crate::timeline::MAX_MS).contains(&sample.offset_ms)),
-            "Sample exceeds supported time range"
-        );
-        let time = median(samples.iter().map(|sample| sample.offset_ms))?;
-        ensure!(
-            time <= crate::timeline::MAX_MS,
-            "Schedule exceeds supported time range"
-        );
-        let tick = (time + 50) / 100;
+        let timing::Estimate {
+            samples,
+            median_ms: time,
+            tick,
+            min_tick,
+            max_tick,
+        } = timing::estimate(&progression.samples(&anchor.observations)?, zeros)?;
         let seconds = tick as f64 / 10.0;
         let mut event_id = format!(
             "{}-{}-{}",
@@ -287,16 +262,6 @@ fn schedule(
         sync.push("Ability");
         prop(&mut sync, "id", anchor.ability.as_str());
         prop(&mut sync, "source", anchor.source.as_str());
-        let min_tick = samples
-            .iter()
-            .map(|sample| (sample.offset_ms + 50) / 100)
-            .min()
-            .context("Missing sync samples")?;
-        let max_tick = samples
-            .iter()
-            .map(|sample| (sample.offset_ms + 50) / 100)
-            .max()
-            .context("Missing sync samples")?;
         prop(&mut sync, "before", (tick - min_tick).max(25) as f64 / 10.0);
         prop(&mut sync, "after", (max_tick - tick).max(25) as f64 / 10.0);
         // Repeated identities can match an earlier cast; only unique anchors adjust the clock.
@@ -307,7 +272,7 @@ fn schedule(
         evidence.push(
             json!({"event":event_id,"activity":anchor.activity,"median_offset_ms":time,
             "rounded_offset_ms":tick*100,"rounding_delta_ms":tick*100-time,"samples":samples,
-            "alignment":anchor.alignment}),
+            "alignment":anchor.alignment,"observation_nodes":anchor.observations}),
         );
     }
     events.sort_by(|left, right| (left.0, &left.1).cmp(&(right.0, &right.1)));
@@ -345,6 +310,7 @@ struct Rendered {
 // Boss metadata supplies scope boundaries; travel and preceding trash never share a boss clock.
 fn compose(
     analysis: &Analysis,
+    progression: &Progression,
     anchors: Vec<Anchor>,
     choices: Vec<Branch>,
     mode: Mode,
@@ -362,10 +328,10 @@ fn compose(
     let mut bodies = Vec::new();
     let mut phase_ids = BTreeSet::new();
     for (name, anchors) in scopes {
-        let (zeros, origins) = clocks(&anchors, mode)?;
+        let (zeros, origins) = clocks(&anchors, progression, mode)?;
         result.nodes.extend(starts(mode, &origins));
-        let (mut events, mut evidence) = schedule(&anchors, &zeros, mode, None)?;
-        let branches = branches::render(analysis, &choices, &zeros)?;
+        let (mut events, mut evidence) = schedule(&anchors, &zeros, mode, None, progression)?;
+        let branches = branches::render(analysis, progression, &choices, &zeros)?;
         let has_branches = !branches.nodes.is_empty();
         // Place choices by their opening time so the generated schedule reads chronologically.
         for (choice, node) in choices.iter().zip(branches.nodes) {
@@ -437,19 +403,21 @@ fn compose(
 // Mode is the only domain input; reading, mining, runtime policy, validation and publication stay internal.
 pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Result<usize> {
     let analysis = super::mining::analyze(inputs)?;
+    // Build occurrence structure before choosing printable rows or estimating any schedule.
+    let progression = analysis.progression();
     let Prepared {
         events: anchors,
         branches,
         mut excluded,
         diagnostics: alignment_diagnostics,
-    } = anchors(&analysis, mode)?;
+    } = anchors(&analysis, &progression, mode)?;
     let represented: BTreeSet<_> = anchors.iter().map(|anchor| anchor.source.clone()).collect();
     if !matches!(mode, Mode::Raid) {
         for boss in analysis.boss_names.difference(&represented) {
             excluded.push(json!({"boss":boss,"reason":"no unique common casts for this boss"}));
         }
     }
-    let rendered = compose(&analysis, anchors, branches, mode)?;
+    let rendered = compose(&analysis, &progression, anchors, branches, mode)?;
     ensure!(
         !rendered.events.is_empty(),
         "No common cast events after the selected origin"
@@ -473,6 +441,7 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
         .map(|byte| format!("{byte:02x}"))
         .collect();
     let report = json!({"version":2,"mode":mode,"analysis":analysis.evidence(),
+        "progression":progression.evidence(),
         "timeline_sha256":timeline_sha256,"policy_reference":"cactbot@e79ea7f16093be5b80cda0e2d5bc8eb899d6fb4b",
         "origins":rendered.origins,
         "events":rendered.events,"excluded":excluded,"alignment_diagnostics":alignment_diagnostics,

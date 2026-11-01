@@ -13,9 +13,11 @@ mod alignment;
 mod candidates;
 mod common;
 mod occurrences;
+mod progression;
 mod repeats;
 mod validation;
 pub(super) use occurrences::{Branch, Event as CommonEvent};
+pub(super) use progression::Progression;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub(super) enum Identifier {
@@ -83,6 +85,10 @@ fn timing_table(pull: &Pull) -> BTreeMap<Signal, Vec<i64>> {
 }
 
 impl Analysis {
+    pub(super) fn progression(&self) -> Progression {
+        Progression::new(&self.pulls)
+    }
+
     pub(super) fn aligned(
         &self,
         include: impl Fn(&Signal) -> bool,
