@@ -289,7 +289,6 @@ struct Validation {
     options: BTreeMap<String, BTreeSet<String>>,
     requires: Vec<(String, String, String)>,
     phase_refs: Vec<String>,
-    controls: Vec<String>,
     branches: BTreeMap<String, Branch>,
     loops: BTreeMap<String, Loop>,
     event_count: usize,
@@ -709,7 +708,6 @@ pub(crate) fn parse(source: &str) -> Result<Timeline> {
         lifecycle: BTreeMap::new(),
         events: Vec::new(),
         phases: Vec::new(),
-        controls: Vec::new(),
         event_count: 0,
     };
     for node in children(root) {
@@ -731,7 +729,6 @@ pub(crate) fn parse(source: &str) -> Result<Timeline> {
         .with_context(|| location(source, node))?;
     }
     v.references()?;
-    timeline.controls = v.controls;
     timeline.event_count = v.event_count;
     Ok(timeline)
 }

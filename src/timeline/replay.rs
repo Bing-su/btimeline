@@ -1042,11 +1042,6 @@ impl<'a> Replay<'a> {
 }
 
 fn validate_repeat_support(timeline: &Timeline, input: &Recording) -> Result<()> {
-    ensure!(
-        timeline.controls.is_empty(),
-        "Replay does not yet support: {}",
-        timeline.controls.join(", ")
-    );
     for phase in &timeline.phases {
         if let Some(repeat) = phase
             .branches

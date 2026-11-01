@@ -105,7 +105,5 @@ pub(crate) struct Timeline {
     lifecycle: BTreeMap<String, Vec<Signal>>,
     events: Vec<Event>,
     phases: Vec<Phase>,
-    // Preserve unsupported controls so replay cannot silently validate a reduced timeline.
-    controls: Vec<String>,
     pub(crate) event_count: usize,
 }
