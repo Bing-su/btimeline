@@ -39,6 +39,13 @@ struct Batch {
     indices: Vec<usize>,
 }
 
+impl Batch {
+    // A display wave is one name/signal at one exact millisecond, e.g. eight simultaneous adds.
+    fn waves(&self) -> std::collections::BTreeSet<&Signal> {
+        self.signals.iter().collect()
+    }
+}
+
 #[derive(Debug)]
 struct Pull {
     source: String,
@@ -64,11 +71,11 @@ pub(super) struct Analysis {
     graph: DirectlyFollowsGraph<'static>,
 }
 
-// Preserve multiplicity per pull so a missing repeated cast cannot be aligned by ordinal alone.
+// Separate timestamps remain separate occurrences; entity multiplicity stays in the raw batch.
 fn timing_table(pull: &Pull) -> BTreeMap<Signal, Vec<i64>> {
     let mut table = BTreeMap::<Signal, Vec<i64>>::new();
     for batch in &pull.batches {
-        for signal in &batch.signals {
+        for signal in batch.waves() {
             table.entry(signal.clone()).or_default().push(batch.at_ms);
         }
     }
@@ -539,6 +546,17 @@ mod tests {
     }
 
     proptest! {
+        #[test]
+        fn wave_projection_ignores_entity_count_and_packet_order(
+            ids in prop::collection::vec(0_u8..32,1..30), copies in 1_usize..10
+        ) {
+            let original = batch(&ids);
+            let repeated:Vec<_> = ids.iter().rev().flat_map(|id|std::iter::repeat_n(*id,copies)).collect();
+            let expanded = batch(&repeated);
+            prop_assert_eq!(original.waves(),expanded.waves());
+            prop_assert_eq!(expanded.signals.len(),ids.len()*copies);
+        }
+
         #[test]
         fn simultaneous_packet_order_does_not_change_the_graph(
             groups in prop::collection::vec(prop::collection::vec(0_u8..8, 1..5), 1..8)

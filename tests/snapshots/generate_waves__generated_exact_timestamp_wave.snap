@@ -1,0 +1,19 @@
+---
+source: tests/generate_waves.rs
+expression: "fs::read_to_string(output).unwrap()"
+---
+timeline 1 "Unknown Encounter" {
+    start InCombat inGameCombat="1"
+    wipe ActorControl command="4000000F"
+    wipe ActorControl command="40000010"
+    zone-exit ChangeZone
+    event opening-synthetic-boss-65 1.0 name=Opening {
+        sync 1.0 Ability id="65" source="Synthetic Boss" before=10.0 after=10.0
+    }
+    event wave-synthetic-boss-ca 3.0 name=Wave {
+        sync 3.0 Ability id=CA source="Synthetic Boss" before=2.5 after=2.5
+    }
+    event continuation-synthetic-boss-12f 11.0 name=Continuation {
+        sync 11.0 Ability id="12F" source="Synthetic Boss" before=2.5 after=2.5
+    }
+}

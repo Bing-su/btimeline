@@ -112,16 +112,10 @@ pub(super) fn backbone<K: Ord + Clone>(common: &Timings<K>) -> BTreeSet<K> {
 }
 
 fn timings(pull: &Pull) -> Result<Timings> {
-    let mut table = Timings::new();
-    for batch in &pull.batches {
-        for signal in &batch.signals {
-            table
-                .entry(serde_json::to_string(signal)?)
-                .or_default()
-                .push(batch.at_ms);
-        }
-    }
-    Ok(table)
+    super::timing_table(pull)
+        .into_iter()
+        .map(|(signal, times)| Ok((serde_json::to_string(&signal)?, times)))
+        .collect()
 }
 
 // Intersect observed orders, then omit transitive edges; A->B->C needs no extra A->C.

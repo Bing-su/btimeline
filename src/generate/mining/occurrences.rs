@@ -104,8 +104,8 @@ fn interval<'a>(
     let mut result = Vec::new();
     for (batch, frame) in pull.batches.iter().enumerate() {
         let selected: Vec<_> = frame
-            .signals
-            .iter()
+            .waves()
+            .into_iter()
             .filter(|signal| &signal.source == source && include(signal))
             .collect();
         for signal in &selected {
@@ -274,7 +274,7 @@ fn completed<'a>(pulls: &[&'a Pull], include: &impl Fn(&Signal) -> bool) -> Vec<
             std::cmp::Reverse(
                 pull.batches
                     .iter()
-                    .flat_map(|b| &b.signals)
+                    .flat_map(|b| b.waves())
                     .filter(|s| include(s))
                     .count(),
             ),
@@ -401,7 +401,58 @@ pub(super) fn expand(
         &result.events,
         &include,
     )?);
+    wave_evidence(&mut result, pulls)?;
     Ok(result)
+}
+
+fn wave_evidence(result: &mut Common, pulls: &[&Pull]) -> Result<()> {
+    result
+        .events
+        .iter_mut()
+        .chain(
+            result
+                .branches
+                .iter_mut()
+                .flat_map(|branch| &mut branch.options)
+                .flat_map(|option| &mut option.events),
+        )
+        .try_for_each(|event| annotate_wave(event, pulls))
+}
+
+// Retain instance counts without presenting them as hit counts or changing the standalone KDL.
+fn annotate_wave(event: &mut Event, pulls: &[&Pull]) -> Result<()> {
+    let mut waves = BTreeMap::new();
+    for pull in pulls {
+        let id = trace(pull);
+        let Some(at) = event.samples.get(&id) else {
+            continue;
+        };
+        let batch = pull
+            .batches
+            .binary_search_by_key(at, |batch| batch.at_ms)
+            .map_err(|insertion| anyhow::anyhow!("Missing wave sample at insertion {insertion}"))?;
+        let frame = pull.batches.get(batch).context("Missing wave batch")?;
+        let count = frame
+            .signals
+            .iter()
+            .filter(|signal| *signal == &event.signal)
+            .count();
+        waves.insert(id, json!({"batch":batch,"instances":count}));
+    }
+    if waves
+        .values()
+        .any(|wave| wave["instances"].as_u64().is_some_and(|count| count > 1))
+    {
+        if event.evidence.is_null() {
+            event.evidence = json!({"method":"exact-timestamp-wave-v1"});
+        }
+        event
+            .evidence
+            .as_object_mut()
+            .context("Invalid wave evidence")?
+            .insert("waves".into(), json!(waves));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
