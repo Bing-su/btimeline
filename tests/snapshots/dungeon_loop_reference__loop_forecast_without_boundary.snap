@@ -1,0 +1,22 @@
+---
+source: tests/dungeon_loop_reference.rs
+expression: "if missing_boundary\n{\n    events.into_iter().filter(|row| row[\"event\"] ==\n    \"no-mans-land\").collect::<Vec<_>>()\n} else { events }"
+---
+[
+  {
+    "at_ms": 0,
+    "event": "no-mans-land"
+  },
+  {
+    "at_ms": 52134,
+    "event": "no-mans-land"
+  },
+  {
+    "at_ms": 103634,
+    "event": "no-mans-land"
+  },
+  {
+    "at_ms": 155134,
+    "event": "no-mans-land"
+  }
+]

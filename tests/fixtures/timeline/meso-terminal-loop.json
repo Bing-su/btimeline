@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "end_ms": 83392,
+  "observations": [
+    {
+      "at_ms": 0,
+      "type": "Ability",
+      "fields": {
+        "id": "AB1C",
+        "source": "Chirurgeon General"
+      }
+    },
+    {
+      "at_ms": 4997,
+      "type": "Ability",
+      "fields": {
+        "id": "AB15",
+        "source": "Chirurgeon General"
+      }
+    },
+    {
+      "at_ms": 14497,
+      "type": "Ability",
+      "fields": {
+        "id": "AB1D",
+        "source": "Chirurgeon General"
+      }
+    },
+    {
+      "at_ms": 14497,
+      "type": "Ability",
+      "fields": {
+        "id": "AB1E",
+        "source": "Chirurgeon General"
+      }
+    },
+    {
+      "at_ms": 22534,
+      "type": "Ability",
+      "fields": {
+        "id": "AB1F",
+        "source": "Chirurgeon General"
+      }
+    },
+    {
+      "at_ms": 29765,
+      "type": "Ability",
+      "fields": {
+        "id": "AB1A",
+        "source": "Chirurgeon General"
+      }
+    },
+    {
+      "at_ms": 36830,
+      "type": "Ability",
+      "fields": {
+        "id": "AB16",
+        "source": "Chirurgeon General"
+      }
+    },
+    {
+      "at_ms": 46834,
+      "type": "Ability",
+      "fields": {
+        "id": "AB17",
+        "source": "Chirurgeon General"
+      }
+    },
+    {
+      "at_ms": 52153,
+      "type": "Ability",
+      "fields": {
+        "id": "AB1C",
+        "source": "Chirurgeon General"
+      }
+    },
+    {
+      "at_ms": 57152,
+      "type": "Ability",
+      "fields": {
+        "id": "AB15",
+        "source": "Chirurgeon General"
+      }
+    },
+    {
+      "at_ms": 66655,
+      "type": "Ability",
+      "fields": {
+        "id": "AB1F",
+        "source": "Chirurgeon General"
+      }
+    },
+    {
+      "at_ms": 74686,
+      "type": "Ability",
+      "fields": {
+        "id": "AB1E",
+        "source": "Chirurgeon General"
+      }
+    },
+    {
+      "at_ms": 74687,
+      "type": "Ability",
+      "fields": {
+        "id": "AB1D",
+        "source": "Chirurgeon General"
+      }
+    },
+    {
+      "at_ms": 74687,
+      "type": "Ability",
+      "fields": {
+        "id": "AB1E",
+        "source": "Chirurgeon General"
+      }
+    },
+    {
+      "at_ms": 81919,
+      "type": "Ability",
+      "fields": {
+        "id": "AB1A",
+        "source": "Chirurgeon General"
+      }
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+// Executor fixture adapted from cactbot's chirurgeonLoop; generation does not yet emit this loop.
+timeline 1 "Chirurgeon General loop reference" {
+    start "Ability" id="AB1C" source="Chirurgeon General"
+    phase "rotation" {
+        enter "Ability" id="AB1C" source="Chirurgeon General"
+        loop "chirurgeon-rotation" start=0.0 every=51.5 {
+            event "no-mans-land" 0.0 name="No Man's Land" {
+                sync 0.0 "Ability" id="AB1C" source="Chirurgeon General"
+            }
+            event "sensory-deprivation" 5.0 name="Sensory Deprivation" {
+                sync 5.0 "Ability" id="AB15" source="Chirurgeon General"
+            }
+            event "sphere-or-aerosol-first" 14.6 name="Sterile Sphere / Pungent Aerosol" {
+                sync 14.6 "Ability" source="Chirurgeon General" {
+                    field "id" "AB1D" "AB1E" "AB1F"
+                }
+            }
+            event "sphere-or-aerosol-second" 22.6 name="Pungent Aerosol / Sterile Sphere" {
+                sync 22.6 "Ability" source="Chirurgeon General" {
+                    field "id" "AB1D" "AB1E" "AB1F"
+                }
+            }
+            event "biochemical-front" 29.2 name="Biochemical Front" {
+                sync 29.2 "Ability" id="AB1A" source="Chirurgeon General"
+            }
+            event "medicine-field" 36.2 name="Medicine Field" {
+                sync 36.2 "Ability" id="AB16" source="Chirurgeon General"
+            }
+            event "concentrated-dose" 46.2 name="Concentrated Dose" {
+                sync 46.2 "Ability" id="AB17" source="Chirurgeon General"
+            }
+        }
+    }
+}
