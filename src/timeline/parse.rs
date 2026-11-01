@@ -87,21 +87,8 @@ fn location(source: &str, node: &KdlNode) -> String {
     format!("{} at {line}:{col}", node.name().value())
 }
 
-fn signal(node: &KdlNode, role: &str) -> Result<Signal> {
-    let sync = role == "sync";
-    let timed = matches!(role, "sync" | "enter" | "merge-when" | "until");
-    let reserved: &[&str] = match role {
-        "sync" => &["before", "after"],
-        "enter" => &["from", "at", "before", "after"],
-        "merge-when" | "until" => &["at", "before", "after"],
-        _ => &[],
-    };
-    let names: Vec<_> = node
-        .entries()
-        .iter()
-        .filter_map(|e| e.name().map(|n| n.value()))
-        .collect();
-    shape(node, if sync { 2 } else { 1 }, &names)?;
+// Keep literal and regex field validation identical across signal roles.
+fn signal_fields(node: &KdlNode, reserved: &[&str]) -> Result<BTreeMap<String, Field>> {
     let mut fields = BTreeMap::new();
     for entry in node.entries() {
         if let Some(name) = entry.name()
@@ -162,6 +149,25 @@ fn signal(node: &KdlNode, role: &str) -> Result<Signal> {
         };
         fields.insert(key, condition);
     }
+    Ok(fields)
+}
+
+fn signal(node: &KdlNode, role: &str) -> Result<Signal> {
+    let sync = role == "sync";
+    let timed = matches!(role, "sync" | "enter" | "merge-when" | "until");
+    let reserved: &[&str] = match role {
+        "sync" => &["before", "after"],
+        "enter" => &["from", "at", "before", "after"],
+        "merge-when" | "until" => &["at", "before", "after"],
+        _ => &[],
+    };
+    let names: Vec<_> = node
+        .entries()
+        .iter()
+        .filter_map(|e| e.name().map(|n| n.value()))
+        .collect();
+    shape(node, if sync { 2 } else { 1 }, &names)?;
+    let fields = signal_fields(node, reserved)?;
     let at = if sync {
         Some(arg_time(node, 0)?)
     } else if timed {
@@ -288,26 +294,135 @@ impl Validation {
     ) -> Result<Vec<Event>> {
         let mut events = Vec::new();
         for node in nodes {
-            let result: Result<()> = (|| {
-                match node.name().value() {
-                    "event" => events.push(self.event(node, latest, every)?),
-                    "branch" if matches!(parent, "phase" | "loop") => {
-                        self.branch(node, in_loop, every, source)?
-                    }
-                    "loop" if matches!(parent, "phase" | "option") => {
-                        ensure!(
-                            !in_loop,
-                            "Nested loops, including loops inside options of a loop, are forbidden"
-                        );
-                        self.loop_node(node, source)?;
-                    }
-                    name => bail!("Unsupported child {name} in {parent}"),
-                }
-                Ok(())
-            })();
-            result.with_context(|| location(source, node))?;
+            if let Some(event) = self
+                .body_node(node, parent, in_loop, latest, every, source)
+                .with_context(|| location(source, node))?
+            {
+                events.push(event);
+            }
         }
         Ok(events)
+    }
+
+    // Validate a child while its caller retains source diagnostics.
+    fn body_node(
+        &mut self,
+        node: &KdlNode,
+        parent: &str,
+        in_loop: bool,
+        latest: Tick,
+        every: Option<Tick>,
+        source: &str,
+    ) -> Result<Option<Event>> {
+        match node.name().value() {
+            "event" => return Ok(Some(self.event(node, latest, every)?)),
+            "branch" if matches!(parent, "phase" | "loop") => {
+                self.branch(node, in_loop, every, source)?
+            }
+            "loop" if matches!(parent, "phase" | "option") => {
+                ensure!(
+                    !in_loop,
+                    "Nested loops, including loops inside options of a loop, are forbidden"
+                );
+                self.loop_node(node, source)?;
+            }
+            name => bail!("Unsupported child {name} in {parent}"),
+        }
+        Ok(None)
+    }
+
+    // Parse a selected path without changing branch-level uniqueness checks.
+    fn option_node(
+        &mut self,
+        child: &KdlNode,
+        branch: &str,
+        close: Tick,
+        every: Option<Tick>,
+        source: &str,
+        options: &mut BTreeSet<String>,
+    ) -> Result<()> {
+        shape(child, 1, &[])?;
+        let option = arg_string(child, 0)?;
+        ensure!(options.insert(option), "Duplicate option in {branch}");
+
+        let mut body = Vec::new();
+        let mut whens = 0;
+        for part in children(child) {
+            match part.name().value() {
+                "when" => {
+                    signal(part, "when")?;
+                    whens += 1;
+                }
+                "requires" => {
+                    shape(part, 2, &[])?;
+                    ensure!(children(part).is_empty(), "requires has no children");
+                    self.requires.push((
+                        branch.to_owned(),
+                        arg_string(part, 0)?,
+                        arg_string(part, 1)?,
+                    ));
+                }
+                _ => body.push(part.clone()),
+            }
+        }
+        ensure!(whens > 0, "option requires at least one when");
+        self.body(&body, "option", every.is_some(), close - 1, every, source)?;
+
+        Ok(())
+    }
+
+    // Bound common-path events using every alternative merge window.
+    fn merge_node(
+        &mut self,
+        child: &KdlNode,
+        in_loop: bool,
+        every: Option<Tick>,
+        source: &str,
+    ) -> Result<()> {
+        shape(child, 0, &[])?;
+
+        let mut body = Vec::new();
+        let mut whens = 0;
+        let mut latest_merge = 0;
+        for part in children(child) {
+            if part.name().value() != "when" {
+                body.push(part.clone());
+                continue;
+            }
+            let s = signal(part, "merge-when")?;
+            if in_loop {
+                ensure!(
+                    s.at.is_some() && part.get("before").is_some() && part.get("after").is_some(),
+                    "merge inside loop requires explicit at, before and after"
+                );
+                latest_merge = latest_merge.max(s.at.unwrap_or(0) + s.after.unwrap_or(0));
+            }
+            whens += 1;
+        }
+        ensure!(whens > 0, "merge requires when");
+        self.body(&body, "merge", in_loop, latest_merge, every, source)?;
+
+        Ok(())
+    }
+
+    // Keep phase-local signals and their source diagnostics together.
+    fn phase_node(&mut self, node: &KdlNode, source: &str) -> Result<Phase> {
+        shape(node, 1, &[])?;
+        let id = self.id(node)?;
+        let mut enters = Vec::new();
+        let mut body = Vec::new();
+        for child in children(node) {
+            if child.name().value() == "enter" {
+                let s = signal(child, "enter").with_context(|| location(source, child))?;
+                self.phase_refs.extend(s.from.iter().cloned());
+                enters.push(s);
+            } else {
+                body.push(child.clone());
+            }
+        }
+        ensure!(!enters.is_empty(), "phase requires enter");
+        let events = self.body(&body, "phase", false, 0, None, source)?;
+        Ok(Phase { id, enters, events })
     }
 
     fn branch(
@@ -329,68 +444,23 @@ impl Validation {
         let mut options = BTreeSet::new();
         let mut merges = 0;
         for child in children(node) {
-            (|| -> Result<()> {
-                match child.name().value() {
-                    "option" => {
-                        shape(child, 1, &[])?;
-                        let option = arg_string(child, 0)?;
-                        ensure!(options.insert(option), "Duplicate option in {id}");
-                        let mut body = Vec::new();
-                        let mut whens = 0;
-                        for part in children(child) {
-                            match part.name().value() {
-                                "when" => {
-                                    signal(part, "when")?;
-                                    whens += 1;
-                                }
-                                "requires" => {
-                                    shape(part, 2, &[])?;
-                                    ensure!(children(part).is_empty(), "requires has no children");
-                                    self.requires.push((
-                                        id.clone(),
-                                        arg_string(part, 0)?,
-                                        arg_string(part, 1)?,
-                                    ));
-                                }
-                                _ => body.push(part.clone()),
-                            }
-                        }
-                        ensure!(whens > 0, "option requires at least one when");
-                        self.body(&body, "option", in_loop, close - 1, every, source)?;
-                    }
-                    "merge" => {
-                        shape(child, 0, &[])?;
-                        merges += 1;
-                        ensure!(merges == 1, "Only one merge per branch");
-                        let mut body = Vec::new();
-                        let mut whens = 0;
-                        let mut latest_merge = 0;
-                        for part in children(child) {
-                            if part.name().value() == "when" {
-                                let s = signal(part, "merge-when")?;
-                                if in_loop {
-                                    ensure!(
-                                        s.at.is_some()
-                                            && part.get("before").is_some()
-                                            && part.get("after").is_some(),
-                                        "merge inside loop requires explicit at, before and after"
-                                    );
-                                    latest_merge =
-                                        latest_merge.max(s.at.unwrap_or(0) + s.after.unwrap_or(0));
-                                }
-                                whens += 1;
-                            } else {
-                                body.push(part.clone());
-                            }
-                        }
-                        ensure!(whens > 0, "merge requires when");
-                        self.body(&body, "merge", in_loop, latest_merge, every, source)?;
-                    }
-                    name => bail!("Unknown branch child {name}"),
+            match child.name().value() {
+                "option" => {
+                    self.option_node(child, &id, close, every, source, &mut options)
+                        .with_context(|| location(source, child))?;
                 }
-                Ok(())
-            })()
-            .with_context(|| location(source, child))?;
+                "merge" => {
+                    merges += 1;
+                    ensure!(
+                        merges == 1,
+                        "Only one merge per branch at {}",
+                        location(source, child)
+                    );
+                    self.merge_node(child, in_loop, every, source)
+                        .with_context(|| location(source, child))?;
+                }
+                name => bail!("Unknown branch child {name} at {}", location(source, child)),
+            }
         }
         ensure!(options.len() >= 2, "branch needs at least two options");
         self.options.insert(id, options);
@@ -512,25 +582,7 @@ pub(crate) fn parse(source: &str) -> Result<Timeline> {
                     .push(signal(node, role)?),
                 "event" => timeline.events.push(v.event(node, 0, None)?),
                 "phase" => {
-                    shape(node, 1, &[])?;
-                    let id = v.id(node)?;
-                    let mut enters = Vec::new();
-                    let mut body = Vec::new();
-                    for child in children(node) {
-                        if child.name().value() == "enter" {
-                            let s =
-                                signal(child, "enter").with_context(|| location(source, child))?;
-                            if let Some(from) = &s.from {
-                                v.phase_refs.push(from.clone());
-                            }
-                            enters.push(s);
-                        } else {
-                            body.push(child.clone());
-                        }
-                    }
-                    ensure!(!enters.is_empty(), "phase requires enter");
-                    let events = v.body(&body, "phase", false, 0, None, source)?;
-                    timeline.phases.push(Phase { id, enters, events });
+                    timeline.phases.push(v.phase_node(node, source)?);
                 }
                 name => bail!("Unknown timeline child {name}"),
             }

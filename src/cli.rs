@@ -89,21 +89,21 @@ impl Run for CompareCommand {
                 }),
             )?;
             println!();
-        } else {
-            for (path, records) in results {
-                println!("{path}");
-                for record in records {
-                    println!(
-                        "  {:.1}s [run {}] {} {}",
-                        record.at_ms as f64 / 1000.0,
-                        record.run,
-                        record.action,
-                        record.detail
-                    );
-                }
-            }
-            println!("Replay only: missing-signal coverage and game accuracy are not checked.");
+            return Ok(());
         }
+        for (path, records) in results {
+            println!("{path}");
+            for record in records {
+                println!(
+                    "  {:.1}s [run {}] {} {}",
+                    record.at_ms as f64 / 1000.0,
+                    record.run,
+                    record.action,
+                    record.detail
+                );
+            }
+        }
+        println!("Replay only: missing-signal coverage and game accuracy are not checked.");
         Ok(())
     }
 }
