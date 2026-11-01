@@ -51,11 +51,7 @@ struct Anchor {
 }
 
 // Consume the shared in-memory mining result; generation never requires a serialized graph input.
-fn anchors(
-    analysis: &Analysis,
-    mode: Mode,
-    holdout: Option<&Analysis>,
-) -> Result<(Vec<Anchor>, Vec<Value>, Vec<Value>)> {
+fn anchors(analysis: &Analysis, mode: Mode) -> Result<(Vec<Anchor>, Vec<Value>, Vec<Value>)> {
     let include = |signal: &Signal| {
         signal.kind == "cast"
             && (matches!(mode, Mode::Raid)
@@ -70,7 +66,7 @@ fn anchors(
             "Input metadata does not identify Boss actors"
         );
     }
-    let common = analysis.aligned(include, holdout)?;
+    let common = analysis.aligned(include, !matches!(mode, Mode::Raid))?;
     let mut anchors = Vec::new();
     let mut seen = BTreeSet::new();
     let mut excluded = Vec::new();
@@ -364,20 +360,9 @@ fn compose(anchors: Vec<Anchor>, mode: Mode) -> Result<Rendered> {
 }
 
 // Mode is the only domain input; reading, mining, runtime policy, validation and publication stay internal.
-pub(crate) fn generate(
-    inputs: &[Utf8PathBuf],
-    mode: Mode,
-    output: &Path,
-    holdout: &[Utf8PathBuf],
-) -> Result<usize> {
+pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Result<usize> {
     let analysis = super::mining::analyze(inputs)?;
-    let held_out = if holdout.is_empty() {
-        None
-    } else {
-        Some(super::mining::analyze(holdout)?)
-    };
-    let (anchors, mut excluded, alignment_diagnostics) =
-        anchors(&analysis, mode, held_out.as_ref())?;
+    let (anchors, mut excluded, alignment_diagnostics) = anchors(&analysis, mode)?;
     let represented: BTreeSet<_> = anchors.iter().map(|anchor| anchor.source.clone()).collect();
     if !matches!(mode, Mode::Raid) {
         for boss in analysis.boss_names.difference(&represented) {
@@ -409,7 +394,6 @@ pub(crate) fn generate(
         .collect();
     let report = json!({"version":2,"mode":mode,"analysis":analysis.evidence(),
         "timeline_sha256":timeline_sha256,"policy_reference":"cactbot@e79ea7f16093be5b80cda0e2d5bc8eb899d6fb4b",
-        "holdout_analysis":held_out.as_ref().map(Analysis::evidence),
         "origins":rendered.origins,
         "events":rendered.events,"excluded":excluded,"alignment_diagnostics":alignment_diagnostics,
         "not_checked":["live ACT/runtime behavior","English name accuracy","missing-signal coverage","branches and loops","internal boss phases and helper assignment","completion signals and content-specific lifecycle exceptions"]});

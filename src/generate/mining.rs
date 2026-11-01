@@ -14,6 +14,7 @@ mod candidates;
 mod common;
 mod occurrences;
 mod repeats;
+mod validation;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub(super) enum Identifier {
@@ -51,6 +52,7 @@ struct Pull {
     start_ms: i64,
     actors: BTreeMap<i64, String>,
     events: Vec<crate::fflogs::model::Event>,
+    boss_names: std::collections::BTreeSet<String>,
 }
 
 pub(super) struct Analysis {
@@ -76,33 +78,14 @@ impl Analysis {
     pub(super) fn aligned(
         &self,
         include: impl Fn(&Signal) -> bool,
-        holdout: Option<&Self>,
+        boss_only: bool,
     ) -> Result<occurrences::Common> {
-        if let Some(holdout) = holdout {
-            ensure!(
-                self.group.key == holdout.group.key,
-                "Holdout encounter and difficulty must match training inputs"
-            );
-            for pull in &holdout.pulls {
-                ensure!(
-                    !self.pulls.iter().any(|training| training.hash == pull.hash
-                        || (training.report == pull.report && training.fight == pull.fight)),
-                    "Holdout {}/{} overlaps training inputs",
-                    pull.report,
-                    pull.fight
-                );
-            }
-        }
-        let common = self.common(&include)?;
-        let mut result = occurrences::expand(&self.pulls, common, &include)?;
-        if let Some(holdout) = holdout {
-            result.diagnostics.extend(occurrences::holdout_checks(
-                &self.pulls,
-                &holdout.pulls,
-                &result.events,
-                &include,
-            )?);
-        }
+        let pulls: Vec<_> = self.pulls.iter().collect();
+        let common = Self::common(&pulls, &include)?;
+        let mut result = occurrences::expand(&pulls, common, &include)?;
+        result
+            .diagnostics
+            .push(validation::check(&pulls, &include, boss_only)?);
         Ok(result)
     }
 
@@ -118,11 +101,11 @@ impl Analysis {
         Ok(&self.group.pulls.first().context("Missing fight")?.name)
     }
 
-    pub(super) fn common(
-        &self,
+    fn common(
+        pulls: &[&Pull],
         include: impl Fn(&Signal) -> bool,
     ) -> Result<BTreeMap<Signal, BTreeMap<String, i64>>> {
-        let completed: Vec<_> = self.pulls.iter().filter(|pull| pull.kill).collect();
+        let completed: Vec<_> = pulls.iter().copied().filter(|pull| pull.kill).collect();
         ensure!(completed.len() >= 2, "Need at least two completed logs");
         let tables: Vec<_> = completed.iter().map(|pull| timing_table(pull)).collect();
         let mut common = common::anchors(&tables);
@@ -490,14 +473,15 @@ pub(super) fn analyze(inputs: &[Utf8PathBuf]) -> Result<Analysis> {
             }
         }
         let hash = digest.as_ref().iter().map(|b| format!("{b:02x}")).collect();
-        boss_names.extend(
-            log.report
-                .master_data
-                .actors
-                .iter()
-                .filter(|actor| actor.sub_type == "Boss" && pull.actors.contains_key(&actor.id))
-                .map(|actor| actor.name.clone()),
-        );
+        let pull_bosses: std::collections::BTreeSet<_> = log
+            .report
+            .master_data
+            .actors
+            .iter()
+            .filter(|actor| actor.sub_type == "Boss" && pull.actors.contains_key(&actor.id))
+            .map(|actor| actor.name.clone())
+            .collect();
+        boss_names.extend(pull_bosses.iter().cloned());
         pulls.push(Pull {
             source: pull.file.clone(),
             source_language: log.report.master_data.lang.clone(),
@@ -517,6 +501,7 @@ pub(super) fn analyze(inputs: &[Utf8PathBuf]) -> Result<Analysis> {
                 .map(|actor| (actor.id, actor.name.clone()))
                 .collect(),
             events: log.events,
+            boss_names: pull_bosses,
         });
     }
     let graph = discover(&pulls)?;

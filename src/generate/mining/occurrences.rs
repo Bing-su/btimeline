@@ -250,8 +250,8 @@ fn expand_interval(
     Ok(())
 }
 
-fn completed<'a>(pulls: &'a [Pull], include: &impl Fn(&Signal) -> bool) -> Vec<&'a Pull> {
-    let mut completed: Vec<_> = pulls.iter().filter(|pull| pull.kill).collect();
+fn completed<'a>(pulls: &[&'a Pull], include: &impl Fn(&Signal) -> bool) -> Vec<&'a Pull> {
+    let mut completed: Vec<_> = pulls.iter().copied().filter(|pull| pull.kill).collect();
     // The longest completed trace supplies readable occurrence labels; ties ignore CLI argument order.
     completed.sort_by_key(|pull| {
         (
@@ -269,14 +269,14 @@ fn completed<'a>(pulls: &'a [Pull], include: &impl Fn(&Signal) -> bool) -> Vec<&
 }
 
 pub(super) fn holdout_checks(
-    training: &[Pull],
-    held_out: &[Pull],
+    training: &[&Pull],
+    held_out: &[&Pull],
     events: &[Event],
     include: &impl Fn(&Signal) -> bool,
 ) -> Result<Vec<Value>> {
     let completed = completed(training, include);
     let reference = completed.first().context("Missing training reference")?;
-    let mut results = attempts::checks(held_out.iter(), reference, events, include)?;
+    let mut results = attempts::checks(held_out.iter().copied(), reference, events, include)?;
     for row in &mut results {
         row.as_object_mut()
             .context("Invalid holdout check")?
@@ -286,7 +286,7 @@ pub(super) fn holdout_checks(
 }
 
 pub(super) fn expand(
-    pulls: &[Pull],
+    pulls: &[&Pull],
     unique: BTreeMap<Signal, BTreeMap<String, i64>>,
     include: impl Fn(&Signal) -> bool,
 ) -> Result<Common> {
@@ -343,7 +343,7 @@ pub(super) fn expand(
             .map(|pull| unrepresented(pull, &result.events, &include)),
     );
     result.diagnostics.extend(attempts::checks(
-        pulls.iter().filter(|pull| !pull.kill),
+        pulls.iter().copied().filter(|pull| !pull.kill),
         completed.first().context("Missing reference")?,
         &result.events,
         &include,

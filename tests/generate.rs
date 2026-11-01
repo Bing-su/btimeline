@@ -451,6 +451,7 @@ fn mode_is_the_only_required_generation_policy() {
     let text = String::from_utf8_lossy(&help.get_output().stdout);
     assert!(text.contains("--mode"));
     assert!(!text.contains("--template"));
+    assert!(!text.contains("--holdout"));
 }
 
 #[test]
