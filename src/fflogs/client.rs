@@ -99,6 +99,68 @@ struct Budget {
     previous_spent: Cell<Option<f64>>,
 }
 
+impl Budget {
+    // Include other client activity; a quota reset starts a fresh counter.
+    fn record_points(&self, limit: &RateLimit) {
+        if let Some(previous) = self
+            .previous_spent
+            .replace(Some(limit.points_spent_this_hour))
+        {
+            let spent = limit.points_spent_this_hour;
+            let delta = if spent >= previous {
+                spent - previous
+            } else {
+                spent
+            };
+            self.points.set(self.points.get() + delta);
+        }
+        if limit.points_spent_this_hour >= limit.limit_per_hour {
+            self.points.set(self.max_points);
+        }
+    }
+}
+
+// Retry-After dates and long delays require an explicit later retry, e.g. values above 60s.
+fn retry_delay(value: &ureq::http::HeaderValue) -> Result<Duration> {
+    let seconds = value
+        .to_str()
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .context("Retry-After is not a delay in seconds; retry later")?;
+    ensure!(seconds <= 60, "Retry-After exceeds 60 seconds; retry later");
+    Ok(Duration::from_secs(seconds))
+}
+
+// Select and validate the requested fight before pagination or provenance changes.
+fn selected_fight(report: &Value, fight_id: i64) -> Result<(Value, f64, f64)> {
+    let fights = report
+        .get("fights")
+        .and_then(Value::as_array)
+        .context("Invalid fights array")?;
+    let fight = fights
+        .iter()
+        .find(|v| v.get("id").and_then(Value::as_i64) == Some(fight_id))
+        .cloned()
+        .with_context(|| format!("Fight {fight_id} not found"))?;
+    ensure!(
+        fight.get("inProgress").and_then(Value::as_bool) == Some(false),
+        "Fight is still uploading or has invalid status"
+    );
+    let start = fight
+        .get("startTime")
+        .and_then(Value::as_f64)
+        .context("Invalid fight startTime")?;
+    let end = fight
+        .get("endTime")
+        .and_then(Value::as_f64)
+        .context("Invalid fight endTime")?;
+    ensure!(
+        start.is_finite() && end.is_finite() && start >= 0.0 && end >= start,
+        "Invalid fight time range"
+    );
+    Ok((fight, start, end))
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct RateLimit {
@@ -243,15 +305,7 @@ impl Client {
                 let delay = response
                     .headers()
                     .get("Retry-After")
-                    .map(|value| {
-                        let seconds = value
-                            .to_str()
-                            .ok()
-                            .and_then(|s| s.parse::<u64>().ok())
-                            .context("Retry-After is not a delay in seconds; retry later")?;
-                        ensure!(seconds <= 60, "Retry-After exceeds 60 seconds; retry later");
-                        Ok(Duration::from_secs(seconds))
-                    })
+                    .map(retry_delay)
                     .transpose()
                     .map_err(|error: anyhow::Error| (error, false))?;
                 retry_after.set(delay);
@@ -299,21 +353,7 @@ impl Client {
             .context("Missing FFLogs GraphQL data")?;
         if let Some(budget) = &self.budget {
             let limit = Self::parse_rate_limit(data)?;
-            if let Some(previous) = budget
-                .previous_spent
-                .replace(Some(limit.points_spent_this_hour))
-            {
-                // Include other activity on the same client; a quota reset starts a fresh counter.
-                let delta = if limit.points_spent_this_hour >= previous {
-                    limit.points_spent_this_hour - previous
-                } else {
-                    limit.points_spent_this_hour
-                };
-                budget.points.set(budget.points.get() + delta);
-            }
-            if limit.points_spent_this_hour >= limit.limit_per_hour {
-                budget.points.set(budget.max_points);
-            }
+            budget.record_points(&limit);
         }
         Ok(data.take())
     }
@@ -360,31 +400,7 @@ impl Client {
         metadata_fight_id: Option<i64>,
     ) -> Result<CollectedLog> {
         validate_selection(code, Some(fight_id))?;
-        let fights = report
-            .get("fights")
-            .and_then(Value::as_array)
-            .context("Invalid fights array")?;
-        let fight = fights
-            .iter()
-            .find(|v| v.get("id").and_then(Value::as_i64) == Some(fight_id))
-            .cloned()
-            .with_context(|| format!("Fight {fight_id} not found"))?;
-        ensure!(
-            fight.get("inProgress").and_then(Value::as_bool) == Some(false),
-            "Fight is still uploading or has invalid status"
-        );
-        let start = fight
-            .get("startTime")
-            .and_then(Value::as_f64)
-            .context("Invalid fight startTime")?;
-        let end = fight
-            .get("endTime")
-            .and_then(Value::as_f64)
-            .context("Invalid fight endTime")?;
-        ensure!(
-            start.is_finite() && end.is_finite() && start >= 0.0 && end >= start,
-            "Invalid fight time range"
-        );
+        let (fight, start, end) = selected_fight(&report, fight_id)?;
         *report.get_mut("fights").context("Invalid fights array")? = Value::Array(vec![fight]);
         let mut cursor = start;
         let mut events = Vec::new();

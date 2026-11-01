@@ -317,6 +317,40 @@ fn ranking_reports(data: &Value) -> Result<(Vec<String>, bool)> {
 }
 
 impl FFLogsCollectCommand {
+    // Keep ranking pagination failures in the plan, e.g. resume after a quota limit.
+    fn discover_reports(&self, client: &Client, plan: &mut DownloadPlan) -> Vec<String> {
+        let mut reports = Vec::new();
+        for page in self.page..self.page + self.pages {
+            let found = client
+                .request(
+                    RANKINGS,
+                    json!({"encounter":self.encounter,
+                "difficulty":self.difficulty, "page":page, "partition":self.partition,
+                "region":self.region}),
+                )
+                .and_then(|data| ranking_reports(&data));
+            let more = match found {
+                Ok((codes, more)) => {
+                    reports.extend(codes);
+                    plan.truncated |= more && page + 1 == self.page + self.pages;
+                    more
+                }
+                Err(error) => {
+                    plan.failures.push(Failure {
+                        report: String::new(),
+                        fight: None,
+                        error: error.to_string(),
+                    });
+                    break;
+                }
+            };
+            if !more {
+                break;
+            }
+        }
+        reports
+    }
+
     fn collect(&self, client: &Client) -> Result<DownloadPlan> {
         let mut plan = DownloadPlan {
             schema_version: 1,
@@ -334,35 +368,11 @@ impl FFLogsCollectCommand {
             failures: Vec::new(),
             truncated: false,
         };
-        let mut reports = self.reports.clone();
-        if reports.is_empty() {
-            for page in self.page..self.page + self.pages {
-                let found = client
-                    .request(
-                        RANKINGS,
-                        json!({"encounter":self.encounter, "difficulty":self.difficulty,
-                    "page":page, "partition":self.partition, "region":self.region}),
-                    )
-                    .and_then(|data| ranking_reports(&data));
-                match found {
-                    Ok((codes, more)) => {
-                        reports.extend(codes);
-                        plan.truncated |= more && page + 1 == self.page + self.pages;
-                        if !more {
-                            break;
-                        }
-                    }
-                    Err(error) => {
-                        plan.failures.push(Failure {
-                            report: String::new(),
-                            fight: None,
-                            error: error.to_string(),
-                        });
-                        break;
-                    }
-                }
-            }
-        }
+        let mut reports = if self.reports.is_empty() {
+            self.discover_reports(client, &mut plan)
+        } else {
+            self.reports.clone()
+        };
         let mut seen = BTreeSet::new();
         reports.retain(|code| seen.insert(code.clone()));
         plan.truncated |= reports.len() > self.max_reports;
@@ -380,6 +390,7 @@ impl FFLogsCollectCommand {
                     );
                     candidate_fights(report, self.encounter, self.difficulty)
                 });
+            let failed = candidates.is_err();
             match candidates {
                 Ok(fights) => {
                     let remaining = self.max_fights - plan.fights.len();
@@ -392,10 +403,10 @@ impl FFLogsCollectCommand {
                         fight: None,
                         error: error.to_string(),
                     });
-                    if client.check_budget().is_err() {
-                        break;
-                    }
                 }
+            }
+            if failed && client.check_budget().is_err() {
+                break;
             }
             if plan.fights.len() == self.max_fights {
                 plan.truncated |= index + 1 < report_count;
