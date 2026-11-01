@@ -29,6 +29,7 @@ usage-rs = { version = "7", features = ["completions"] }
 
 [dev-dependencies]
 assert_cmd = "2.2"
+insta = { version = "1.49.0", features = ["json"] }
 proptest = { version = "1", default-features = false, features = ["std"] }
 rstest = { version = "0.28", default-features = false }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

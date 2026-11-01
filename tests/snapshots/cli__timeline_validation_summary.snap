@@ -1,0 +1,7 @@
+---
+source: tests/cli.rs
+assertion_line: 223
+expression: "String::from_utf8_lossy(&validation.get_output().stdout)"
+---
+Valid structure: Replay basics (6 events)
+Not checked: log type/field catalog, conditional overlaps, dynamic execution constraints, game accuracy.

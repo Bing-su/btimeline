@@ -220,22 +220,22 @@ fn timeline_validation_and_replay_are_accessible_without_overwriting_inputs() {
         .args(["validate", timeline])
         .assert()
         .success();
-    assert!(String::from_utf8_lossy(&validation.get_output().stdout).contains("Not checked:"));
+    insta::assert_snapshot!(
+        "timeline_validation_summary",
+        String::from_utf8_lossy(&validation.get_output().stdout)
+    );
     let replay = cargo_bin_cmd!("btimeline")
         .args(["compare", timeline, recording, "--json"])
         .assert()
         .success();
     let output: Value = serde_json::from_slice(&replay.get_output().stdout).unwrap();
-    let records = output["recordings"][recording].as_array().unwrap();
-    assert!(
-        records
-            .iter()
-            .any(|r| r["action"] == "sync" && r["at_ms"] == 4000)
-    );
-    assert!(
-        records
-            .iter()
-            .any(|r| r["action"] == "start" && r["run"] == 2)
+    // Remove only the machine-specific input path; retain every timestamp and replay action.
+    insta::assert_json_snapshot!(
+        "timeline_basic_cli_replay",
+        serde_json::json!({
+            "records": output["recordings"][recording],
+            "not_checked": output["not_checked"]
+        })
     );
     cargo_bin_cmd!("btimeline")
         .args(["compare", timeline])

@@ -1,4 +1,6 @@
 use anyhow::Result;
+use proptest::prelude::*;
+use rstest::rstest;
 
 use super::{Recording, parse, replay};
 
@@ -8,24 +10,27 @@ fn recording(end_ms: i64, observations: serde_json::Value) -> Result<Recording> 
     )?)
 }
 
-#[test]
-fn structure_rejects_lossy_times_unknown_nodes_fields_and_bad_references() {
-    for source in [
-        "timeline 2 \"x\" {}",
-        "timeline 1 \"x\" { event \"e\" 0.01 name=\"x\"; }",
-        "timeline 1 \"x\" { event \"e\" 1.0 name=\"x\" visible=\"false\"; }",
-        "timeline 1 \"x\" { event \"e\" 1.0 name=\"x\" typo=#true; }",
-        "timeline 1 \"x\" { event \"e\" 1.0 name=\"x\" name=\"y\"; }",
-        "timeline 1 \"x\" { event \"e\" 1.0 name=\"x\"; event \"e\" 2.0 name=\"y\"; }",
-        "timeline 1 \"x\" { phase \"p\" { enter \"X\" from=\"missing\"; }; }",
-        "timeline 1 \"x\" { phase \"p\" { enter \"X\" at=1.0; }; }",
-        "timeline 1 \"x\" { phase \"p\" { enter \"X\"; event \"e\" 1.0 name=\"x\" { sync 1.0 \"A\" before=1.0; }; }; }",
-        "timeline 1 \"x\" { phase \"p\" { enter \"X\" id=\"A\" { field \"id\" \"B\"; }; }; }",
-        "timeline 1 \"x\" { phase \"p\" { enter \"X\" { regex \"id\" \"[\"; }; }; }",
-        "timeline 1 \"x\" { unknown; }",
-    ] {
-        assert!(parse(source).is_err(), "Accepted {source}");
-    }
+#[rstest]
+#[case::version("timeline 2 \"x\" {}")]
+#[case::precision("timeline 1 \"x\" { event \"e\" 0.01 name=\"x\"; }")]
+#[case::boolean("timeline 1 \"x\" { event \"e\" 1.0 name=\"x\" visible=\"false\"; }")]
+#[case::unknown_property("timeline 1 \"x\" { event \"e\" 1.0 name=\"x\" typo=#true; }")]
+#[case::duplicate_property("timeline 1 \"x\" { event \"e\" 1.0 name=\"x\" name=\"y\"; }")]
+#[case::duplicate_id(
+    "timeline 1 \"x\" { event \"e\" 1.0 name=\"x\"; event \"e\" 2.0 name=\"y\"; }"
+)]
+#[case::unknown_phase("timeline 1 \"x\" { phase \"p\" { enter \"X\" from=\"missing\"; }; }")]
+#[case::missing_from("timeline 1 \"x\" { phase \"p\" { enter \"X\" at=1.0; }; }")]
+#[case::partial_window(
+    "timeline 1 \"x\" { phase \"p\" { enter \"X\"; event \"e\" 1.0 name=\"x\" { sync 1.0 \"A\" before=1.0; }; }; }"
+)]
+#[case::duplicate_field(
+    "timeline 1 \"x\" { phase \"p\" { enter \"X\" id=\"A\" { field \"id\" \"B\"; }; }; }"
+)]
+#[case::invalid_regex("timeline 1 \"x\" { phase \"p\" { enter \"X\" { regex \"id\" \"[\"; }; }; }")]
+#[case::unknown_node("timeline 1 \"x\" { unknown; }")]
+fn structure_rejects_invalid_documents(#[case] source: &str) {
+    assert!(parse(source).is_err(), "Accepted {source}");
 }
 
 #[test]
@@ -184,53 +189,36 @@ fn idle_enter_is_ignored_and_regex_matches_whole_fields() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn ecmascript_backreferences_lookarounds_and_full_field_matching() -> Result<()> {
-    use std::collections::BTreeMap;
-
-    use regress::Regex;
-
-    // Noncapturing wrapper preserves JS backreference numbering and forces alternative backtracking.
-    for (pattern, accepted, rejected) in [
-        (r"(Boss)\1", "BossBoss", "Boss"),
-        (r"(?=Boss)Boss", "Boss", "Other Boss"),
-        (r"a|ab", "ab", "abc"),
-        (r"Boss", "Boss", "Boss\n"),
-        (r"", "", "x"),
-    ] {
-        let signal = super::Signal {
-            kind: "Ability".into(),
-            fields: BTreeMap::from([(
-                "source".into(),
-                super::Field::Regex(vec![Regex::new(&format!("^(?:{pattern})(?![\\s\\S])"))?]),
-            )]),
-            at: None,
-            before: 0,
-            after: None,
-            from: None,
-        };
-        assert!(signal.matches(
-            "Ability",
-            &BTreeMap::from([("source".into(), accepted.into())]),
-            0
-        ));
-        assert!(!signal.matches(
-            "Ability",
-            &BTreeMap::from([("source".into(), rejected.into())]),
-            0
-        ));
-    }
-    let model = parse(
-        r##"timeline 1 "Backreference" {
-        start "Start" { regex "source" #"(Boss)\1"#; }
+#[rstest]
+#[case::backreference(r"(Boss)\1", "BossBoss", "Boss")]
+#[case::lookahead(r"(?=Boss)Boss", "Boss", "Other Boss")]
+#[case::alternative_backtracking(r"a|ab", "ab", "abc")]
+#[case::final_newline(r"Boss", "Boss", "Boss\n")]
+#[case::empty(r"", "", "x")]
+fn ecmascript_patterns_match_whole_fields(
+    #[case] pattern: &str,
+    #[case] accepted: &str,
+    #[case] rejected: &str,
+) -> Result<()> {
+    // Exercise the parser's real wrapper so changes to capture numbering or anchors are visible.
+    let model = parse(&format!(
+        r##"timeline 1 "Pattern" {{
+        start "Start" {{ regex "source" #"{pattern}"#; }}
         event "hit" 0.0 name="Hit"
-    }"##,
-    )?;
-    let input = recording(
-        0,
-        serde_json::json!([{ "at_ms":0, "type":"Start", "fields":{"source":"BossBoss"} }]),
-    )?;
-    assert!(replay(&model, &input)?.iter().any(|r| r.action == "event"));
+    }}"##
+    ))?;
+    for (value, expected) in [(accepted, true), (rejected, false)] {
+        let input = recording(
+            0,
+            serde_json::json!([
+                {"at_ms":0,"type":"Start","fields":{"source":value}}
+            ]),
+        )?;
+        assert_eq!(
+            replay(&model, &input)?.iter().any(|r| r.action == "event"),
+            expected
+        );
+    }
     Ok(())
 }
 
@@ -292,4 +280,65 @@ fn quantized_window_boundaries_and_input_shape_are_strict() -> Result<()> {
     }
     assert!(replay(&model, &recording(-1, serde_json::json!([]))?).is_err());
     Ok(())
+}
+
+proptest! {
+    #[test]
+    fn shifting_raw_timestamps_preserves_replay(offset in 0_i64..1_000_000_000) {
+        let model = parse(include_str!("../../tests/fixtures/timeline/basic.kdl"))
+            .map_err(|e| TestCaseError::fail(e.to_string()))?;
+        let original: Recording = serde_json::from_str(include_str!("../../tests/fixtures/timeline/basic.json"))
+            .map_err(|e| TestCaseError::fail(e.to_string()))?;
+        let before = replay(&model, &original).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        let mut shifted: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/timeline/basic.json"))
+            .map_err(|e| TestCaseError::fail(e.to_string()))?;
+        shifted["end_ms"] = (11000 + offset).into();
+        let observations = shifted["observations"].as_array_mut()
+            .ok_or_else(|| TestCaseError::fail("Expected fixture observations"))?;
+        for observation in observations {
+            let at = observation["at_ms"].as_i64()
+                .ok_or_else(|| TestCaseError::fail("Expected fixture timestamp"))?;
+            observation["at_ms"] = (at + offset).into();
+        }
+        let shifted: Recording = serde_json::from_value(shifted)
+            .map_err(|e| TestCaseError::fail(e.to_string()))?;
+        let after = replay(&model, &shifted).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        let expected: Vec<_> = before.iter().map(|r| (r.at_ms + offset, &r.action, &r.detail, r.run)).collect();
+        let actual: Vec<_> = after.iter().map(|r| (r.at_ms, &r.action, &r.detail, r.run)).collect();
+        prop_assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn repeated_clock_corrections_never_execute_an_event_twice(
+        corrections in prop::collection::vec((0_i64..500, any::<bool>()), 0..64),
+    ) {
+        let model = parse(r#"timeline 1 "Corrections" {
+            start "Start"
+            event "early" 2.0 name="Early"
+            event "target" 4.0 name="Target" {
+                sync 4.0 "Forward" before=1000.0 after=1000.0
+                sync 1.0 "Backward" before=1000.0 after=1000.0
+            }
+            event "tail" 5.0 name="Tail"
+        }"#).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        let mut at = 0;
+        let mut observations = vec![serde_json::json!({"at_ms":0,"type":"Start","fields":{}})];
+        for (delay, forward) in corrections {
+            at += delay;
+            observations.push(serde_json::json!({
+                "at_ms":at, "type":if forward {"Forward"} else {"Backward"}, "fields":{}
+            }));
+        }
+        let end = at + 6000;
+        let input = recording(end, observations.into()).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        let records = replay(&model, &input).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        let mut seen = std::collections::BTreeSet::new();
+        for record in &records {
+            prop_assert!((0..=end).contains(&record.at_ms));
+            if record.action == "event" {
+                prop_assert!(seen.insert(&record.detail), "Duplicate event: {}", record.detail);
+            }
+        }
+        prop_assert!(records.windows(2).all(|pair| pair.first().zip(pair.get(1)).is_some_and(|(a,b)| a.at_ms <= b.at_ms)));
+    }
 }
