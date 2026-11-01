@@ -42,7 +42,7 @@ fn censor_timing(
         .min()
         .context("Missing timing samples")?;
     // A stopped sequence cannot excuse a missing cast nominally due before the recording ends.
-    if status == "unobserved" && at + earliest <= pull.end_ms {
+    if status == "unobserved" && at + earliest <= pull.scope_end(&event.signal.source) {
         let fields = row.as_object_mut().context("Invalid event check")?;
         fields.insert("status".into(), "unresolved".into());
         fields.insert(
@@ -51,7 +51,7 @@ fn censor_timing(
         );
     }
     // A faster clear can end before a reference mechanic, e.g. C at 60s after a 45s kill.
-    if status == "mismatch" && at + earliest > pull.end_ms {
+    if status == "mismatch" && at + earliest > pull.scope_end(&event.signal.source) {
         let fields = row.as_object_mut().context("Invalid event check")?;
         fields.insert("status".into(), "unobserved".into());
         fields.insert(
@@ -155,6 +155,49 @@ fn origin_conflicts(
     })
 }
 
+fn entry<'a>(
+    pull: &'a Pull,
+    source: &Option<String>,
+    include: &impl Fn(&Signal) -> bool,
+) -> Option<(&'a Signal, i64)> {
+    let (start, _) = pull.boss_scopes.get(source.as_ref()?)?;
+    let groups = interval(
+        pull,
+        start - 1,
+        None,
+        source,
+        include,
+        super::Boundary::Display,
+    )
+    .ok()?;
+    let first = groups.first()?;
+    let [signal] = first.key.as_slice() else {
+        return None;
+    };
+    Some((*signal, first.unique(signal)?.at))
+}
+
+// Compare from a supported boss entry, not a later globally unique cast that would hide the opening.
+fn entry_origin<'a>(
+    pull: &Pull,
+    reference: &Pull,
+    events: &[&'a Event],
+    include: &impl Fn(&Signal) -> bool,
+) -> Option<(&'a Event, i64)> {
+    let source = &events.first()?.signal.source;
+    let (observed, at) = entry(pull, source, include)?;
+    let (model, reference_at) = entry(reference, source, include)?;
+    if observed != model {
+        return None;
+    }
+    events
+        .iter()
+        .find(|event| {
+            &event.signal == model && event.samples.get(&trace(reference)) == Some(&reference_at)
+        })
+        .map(|event| (*event, at))
+}
+
 fn check(
     pull: &Pull,
     reference: &Pull,
@@ -168,11 +211,13 @@ fn check(
         .filter(|event| event.occurrence.is_none())
         .collect();
     anchors.sort_by_key(|event| event.samples.get(&reference_id));
-    let origin = anchors.into_iter().find_map(|event| {
-        let [at] = table.get(&event.signal)?.as_slice() else {
-            return None;
-        };
-        Some((*event, *at))
+    let origin = entry_origin(pull, reference, events, include).or_else(|| {
+        anchors.into_iter().find_map(|event| {
+            let [at] = table.get(&event.signal)?.as_slice() else {
+                return None;
+            };
+            Some((*event, *at))
+        })
     });
     let Some((origin, at)) = origin else {
         return Ok(json!({"status":"unresolved","reason":"no uniquely observed common anchor"}));
@@ -213,7 +258,13 @@ fn check(
     if !alignment::within_limit(model.len(), observed.len()) {
         return Ok(json!({"status":"unresolved","reason":"resource-limit"}));
     }
-    let aligned = align(&model, &observed, pull.kill)?;
+    // An observed boss defeat censors later mechanics even while the dungeon recording continues.
+    let boss_completed = origin
+        .signal
+        .source
+        .as_ref()
+        .is_some_and(|source| pull.boss_scopes.contains_key(source));
+    let aligned = align(&model, &observed, pull.kill && !boss_completed)?;
     let mut checks = Vec::new();
     for event in events {
         // A tail learned only from longer traces is outside this completed reference, not absent.
@@ -221,7 +272,9 @@ fn check(
             checks.push(json!({"event":{"activity":event.signal},"status":"unresolved","reason":"event not observed in completed comparison reference"}));
             continue;
         }
-        let mut row = if event.signal == origin.signal {
+        let mut row = if event.signal == origin.signal
+            && event.samples.get(&reference_id) == Some(&reference_at)
+        {
             json!({"event":{"activity":event.signal,"reference_at_ms":reference_at},"status":"matched","at_ms":at,
                 "batch":pull.batches.iter().position(|batch|batch.at_ms==at)})
         } else {
@@ -232,7 +285,7 @@ fn check(
     }
     Ok(
         json!({"status":"evaluated","anchor":origin.signal,"anchor_at_ms":at,"reference_anchor_at_ms":reference_at,
-        "edit_cost":aligned.cost,"reference_group_endpoints":aligned.ends,"events":checks,
+        "edit_cost":aligned.cost,"reference_group_endpoints":aligned.ends,"events":checks,"boss_completed":boss_completed,
         "peer_only":batches(&observed,&aligned.peer_only),"ambiguous_peer":batches(&observed,&aligned.ambiguous_right)}),
     )
 }

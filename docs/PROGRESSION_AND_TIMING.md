@@ -95,6 +95,8 @@ flowchart LR
 
 ### 첫 구현의 범위
 
+dungeon·alliance는 본체의 관측된 처치·instance로 학습 뷰를 구분하고, 고유 시전이 없는 보스도 동일한 단일 진입과 후속 강제 대응으로 공통 표시를 생성한다. 원본 그래프는 실패 시도·범위 밖 helper를 포함해 보존한다. 이는 trace 간 조건부 그래프·반복 모델의 완성을 뜻하지 않는다. 상세 규칙과 검증 범위는 [생성 계약](GENERATION.md#보스-시도-범위와-고유-시전-없는-진행), [Clyteum 감사](CLYTEUM_OMISSION_AUDIT.md)에 기록한다.
+
 trace별 저장소는 `petgraph::StableDiGraph`를 사용한다. 후보 제거가 다른 발생의 인덱스를 바꾸지 않으며, evidence의 노드별 `index`와 `before`·`observation_nodes`가 같은 내부 참조를 사용한다. `nodes` 배열의 위치를 참조로 해석하지 않는다. 내부 인덱스는 영구 ID가 아니며 KDL의 사람이 읽는 event ID와 구분한다. 원본 시각 표본은 그래프 밖에 유지하고 제거된 노드의 시각 요청은 오류로 처리한다. 시각에 따른 부분 순서 규칙은 도메인 분석으로 남기고 도달 가능성과 위상 정렬 검사는 petgraph로 수행한다.
 
 | 경계        | 현재 동작과 한계                                                                                                                                                          |

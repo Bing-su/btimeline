@@ -7,6 +7,7 @@ use super::{Pull, Signal, alignment};
 
 mod attempts;
 mod branches;
+mod entry;
 mod fragments;
 mod tail;
 
@@ -102,12 +103,17 @@ fn interval<'a>(
     include: &impl Fn(&Signal) -> bool,
     boundary: Boundary,
 ) -> Result<Vec<Group<'a>>, &'static str> {
-    let end = right.unwrap_or(pull.end_ms);
+    let end = right.unwrap_or_else(|| pull.scope_end(source));
+    let start = source
+        .as_ref()
+        .and_then(|source| pull.boss_scopes.get(source))
+        .map_or(0, |(start, _)| *start)
+        .max(left);
     if pull
         .phase_transitions
         .iter()
-        // A phase at combat start establishes the initial state, not an interior transition.
-        .any(|phase| left.max(0) < phase.relative_ms && phase.relative_ms < end)
+        // A phase at the combat/boss scope start is initial state, not an interior transition.
+        .any(|phase| start < phase.relative_ms && phase.relative_ms < end)
     {
         return Err("phase boundary");
     }
@@ -541,6 +547,9 @@ pub(super) fn expand(
     )?;
     for anchors in scopes.into_values() {
         opening(&completed, &anchors, &include, raid, &mut result)?;
+    }
+    if !raid {
+        entry::expand(&completed, &all_unique, &include, &mut result)?;
     }
     // A represented B-02 must not hide B-01 outside the bounds or in an ambiguous interval.
     let represented: Vec<_> = result

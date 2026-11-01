@@ -6,6 +6,7 @@ use super::{Common, Group, Pull, Signal, alignment, interval, trace};
 struct Scope<'a> {
     pull: &'a Pull,
     at: i64,
+    end_ms: i64,
     groups: Vec<Group<'a>>,
 }
 
@@ -31,6 +32,7 @@ fn scope<'a>(
     Ok(Scope {
         pull,
         at: *at,
+        end_ms: pull.scope_end(&anchor.source),
         groups: interval(
             pull,
             *at,
@@ -88,8 +90,7 @@ fn supported(
         .enumerate()
         .all(|(peer, (scope, aligned))| {
             peers.iter().any(|(i, _)| *i == peer)
-                || (aligned.censored_left.contains(&index)
-                    && scope.at + earliest > scope.pull.end_ms)
+                || (aligned.censored_left.contains(&index) && scope.at + earliest > scope.end_ms)
         });
     valid.then_some(peers)
 }

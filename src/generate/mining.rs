@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::sync::Arc;
 
 use anyhow::{Context, Result, ensure};
 use camino::Utf8PathBuf;
@@ -10,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::fflogs::model::CollectedLog;
 
 mod alignment;
+mod bosses;
 mod candidates;
 mod common;
 mod occurrences;
@@ -34,7 +36,7 @@ pub(super) struct Signal {
     pub(super) target: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct Batch {
     at_ms: i64,
     signals: Vec<Signal>,
@@ -48,7 +50,7 @@ impl Batch {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Pull {
     source: String,
     source_language: String,
@@ -61,8 +63,19 @@ struct Pull {
     batches: Vec<Batch>,
     start_ms: i64,
     actors: BTreeMap<i64, String>,
-    events: Vec<crate::fflogs::model::Event>,
+    events: Arc<[crate::fflogs::model::Event]>,
     boss_names: std::collections::BTreeSet<String>,
+    boss_ids: std::collections::BTreeSet<i64>,
+    boss_scopes: BTreeMap<String, (i64, i64)>,
+}
+
+impl Pull {
+    fn scope_end(&self, source: &Option<String>) -> i64 {
+        source
+            .as_ref()
+            .and_then(|source| self.boss_scopes.get(source))
+            .map_or(self.end_ms, |(_, end)| *end)
+    }
 }
 
 pub(super) struct Analysis {
@@ -94,9 +107,20 @@ impl Analysis {
         include: impl Fn(&Signal) -> bool,
         boss_only: bool,
     ) -> Result<occurrences::Common> {
-        let pulls: Vec<_> = self.pulls.iter().collect();
+        let (views, diagnostics) = if boss_only {
+            bosses::project(&self.pulls)
+        } else {
+            (Vec::new(), Vec::new())
+        };
+        let pulls: Vec<_> = if boss_only {
+            views.iter()
+        } else {
+            self.pulls.iter()
+        }
+        .collect();
         let common = Self::common(&pulls, &include)?;
         let mut result = occurrences::expand(&pulls, common, &include, !boss_only)?;
+        result.diagnostics.extend(diagnostics);
         result
             .diagnostics
             .push(validation::check(&pulls, &include, boss_only)?);
@@ -492,6 +516,14 @@ pub(super) fn analyze(inputs: &[Utf8PathBuf]) -> Result<Analysis> {
             .map(|actor| actor.name.clone())
             .collect();
         boss_names.extend(pull_bosses.iter().cloned());
+        let boss_ids = log
+            .report
+            .master_data
+            .actors
+            .iter()
+            .filter(|actor| actor.sub_type == "Boss" && pull.actors.contains_key(&actor.id))
+            .map(|actor| actor.id)
+            .collect();
         pulls.push(Pull {
             source: pull.file.clone(),
             source_language: log.report.master_data.lang.clone(),
@@ -510,8 +542,10 @@ pub(super) fn analyze(inputs: &[Utf8PathBuf]) -> Result<Analysis> {
                 .iter()
                 .map(|actor| (actor.id, actor.name.clone()))
                 .collect(),
-            events: log.events,
+            events: log.events.into(),
             boss_names: pull_bosses,
+            boss_ids,
+            boss_scopes: BTreeMap::new(),
         });
     }
     let graph = discover(&pulls)?;

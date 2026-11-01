@@ -13,6 +13,7 @@ expression: scope
     "target": null
   },
   "anchor_at_ms": 1000,
+  "boss_completed": false,
   "edit_cost": 0,
   "events": [
     {
