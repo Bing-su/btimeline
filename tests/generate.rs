@@ -262,7 +262,9 @@ fn inputs(directory: &Path) -> Vec<PathBuf> {
 #[case("raid", false, 0, Some(0), 3)]
 #[case("raid", true, 0, None, 0)]
 #[case("raid", false, 0, Some(3000), 0)]
-#[case("dungeon", false, 0, None, 0)]
+#[case("dungeon", false, 0, None, 3)]
+#[case("dungeon", false, 3000, None, 3)]
+#[case("alliance", false, 0, None, 3)]
 fn opening_repeats_use_combat_start_without_inventing_correspondence(
     #[case] mode: &str,
     #[case] missing: bool,
@@ -309,10 +311,15 @@ fn opening_repeats_use_combat_start_without_inventing_correspondence(
     assert_eq!(repeats.len(), expected);
     if expected > 0 {
         assert_eq!(repeats[0]["rounded_offset_ms"], 0);
+        let origin = if mode == "raid" {
+            "combat-start"
+        } else {
+            "boss-cast"
+        };
         assert!(
             repeats
                 .iter()
-                .all(|event| event["alignment"]["bounds"]["origin"] == "combat-start")
+                .all(|event| event["alignment"]["bounds"]["origin"] == origin)
         );
     }
 }

@@ -380,11 +380,34 @@ fn bounded(
     Ok(())
 }
 
-// Combat start bounds an ordinary raid opening, e.g. repeated casts before the first unique anchor.
+// A boss's own first cast bounds its opening without mixing travel or preceding bosses into its clock.
+fn opening_start(
+    pull: &Pull,
+    source: &Option<String>,
+    include: &impl Fn(&Signal) -> bool,
+    raid: bool,
+) -> Result<i64, &'static str> {
+    if raid {
+        return Ok(-1);
+    }
+    pull.batches
+        .iter()
+        .find(|batch| {
+            batch
+                .waves()
+                .iter()
+                .any(|signal| &signal.source == source && include(signal))
+        })
+        .map(|batch| batch.at_ms - 1)
+        .ok_or("missing boss opening")
+}
+
+// Recover repeated openings before the first unique anchor without adding repeated-ID syncs.
 fn opening(
     pulls: &[&Pull],
     anchors: &[(&Signal, &BTreeMap<String, i64>)],
     include: &impl Fn(&Signal) -> bool,
+    raid: bool,
     result: &mut Common,
 ) -> Result<()> {
     let Some((right, ends)) = anchors.first() else {
@@ -393,15 +416,17 @@ fn opening(
     if result.branches.iter().any(|branch| &branch.join == *right) {
         return Ok(());
     }
-    let bounds = json!({"left":null,"right":right,"origin":"combat-start","boundary_policy":"display-interior-v1"});
+    let bounds = json!({"left":null,"right":right,"origin":if raid {"combat-start"} else {"boss-cast"},"boundary_policy":"display-interior-v1"});
     let rows = pulls
         .iter()
         .map(|pull| {
             let id = trace(pull);
             let end = ends.get(&id).ok_or((id.clone(), "missing bound"))?;
+            let start = opening_start(pull, &right.source, include, raid)
+                .map_err(|reason| (id.clone(), reason))?;
             interval(
                 pull,
-                -1,
+                start,
                 Some(*end),
                 &right.source,
                 include,
@@ -514,10 +539,8 @@ pub(super) fn expand(
         raid,
         &mut result,
     )?;
-    if raid {
-        for anchors in scopes.into_values() {
-            opening(&completed, &anchors, &include, &mut result)?;
-        }
+    for anchors in scopes.into_values() {
+        opening(&completed, &anchors, &include, raid, &mut result)?;
     }
     // A represented B-02 must not hide B-01 outside the bounds or in an ambiguous interval.
     let represented: Vec<_> = result
