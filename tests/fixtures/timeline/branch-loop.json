@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "end_ms": 6500,
+  "observations": [
+    { "at_ms": 0, "type": "InCombat", "fields": { "inGameCombat": "1" } },
+    { "at_ms": 1000, "type": "StartsUsing", "fields": { "id": "1001", "source": "The Boss" } },
+    { "at_ms": 2000, "type": "Ability", "fields": { "id": "1001", "source": "The Boss" } },
+    { "at_ms": 4000, "type": "StartsUsing", "fields": { "id": "1003", "source": "The Boss" } },
+    { "at_ms": 6000, "type": "InCombat", "fields": { "inGameCombat": "0" } }
+  ]
+}

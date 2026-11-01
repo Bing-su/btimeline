@@ -242,3 +242,57 @@ fn timeline_validation_and_replay_are_accessible_without_overwriting_inputs() {
         .assert()
         .failure();
 }
+
+#[test]
+fn compare_replays_branch_loop_and_phase_corrections_through_the_cli() {
+    let timeline = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/timeline/branch-loop.kdl"
+    );
+    let recording = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/timeline/branch-loop.json"
+    );
+    let replay = cargo_bin_cmd!("btimeline")
+        .args(["compare", timeline, recording, "--json"])
+        .assert()
+        .success();
+    let output: Value = serde_json::from_slice(&replay.get_output().stdout).unwrap();
+    insta::assert_json_snapshot!(
+        "timeline_branch_loop_cli_replay",
+        serde_json::json!({
+            "records": output["recordings"][recording],
+            "not_checked": output["not_checked"]
+        })
+    );
+}
+
+#[test]
+fn compare_fails_without_partial_output_when_a_recording_is_invalid() {
+    let timeline = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/timeline/branch-loop.kdl"
+    );
+    let recording = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/timeline/branch-loop.json"
+    );
+    let directory = tempfile::tempdir().unwrap();
+    let invalid = directory.path().join("invalid.json");
+    fs::write(
+        &invalid,
+        r#"{"version":1,"end_ms":1,"observations":[{"at_ms":2,"type":"X","fields":{}}]}"#,
+    )
+    .unwrap();
+    let result = cargo_bin_cmd!("btimeline")
+        .args(["compare", timeline, recording])
+        .arg(&invalid)
+        .arg("--json")
+        .assert()
+        .failure();
+    assert!(result.get_output().stdout.is_empty());
+    assert!(
+        String::from_utf8_lossy(&result.get_output().stderr)
+            .contains("Observations must be in original time order")
+    );
+}

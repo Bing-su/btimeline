@@ -1,0 +1,26 @@
+timeline 1 "Branch and loop" {
+    start "InCombat" inGameCombat="1"
+    wipe "InCombat" inGameCombat="0"
+
+    phase "boss" {
+        enter "InCombat" inGameCombat="1"
+        event "phase-hit" 5.0 name="Phase attack"
+        branch "choice" open=0.0 close=2.0 {
+            option "left" {
+                when "StartsUsing" id="1001" source="The Boss"
+                event "left-hit" 2.0 name="Left attack" {
+                    sync 2.0 "Ability" id="1001" source="The Boss" before=2.0 after=2.0
+                }
+            }
+            option "right" {
+                when "StartsUsing" id="1002" source="The Boss"
+                event "right-hit" 2.0 name="Right attack"
+            }
+        }
+        loop "rotation" start=0.0 every=2.0 {
+            until "StartsUsing" id="1003" source="The Boss" at=5.0 before=1.0
+            event "pulse" 0.0 name="Pulse"
+            on-exit { event "after-exit" 1.0 name="After exit"; }
+        }
+    }
+}
