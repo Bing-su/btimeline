@@ -1,6 +1,6 @@
 # 일반 던전 반복 검증
 
-**첫 구현은 Meso Terminal의 Chirurgeon General에 무한 loop를 자동 생성한다. 나머지 8개 참조 보스는 미완료다.** 유한 로그의 공통 시전 복원과 반복 모델링은 구분한다. cactbot에 타임라인이 없는 Clyteum 대신 Alexandria·Mistwake·Meso Terminal을 검사했다. 비교 기준은 고정 커밋과 [9개 보스 반복 조사](CACTBOT_DUNGEON_LOOP_REFERENCE.md)에 기록했다.
+**Chirurgeon General과 Thundergust Griffin의 본체 이름에 속하는 시전 반복을 자동 생성한다.** Griffin은 이름이 다른 helper가 빠져 전체 기믹 검증이 미완료이며, 나머지 7개 참조 보스의 반복도 생성하지 못한다. 유한 로그의 공통 시전 복원과 반복 모델링은 구분한다. cactbot에 타임라인이 없는 Clyteum 대신 Alexandria·Mistwake·Meso Terminal을 검사했다. 비교 기준은 고정 커밋과 [9개 보스 반복 조사](CACTBOT_DUNGEON_LOOP_REFERENCE.md)에 기록했다.
 
 ## 조사 시작 시점의 입력과 생성 결과
 
@@ -11,7 +11,7 @@
 | Meso Terminal      | `logs/loop-meso-terminal` 14개  |                3 | 48 / **0**       |
 | Meso Terminal 확장 | 위 14개 + `3Cy9dQN21DKYLABg/14` |                3 | 37 / **0**       |
 
-총 28개 파일의 경로·trace·해시는 [입력 명세](dungeon-loop-inputs.csv)에 고정했다. 추가 로그는 encounter 4547, difficulty 10, rankings page 30의 보고서에서 확보했다. 1,051.881초의 던전 기록이며 이벤트 23,362개다. 던전 전체 길이가 개별 보스의 여러 회차를 보장하지는 않는다. 추가 입력 후 정의 수 감소도 반복 학습의 성공으로 해석하지 않는다.
+조사 당시 28개 파일을 사용했다. 아래 Mistwake 추가 4개를 포함해 총 32개 파일의 경로·trace·해시를 [입력 명세](dungeon-loop-inputs.csv)에 고정했다. Meso 추가 로그는 encounter 4547, difficulty 10, rankings page 30의 보고서에서 확보했다. 1,051.881초의 던전 기록이며 이벤트 23,362개다. 던전 전체 길이가 개별 보스의 여러 회차를 보장하지는 않는다. 추가 입력 후 정의 수 감소도 반복 학습의 성공으로 해석하지 않는다.
 
 ## 원본에 실제 반복 본문이 있는가
 
@@ -71,6 +71,35 @@ Meso 본문의 세 참조 일치 기록에서 원본 파동 대응은 각각 **4
 
 위 시각 비교는 일대일 경로 정합성 검사가 아니다. 공통 구조를 먼저 확인한 뒤 각 원본 멤버에 같은 신호의 가장 가까운 표시가 있는지 측정하며 같은 파동의 복수 멤버는 한 표시를 공유할 수 있다. 5초는 검토 보고서의 진단 기준이고 생성기의 구조 승인 문턱이 아니다. 세 전체 본문의 ID·source·순서 감사와 함께 해석한다. 실패·완료 시도를 각각 나누어 재생했으므로 시도 간 전멸·재시작을 검증한 결과도 아니다.
 
+## 같은 신호를 본문에서 재사용하는 반복
+
+첫 구현의 ‘모든 위치의 신호 집합이 달라야 한다’는 제약을 제거했다. 회차 경계만 본문 안에서 고유해야 한다. 경계로 나눈 각 회차에서 같은 신호의 첫째·둘째 발생을 각각 첫째·둘째 위치로 대응한다. 개수와 다음 경계는 여전히 검사하므로, `A B C B D`를 `A B C D`로 줄이거나 B가 A를 대신하도록 허용하지 않는다. 고유 경계가 없는 반복은 아직 보류한다.
+
+이 변경만으로 기존 Mistwake 8개 입력에서 Griffin의 21파동·31표시 정의 반복을 찾았다. 본체 이름을 쓰는 동시·보조 시전도 원본 멤버별로 보존한다. 회차 시작은 Golden Talons이며 명목 주기는 90.4초다. cactbot의 Fulgurous Fall 시작·88.9초와 기준점이 다르며, 실제 관측으로 회차를 보정한다.
+
+일반화 검증을 위해 rankings page 1000, encounter 4549, difficulty 10에서 3개 보고서·4개 파일을 추가 수집했다. `out/mistwake-deep-plan.json`과 `.download.json`에 수집 근거가 있고 `logs/mistwake-longer`에 원본을 둔다. 전체 던전 길이는 819.810–937.246초, 이벤트는 합계 78,630개다. 이 네 파일을 기존 8개와 섞기 전에 기존 생성본의 보류 검증 대상으로 사용했다.
+
+| 학습 → 보류        | 보류 본체 범위 / 원본 멤버 | 최대 예측 차이 | 예측 없음 / 5초 초과 / 진단 |
+| ------------------ | -------------------------- | -------------- | --------------------------- |
+| 기존 8개 → 새 4개  | 4 / 152                    | 924ms          | 모두 0                      |
+| 새 4개 → 기존 8개  | 8 / 328                    | 994ms          | 모두 0                      |
+| 기존 8개 자체 재생 | 8 / 328                    | 974ms          | 모두 0                      |
+
+새 4개만으로도 같은 진행 구조와 주기 90.3초를 생성한다. 파일 단위가 아니라 서로 겹치지 않는 보고서 집합을 양방향으로 보류했다. 시각 평가는 위와 같은 최근접 동일 신호 비교이며, 일대일 경로 증명이나 ACT 검증은 아니다. opener·내부 단계·경계 누락, 개수 대체와 ID 충돌은 별도 합성 회귀로 검사한다.
+
+| 생성 입력           | 전체 정의 / loop | 산출물                                                              |
+| ------------------- | ---------------- | ------------------------------------------------------------------- |
+| Mistwake 기존 8개   | 93 / 1           | `out/mistwake-context-loops.{kdl,evidence.json}`                    |
+| Mistwake 추가 4개   | 99 / 1           | `out/mistwake-context-independent.{kdl,evidence.json}`              |
+| Mistwake 전체 12개  | 95 / 1           | `out/mistwake-context-expanded.{kdl,evidence.json}`                 |
+| Meso 기존 확장 15개 | 39 / 1           | `out/meso-context-loops.{kdl,evidence.json}`; 기존 KDL과 동일       |
+| Alexandria 기존 5개 | 49 / 0           | `out/alexandria-context-loops.{kdl,evidence.json}`; 기존 KDL과 동일 |
+| Clyteum 기존 3개    | 87 / 0           | `out/clyteum-context-loops.{kdl,evidence.json}`; 기존 KDL과 동일    |
+
+**Griffin의 전체 cactbot 본문 일치 판정은 여전히 0회다.** Storm Surge 뒤 `Shock Storm`의 Electrifying Flight `B0F4`는 원본 cast에 존재하지만 본체와 이름이 다르고 FFLogs의 `enemyNPCs`에도 없어 현재 활동 후보·진행 그래프부터 빠져 있다. 생성기에서 본체 이름의 모든 후반 관측에 대응했다는 사실로 이 helper 누락을 숨기지 않는다. 참조 본문에 필요한 나머지 관측 대응과 helper 소속 연결이 후속 작업이다. 시도별 분리 재생은 처치·리셋·다음 보스까지 이어지는 lifecycle 검증도 아니다.
+
+새 입력을 단독 생성할 때는 별도의 기존 ID 버그도 재현됐다. 구간별 참조 로그가 달라 같은 능력의 서로 다른 발생에 `-03`이 중복됐다. 원본 대응을 바꾸지 않고 충돌하는 이름에만 `after-a941-before-af19` / `after-a947` 같은 기준점 문맥을 붙였다. 합성 자료에서도 서로 다른 두 발생의 보존과 입력 순서에 무관한 KDL을 검사한다.
+
 ## 재현과 후속 구현
 
 ```sh
@@ -91,6 +120,14 @@ bun scripts/replay_dungeon_loops.ts \
 bun run --cwd scripts test
 ```
 
+```sh
+btimeline generate logs/loop-mistwake/*.json --mode dungeon -o out/mistwake-context-loops.kdl
+btimeline generate logs/mistwake-longer/*.json --mode dungeon -o out/mistwake-context-independent.kdl
+btimeline generate logs/loop-mistwake/*.json logs/mistwake-longer/*.json --mode dungeon -o out/mistwake-context-expanded.kdl
+bun scripts/replay_dungeon_loops.ts out/mistwake-context-loops.evidence.json out/mistwake-context-expanded.evidence.json target/debug/btimeline out/mistwake-context-holdout-replay.json
+bun scripts/replay_dungeon_loops.ts out/mistwake-context-independent.evidence.json out/mistwake-context-expanded.evidence.json target/debug/btimeline out/mistwake-reverse-holdout-replay.json
+```
+
 조사 당시 산출물은 `out/{alexandria,mistwake,meso-terminal,meso-terminal-long}-loop-audit.{kdl,evidence.json}`이다. 첫 구현은 `out/meso-generated-loop-final.{kdl,evidence.json}`, 보고서 보류 생성은 `out/meso-generated-loop-holdout-final.{kdl,evidence.json}`과 각 replay 보고서다. 원본은 CLI의 일반 `generate --mode dungeon` 입력이며 cactbot은 검증 oracle에만 사용한다. 전체 입력은 `logs/loop-meso-terminal/*.json`과 추가 파일 `logs/dungeon-loop-long/3Cy9dQN21DKYLABg_14.json`이며 보류 학습에서는 `GrByCA3mZvDa2jLM_*.json` 두 개를 제외한다.
 
 | 후속 작업             | 제약                                                                                                                                                                                |
@@ -101,4 +138,4 @@ bun run --cwd scripts test
 | 독립 검증             | 긴 보류 로그의 전체 회차와 다음 prefix, 살아 있는 범위의 시작·본문 누락, 짧은 처치, 보스 경계 reset을 구분한다.                                                                     |
 | 종료와의 관계         | 무한 반복은 상위 구간이 끝날 때까지 유지한다. 보스 처치 후 예측 취소는 별도 종료 신호 문제이며, 해결책을 유한 관측 횟수로 고정해 우회하지 않는다.                                   |
 
-전체 9개 보스에 대한 자동 loop 생성, 같은 파동이 본문 여러 위치에 재사용되는 경우, 선택 이력에 의존하는 반복, 신호 탈출·보스 처치 종료 자동 생성, 실제 ACT 실행, 전체 실패 시도·재시작, StartsUsing·commented 단계와 모든 helper 대응은 아직 검증하지 않았다. 보스 처치 종료가 생성되지 않으므로 다음 phase 진입 전까지 불필요한 반복 표시가 이어질 수 있다.
+전체 9개 보스에 대한 자동 loop 생성, 고유 경계가 없는 반복, 선택 이력에 의존하는 반복, 신호 탈출·보스 처치 종료 자동 생성, 실제 ACT 실행, 전체 실패 시도·재시작, StartsUsing·commented 단계와 모든 helper 대응은 아직 검증하지 않았다. 보스 처치 종료가 생성되지 않으므로 다음 phase 진입 전까지 불필요한 반복 표시가 이어질 수 있다.

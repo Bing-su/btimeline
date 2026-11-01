@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use anyhow::{Context, Result, ensure};
 use petgraph::unionfind::UnionFind;
@@ -161,13 +161,19 @@ fn mapping(episode: &Episode, body: &[Vec<Signal>]) -> Option<Vec<Vec<usize>>> {
         .waves
         .chunks(body.len())
         .map(|chunk| {
+            // A unique boundary fixes the cycle; repeated identities keep occurrence order inside it.
+            let mut available = BTreeMap::<_, VecDeque<_>>::new();
+            for (position, key) in body.iter().enumerate() {
+                available.entry(key).or_default().push_back(position);
+            }
             let positions = chunk
                 .iter()
-                .map(|wave| body.iter().position(|key| accepts(wave, key)))
+                .map(|wave| {
+                    wave.coalescible.then_some(())?;
+                    available.get_mut(&wave.key)?.pop_front()
+                })
                 .collect::<Option<Vec<_>>>()?;
-            (positions.first() == Some(&0)
-                && positions.iter().copied().collect::<BTreeSet<_>>().len() == positions.len())
-            .then_some(positions)
+            (positions.first() == Some(&0)).then_some(positions)
         })
         .collect()
 }
@@ -228,10 +234,13 @@ fn candidate(scopes: &[&Scope], reference: &Scope, start: usize, end: usize) -> 
         .iter()
         .map(|wave| wave.key.clone())
         .collect();
-    // shortcut: distinct wave identities only; repeated internal keys need context-aware alignment.
+    // shortcut: a unique boundary is required; loops without one need longer boundary contexts.
     ensure!(
-        body.len() >= 2 && body.iter().collect::<BTreeSet<_>>().len() == body.len(),
-        "Loop positions require distinct wave identities"
+        body.len() >= 2
+            && body
+                .first()
+                .is_some_and(|entry| body.iter().filter(|key| *key == entry).count() == 1),
+        "Loop needs a unique boundary identity"
     );
     // Every base position has an unfragmented witness; coalescing peers still checks disjoint entities.
     ensure!(
@@ -311,6 +320,7 @@ pub(super) fn discover(pulls: &[Pull]) -> Result<LoopDiscovery> {
         let cost: usize = scopes.iter().map(|scope| scope.waves.len()).sum();
         let mut work = 0_usize;
         let mut candidates = Vec::new();
+        let mut rejected = BTreeMap::<String, usize>::new();
         for (scope, start, end) in scopes.iter().flat_map(|scope| {
             ranges(scope)
                 .into_iter()
@@ -320,8 +330,9 @@ pub(super) fn discover(pulls: &[Pull]) -> Result<LoopDiscovery> {
             if work > super::alignment::MAX_CELLS {
                 break;
             }
-            if let Ok(model) = candidate(&scopes, scope, start, end) {
-                candidates.push(model);
+            match candidate(&scopes, scope, start, end) {
+                Ok(model) => candidates.push(model),
+                Err(error) => *rejected.entry(error.to_string()).or_default() += 1,
             }
         }
         // Earliest structurally supported onset keeps the finite opener small; timing is estimated later.
@@ -330,7 +341,7 @@ pub(super) fn discover(pulls: &[Pull]) -> Result<LoopDiscovery> {
             result.diagnostics.push(json!({"method":"terminal-loop-v1","source":source,"status":"learned","steps":model.body.len(),"opener_waves":model.prefix.len(),"episodes":model.episodes.len()}));
             result.models.push(model);
         } else {
-            result.diagnostics.push(json!({"method":"terminal-loop-v1","source":source,"status":"unresolved","reason":"no shared terminal recurrence with supported onset and continuation"}));
+            result.diagnostics.push(json!({"method":"terminal-loop-v1","source":source,"status":"unresolved","reason":"no shared terminal recurrence with supported onset and continuation","rejected_candidates":rejected}));
         }
         if work > super::alignment::MAX_CELLS {
             result.diagnostics.push(
@@ -404,6 +415,28 @@ mod tests {
         assert_eq!(model.episodes.len(), 2);
         blocks(4, &[vec![vec![0, 2]]]).unwrap_err();
         candidate(&[&a, &a], &a, 1, 5).unwrap_err();
+    }
+
+    #[rstest::rstest]
+    #[case(&[9, 1, 2, 3, 2, 4, 1, 2, 3, 2], true)]
+    #[case(&[9, 1, 2, 3, 4, 1, 2, 3, 2], false)] // One internal occurrence is missing.
+    #[case(&[9, 1, 2, 2, 2, 4, 1, 2, 3, 2], false)] // Multiplicity cannot replace another step.
+    #[case(&[9, 1, 2, 3, 2, 4, 2, 2, 3, 2], false)] // Repeated ID cannot replace the boundary.
+    fn repeated_id_occurrences_stay_distinct(#[case] peer: &[i64], #[case] accepted: bool) {
+        let a = scope("a", &[9, 1, 2, 3, 2, 4, 1, 2, 3, 2], 1000);
+        let b = scope("b", peer, 1000);
+        let model = candidate(&[&a, &b], &a, 1, 6);
+        assert_eq!(model.is_ok(), accepted);
+        if let Ok(model) = model {
+            assert_eq!(
+                model.blocks,
+                vec![vec![0], vec![1], vec![2], vec![3], vec![4]]
+            );
+            assert_eq!(
+                mapping(&model.episodes[0], &model.body).unwrap()[0],
+                vec![0, 1, 2, 3, 4]
+            );
+        }
     }
 
     proptest! {

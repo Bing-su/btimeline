@@ -176,3 +176,49 @@ fn coincident_same_name_abilities_keep_distinct_event_ids() {
     assert_eq!(boundaries.len(), 2);
     assert_ne!(boundaries[0]["event"], boundaries[1]["event"]);
 }
+
+#[test]
+fn repeated_internal_abilities_keep_their_positions_and_raw_occurrences() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths: Vec<_> = (0..3)
+        .map(|peer| {
+            fixture(
+                dir.path(),
+                &format!("repeated{peer}"),
+                &[9, 1, 2, 3, 2, 4, 1, 2, 3, 2, 4, 1, 2, 3, 2],
+            )
+        })
+        .collect();
+    let output = dir.path().join("timeline.kdl");
+    cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(paths)
+        .args(["--mode", "dungeon", "-o"])
+        .arg(&output)
+        .assert()
+        .success();
+    let evidence: Value =
+        serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
+    let repeated = &evidence["loops"][0];
+    assert_eq!(repeated["status"], "rendered");
+    assert_eq!(repeated["period_ms"], 5000);
+    let events = repeated["events"].as_array().unwrap();
+    assert_eq!(events.len(), 5);
+    assert_eq!(events[1]["activities"], events[3]["activities"]);
+    assert_ne!(events[1]["event"], events[3]["event"]);
+    assert_eq!(events[1]["offset_ms"], 1000);
+    assert_eq!(events[3]["offset_ms"], 3000);
+    // Overlapping same-ID windows cannot independently identify these two nearby positions.
+    assert_eq!(events[1]["sync"], false);
+    assert_eq!(events[3]["sync"], false);
+    for trace in evidence["progression"]["traces"].as_array().unwrap() {
+        let covered: BTreeSet<_> = events
+            .iter()
+            .flat_map(|event| event["observations"].as_array().unwrap())
+            .filter(|observation| observation["trace"] == trace["trace"])
+            .flat_map(|observation| observation["observation_nodes"].as_array().unwrap())
+            .map(|node| node.as_u64().unwrap())
+            .collect();
+        assert_eq!(covered.len(), 14);
+    }
+}
