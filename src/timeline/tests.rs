@@ -435,7 +435,7 @@ fn phase_sync_does_not_move_an_active_iteration() {
 }
 
 #[test]
-fn replay_rejects_undefined_forward_sync_past_a_pending_loop_start() {
+fn phase_sync_past_a_pending_loop_starts_the_current_iteration() {
     let model = parse(
         r#"timeline 1 "x" {
         start "Start"
@@ -455,11 +455,86 @@ fn replay_rejects_undefined_forward_sync_past_a_pending_loop_start() {
         ]),
     )
     .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert_eq!(
+        output
+            .iter()
+            .filter(|r| r.action == "skipped" && r.detail == "pulse")
+            .count(),
+        1
+    );
+    let pulses: Vec<_> = output
+        .iter()
+        .filter(|r| r.action == "event" && r.detail.starts_with("pulse:"))
+        .map(|r| r.at_ms)
+        .collect();
+    assert_eq!(pulses, [1000, 3000, 5000]);
+}
+
+#[test]
+fn phase_sync_marks_skipped_iterations_and_partial_iteration_once() {
+    let model = parse(r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            event "anchor" 8.5 name="Anchor" { sync 8.5 "Forward" before=8.5 after=8.5; sync 1.0 "Back" before=20.0 after=20.0; }
+            loop "l" start=3.0 every=2.0 {
+                event "zero" 0.0 name="Zero"
+                event "middle" 1.5 name="Middle"
+            }
+        }
+    }"#).unwrap();
+    let input = recording(
+        2200,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Forward","fields":{}},
+            {"at_ms":1100,"type":"Back","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    let skipped: Vec<_> = output
+        .iter()
+        .filter(|r| r.action == "skipped" && (r.detail == "zero" || r.detail == "middle"))
+        .map(|r| r.detail.as_str())
+        .collect();
+    assert_eq!(skipped, ["zero", "middle", "zero", "middle", "zero"]);
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("middle:") && r.at_ms == 1000)
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("zero:") && r.at_ms == 1500)
+    );
+}
+
+#[test]
+fn phase_sync_rejects_an_excessive_number_of_skipped_loop_iterations() {
+    let model = parse(r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            event "anchor" 1000000.0 name="Anchor" { sync 1000000.0 "Forward" before=1000000.0 after=0.0; }
+            loop "l" start=1.0 every=0.1 { event "pulse" 0.0 name="Pulse"; }
+        }
+    }"#).unwrap();
+    let input = recording(
+        2000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Forward","fields":{}}
+        ]),
+    )
+    .unwrap();
     assert!(
         replay(&model, &input)
             .unwrap_err()
             .to_string()
-            .contains("across the start")
+            .contains("one million")
     );
 }
 
@@ -1068,6 +1143,31 @@ fn quantized_window_boundaries_and_input_shape_are_strict() {
 }
 
 proptest! {
+    #[test]
+    fn forward_jump_skips_exactly_the_crossed_loop_events(target in 11_i64..200) {
+        let seconds = format!("{}.{:01}", target / 10, target % 10);
+        let source = format!(r#"timeline 1 "x" {{
+            start "Start"
+            phase "p" {{
+                enter "Start"
+                event "anchor" {seconds} name="Anchor" {{ sync {seconds} "Sync" before={seconds} after=0.0; }}
+                loop "l" start=1.0 every=2.0 {{ event "pulse" 0.0 name="Pulse"; }}
+            }}
+        }}"#);
+        let model = parse(&source).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        let input = recording(1000, serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Sync","fields":{}}
+        ])).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        let output = replay(&model, &input).map_err(|e| TestCaseError::fail(e.to_string()))?;
+        let offset = target - 10;
+        let expected = offset / 20 + i64::from(offset % 20 > 0);
+        let skipped = output.iter().filter(|r| r.action == "skipped" && r.detail == "pulse").count();
+        prop_assert_eq!(i64::try_from(skipped).unwrap_or(i64::MAX), expected);
+        let at_target = output.iter().any(|r| r.action == "event" && r.detail.starts_with("pulse:") && r.at_ms == 1000);
+        prop_assert_eq!(at_target, offset % 20 == 0);
+    }
+
     #[test]
     fn shifting_raw_timestamps_preserves_replay(offset in 0_i64..1_000_000_000) {
         let model = parse(include_str!("../../tests/fixtures/timeline/basic.kdl"))

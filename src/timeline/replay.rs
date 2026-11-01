@@ -445,6 +445,65 @@ fn correct_paths(
     }
 }
 
+// A forward phase correction can enter a loop after skipping whole iterations.
+fn enter_repeat_after_jump(
+    phase: &mut PhaseState<'_>,
+    at: i64,
+    target: Tick,
+    out: &mut Vec<Record>,
+    run: usize,
+) -> Result<()> {
+    let (Some(repeat), Some(state)) = (phase.definition.loops.first(), phase.repeat.as_mut())
+    else {
+        return Ok(());
+    };
+    if state.exited || state.current.is_some() || target <= repeat.start {
+        return Ok(());
+    }
+    let offset = target - repeat.start;
+    let completed = offset / repeat.every;
+    let position = offset % repeat.every;
+    let event_count = i64::try_from(repeat.events.len()).unwrap_or(i64::MAX);
+    let partial_count = i64::try_from(
+        repeat
+            .events
+            .iter()
+            .filter(|event| event.at < position)
+            .count(),
+    )
+    .unwrap_or(i64::MAX);
+    ensure!(
+        completed <= 1_000_000
+            && completed
+                .saturating_mul(event_count)
+                .saturating_add(partial_count)
+                <= 1_000_000,
+        "Phase sync would skip more than one million loop iterations or events in {}",
+        repeat.id
+    );
+
+    let mut events: Vec<_> = repeat.events.iter().enumerate().collect();
+    events.sort_by_key(|(_, event)| (event.at, event.order));
+    for _ in 0..completed {
+        for (_, event) in &events {
+            record(out, at, "skipped", event.id.clone(), run);
+        }
+    }
+    let mut clock = Clock {
+        base_ms: at - position * 100,
+        not_before: at,
+        ..Clock::default()
+    };
+    for (index, event) in events {
+        if event.at < position {
+            clock.processed.insert(index);
+            record(out, at, "skipped", event.id.clone(), run);
+        }
+    }
+    state.current = Some(clock);
+    Ok(())
+}
+
 fn correct_phase(
     phase: &mut PhaseState<'_>,
     at: i64,
@@ -452,13 +511,7 @@ fn correct_phase(
     out: &mut Vec<Record>,
     run: usize,
 ) -> Result<()> {
-    if let (Some(repeat), Some(state)) = (phase.definition.loops.first(), phase.repeat.as_ref()) {
-        ensure!(
-            state.exited || state.current.is_some() || target <= repeat.start,
-            "Cannot replay phase sync across the start of loop {}; this transition is not defined yet",
-            repeat.id
-        );
-    }
+    enter_repeat_after_jump(phase, at, target, out, run)?;
     correct(
         &phase.definition.events,
         &mut phase.clock,
