@@ -54,6 +54,63 @@ pub(super) fn consistent_order<K: Ord>(common: &Timings<K>) -> bool {
     })
 }
 
+// Keep only nodes on every longest consensus chain, e.g. A,B,C,D vs A,C,B,D retains A,D.
+pub(super) fn backbone<K: Ord + Clone>(common: &Timings<K>) -> BTreeSet<K> {
+    if consistent_order(common) {
+        return common.keys().cloned().collect();
+    }
+    let mut nodes: Vec<_> = common.iter().collect();
+    nodes.sort_by(|(a, times), (b, other)| (times.first(), a).cmp(&(other.first(), b)));
+    let before = |left: &Vec<i64>, right: &Vec<i64>| {
+        !left.is_empty()
+            && left.len() == right.len()
+            && left
+                .iter()
+                .zip(right)
+                .all(|(a, b)| relation(*a, *b).is_lt())
+    };
+    let mut prefix = Vec::new();
+    for (_, times) in &nodes {
+        let length = nodes
+            .iter()
+            .zip(&prefix)
+            .filter(|((_, other), _)| before(other, times))
+            .map(|(_, length)| length + 1)
+            .max()
+            .unwrap_or(1);
+        prefix.push(length);
+    }
+    let mut suffix = Vec::new();
+    for (_, times) in nodes.iter().rev() {
+        let length = nodes
+            .iter()
+            .rev()
+            .zip(&suffix)
+            .filter(|((_, other), _)| before(times, other))
+            .map(|(_, length)| length + 1)
+            .max()
+            .unwrap_or(1);
+        suffix.push(length);
+    }
+    let longest = prefix.iter().copied().max().unwrap_or(0);
+    let eligible: Vec<_> = nodes
+        .iter()
+        .zip(prefix)
+        .zip(suffix.into_iter().rev())
+        .filter(|((_, a), b)| a + b - 1 == longest)
+        .map(|(((key, _), rank), _)| (*key, rank))
+        .collect();
+    let mut ranks = BTreeMap::<_, usize>::new();
+    for (_, rank) in &eligible {
+        *ranks.entry(*rank).or_default() += 1;
+    }
+    eligible
+        .into_iter()
+        .filter(|(_, rank)| ranks.get(rank) == Some(&1))
+        .map(|(key, _)| key.clone())
+        .collect()
+}
+
 fn timings(pull: &Pull) -> Result<Timings> {
     let mut table = Timings::new();
     for batch in &pull.batches {
@@ -221,6 +278,43 @@ mod tests {
             ("A", &[100, 400]),
             ("B", &[400, 100])
         ])));
+    }
+
+    #[test]
+    fn reordered_mechanics_do_not_discard_the_shared_continuation() {
+        let input = table(&[
+            ("A", &[0, 0]),
+            ("B", &[1000, 2000]),
+            ("C", &[2000, 1000]),
+            ("D", &[3000, 3000]),
+        ]);
+        assert_eq!(
+            backbone(&input),
+            BTreeSet::from(["A".to_owned(), "D".to_owned()])
+        );
+    }
+
+    proptest! {
+        #[test]
+        fn backbone_agrees_with_all_longest_consensus_chains(samples in prop::collection::vec((0_i64..1000,0_i64..1000),0..8)) {
+            let input:Timings<usize>=samples.iter().enumerate().map(|(i,(a,b))|(i,vec![*a,*b])).collect();
+            if consistent_order(&input) {
+                prop_assert_eq!(backbone(&input),input.keys().copied().collect::<BTreeSet<_>>());
+                return Ok(());
+            }
+            let mut chains=Vec::new();
+            for mask in 0_usize..(1<<samples.len()) {
+                let mut nodes:Vec<_>=input.iter().filter(|(i,_)|mask&(1<<**i)!=0).collect();
+                nodes.sort_by_key(|(i,times)|(times.first(),*i));
+                let valid=nodes.iter().enumerate().all(|(index,(_,a))|nodes.iter().skip(index+1).all(|(_,b)|a.iter().zip(*b).all(|(a,b)|relation(*a,*b).is_lt())));
+                if valid {chains.push(nodes.into_iter().map(|(key,_)|*key).collect::<BTreeSet<_>>());}
+            }
+            let longest=chains.iter().map(BTreeSet::len).max().unwrap();
+            let mut maximal=chains.iter().filter(|chain|chain.len()==longest);
+            let mut forced=maximal.next().unwrap().clone();
+            for chain in maximal {forced=forced.intersection(chain).copied().collect();}
+            prop_assert_eq!(backbone(&input),forced);
+        }
     }
 
     #[rstest::rstest]

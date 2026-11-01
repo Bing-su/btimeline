@@ -290,7 +290,7 @@ fn wipe_without_an_observed_anchor_remains_unresolved() {
 }
 
 #[test]
-fn a_failed_validation_fit_is_reported_without_blocking_the_final_fit() {
+fn validation_order_conflicts_are_localized_instead_of_blocking_the_final_fit() {
     let dir = tempfile::tempdir().unwrap();
     let paths = vec![
         input(dir.path(), 0, &[0, 1, 2, 3], true),
@@ -307,8 +307,14 @@ fn a_failed_validation_fit_is_reported_without_blocking_the_final_fit() {
         .iter()
         .find(|row| row["method"] == "automatic-validation-v1")
         .unwrap();
-    assert_eq!(validation["status"], "unresolved");
-    assert_eq!(validation["reason"], "validation model failed");
+    assert_eq!(validation["status"], "evaluated");
+    assert!(
+        validation["model_diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| row["method"] == "local-order-branch-v1" && row["status"] == "generated")
+    );
     assert_eq!(report["events"].as_array().unwrap().len(), 2);
 }
 
@@ -374,5 +380,33 @@ fn a_long_silent_tail_does_not_turn_due_events_into_censored_success() {
     assert_eq!(
         later["reason"],
         "censored alignment but training timing overlaps observed duration"
+    );
+}
+
+#[test]
+fn a_reordered_validation_anchor_does_not_hide_earlier_observations() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = vec![
+        input(dir.path(), 0, &[0, 1, 2, 3], true),
+        input(dir.path(), 1, &[0, 1, 2, 3], true),
+        input(dir.path(), 2, &[2, 0, 1, 3], true),
+    ];
+    let output = dir.path().join("timeline.kdl");
+    generate(&paths, "raid", &output);
+    let report: Value =
+        serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
+    let validation = report["alignment_diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["method"] == "automatic-validation-v1")
+        .unwrap();
+    assert_eq!(
+        validation["checks"][0]["scopes"][0]["result"]["status"],
+        "unresolved"
+    );
+    assert_eq!(
+        validation["checks"][0]["scopes"][0]["result"]["reason"],
+        "common anchor order contradicts reference origin"
     );
 }

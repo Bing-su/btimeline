@@ -129,6 +129,19 @@ fn align(
     })
 }
 
+fn origin_conflicts(
+    events: &[&Event],
+    table: &BTreeMap<Signal, Vec<i64>>,
+    reference: &str,
+    reference_at: i64,
+    at: i64,
+) -> bool {
+    events.iter().filter(|event|event.occurrence.is_none()).any(|event| {
+        event.samples.get(reference).is_some_and(|time|*time>reference_at)
+            && table.get(&event.signal).is_some_and(|times|matches!(times.as_slice(),[other] if *other+super::super::common::ORDER_RESOLUTION_MS<at))
+    })
+}
+
 fn check(
     pull: &Pull,
     reference: &Pull,
@@ -155,6 +168,12 @@ fn check(
         .samples
         .get(&reference_id)
         .context("Missing reference origin")?;
+    // A moved anchor must not make earlier observed mechanics look absent, e.g. A,C vs C,A.
+    if origin_conflicts(events, &table, &reference_id, reference_at, at) {
+        return Ok(
+            json!({"status":"unresolved","reason":"common anchor order contradicts reference origin"}),
+        );
+    }
     // shortcut: defer a scope crossing reported phases until attempt phase segmentation is implemented.
     let model = interval(
         reference,

@@ -174,7 +174,7 @@ impl Run for GenerateCommand {
     fn run(self) -> Self::Output {
         let count =
             crate::generate::generate(&self.inputs, self.mode.parse()?, self.output.as_std_path())?;
-        println!("Generated {} ({} common cast events).", self.output, count);
+        println!("Generated {} ({} event definitions).", self.output, count);
         println!("Evidence: {}", self.output.with_extension("evidence.json"));
         println!("Review the generation evidence for unsupported paths and excluded observations.");
         Ok(())

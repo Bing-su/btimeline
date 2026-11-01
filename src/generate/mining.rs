@@ -15,6 +15,7 @@ mod common;
 mod occurrences;
 mod repeats;
 mod validation;
+pub(super) use occurrences::{Branch, Event as CommonEvent};
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub(super) enum Identifier {
@@ -82,7 +83,7 @@ impl Analysis {
     ) -> Result<occurrences::Common> {
         let pulls: Vec<_> = self.pulls.iter().collect();
         let common = Self::common(&pulls, &include)?;
-        let mut result = occurrences::expand(&pulls, common, &include)?;
+        let mut result = occurrences::expand(&pulls, common, &include, !boss_only)?;
         result
             .diagnostics
             .push(validation::check(&pulls, &include, boss_only)?);
@@ -110,10 +111,6 @@ impl Analysis {
         let tables: Vec<_> = completed.iter().map(|pull| timing_table(pull)).collect();
         let mut common = common::anchors(&tables);
         common.retain(|signal, _| include(signal));
-        ensure!(
-            common::consistent_order(&common),
-            "Completed logs disagree on common order"
-        );
         Ok(common
             .into_iter()
             .map(|(signal, times)| {

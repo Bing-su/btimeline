@@ -7,7 +7,9 @@ use camino::Utf8PathBuf;
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 use serde_json::{Value, json};
 
-use super::mining::{Analysis, Identifier, Signal};
+use super::mining::{Analysis, Branch, CommonEvent, Identifier, Signal};
+
+mod branches;
 
 #[derive(Clone, Copy, Debug, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -50,8 +52,46 @@ struct Anchor {
     alignment: Value,
 }
 
+struct Prepared {
+    events: Vec<Anchor>,
+    branches: Vec<Branch>,
+    excluded: Vec<Value>,
+    diagnostics: Vec<Value>,
+}
+
+fn anchor(analysis: &Analysis, row: &CommonEvent) -> Result<Anchor> {
+    let activity = row.signal.clone();
+    let Identifier::Ability(ability) = activity.identifier else {
+        anyhow::bail!("Cast requires an ability ID")
+    };
+    ensure!(ability >= 0, "Cast requires a nonnegative ability ID");
+    let names = analysis
+        .ability_names
+        .get(&ability)
+        .context("Missing cast name")?;
+    ensure!(
+        names.len() == 1,
+        "Ambiguous cast name for ability {ability:X}"
+    );
+    let name = names.first().context("Missing cast name")?.clone();
+    let source = activity
+        .source
+        .clone()
+        .filter(|name| !name.trim().is_empty())
+        .context("Missing caster name")?;
+    Ok(Anchor {
+        activity,
+        name,
+        source,
+        ability: format!("{ability:X}"),
+        samples: row.samples.clone(),
+        occurrence: row.occurrence,
+        alignment: row.evidence.clone(),
+    })
+}
+
 // Consume the shared in-memory mining result; generation never requires a serialized graph input.
-fn anchors(analysis: &Analysis, mode: Mode) -> Result<(Vec<Anchor>, Vec<Value>, Vec<Value>)> {
+fn anchors(analysis: &Analysis, mode: Mode) -> Result<Prepared> {
     let include = |signal: &Signal| {
         signal.kind == "cast"
             && (matches!(mode, Mode::Raid)
@@ -67,52 +107,44 @@ fn anchors(analysis: &Analysis, mode: Mode) -> Result<(Vec<Anchor>, Vec<Value>, 
         );
     }
     let common = analysis.aligned(include, !matches!(mode, Mode::Raid))?;
-    let mut anchors = Vec::new();
-    let mut seen = BTreeSet::new();
+    let events = common
+        .events
+        .iter()
+        .map(|row| anchor(analysis, row))
+        .collect::<Result<Vec<_>>>()?;
+    let seen: BTreeSet<_> = common
+        .events
+        .iter()
+        .map(|row| row.signal.clone())
+        .chain(
+            common
+                .branches
+                .iter()
+                .flat_map(|branch| &branch.options)
+                .flat_map(|option| option.events.iter().map(|event| event.signal.clone())),
+        )
+        .collect();
     let mut excluded = Vec::new();
-    for row in common.events {
-        let activity = row.signal;
-        seen.insert(activity.clone());
-        let Identifier::Ability(ability) = activity.identifier else {
-            anyhow::bail!("Cast requires an ability ID");
-        };
-        ensure!(ability >= 0, "Cast requires a nonnegative ability ID");
-        let names = analysis
-            .ability_names
-            .get(&ability)
-            .context("Missing cast name")?;
-        ensure!(
-            names.len() == 1,
-            "Ambiguous cast name for ability {ability:X}"
-        );
-        let name = names.first().context("Missing cast name")?.clone();
-        let source = activity
-            .source
-            .clone()
-            .filter(|name| !name.trim().is_empty())
-            .context("Missing caster name")?;
-        anchors.push(Anchor {
-            activity,
-            name,
-            source,
-            ability: format!("{ability:X}"),
-            samples: row.samples,
-            occurrence: row.occurrence,
-            alignment: row.evidence,
-        });
-    }
     for activity in analysis.signals().difference(&seen) {
         let reason = if activity.kind != "cast" {
             "non-cast activity"
         } else if !include(activity) {
             "not a Boss actor"
         } else {
-            "no forced common occurrence"
+            "no forced common occurrence or supported branch"
         };
         excluded.push(json!({"activity":activity,"reason":reason}));
     }
-    ensure!(!anchors.is_empty(), "No unique common casts found");
-    Ok((anchors, excluded, common.diagnostics))
+    ensure!(
+        !events.is_empty(),
+        "No common casts with a supported shared order"
+    );
+    Ok(Prepared {
+        events,
+        branches: common.branches,
+        excluded,
+        diagnostics: common.diagnostics,
+    })
 }
 
 fn prop(node: &mut KdlNode, name: &str, value: impl Into<KdlValue>) {
@@ -194,6 +226,7 @@ fn schedule(
     anchors: &[Anchor],
     zeros: &BTreeMap<String, i64>,
     mode: Mode,
+    context: Option<&str>,
 ) -> Result<(Vec<KdlNode>, Vec<Value>)> {
     let mut events = Vec::new();
     let mut evidence = Vec::new();
@@ -234,6 +267,9 @@ fn schedule(
         if let Some(occurrence) = anchor.occurrence {
             event_id.push_str(&format!("-{occurrence:02}"));
         }
+        if let Some(context) = context {
+            event_id = format!("{context}-{event_id}");
+        }
         ensure!(
             used.insert(event_id.clone()),
             "Generated event ID collision: {event_id}"
@@ -273,7 +309,11 @@ fn schedule(
     events.sort_by(|left, right| (left.0, &left.1).cmp(&(right.0, &right.1)));
     // Cactbot opening anchors use wider windows to correct the initial combat-clock estimate.
     if matches!(mode, Mode::Raid)
-        && let Some((_, _, event)) = events.first_mut()
+        && let Some((_, _, event)) = events.iter_mut().find(|(_, _, event)| {
+            event
+                .children()
+                .is_some_and(|body| !body.nodes().is_empty())
+        })
     {
         let sync = event
             .ensure_children()
@@ -299,7 +339,12 @@ struct Rendered {
 }
 
 // Boss metadata supplies scope boundaries; travel and preceding trash never share a boss clock.
-fn compose(anchors: Vec<Anchor>, mode: Mode) -> Result<Rendered> {
+fn compose(
+    analysis: &Analysis,
+    anchors: Vec<Anchor>,
+    choices: Vec<Branch>,
+    mode: Mode,
+) -> Result<Rendered> {
     let mut scopes = BTreeMap::<Option<String>, Vec<Anchor>>::new();
     for anchor in anchors {
         let scope = if matches!(mode, Mode::Raid) {
@@ -315,8 +360,27 @@ fn compose(anchors: Vec<Anchor>, mode: Mode) -> Result<Rendered> {
     for (name, anchors) in scopes {
         let (zeros, origins) = clocks(&anchors, mode)?;
         result.nodes.extend(starts(mode, &origins));
-        let (events, mut evidence) = schedule(&anchors, &zeros, mode)?;
-        let phase_id = name.as_deref().map(slug);
+        let (mut events, mut evidence) = schedule(&anchors, &zeros, mode, None)?;
+        let branches = branches::render(analysis, &choices, &zeros)?;
+        let has_branches = !branches.nodes.is_empty();
+        // Place choices by their opening time so the generated schedule reads chronologically.
+        for (choice, node) in choices.iter().zip(branches.nodes) {
+            let position = events
+                .iter()
+                .position(|event| {
+                    event
+                        .get(1)
+                        .and_then(KdlValue::as_float)
+                        .is_some_and(|at| at > choice.open as f64 / 10.0)
+                })
+                .unwrap_or(events.len());
+            events.insert(position, node);
+        }
+        evidence.extend(branches.events);
+        let phase_id = name
+            .as_deref()
+            .map(slug)
+            .or_else(|| has_branches.then(|| "combat".into()));
         result.origins.push(json!({"phase":phase_id,"policy":if matches!(mode,Mode::Raid){"combat-start"}else{"boss-cast"},
             "activities":origins.iter().map(|anchor|&anchor.activity).collect::<Vec<_>>(),"samples":zeros}));
         if let Some(phase_id) = phase_id {
@@ -326,6 +390,13 @@ fn compose(anchors: Vec<Anchor>, mode: Mode) -> Result<Rendered> {
             );
             let mut phase = KdlNode::new("phase");
             phase.push(phase_id.clone());
+            if matches!(mode, Mode::Raid) {
+                phase.ensure_children().nodes_mut().push(signal(
+                    "enter",
+                    "InCombat",
+                    &[("inGameCombat", "1")],
+                ));
+            }
             for origin in &origins {
                 phase.ensure_children().nodes_mut().push(signal(
                     "enter",
@@ -362,14 +433,19 @@ fn compose(anchors: Vec<Anchor>, mode: Mode) -> Result<Rendered> {
 // Mode is the only domain input; reading, mining, runtime policy, validation and publication stay internal.
 pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Result<usize> {
     let analysis = super::mining::analyze(inputs)?;
-    let (anchors, mut excluded, alignment_diagnostics) = anchors(&analysis, mode)?;
+    let Prepared {
+        events: anchors,
+        branches,
+        mut excluded,
+        diagnostics: alignment_diagnostics,
+    } = anchors(&analysis, mode)?;
     let represented: BTreeSet<_> = anchors.iter().map(|anchor| anchor.source.clone()).collect();
     if !matches!(mode, Mode::Raid) {
         for boss in analysis.boss_names.difference(&represented) {
             excluded.push(json!({"boss":boss,"reason":"no unique common casts for this boss"}));
         }
     }
-    let rendered = compose(anchors, mode)?;
+    let rendered = compose(&analysis, anchors, branches, mode)?;
     ensure!(
         !rendered.events.is_empty(),
         "No common cast events after the selected origin"
@@ -396,7 +472,7 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
         "timeline_sha256":timeline_sha256,"policy_reference":"cactbot@e79ea7f16093be5b80cda0e2d5bc8eb899d6fb4b",
         "origins":rendered.origins,
         "events":rendered.events,"excluded":excluded,"alignment_diagnostics":alignment_diagnostics,
-        "not_checked":["live ACT/runtime behavior","English name accuracy","missing-signal coverage","branches and loops","internal boss phases and helper assignment","completion signals and content-specific lifecycle exceptions"]});
+        "not_checked":["live ACT/runtime behavior","English name accuracy","missing-signal coverage","branch path conformance in automatic validation","correlated choices, variable joins and loops","internal boss phases and helper assignment","completion signals and content-specific lifecycle exceptions"]});
     crate::output::write_new(&[
         (output, timeline.as_bytes()),
         (

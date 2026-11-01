@@ -6,6 +6,7 @@ use serde_json::{Value, json};
 use super::{Pull, Signal, alignment};
 
 mod attempts;
+mod branches;
 
 pub(in crate::generate) struct Event {
     pub signal: Signal,
@@ -17,6 +18,21 @@ pub(in crate::generate) struct Event {
 pub(in crate::generate) struct Common {
     pub events: Vec<Event>,
     pub diagnostics: Vec<Value>,
+    pub branches: Vec<Branch>,
+}
+
+pub(in crate::generate) struct Branch {
+    pub source: String,
+    pub join: Signal,
+    pub open: i64,
+    pub close: i64,
+    pub options: Vec<BranchOption>,
+}
+
+pub(in crate::generate) struct BranchOption {
+    pub trigger: Signal,
+    pub triggers: BTreeMap<String, i64>,
+    pub events: Vec<Event>,
 }
 
 struct Observation<'a> {
@@ -121,7 +137,7 @@ fn interval<'a>(
     Ok(groups(result))
 }
 
-fn unrepresented(pull: &Pull, events: &[Event], include: &impl Fn(&Signal) -> bool) -> Value {
+fn unrepresented(pull: &Pull, events: &[&Event], include: &impl Fn(&Signal) -> bool) -> Value {
     let id = trace(pull);
     let rows: Vec<_> = pull
         .batches
@@ -204,7 +220,7 @@ fn events(pulls: &[&Pull], groups: &[&Group<'_>], bounds: &Value) -> Result<Vec<
 
 fn expand_interval(
     pulls: &[&Pull],
-    rows: &[Vec<Group<'_>>],
+    rows: &[&[Group<'_>]],
     bounds: Value,
     result: &mut Common,
 ) -> Result<()> {
@@ -289,9 +305,21 @@ pub(super) fn expand(
     pulls: &[&Pull],
     unique: BTreeMap<Signal, BTreeMap<String, i64>>,
     include: impl Fn(&Signal) -> bool,
+    raid: bool,
 ) -> Result<Common> {
     let completed = completed(pulls, &include);
     let reference = trace(completed.first().context("Missing reference")?);
+    let table = unique
+        .iter()
+        .map(|(signal, samples)| (signal.clone(), samples.values().copied().collect()))
+        .collect();
+    let backbone = super::common::backbone(&table);
+    let all_unique = unique;
+    let unique: BTreeMap<_, _> = all_unique
+        .iter()
+        .filter(|(signal, _)| backbone.contains(*signal))
+        .map(|(signal, samples)| (signal.clone(), samples.clone()))
+        .collect();
     let mut result = Common {
         events: unique
             .iter()
@@ -303,6 +331,7 @@ pub(super) fn expand(
             })
             .collect(),
         diagnostics: Vec::new(),
+        branches: Vec::new(),
     };
     let mut scopes = BTreeMap::<_, Vec<_>>::new();
     for (signal, samples) in &unique {
@@ -329,18 +358,42 @@ pub(super) fn expand(
                 })
                 .collect::<Result<Vec<_>, _>>();
             match rows {
-                Ok(rows) => expand_interval(&completed, &rows, bounds, &mut result)?,
+                Ok(rows) => expand_interval(
+                    &completed,
+                    &rows.iter().map(Vec::as_slice).collect::<Vec<_>>(),
+                    bounds,
+                    &mut result,
+                )?,
                 Err((trace, reason)) => result.diagnostics.push(
                     json!({"bounds":bounds,"trace":trace,"status":"unresolved","reason":reason}),
                 ),
             }
         }
     }
+    branches::discover(
+        &completed,
+        &all_unique,
+        &unique,
+        &include,
+        raid,
+        &mut result,
+    )?;
     // A represented B-02 must not hide B-01 outside the bounds or in an ambiguous interval.
+    let represented: Vec<_> = result
+        .events
+        .iter()
+        .chain(
+            result
+                .branches
+                .iter()
+                .flat_map(|branch| &branch.options)
+                .flat_map(|option| &option.events),
+        )
+        .collect();
     result.diagnostics.extend(
         completed
             .iter()
-            .map(|pull| unrepresented(pull, &result.events, &include)),
+            .map(|pull| unrepresented(pull, &represented, &include)),
     );
     result.diagnostics.extend(attempts::checks(
         pulls.iter().copied().filter(|pull| !pull.kill),

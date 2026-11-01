@@ -16,7 +16,7 @@ pub(super) fn check(
     let mut completed: Vec<_> = pulls.iter().copied().filter(|pull| pull.kill).collect();
     completed.sort_by(|left, right| (&left.report, left.fight).cmp(&(&right.report, right.fight)));
     let base = json!({"selection":"greatest-report-and-fight-v1",
-        "final_fit":"all-completed-inputs","not_checked":["final KDL execution and timing","all possible validation splits","statistical independence","ACT signal equivalence"]});
+        "final_fit":"all-completed-inputs","not_checked":["final KDL execution and timing","branch path conformance","all possible validation splits","statistical independence","ACT signal equivalence"]});
     if completed.len() < 3 {
         return Ok(
             json!({"method":"automatic-validation-v1","policy":base,"status":"insufficient-completed-pulls","completed":completed.len(),"required":3}),
@@ -41,7 +41,7 @@ pub(super) fn check(
                     .is_some_and(|source| bosses.contains(source)))
     };
     let model = Analysis::common(&completed, include)
-        .and_then(|common| occurrences::expand(&completed, common, include));
+        .and_then(|common| occurrences::expand(&completed, common, include, !boss_only));
     let model = match model {
         Ok(model) if !model.events.is_empty() => model,
         Ok(_) => {
