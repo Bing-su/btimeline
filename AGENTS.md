@@ -6,6 +6,9 @@
 | -------------------------------------------------------- | ---------------------------------------------- |
 | Timeline syntax, validation, or execution semantics      | [Timeline schema](docs/TIMELINE_SCHEMA.md)     |
 | Replay input, supported behavior, or verification claims | [Offline replay guide](docs/OFFLINE_REPLAY.md) |
+| FFLogs collection, mining, generation, or project goals  | [Implementation plan](docs/PLAN.md)            |
+
+Final KDL must run in an external executor without evidence or FFLogs-only signals. Keep observations and uncertainty traceable, and report what replay could not verify.
 
 ## Preferences
 
