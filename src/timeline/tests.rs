@@ -34,7 +34,7 @@ fn structure_rejects_invalid_documents(#[case] source: &str) {
 }
 
 #[test]
-fn branch_constraints_and_replay_capability_are_separate() -> Result<()> {
+fn branch_constraints_and_replay_capability_are_separate() {
     let body = r#"
     timeline 1 "Branches" {
         phase "p" {
@@ -51,10 +51,10 @@ fn branch_constraints_and_replay_capability_are_separate() -> Result<()> {
             }
         }
     }"#;
-    let model = parse(body)?;
+    let model = parse(body).unwrap();
     assert_eq!(model.event_count, 3);
-    let input = recording(0, serde_json::json!([]))?;
-    assert!(replay(&model, &input).is_err());
+    let input = recording(0, serde_json::json!([])).unwrap();
+    replay(&model, &input).unwrap_err();
     for invalid in [
         body.replace("when \"C\" at=10.0 before=1.0 after=1.0", "when \"C\""),
         body.replace("at=10.0", "at=17.0"),
@@ -71,15 +71,14 @@ fn branch_constraints_and_replay_capability_are_separate() -> Result<()> {
     ] {
         assert!(parse(&invalid).is_err(), "Accepted {invalid}");
     }
-    Ok(())
 }
 
 #[test]
-fn lifecycle_cancels_same_time_events_and_restarts_fresh() -> Result<()> {
-    let model = parse(include_str!("../../tests/fixtures/timeline/basic.kdl"))?;
+fn lifecycle_cancels_same_time_events_and_restarts_fresh() {
+    let model = parse(include_str!("../../tests/fixtures/timeline/basic.kdl")).unwrap();
     let input: Recording =
-        serde_json::from_str(include_str!("../../tests/fixtures/timeline/basic.json"))?;
-    let output = replay(&model, &input)?;
+        serde_json::from_str(include_str!("../../tests/fixtures/timeline/basic.json")).unwrap();
+    let output = replay(&model, &input).unwrap();
     assert!(
         output
             .iter()
@@ -101,11 +100,10 @@ fn lifecycle_cancels_same_time_events_and_restarts_fresh() -> Result<()> {
             .iter()
             .any(|r| r.action == "unobserved" && r.detail == "opening-hit" && r.run == 2)
     );
-    Ok(())
 }
 
 #[test]
-fn raw_order_rounding_ambiguity_and_forward_backward_sync() -> Result<()> {
+fn raw_order_rounding_ambiguity_and_forward_backward_sync() {
     let source = r#"timeline 1 "x" {
         start "Start"
         phase "p" {
@@ -118,7 +116,7 @@ fn raw_order_rounding_ambiguity_and_forward_backward_sync() -> Result<()> {
             event "tail" 5.0 name="Tail"
         }
     }"#;
-    let model = parse(source)?;
+    let model = parse(source).unwrap();
     let input = recording(
         7000,
         serde_json::json!([
@@ -126,8 +124,9 @@ fn raw_order_rounding_ambiguity_and_forward_backward_sync() -> Result<()> {
             {"at_ms":1000,"type":"Forward","fields":{}},
             {"at_ms":1040,"type":"Backward","fields":{}}
         ]),
-    )?;
-    let output = replay(&model, &input)?;
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
     assert!(
         output
             .iter()
@@ -142,9 +141,11 @@ fn raw_order_rounding_ambiguity_and_forward_backward_sync() -> Result<()> {
     );
     assert_eq!(output.iter().filter(|r| r.action == "sync").count(), 2);
     assert!(!output.iter().any(|r| r.action == "ambiguous"));
-    let ambiguous = parse(&source.replace("sync 1.0 \"Backward\"", "sync 1.0 \"Forward\""))?;
+    let ambiguous =
+        parse(&source.replace("sync 1.0 \"Backward\"", "sync 1.0 \"Forward\"")).unwrap();
     assert!(
-        replay(&ambiguous, &input)?
+        replay(&ambiguous, &input)
+            .unwrap()
             .iter()
             .any(|r| r.action == "ambiguous")
     );
@@ -154,13 +155,13 @@ fn raw_order_rounding_ambiguity_and_forward_backward_sync() -> Result<()> {
             {"at_ms":100,"type":"Start","fields":{}},
             {"at_ms":99,"type":"Backward","fields":{}}
         ]),
-    )?;
-    assert!(replay(&model, &out_of_order).is_err());
-    Ok(())
+    )
+    .unwrap();
+    replay(&model, &out_of_order).unwrap_err();
 }
 
 #[test]
-fn idle_enter_is_ignored_and_regex_matches_whole_fields() -> Result<()> {
+fn idle_enter_is_ignored_and_regex_matches_whole_fields() {
     let model = parse(
         r#"timeline 1 "x" {
         start "Start"
@@ -169,7 +170,8 @@ fn idle_enter_is_ignored_and_regex_matches_whole_fields() -> Result<()> {
             event "e" 0.0 name="Entry"
         }
     }"#,
-    )?;
+    )
+    .unwrap();
     let input = recording(
         5000,
         serde_json::json!([
@@ -178,15 +180,15 @@ fn idle_enter_is_ignored_and_regex_matches_whole_fields() -> Result<()> {
             {"at_ms":2000,"type":"Enter","fields":{"id":"A","source":"Other Boss"}},
             {"at_ms":3000,"type":"Enter","fields":{"id":"B","source":"Boss"}}
         ]),
-    )?;
-    let output = replay(&model, &input)?;
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
     let phase_times: Vec<_> = output
         .iter()
         .filter(|r| r.action == "phase")
         .map(|r| r.at_ms)
         .collect();
     assert_eq!(phase_times, [3000]);
-    Ok(())
 }
 
 #[rstest]
@@ -199,31 +201,35 @@ fn ecmascript_patterns_match_whole_fields(
     #[case] pattern: &str,
     #[case] accepted: &str,
     #[case] rejected: &str,
-) -> Result<()> {
+) {
     // Exercise the parser's real wrapper so changes to capture numbering or anchors are visible.
     let model = parse(&format!(
         r##"timeline 1 "Pattern" {{
         start "Start" {{ regex "source" #"{pattern}"#; }}
         event "hit" 0.0 name="Hit"
     }}"##
-    ))?;
+    ))
+    .unwrap();
     for (value, expected) in [(accepted, true), (rejected, false)] {
         let input = recording(
             0,
             serde_json::json!([
                 {"at_ms":0,"type":"Start","fields":{"source":value}}
             ]),
-        )?;
+        )
+        .unwrap();
         assert_eq!(
-            replay(&model, &input)?.iter().any(|r| r.action == "event"),
+            replay(&model, &input)
+                .unwrap()
+                .iter()
+                .any(|r| r.action == "event"),
             expected
         );
     }
-    Ok(())
 }
 
 #[test]
-fn source_based_post_adds_sync_moves_tulidisaster() -> Result<()> {
+fn source_based_post_adds_sync_moves_tulidisaster() {
     // Valigarmanda source offsets: 1800.0 -> 1803.9 -> 1816.0; observations are synthetic.
     let model = parse(
         r#"timeline 1 "Valigarmanda post-add excerpt" {
@@ -236,29 +242,31 @@ fn source_based_post_adds_sync_moves_tulidisaster() -> Result<()> {
             }
         }
     }"#,
-    )?;
+    )
+    .unwrap();
     let input = recording(
         318000,
         serde_json::json!([
             {"at_ms":300000,"type":"Ability","fields":{"id":"9565"}},
             {"at_ms":304900,"type":"Ability","fields":{"id":"95B3"}}
         ]),
-    )?;
-    let output = replay(&model, &input)?;
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
     assert!(output.iter().any(|r| r.action == "event"
         && r.detail.starts_with("tulidisaster-first:")
         && r.at_ms == 317000));
-    Ok(())
 }
 
 #[test]
-fn quantized_window_boundaries_and_input_shape_are_strict() -> Result<()> {
+fn quantized_window_boundaries_and_input_shape_are_strict() {
     let model = parse(
         r#"timeline 1 "Boundary" {
         start "Start"
         event "e" 2.0 name="Hit" { sync 1.0 "Signal" before=0.0 after=0.0; }
     }"#,
-    )?;
+    )
+    .unwrap();
     for (at_ms, matches) in [(949, false), (950, true), (1049, true), (1050, false)] {
         let input = recording(
             3000,
@@ -266,9 +274,13 @@ fn quantized_window_boundaries_and_input_shape_are_strict() -> Result<()> {
                 {"at_ms":0,"type":"Start","fields":{}},
                 {"at_ms":at_ms,"type":"Signal","fields":{}}
             ]),
-        )?;
+        )
+        .unwrap();
         assert_eq!(
-            replay(&model, &input)?.iter().any(|r| r.action == "sync"),
+            replay(&model, &input)
+                .unwrap()
+                .iter()
+                .any(|r| r.action == "sync"),
             matches
         );
     }
@@ -276,10 +288,9 @@ fn quantized_window_boundaries_and_input_shape_are_strict() -> Result<()> {
         serde_json::json!({"version":1,"end_ms":0,"observations":[],"unknown":true}),
         serde_json::json!({"version":1,"end_ms":0,"observations":[{"at_ms":0,"type":"Start","fields":{"id":1}}]}),
     ] {
-        assert!(serde_json::from_value::<Recording>(invalid).is_err());
+        serde_json::from_value::<Recording>(invalid).unwrap_err();
     }
-    assert!(replay(&model, &recording(-1, serde_json::json!([]))?).is_err());
-    Ok(())
+    replay(&model, &recording(-1, serde_json::json!([])).unwrap()).unwrap_err();
 }
 
 proptest! {
