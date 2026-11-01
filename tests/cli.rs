@@ -263,10 +263,11 @@ fn mine_reports_common_progress_without_treating_wipes_as_missing_suffixes(#[cas
     let output = dir.path().join("process.kdl");
     let base: Value = serde_json::from_slice(&fs::read(INPUT).unwrap()).unwrap();
     let observations = [
-        vec![(2000, 46376), (6000, 46377), (10000, 46378)],
+        vec![(2000, 46376), (6000, 46377), (10000, 46378), (15000, 46379)],
         vec![
             (if reversed { 10001 } else { 2100 }, 46376),
             (if reversed { 2100 } else { 10100 }, 46378),
+            (15100, 46379),
         ],
         vec![(2000, 46376)],
     ];
@@ -282,7 +283,8 @@ fn mine_reports_common_progress_without_treating_wipes_as_missing_suffixes(#[cas
             data["report"]["masterData"]["abilities"] = serde_json::json!([
             {"gameID":46376,"name":"A","type":"1"},
             {"gameID":46377,"name":"B","type":"1"},
-            {"gameID":46378,"name":"C","type":"1"}]);
+            {"gameID":46378,"name":"C","type":"1"},
+            {"gameID":46379,"name":"D","type":"1"}]);
             data["events"] = events
                 .iter()
                 .map(|(at, id)| {
@@ -326,7 +328,7 @@ fn mine_reports_common_progress_without_treating_wipes_as_missing_suffixes(#[cas
         .iter()
         .filter(|node| node.name().value() == "anchor")
         .collect();
-    assert_eq!(anchors.len(), 2);
+    assert_eq!(anchors.len(), 3);
     for anchor in anchors {
         assert_eq!(anchor.children().unwrap().nodes().len(), 2);
         assert!(
@@ -343,7 +345,14 @@ fn mine_reports_common_progress_without_treating_wipes_as_missing_suffixes(#[cas
             .iter()
             .filter(|node| node.name().value() == "step")
             .count(),
-        if reversed { 0 } else { 2 }
+        if reversed { 0 } else { 3 }
+    );
+    assert_eq!(
+        nodes
+            .iter()
+            .filter(|node| node.name().value() == "precedes")
+            .count(),
+        2
     );
 }
 

@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context, Result};
 use kdl::KdlNode;
@@ -53,6 +53,78 @@ fn timings(pull: &Pull) -> Result<Timings> {
     Ok(table)
 }
 
+// Intersect observed orders, then omit transitive edges; A->B->C needs no extra A->C.
+fn cover_relations(common: &Timings) -> Vec<(&str, &str)> {
+    let successors: BTreeMap<_, BTreeSet<_>> = common
+        .iter()
+        .map(|(from, times)| {
+            let after = common
+                .iter()
+                .filter(|(_, other)| {
+                    times
+                        .iter()
+                        .zip(other.iter())
+                        .all(|(left, right)| left < right)
+                })
+                .map(|(key, _)| key.as_str())
+                .collect();
+            (from.as_str(), after)
+        })
+        .collect();
+    successors
+        .iter()
+        .flat_map(|(from, targets)| {
+            targets
+                .iter()
+                .filter(|to| {
+                    !targets.iter().any(|middle| {
+                        successors
+                            .get(middle)
+                            .is_some_and(|after| after.contains(*to))
+                    })
+                })
+                .map(|to| (*from, *to))
+        })
+        .collect()
+}
+
+fn anchor_node(
+    key: &str,
+    times: &[i64],
+    completed: &[&Pull],
+    ids: &BTreeMap<String, String>,
+) -> Result<KdlNode> {
+    let mut anchor = KdlNode::new("anchor");
+    argument(
+        &mut anchor,
+        ids.get(key).context("Missing common activity")?.as_str(),
+    );
+    let mut sorted = times.to_vec();
+    sorted.sort_unstable();
+    prop(
+        &mut anchor,
+        "min_ms",
+        i128::from(*sorted.first().context("Empty anchor")?),
+    );
+    prop(
+        &mut anchor,
+        "median_ms",
+        i128::from(*sorted.get((sorted.len() - 1) / 2).context("Empty anchor")?),
+    );
+    prop(
+        &mut anchor,
+        "max_ms",
+        i128::from(*sorted.last().context("Empty anchor")?),
+    );
+    for (pull, at) in completed.iter().zip(times) {
+        let mut sample = KdlNode::new("sample");
+        argument(&mut sample, format!("{}/{}", pull.report, pull.fight));
+        prop(&mut sample, "at_ms", i128::from(*at));
+        anchor.ensure_children().nodes_mut().push(sample);
+    }
+    Ok(anchor)
+}
+
 pub(super) fn node(pulls: &[Pull], ids: &BTreeMap<String, String>) -> Result<KdlNode> {
     // Wipes are censored evidence, not completed traces that disprove an unobserved suffix.
     let completed: Vec<_> = pulls.iter().filter(|pull| pull.kill).collect();
@@ -77,35 +149,21 @@ pub(super) fn node(pulls: &[Pull], ids: &BTreeMap<String, String>) -> Result<Kdl
         i128::try_from(completed.len())?,
     );
     for (key, times) in &common {
-        let mut anchor = KdlNode::new("anchor");
+        node.ensure_children()
+            .nodes_mut()
+            .push(anchor_node(key, times, &completed, ids)?);
+    }
+    for (from, to) in cover_relations(&common) {
+        let mut relation = KdlNode::new("precedes");
         argument(
-            &mut anchor,
-            ids.get(key).context("Missing common activity")?.as_str(),
+            &mut relation,
+            ids.get(from).context("Missing common activity")?.as_str(),
         );
-        let mut sorted = times.clone();
-        sorted.sort_unstable();
-        prop(
-            &mut anchor,
-            "min_ms",
-            i128::from(*sorted.first().context("Empty anchor")?),
+        argument(
+            &mut relation,
+            ids.get(to).context("Missing common activity")?.as_str(),
         );
-        prop(
-            &mut anchor,
-            "median_ms",
-            i128::from(*sorted.get((sorted.len() - 1) / 2).context("Empty anchor")?),
-        );
-        prop(
-            &mut anchor,
-            "max_ms",
-            i128::from(*sorted.last().context("Empty anchor")?),
-        );
-        for (pull, at) in completed.iter().zip(times) {
-            let mut sample = KdlNode::new("sample");
-            argument(&mut sample, format!("{}/{}", pull.report, pull.fight));
-            prop(&mut sample, "at_ms", i128::from(*at));
-            anchor.ensure_children().nodes_mut().push(sample);
-        }
-        node.ensure_children().nodes_mut().push(anchor);
+        node.ensure_children().nodes_mut().push(relation);
     }
     if consistent {
         for group in sequence {
@@ -124,6 +182,8 @@ pub(super) fn node(pulls: &[Pull], ids: &BTreeMap<String, String>) -> Result<Kdl
 
 #[cfg(test)]
 mod tests {
+    use proptest::prelude::*;
+
     use super::*;
 
     fn table(entries: &[(&str, &[i64])]) -> Timings {
@@ -151,5 +211,63 @@ mod tests {
         assert_eq!(order(&common, 0), vec![vec!["A"], vec!["B"]]);
         assert_eq!(order(&common, 1), vec![vec!["B"], vec!["A"]]);
         assert_eq!(order(&common, 2), vec![vec!["A", "B"]]);
+    }
+
+    #[rstest::rstest]
+    #[case(table(&[("A", &[0,0]),("B", &[1,1]),("C", &[2,2])]), vec![("A","B"),("B","C")])]
+    #[case(table(&[("A", &[0,1]),("B", &[1,0]),("C", &[2,2])]), vec![("A","C"),("B","C")])]
+    #[case(table(&[("A", &[0,0]),("B", &[0,1]),("C", &[2,2])]), vec![("A","C"),("B","C")])]
+    #[case(table(&[("A", &[0,0]),("B", &[0,0])]), vec![])]
+    fn common_edges_preserve_only_agreed_order(
+        #[case] common: Timings,
+        #[case] expected: Vec<(&str, &str)>,
+    ) {
+        assert_eq!(cover_relations(&common), expected);
+    }
+
+    fn reachable(edges: &[(&str, &str)], from: &str, to: &str) -> bool {
+        let mut pending: Vec<_> = edges
+            .iter()
+            .filter(|(left, _)| *left == from)
+            .map(|(_, right)| *right)
+            .collect();
+        let mut visited = BTreeSet::new();
+        while let Some(current) = pending.pop() {
+            if current == to {
+                return true;
+            }
+            if !visited.insert(current) {
+                continue;
+            }
+            pending.extend(
+                edges
+                    .iter()
+                    .filter(|(left, _)| *left == current)
+                    .map(|(_, right)| *right),
+            );
+        }
+        false
+    }
+
+    proptest! {
+        #[test]
+        fn reduction_preserves_exactly_the_observed_partial_order(
+            samples in prop::collection::vec((0_i64..100, 0_i64..100), 0..12)
+        ) {
+            let common: Timings = samples.iter().enumerate().map(|(index, (first, second))| {
+                (format!("k{index}"), vec![*first, *second])
+            }).collect();
+            let edges = cover_relations(&common);
+            for (from, times) in &common {
+                for (to, other) in &common {
+                    let observed = times.iter().zip(other).all(|(left, right)| left < right);
+                    prop_assert_eq!(reachable(&edges, from, to), observed);
+                }
+            }
+            let reversed: Timings = common.iter().map(|(key, times)| {
+                (key.clone(), times.iter().rev().copied().collect())
+            }).collect();
+            prop_assert_eq!(cover_relations(&common), cover_relations(&reversed));
+        }
     }
 }
