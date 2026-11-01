@@ -7,6 +7,7 @@ use super::{Pull, Signal, alignment};
 
 mod attempts;
 mod branches;
+mod fragments;
 mod tail;
 
 pub(in crate::generate) struct Event {
@@ -41,6 +42,7 @@ struct Observation<'a> {
     batch: usize,
     at: i64,
     ordinal: usize,
+    entities: std::collections::BTreeSet<(i64, Option<i64>)>,
 }
 
 struct Group<'a> {
@@ -76,9 +78,10 @@ fn groups(observations: Vec<Observation<'_>>) -> Vec<Group<'_>> {
 
 impl Group<'_> {
     fn unique(&self, signal: &Signal) -> Option<&Observation<'_>> {
-        let mut matches = self.observations.iter().filter(|row| row.signal == signal);
-        let first = matches.next()?;
-        matches.next().is_none().then_some(first)
+        if self.key.iter().filter(|value| **value == signal).count() != 1 {
+            return None;
+        }
+        self.observations.iter().find(|row| row.signal == signal)
     }
 }
 
@@ -141,10 +144,34 @@ fn interval<'a>(
                 batch,
                 at: frame.at_ms,
                 ordinal: *counts.get(signal).ok_or("missing ordinal")?,
+                entities: entities(pull, frame, signal),
             });
         }
     }
     Ok(groups(result))
+}
+
+// Keep instance provenance so separate packets cannot hide a repeated cast by the same entity.
+fn entities(
+    pull: &Pull,
+    frame: &super::Batch,
+    signal: &Signal,
+) -> std::collections::BTreeSet<(i64, Option<i64>)> {
+    let super::Identifier::Ability(ability) = signal.identifier else {
+        return Default::default();
+    };
+    frame
+        .indices
+        .iter()
+        .filter_map(|index| pull.events.get(*index))
+        .filter_map(|event| {
+            let actor = event.source_id?;
+            (event.kind == signal.kind
+                && event.ability_game_id == Some(ability)
+                && pull.actors.get(&actor) == signal.source.as_ref())
+            .then_some((actor, event.source_instance))
+        })
+        .collect()
 }
 
 fn unrepresented(pull: &Pull, events: &[&Event], include: &impl Fn(&Signal) -> bool) -> Value {
@@ -154,19 +181,35 @@ fn unrepresented(pull: &Pull, events: &[&Event], include: &impl Fn(&Signal) -> b
         .iter()
         .enumerate()
         .flat_map(|(batch, frame)| {
+            let id = id.as_str();
             frame
                 .signals
                 .iter()
                 .filter(|signal| include(signal))
-                .filter(|signal| {
+                .filter(move |signal| {
                     !events.iter().any(|event| {
-                        &event.signal == *signal && event.samples.get(&id) == Some(&frame.at_ms)
+                        &event.signal == *signal && covers(event, id, frame.at_ms, batch)
                     })
                 })
                 .map(move |signal| json!({"batch":batch,"activity":signal}))
         })
         .collect();
     json!({"trace":id,"unrepresented":rows,"reason":"no forced correspondence or supported branch"})
+}
+
+fn covers(event: &Event, trace: &str, at: i64, batch: usize) -> bool {
+    event.samples.get(trace) == Some(&at)
+        || event
+            .evidence
+            .get("fragments")
+            .and_then(|value| value.get(trace))
+            .and_then(|value| value.get("batches"))
+            .and_then(Value::as_array)
+            .is_some_and(|values| {
+                values
+                    .iter()
+                    .any(|value| value.as_u64() == Some(batch as u64))
+            })
 }
 
 fn pair(reference: &[Group<'_>], peer: &[Group<'_>]) -> Result<alignment::Alignment> {
@@ -203,8 +246,10 @@ fn events(pulls: &[&Pull], groups: &[&Group<'_>], bounds: &Value) -> Result<Vec<
         })
         .collect();
     let mut result = Vec::new();
-    for observation in &reference.observations {
-        // B,B in one uncertainty block has no forced occurrence correspondence, even in equal blocks.
+    for signal in &reference.key {
+        let Some(observation) = reference.unique(signal) else {
+            continue;
+        };
         let observations = groups
             .iter()
             .map(|group| group.unique(observation.signal))
@@ -222,8 +267,20 @@ fn events(pulls: &[&Pull], groups: &[&Group<'_>], bounds: &Value) -> Result<Vec<
             .zip(&observations)
             .map(|(pull, row)| (trace(pull), row.batch))
             .collect();
-        result.push(Event {signal:observation.signal.clone(),samples,occurrence:Some(observation.ordinal),
-            evidence:json!({"method":"anchor-constrained-multiset-lcs-v2","bounds":bounds,"reference":trace(pulls.first().context("Missing reference")?),"batches":batches,"groups":blocks,"sync":"omitted: repeated signal identity"})});
+        let mut evidence = json!({"method":"anchor-constrained-multiset-lcs-v2","bounds":bounds,"reference":trace(pulls.first().context("Missing reference")?),"batches":batches,"groups":blocks,"sync":"omitted: repeated signal identity"});
+        if let Some(fragments) = fragments::evidence(pulls, groups, observation.signal) {
+            let fields = evidence
+                .as_object_mut()
+                .context("Invalid alignment evidence")?;
+            fields.insert("fragments".into(), fragments);
+            fields.insert("fragment_policy".into(), "disjoint-instance-peer-v1".into());
+        }
+        result.push(Event {
+            signal: observation.signal.clone(),
+            samples,
+            occurrence: Some(observation.ordinal),
+            evidence,
+        });
     }
     Ok(result)
 }
@@ -305,12 +362,15 @@ fn bounded(
             })
             .collect::<Result<Vec<_>, _>>();
         match rows {
-            Ok(rows) => expand_interval(
-                pulls,
-                &rows.iter().map(Vec::as_slice).collect::<Vec<_>>(),
-                bounds,
-                result,
-            )?,
+            Ok(mut rows) => {
+                fragments::normalize(&mut rows)?;
+                expand_interval(
+                    pulls,
+                    &rows.iter().map(Vec::as_slice).collect::<Vec<_>>(),
+                    bounds,
+                    result,
+                )?;
+            }
             Err((trace, reason)) => result
                 .diagnostics
                 .push(json!({"bounds":bounds,"trace":trace,"status":"unresolved","reason":reason})),
@@ -508,6 +568,7 @@ mod tests {
                 batch,
                 at: *at,
                 ordinal: 1,
+                entities: Default::default(),
             })
             .collect()
     }

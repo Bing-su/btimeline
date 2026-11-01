@@ -1,0 +1,18 @@
+---
+source: tests/generate_fragments.rs
+expression: "fs::read_to_string(&output).unwrap()"
+---
+timeline 1 "Unknown Encounter" {
+    start InCombat inGameCombat="1"
+    wipe ActorControl command="4000000F"
+    wipe ActorControl command="40000010"
+    zone-exit ChangeZone
+    event spell0-synthetic-boss-64 1.0 name=Spell0 {
+        sync 1.0 Ability id="64" source="Synthetic Boss" before=10.0 after=10.0
+    }
+    event spell1-synthetic-boss-65-01 3.0 name=Spell1
+    event spell1-synthetic-boss-65-03 7.0 name=Spell1
+    event spell2-synthetic-boss-66 11.0 name=Spell2 {
+        sync 11.0 Ability id="66" source="Synthetic Boss" before=2.5 after=2.5
+    }
+}

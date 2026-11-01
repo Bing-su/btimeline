@@ -197,6 +197,44 @@ fn new_incomplete_samples_need_a_known_clock_origin(#[case] mode: &str, #[case] 
 }
 
 #[test]
+fn fragment_recovery_keeps_the_supported_incomplete_tail() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths: Vec<_> = (0..4)
+        .map(|peer| input(dir.path(), peer, "normal", 100, 0))
+        .collect();
+    for (peer, path) in paths.iter().take(2).enumerate() {
+        let mut data: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        data["events"][1]["sourceInstance"] = 1.into();
+        let mut split = data["events"][1].clone();
+        split["sourceInstance"] = 2.into();
+        if peer == 0 {
+            split["timestamp"] = 4002.into();
+        }
+        data["events"].as_array_mut().unwrap().push(split);
+        data["collection"]["eventCount"] = 4.into();
+        fs::write(path, serde_json::to_vec(&data).unwrap()).unwrap();
+    }
+    let e = generate(&paths, "raid", &dir.path().join("timeline.kdl"));
+    let events = e["events"].as_array().unwrap();
+    let recovered = events
+        .iter()
+        .find(|event| event["activity"]["identifier"]["Ability"] == 101)
+        .unwrap();
+    assert_eq!(
+        recovered["alignment"]["fragment_policy"],
+        "disjoint-instance-peer-v1"
+    );
+    // A display normalization must not drop an independently supported final signal from long wipes.
+    let ending = events
+        .iter()
+        .find(|event| event["activity"]["identifier"]["Ability"] == 104)
+        .unwrap();
+    assert_eq!(ending["alignment"]["method"], "censored-tail-v1");
+    assert_eq!(ending["samples"].as_array().unwrap().len(), 2);
+    assert_eq!(ending["rounded_offset_ms"], 11000);
+}
+
+#[test]
 fn validation_never_trains_on_the_selected_clear() {
     let dir = tempfile::tempdir().unwrap();
     let mut paths: Vec<_> = (0..4)
