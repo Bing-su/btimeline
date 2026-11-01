@@ -138,7 +138,7 @@ fn uncertainty_records(problem: &str, index: usize) -> Vec<(i64, i64)> {
 #[case("nearby", vec![0,1,1,2], vec![0,1,1,2], vec![])]
 #[case("phase", vec![0,1,1,2], vec![0,1,1,2], vec![])]
 #[case("simultaneous", vec![0,1,3,1,2], vec![0,1,3,1,2], vec!["-02"])]
-#[case("unbounded", vec![1,0,1,2,1], vec![1,0,1,2,1], vec!["-02","-03"])]
+#[case("unbounded", vec![1,0,1,2,1], vec![1,0,1,2,1], vec!["-01","-02","-03"])]
 fn repeated_casts_require_unambiguous_bounded_alignment(
     #[case] case: &str,
     #[case] left: Vec<i64>,
@@ -209,7 +209,7 @@ fn repeated_casts_require_unambiguous_bounded_alignment(
                     .is_some_and(|values| values.len() == 2)
             }));
         }
-        if case == "context" || case == "unbounded" || case == "simultaneous" {
+        if case == "context" || case == "simultaneous" {
             assert!(diagnostics.iter().any(|row| {
                 row["unrepresented"]
                     .as_array()
@@ -254,6 +254,67 @@ fn inputs(directory: &Path) -> Vec<PathBuf> {
         fs::write(&path,serde_json::to_vec(&data).expect("serialize input")).expect("write input");
         path
     }).collect()
+}
+
+#[rstest::rstest]
+#[case("raid", false, 0, None, 3)]
+#[case("raid", false, 3000, None, 3)]
+#[case("raid", false, 0, Some(0), 3)]
+#[case("raid", true, 0, None, 0)]
+#[case("raid", false, 0, Some(3000), 0)]
+#[case("dungeon", false, 0, None, 0)]
+fn opening_repeats_use_combat_start_without_inventing_correspondence(
+    #[case] mode: &str,
+    #[case] missing: bool,
+    #[case] shift: i64,
+    #[case] phase: Option<i64>,
+    #[case] expected: usize,
+) {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = inputs(dir.path());
+    for (peer, path) in paths.iter().enumerate() {
+        let mut data: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        let start = data["report"]["fights"][0]["startTime"].as_i64().unwrap();
+        let offset = if peer == 0 { 0 } else { shift };
+        let mut events: Vec<_> = [0, 2000, 4000]
+            .into_iter()
+            .filter(|at| !(missing && peer == 1 && *at == 2000))
+            .map(|at| json!({"timestamp":start+at+offset,"type":"cast","sourceID":10,"abilityGameID":46377,"fight":1}))
+            .collect();
+        events.push(json!({"timestamp":start+10000+offset,"type":"cast","sourceID":10,"abilityGameID":46376,"fight":1}));
+        data["collection"]["eventCount"] = events.len().into();
+        data["events"] = events.into();
+        if let Some(at) = phase {
+            data["report"]["fights"][0]["phaseTransitions"] =
+                json!([{"id":2,"startTime":start+at}]);
+        }
+        fs::write(path, serde_json::to_vec(&data).unwrap()).unwrap();
+    }
+    let output = dir.path().join("opening.kdl");
+    cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(paths)
+        .args(["--mode", mode, "-o"])
+        .arg(&output)
+        .assert()
+        .success();
+    let evidence: Value =
+        serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
+    let repeats: Vec<_> = evidence["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|event| event["activity"]["identifier"]["Ability"] == 46377)
+        .collect();
+    assert_eq!(repeats.len(), expected);
+    if expected > 0 {
+        assert_eq!(repeats[0]["rounded_offset_ms"], 0);
+        assert!(
+            repeats
+                .iter()
+                .all(|event| event["alignment"]["bounds"]["origin"] == "combat-start")
+        );
+    }
 }
 
 #[rstest::rstest]

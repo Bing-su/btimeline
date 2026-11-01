@@ -106,7 +106,8 @@ fn interval<'a>(
     if pull
         .phase_transitions
         .iter()
-        .any(|phase| left < phase.relative_ms && phase.relative_ms < end)
+        // A phase at combat start establishes the initial state, not an interior transition.
+        .any(|phase| left.max(0) < phase.relative_ms && phase.relative_ms < end)
     {
         return Err("phase boundary");
     }
@@ -379,6 +380,53 @@ fn bounded(
     Ok(())
 }
 
+// Combat start bounds an ordinary raid opening, e.g. repeated casts before the first unique anchor.
+fn opening(
+    pulls: &[&Pull],
+    anchors: &[(&Signal, &BTreeMap<String, i64>)],
+    include: &impl Fn(&Signal) -> bool,
+    result: &mut Common,
+) -> Result<()> {
+    let Some((right, ends)) = anchors.first() else {
+        return Ok(());
+    };
+    if result.branches.iter().any(|branch| &branch.join == *right) {
+        return Ok(());
+    }
+    let bounds = json!({"left":null,"right":right,"origin":"combat-start","boundary_policy":"display-interior-v1"});
+    let rows = pulls
+        .iter()
+        .map(|pull| {
+            let id = trace(pull);
+            let end = ends.get(&id).ok_or((id.clone(), "missing bound"))?;
+            interval(
+                pull,
+                -1,
+                Some(*end),
+                &right.source,
+                include,
+                Boundary::Display,
+            )
+            .map_err(|reason| (id, reason))
+        })
+        .collect::<Result<Vec<_>, _>>();
+    match rows {
+        Ok(mut rows) => {
+            fragments::normalize(&mut rows)?;
+            expand_interval(
+                pulls,
+                &rows.iter().map(Vec::as_slice).collect::<Vec<_>>(),
+                bounds,
+                result,
+            )?;
+        }
+        Err((trace, reason)) => result
+            .diagnostics
+            .push(json!({"bounds":bounds,"trace":trace,"status":"unresolved","reason":reason})),
+    }
+    Ok(())
+}
+
 fn completed<'a>(pulls: &[&'a Pull], include: &impl Fn(&Signal) -> bool) -> Vec<&'a Pull> {
     let mut completed: Vec<_> = pulls.iter().copied().filter(|pull| pull.kill).collect();
     // The longest completed trace supplies readable occurrence labels; ties ignore CLI argument order.
@@ -453,10 +501,10 @@ pub(super) fn expand(
             .or_default()
             .push((signal, samples));
     }
-    for mut anchors in scopes.into_values() {
+    for anchors in scopes.values_mut() {
         anchors.sort_by_key(|(_, samples)| samples.get(&reference));
-        tail::expand(pulls, &anchors, &include, raid, &mut result)?;
-        bounded(&completed, &anchors, &include, &mut result)?;
+        tail::expand(pulls, anchors, &include, raid, &mut result)?;
+        bounded(&completed, anchors, &include, &mut result)?;
     }
     branches::discover(
         &completed,
@@ -466,6 +514,11 @@ pub(super) fn expand(
         raid,
         &mut result,
     )?;
+    if raid {
+        for anchors in scopes.into_values() {
+            opening(&completed, &anchors, &include, &mut result)?;
+        }
+    }
     // A represented B-02 must not hide B-01 outside the bounds or in an ambiguous interval.
     let represented: Vec<_> = result
         .events
