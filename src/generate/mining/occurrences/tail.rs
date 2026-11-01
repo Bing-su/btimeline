@@ -31,7 +31,14 @@ fn scope<'a>(
     Ok(Scope {
         pull,
         at: *at,
-        groups: interval(pull, *at, None, &anchor.source, include)?,
+        groups: interval(
+            pull,
+            *at,
+            None,
+            &anchor.source,
+            include,
+            super::Boundary::Ordered,
+        )?,
     })
 }
 

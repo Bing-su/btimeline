@@ -86,12 +86,18 @@ fn trace(pull: &Pull) -> String {
     format!("{}/{}", pull.report, pull.fight)
 }
 
+enum Boundary {
+    Ordered,
+    Display,
+}
+
 fn interval<'a>(
     pull: &'a Pull,
     left: i64,
     right: Option<i64>,
     source: &Option<String>,
     include: &impl Fn(&Signal) -> bool,
+    boundary: Boundary,
 ) -> Result<Vec<Group<'a>>, &'static str> {
     let end = right.unwrap_or(pull.end_ms);
     if pull
@@ -115,14 +121,17 @@ fn interval<'a>(
         if frame.at_ms < left || frame.at_ms > end || selected.is_empty() {
             continue;
         }
-        if selected.len() > 1 && (frame.at_ms == left || Some(frame.at_ms) == right) {
-            return Err("unordered boundary");
-        }
         if frame.at_ms == left || Some(frame.at_ms) == right {
+            if selected.len() > 1 && matches!(boundary, Boundary::Ordered) {
+                return Err("unordered boundary");
+            }
             continue;
         }
-        if frame.at_ms - left <= super::common::ORDER_RESOLUTION_MS
-            || right.is_some_and(|right| right - frame.at_ms <= super::common::ORDER_RESOLUTION_MS)
+        // Display-only rows need no order relative to an anchor, e.g. A@0 and B@45ms.
+        if matches!(boundary, Boundary::Ordered)
+            && (frame.at_ms - left <= super::common::ORDER_RESOLUTION_MS
+                || right
+                    .is_some_and(|right| right - frame.at_ms <= super::common::ORDER_RESOLUTION_MS))
         {
             return Err("unordered boundary");
         }
@@ -267,6 +276,49 @@ fn expand_interval(
     Ok(())
 }
 
+fn bounded(
+    pulls: &[&Pull],
+    anchors: &[(&Signal, &BTreeMap<String, i64>)],
+    include: &impl Fn(&Signal) -> bool,
+    result: &mut Common,
+) -> Result<()> {
+    for window in anchors.windows(2) {
+        let [(left, a), (right, b)] = window else {
+            continue;
+        };
+        let bounds = json!({"left":left,"right":right,"boundary_policy":"display-interior-v1"});
+        let rows = pulls
+            .iter()
+            .map(|pull| {
+                let id = trace(pull);
+                let start = a.get(&id).ok_or((id.clone(), "missing bound"))?;
+                let end = b.get(&id).ok_or((id.clone(), "missing bound"))?;
+                interval(
+                    pull,
+                    *start,
+                    Some(*end),
+                    &left.source,
+                    include,
+                    Boundary::Display,
+                )
+                .map_err(|reason| (id, reason))
+            })
+            .collect::<Result<Vec<_>, _>>();
+        match rows {
+            Ok(rows) => expand_interval(
+                pulls,
+                &rows.iter().map(Vec::as_slice).collect::<Vec<_>>(),
+                bounds,
+                result,
+            )?,
+            Err((trace, reason)) => result
+                .diagnostics
+                .push(json!({"bounds":bounds,"trace":trace,"status":"unresolved","reason":reason})),
+        }
+    }
+    Ok(())
+}
+
 fn completed<'a>(pulls: &[&'a Pull], include: &impl Fn(&Signal) -> bool) -> Vec<&'a Pull> {
     let mut completed: Vec<_> = pulls.iter().copied().filter(|pull| pull.kill).collect();
     // The longest completed trace supplies readable occurrence labels; ties ignore CLI argument order.
@@ -341,36 +393,10 @@ pub(super) fn expand(
             .or_default()
             .push((signal, samples));
     }
-    for (source, mut anchors) in scopes {
+    for mut anchors in scopes.into_values() {
         anchors.sort_by_key(|(_, samples)| samples.get(&reference));
         tail::expand(pulls, &anchors, &include, raid, &mut result)?;
-        for window in anchors.windows(2) {
-            let [(left, a), (right, b)] = window else {
-                continue;
-            };
-            let bounds = json!({"left":left,"right":right});
-            let rows = completed
-                .iter()
-                .map(|pull| {
-                    let id = trace(pull);
-                    let start = a.get(&id).ok_or((id.clone(), "missing bound"))?;
-                    let end = b.get(&id).ok_or((id.clone(), "missing bound"))?;
-                    interval(pull, *start, Some(*end), source, &include)
-                        .map_err(|reason| (id, reason))
-                })
-                .collect::<Result<Vec<_>, _>>();
-            match rows {
-                Ok(rows) => expand_interval(
-                    &completed,
-                    &rows.iter().map(Vec::as_slice).collect::<Vec<_>>(),
-                    bounds,
-                    &mut result,
-                )?,
-                Err((trace, reason)) => result.diagnostics.push(
-                    json!({"bounds":bounds,"trace":trace,"status":"unresolved","reason":reason}),
-                ),
-            }
-        }
+        bounded(&completed, &anchors, &include, &mut result)?;
     }
     branches::discover(
         &completed,

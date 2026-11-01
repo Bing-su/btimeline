@@ -137,7 +137,7 @@ fn uncertainty_records(problem: &str, index: usize) -> Vec<(i64, i64)> {
 #[case("context", vec![0,1,2,1,3], vec![0,2,1,3], vec!["-02"])]
 #[case("nearby", vec![0,1,1,2], vec![0,1,1,2], vec![])]
 #[case("phase", vec![0,1,1,2], vec![0,1,1,2], vec![])]
-#[case("simultaneous", vec![0,1,3,1,2], vec![0,1,3,1,2], vec![])]
+#[case("simultaneous", vec![0,1,3,1,2], vec![0,1,3,1,2], vec!["-02"])]
 #[case("unbounded", vec![1,0,1,2,1], vec![1,0,1,2,1], vec!["-02","-03"])]
 fn repeated_casts_require_unambiguous_bounded_alignment(
     #[case] case: &str,
@@ -209,7 +209,7 @@ fn repeated_casts_require_unambiguous_bounded_alignment(
                     .is_some_and(|values| values.len() == 2)
             }));
         }
-        if case == "context" || case == "unbounded" {
+        if case == "context" || case == "unbounded" || case == "simultaneous" {
             assert!(diagnostics.iter().any(|row| {
                 row["unrepresented"]
                     .as_array()

@@ -4,6 +4,86 @@ use assert_cmd::cargo::cargo_bin_cmd;
 use serde_json::{Value, json};
 
 #[rstest::rstest]
+#[case("raid", 45, 45, false, 3)]
+#[case("dungeon", 45, 45, false, 3)]
+#[case("alliance", 45, 45, false, 3)]
+#[case("raid", 0, 45, false, 2)]
+#[case("raid", 45, 0, false, 2)]
+#[case("raid", 0, 0, false, 1)]
+#[case("raid", 45, 45, true, 0)]
+fn boundary_uncertainty_does_not_discard_displayable_interior(
+    #[case] mode: &str,
+    #[case] after: i64,
+    #[case] before: i64,
+    #[case] phase: bool,
+    #[case] count: usize,
+) {
+    let dir = tempfile::tempdir().unwrap();
+    let mut paths = Vec::new();
+    for peer in 0..2 {
+        let mut data: Value = serde_json::from_str(include_str!("fixtures/pull.json")).unwrap();
+        let code = format!("boundary{peer}");
+        data["report"]["code"] = code.clone().into();
+        data["collection"]["reportCode"] = code.into();
+        data["report"]["masterData"]["abilities"] = (0..3)
+            .map(|id| json!({"gameID":100+id,"name":format!("Spell{id}"),"type":"1"}))
+            .collect();
+        let records = [
+            (2000, 100),
+            (2000 + after, 101),
+            (6000, 101),
+            (10000 - before, 101),
+            (10000, 102),
+        ];
+        data["events"] = records.iter().map(|(at,id)|json!({"timestamp":at,"type":"cast","sourceID":10,"abilityGameID":id,"fight":1})).collect();
+        data["collection"]["eventCount"] = records.len().into();
+        if phase {
+            data["report"]["fights"][0]["phaseTransitions"] = json!([{"id":2,"startTime":5000}]);
+        }
+        let path = dir.path().join(format!("{peer}.json"));
+        fs::write(&path, serde_json::to_vec(&data).unwrap()).unwrap();
+        paths.push(path);
+    }
+    let output = dir.path().join("timeline.kdl");
+    cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(&paths)
+        .args(["--mode", mode, "-o"])
+        .arg(&output)
+        .assert()
+        .success();
+    let evidence: Value =
+        serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
+    let interior: Vec<_> = evidence["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|event| event["activity"]["identifier"]["Ability"] == 101)
+        .collect();
+    assert_eq!(interior.len(), count);
+    for event in interior {
+        assert_eq!(
+            event["alignment"]["bounds"]["boundary_policy"],
+            "display-interior-v1"
+        );
+        assert_eq!(event["samples"].as_array().unwrap().len(), 2);
+    }
+    let doc: kdl::KdlDocument = fs::read_to_string(output).unwrap().parse().unwrap();
+    let body = doc.nodes()[0].children().unwrap();
+    let phase = body
+        .nodes()
+        .iter()
+        .find(|node| node.name().value() == "phase");
+    let rows = phase.map_or(body, |node| node.children().unwrap()).nodes();
+    // Matching a display event near a bound must never grant that repeated identity a clock sync.
+    assert!(
+        rows.iter()
+            .filter(|node| node.get("name").and_then(kdl::KdlValue::as_string) == Some("Spell1"))
+            .all(|node| node.children().is_none())
+    );
+}
+
+#[rstest::rstest]
 #[case("raid", 2, vec![4000], 1)]
 #[case("dungeon", 8, vec![4000,8000], 2)]
 #[case("alliance", 3, vec![4000,4050], 0)]

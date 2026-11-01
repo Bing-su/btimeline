@@ -226,6 +226,7 @@ fn candidate(
                 Some(*ends.get(&id).context("Missing join time")?),
                 &join.source,
                 include,
+                super::Boundary::Ordered,
             )
             .map_err(anyhow::Error::msg)
         })

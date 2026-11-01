@@ -194,8 +194,16 @@ fn check(
         None,
         &origin.signal.source,
         include,
+        super::Boundary::Ordered,
     );
-    let observed = interval(pull, at, None, &origin.signal.source, include);
+    let observed = interval(
+        pull,
+        at,
+        None,
+        &origin.signal.source,
+        include,
+        super::Boundary::Ordered,
+    );
     let (model, observed) = match (model, observed) {
         (Ok(model), Ok(observed)) => (model, observed),
         (Err(reason), _) | (_, Err(reason)) => {
