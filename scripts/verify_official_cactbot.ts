@@ -3,9 +3,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createRequire, register } from "node:module";
+import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import type { EventEmitter } from "node:events";
+import { plugin } from "bun";
 
 const [input, checkout, reference, output] = process.argv
   .slice(2)
@@ -17,33 +18,20 @@ assert(
 assert(!fs.existsSync(output), "Official verification report already exists");
 const require = createRequire(path.join(checkout, "package.json"));
 // Full type-aware emit removes upstream imports that share names with global values, e.g. Error.
-if (process.versions.bun) {
-  const { plugin } = await import("bun" as string);
-  const service = require("ts-node").create({
-    project: path.join(checkout, "tsconfig.json"),
-    transpileOnly: false,
-    compilerOptions: { types: ["node", "mocha"] },
-  });
-  plugin({
-    name: "cactbot-typescript",
-    setup(build: {
-      onLoad: (
-        options: { filter: RegExp },
-        callback: (args: { path: string }) => { contents: string; loader: "js" },
-      ) => void;
-    }) {
-      build.onLoad({ filter: /\.ts$/ }, ({ path: file }: { path: string }) => ({
-        contents: service.compile(fs.readFileSync(file, "utf8"), file),
-        loader: "js",
-      }));
-    },
-  });
-} else {
-  process.env.TS_NODE_TRANSPILE_ONLY = "false";
-  process.env.TS_NODE_PROJECT = path.join(checkout, "tsconfig.json");
-  process.env.TS_NODE_COMPILER_OPTIONS = JSON.stringify({ types: ["node", "mocha"] });
-  register(pathToFileURL(path.join(checkout, "node_modules/ts-node/esm.mjs")));
-}
+const service = require("ts-node").create({
+  project: path.join(checkout, "tsconfig.json"),
+  transpileOnly: false,
+  compilerOptions: { types: ["node", "mocha"] },
+});
+plugin({
+  name: "cactbot-typescript",
+  setup(build) {
+    build.onLoad({ filter: /\.ts$/ }, ({ path: file }) => ({
+      contents: service.compile(fs.readFileSync(file, "utf8"), file),
+      loader: "js",
+    }));
+  },
+});
 const Mocha = require("mocha");
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), "btimeline-official-"));
 const previous = process.cwd();

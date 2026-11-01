@@ -15,6 +15,28 @@ pub enum MainCommands {
     FflogsDownload(FFLogsDownloadCommand),
     /// Inspect collected FFLogs inputs.
     Inspect(InspectCommand),
+    /// Mine observed event sequences into a KDL process graph.
+    Mine(MineCommand),
+}
+
+#[derive(Args)]
+pub struct MineCommand {
+    /// Collected fights from one encounter and difficulty.
+    #[usage(arg)]
+    inputs: Vec<Utf8PathBuf>,
+    /// New KDL file for the observed process graph.
+    #[usage(short = 'o', long)]
+    output: Utf8PathBuf,
+}
+
+impl Run for MineCommand {
+    type Output = Result<()>;
+
+    fn run(self) -> Self::Output {
+        crate::generate::mine(&self.inputs, self.output.as_std_path())?;
+        eprintln!("Process graph saved to {}", self.output);
+        Ok(())
+    }
 }
 
 #[derive(Args)]

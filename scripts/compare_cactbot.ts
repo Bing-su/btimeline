@@ -1,4 +1,4 @@
-// Compare consumer-parsed mechanics, e.g. see README's tooling workflow for the ts-node loader.
+// Compare mechanics parsed by cactbot, e.g. repeated abilities and alternate IDs.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";

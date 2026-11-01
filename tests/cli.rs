@@ -114,3 +114,94 @@ fn fflogs_tools_load_dotenv_without_exposing_credentials() {
     assert!(stderr.contains("Cannot load .env"));
     assert!(!stderr.contains("private-test-value"));
 }
+
+#[test]
+fn mine_preserves_wipes_simultaneous_events_and_existing_output() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut first: Value = serde_json::from_slice(&fs::read(INPUT).unwrap()).unwrap();
+    first["report"]["masterData"]["abilities"] = serde_json::json!([
+        {"gameID": 46376, "name": "A", "type": "1"},
+        {"gameID": 46377, "name": "B", "type": "1"}
+    ]);
+    first["events"] = serde_json::json!([
+        {"timestamp":2000,"type":"cast","sourceID":10,"abilityGameID":46376,"fight":1},
+        {"timestamp":2000,"type":"cast","sourceID":10,"abilityGameID":46377,"fight":1},
+        {"timestamp":6000,"type":"cast","sourceID":10,"abilityGameID":46376,"fight":1}
+    ]);
+    first["collection"]["eventCount"] = 3.into();
+    let mut wipe = first.clone();
+    wipe["report"]["code"] = "wipe".into();
+    wipe["collection"]["reportCode"] = "wipe".into();
+    wipe["report"]["fights"][0]["kill"] = false.into();
+    wipe["events"].as_array_mut().unwrap().pop();
+    wipe["collection"]["eventCount"] = 2.into();
+    let first_path = dir.path().join("first.json");
+    let wipe_path = dir.path().join("wipe.json");
+    let output = dir.path().join("process.kdl");
+    fs::write(&first_path, serde_json::to_vec(&first).unwrap()).unwrap();
+    fs::write(&wipe_path, serde_json::to_vec(&wipe).unwrap()).unwrap();
+    cargo_bin_cmd!("btimeline")
+        .arg("mine")
+        .arg(&first_path)
+        .arg(&wipe_path)
+        .arg("-o")
+        .arg(&output)
+        .assert()
+        .success();
+    let text = fs::read_to_string(&output).unwrap();
+    let document: kdl::KdlDocument = text.parse().unwrap();
+    let root = document.nodes().first().unwrap();
+    let nodes = root.children().unwrap().nodes();
+    let activities: Vec<_> = nodes
+        .iter()
+        .filter(|n| n.name().value() == "activity")
+        .collect();
+    assert_eq!(activities.len(), 2);
+    assert!(
+        activities
+            .iter()
+            .any(|n| n.children().unwrap().nodes().len() == 2)
+    );
+    let opening = activities
+        .iter()
+        .find(|n| n.children().unwrap().nodes().len() == 2)
+        .unwrap();
+    assert_eq!(opening.get("first_seen").unwrap().as_integer(), Some(2));
+    assert_eq!(
+        opening.get("last_seen_in_kills").unwrap().as_integer(),
+        Some(0)
+    );
+    assert_eq!(
+        opening.children().unwrap().nodes()[0]
+            .get("source")
+            .unwrap()
+            .as_string(),
+        Some("Synthetic Boss")
+    );
+    assert_eq!(
+        nodes
+            .iter()
+            .filter(|n| n.name().value() == "follows")
+            .count(),
+        1
+    );
+    let traces: Vec<_> = nodes
+        .iter()
+        .filter(|n| n.name().value() == "trace")
+        .collect();
+    assert_eq!(traces.len(), 2);
+    assert!(
+        traces
+            .iter()
+            .any(|n| n.get("kill").unwrap().as_bool() == Some(false)
+                && n.children().unwrap().nodes().len() == 1)
+    );
+    cargo_bin_cmd!("btimeline")
+        .arg("mine")
+        .arg(&first_path)
+        .arg("-o")
+        .arg(&output)
+        .assert()
+        .failure();
+    assert_eq!(fs::read_to_string(output).unwrap(), text);
+}

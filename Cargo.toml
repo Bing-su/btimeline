@@ -12,7 +12,9 @@ camino = "1"
 dotenvy = "0.15"
 garde = { version = "0.23", default-features = false, features = ["derive", "regex"] }
 indicatif = { version = "0.18", features = ["rayon"] }
+kdl = "6.7.1"
 path-slash = "0.2"
+process_mining = { version = "=0.6.2", default-features = false }
 rayon = "1"
 ring = "0.17"
 serde = { version = "1", features = ["derive", "rc"] }
