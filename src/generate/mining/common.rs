@@ -7,6 +7,17 @@ use super::{Pull, argument, prop};
 
 type Timings = BTreeMap<String, Vec<i64>>;
 
+// Match final display precision without rounding evidence, e.g. 1049 and 1050 ms stay unordered.
+const ORDER_RESOLUTION_MS: i64 = 100;
+
+fn relation(left: i64, right: i64) -> std::cmp::Ordering {
+    if left.abs_diff(right) <= ORDER_RESOLUTION_MS as u64 {
+        std::cmp::Ordering::Equal
+    } else {
+        left.cmp(&right)
+    }
+}
+
 // Match unique occurrences only; missing an earlier repeated cast must not shift every later match.
 fn anchors(tables: &[Timings]) -> Timings {
     let Some(first) = tables.first().filter(|_| tables.len() >= 2) else {
@@ -30,14 +41,17 @@ fn anchors(tables: &[Timings]) -> Timings {
         .collect()
 }
 
-fn order(anchors: &Timings, trace: usize) -> Vec<Vec<&str>> {
-    let mut batches = BTreeMap::<i64, Vec<&str>>::new();
-    for (key, times) in anchors {
-        if let Some(at) = times.get(trace) {
-            batches.entry(*at).or_default().push(key);
-        }
-    }
-    batches.into_values().collect()
+fn consistent_order(common: &Timings) -> bool {
+    common.values().enumerate().all(|(index, times)| {
+        common.values().skip(index + 1).all(|other| {
+            let mut pairs = times.iter().zip(other);
+            let Some((left, right)) = pairs.next() else {
+                return true;
+            };
+            let first = relation(*left, *right);
+            pairs.all(|(left, right)| relation(*left, *right) == first)
+        })
+    })
 }
 
 fn timings(pull: &Pull) -> Result<Timings> {
@@ -64,7 +78,7 @@ fn cover_relations(common: &Timings) -> Vec<(&str, &str)> {
                     times
                         .iter()
                         .zip(other.iter())
-                        .all(|(left, right)| left < right)
+                        .all(|(left, right)| relation(*left, *right).is_lt())
                 })
                 .map(|(key, _)| key.as_str())
                 .collect();
@@ -133,8 +147,7 @@ pub(super) fn node(pulls: &[Pull], ids: &BTreeMap<String, String>) -> Result<Kdl
         .map(|pull| timings(pull))
         .collect::<Result<Vec<_>>>()?;
     let common = anchors(&tables);
-    let sequence = order(&common, 0);
-    let consistent = (1..tables.len()).all(|index| order(&common, index) == sequence);
+    let consistent = consistent_order(&common);
     let status = match (tables.len(), common.is_empty(), consistent) {
         (0 | 1, _, _) => "insufficient-completed-pulls",
         (_, true, _) => "no-unique-anchors",
@@ -143,6 +156,11 @@ pub(super) fn node(pulls: &[Pull], ids: &BTreeMap<String, String>) -> Result<Kdl
     };
     let mut node = KdlNode::new("common-progress");
     prop(&mut node, "status", status);
+    prop(
+        &mut node,
+        "order_resolution_ms",
+        i128::from(ORDER_RESOLUTION_MS),
+    );
     prop(
         &mut node,
         "completed_pulls",
@@ -164,18 +182,6 @@ pub(super) fn node(pulls: &[Pull], ids: &BTreeMap<String, String>) -> Result<Kdl
             ids.get(to).context("Missing common activity")?.as_str(),
         );
         node.ensure_children().nodes_mut().push(relation);
-    }
-    if consistent {
-        for group in sequence {
-            let mut step = KdlNode::new("step");
-            for key in group {
-                argument(
-                    &mut step,
-                    ids.get(key).context("Missing common activity")?.as_str(),
-                );
-            }
-            node.ensure_children().nodes_mut().push(step);
-        }
     }
     Ok(node)
 }
@@ -206,17 +212,23 @@ mod tests {
     }
 
     #[test]
-    fn order_changes_and_simultaneity_are_visible() {
-        let common = table(&[("A", &[100, 200, 100]), ("B", &[200, 100, 100])]);
-        assert_eq!(order(&common, 0), vec![vec!["A"], vec!["B"]]);
-        assert_eq!(order(&common, 1), vec![vec!["B"], vec!["A"]]);
-        assert_eq!(order(&common, 2), vec![vec!["A", "B"]]);
+    fn order_changes_are_distinct_from_packet_jitter() {
+        assert!(consistent_order(&table(&[
+            ("A", &[1049, 1050]),
+            ("B", &[1050, 1049])
+        ])));
+        assert!(!consistent_order(&table(&[
+            ("A", &[100, 400]),
+            ("B", &[400, 100])
+        ])));
     }
 
     #[rstest::rstest]
-    #[case(table(&[("A", &[0,0]),("B", &[1,1]),("C", &[2,2])]), vec![("A","B"),("B","C")])]
-    #[case(table(&[("A", &[0,1]),("B", &[1,0]),("C", &[2,2])]), vec![("A","C"),("B","C")])]
-    #[case(table(&[("A", &[0,0]),("B", &[0,1]),("C", &[2,2])]), vec![("A","C"),("B","C")])]
+    #[case(table(&[("A", &[0,0]),("B", &[1000,1000]),("C", &[2000,2000])]), vec![("A","B"),("B","C")])]
+    #[case(table(&[("A", &[0,1000]),("B", &[1000,0]),("C", &[2000,2000])]), vec![("A","C"),("B","C")])]
+    #[case(table(&[("A", &[0,0]),("B", &[0,1]),("C", &[2000,2000])]), vec![("A","C"),("B","C")])]
+    #[case(table(&[("A", &[0,0]),("B", &[80,80]),("C", &[160,160])]), vec![("A","C")])]
+    #[case(table(&[("A", &[0,0]),("B", &[100,100]),("C", &[101,101])]), vec![("A","C")])]
     #[case(table(&[("A", &[0,0]),("B", &[0,0])]), vec![])]
     fn common_edges_preserve_only_agreed_order(
         #[case] common: Timings,
@@ -252,7 +264,7 @@ mod tests {
     proptest! {
         #[test]
         fn reduction_preserves_exactly_the_observed_partial_order(
-            samples in prop::collection::vec((0_i64..100, 0_i64..100), 0..12)
+            samples in prop::collection::vec((0_i64..1000, 0_i64..1000), 0..12)
         ) {
             let common: Timings = samples.iter().enumerate().map(|(index, (first, second))| {
                 (format!("k{index}"), vec![*first, *second])
@@ -260,7 +272,7 @@ mod tests {
             let edges = cover_relations(&common);
             for (from, times) in &common {
                 for (to, other) in &common {
-                    let observed = times.iter().zip(other).all(|(left, right)| left < right);
+                    let observed = times.iter().zip(other).all(|(left, right)| relation(*left, *right).is_lt());
                     prop_assert_eq!(reachable(&edges, from, to), observed);
                 }
             }

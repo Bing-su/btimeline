@@ -256,17 +256,44 @@ fn mine_combines_translated_names_from_different_source_languages() {
 }
 
 #[rstest::rstest]
-#[case(false)]
-#[case(true)]
-fn mine_reports_common_progress_without_treating_wipes_as_missing_suffixes(#[case] reversed: bool) {
+#[case(false, false)]
+#[case(true, false)]
+#[case(false, true)]
+fn mine_reports_common_progress_without_treating_wipes_as_missing_suffixes(
+    #[case] reversed: bool,
+    #[case] jitter: bool,
+) {
     let dir = tempfile::tempdir().unwrap();
     let output = dir.path().join("process.kdl");
     let base: Value = serde_json::from_slice(&fs::read(INPUT).unwrap()).unwrap();
     let observations = [
-        vec![(2000, 46376), (6000, 46377), (10000, 46378), (15000, 46379)],
         vec![
-            (if reversed { 10001 } else { 2100 }, 46376),
-            (if reversed { 2100 } else { 10100 }, 46378),
+            (2000, 46376),
+            (6000, 46377),
+            (if jitter { 2001 } else { 10000 }, 46378),
+            (15000, 46379),
+        ],
+        vec![
+            (
+                if jitter {
+                    2001
+                } else if reversed {
+                    10001
+                } else {
+                    2100
+                },
+                46376,
+            ),
+            (
+                if jitter {
+                    2000
+                } else if reversed {
+                    2100
+                } else {
+                    10100
+                },
+                46378,
+            ),
             (15100, 46379),
         ],
         vec![(2000, 46376)],
@@ -316,6 +343,10 @@ fn mine_reports_common_progress_without_treating_wipes_as_missing_suffixes(#[cas
         .unwrap();
     assert_eq!(common.get("completed_pulls").unwrap().as_integer(), Some(2));
     assert_eq!(
+        common.get("order_resolution_ms").unwrap().as_integer(),
+        Some(100)
+    );
+    assert_eq!(
         common.get("status").unwrap().as_string(),
         Some(if reversed {
             "ambiguous-order"
@@ -329,6 +360,18 @@ fn mine_reports_common_progress_without_treating_wipes_as_missing_suffixes(#[cas
         .filter(|node| node.name().value() == "anchor")
         .collect();
     assert_eq!(anchors.len(), 3);
+    if jitter {
+        assert_eq!(
+            anchors
+                .iter()
+                .filter(|anchor| {
+                    anchor.get("min_ms").and_then(kdl::KdlValue::as_integer) == Some(1000)
+                        && anchor.get("max_ms").and_then(kdl::KdlValue::as_integer) == Some(1001)
+                })
+                .count(),
+            2
+        );
+    }
     for anchor in anchors {
         assert_eq!(anchor.children().unwrap().nodes().len(), 2);
         assert!(
@@ -345,7 +388,7 @@ fn mine_reports_common_progress_without_treating_wipes_as_missing_suffixes(#[cas
             .iter()
             .filter(|node| node.name().value() == "step")
             .count(),
-        if reversed { 0 } else { 3 }
+        0
     );
     assert_eq!(
         nodes
