@@ -1424,7 +1424,7 @@ fn unconditional_literal_option_overlap(
     );
     let result = parse(&source);
     if overlaps {
-        assert!(format!("{:#}", result.unwrap_err()).contains("Conflicting unconditional options"));
+        assert!(format!("{:#}", result.unwrap_err()).contains("Conflicting options"));
     } else {
         assert!(result.is_ok(), "{result:?}");
     }
@@ -1446,6 +1446,25 @@ fn matching_signals_with_mutually_exclusive_prior_choices_are_allowed() {
         }
     }"#;
     parse(source).unwrap();
+}
+
+#[test]
+fn matching_signals_with_identical_prior_choices_are_rejected() {
+    let source = r#"timeline 1 "Choices" {
+        phase "p" {
+            enter "Start"
+            branch "first" open=0.0 close=5.0 {
+                option "left" { when "A"; }
+                option "right" { when "B"; }
+            }
+            branch "second" open=6.0 close=10.0 {
+                option "left" { requires "first" "left"; when "Ability" id="A"; }
+                option "right" { when "Ability" id="A"; requires "first" "left"; requires "first" "left"; }
+            }
+        }
+    }"#;
+    let error = parse(source).unwrap_err();
+    assert!(format!("{error:#}").contains("identical prerequisites"));
 }
 
 #[rstest]

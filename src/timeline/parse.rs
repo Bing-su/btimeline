@@ -119,16 +119,11 @@ fn literal_signals_overlap(left: &Signal, right: &Signal) -> bool {
     })
 }
 
-// Only unconditional options can be proven reachable without analysing earlier branches.
+// Identical prerequisites enable both options together whenever those prerequisites hold.
 fn validate_option_overlaps(node: &KdlNode) -> Result<()> {
     let options: Vec<_> = children(node)
         .iter()
         .filter(|child| child.name().value() == "option")
-        .filter(|child| {
-            !children(child)
-                .iter()
-                .any(|part| part.name().value() == "requires")
-        })
         .collect();
     let candidates = options
         .iter()
@@ -138,16 +133,22 @@ fn validate_option_overlaps(node: &KdlNode) -> Result<()> {
                 .filter(|part| part.name().value() == "when")
                 .map(|part| signal(part, "when"))
                 .collect::<Result<Vec<_>>>()?;
-            Ok((arg_string(option, 0)?, whens))
+            let requires = children(option)
+                .iter()
+                .filter(|part| part.name().value() == "requires")
+                .map(|part| Ok((arg_string(part, 0)?, arg_string(part, 1)?)))
+                .collect::<Result<BTreeSet<_>>>()?;
+            Ok((arg_string(option, 0)?, whens, requires))
         })
         .collect::<Result<Vec<_>>>()?;
-    for (index, (left_id, left)) in candidates.iter().enumerate() {
-        for (right_id, right) in candidates.iter().skip(index + 1) {
+    for (index, (left_id, left, left_requires)) in candidates.iter().enumerate() {
+        for (right_id, right, right_requires) in candidates.iter().skip(index + 1) {
             ensure!(
-                !left
-                    .iter()
-                    .any(|a| right.iter().any(|b| literal_signals_overlap(a, b))),
-                "Conflicting unconditional options {left_id} and {right_id}: distinguish their signals"
+                left_requires != right_requires
+                    || !left
+                        .iter()
+                        .any(|a| right.iter().any(|b| literal_signals_overlap(a, b))),
+                "Conflicting options {left_id} and {right_id} with identical prerequisites: distinguish their signals"
             );
         }
     }
