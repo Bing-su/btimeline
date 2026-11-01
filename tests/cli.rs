@@ -210,6 +210,45 @@ fn mine_preserves_wipes_simultaneous_events_and_existing_output() {
     assert_eq!(fs::read_to_string(output).unwrap(), text);
 }
 
+#[test]
+fn mine_combines_translated_names_from_different_source_languages() {
+    let dir = tempfile::tempdir().unwrap();
+    let other = dir.path().join("other.json");
+    let output = dir.path().join("process.kdl");
+    let mut data: Value = serde_json::from_slice(&fs::read(INPUT).unwrap()).unwrap();
+    data["report"]["masterData"]["lang"] = "ja".into();
+    data["report"]["code"] = "japanese-source".into();
+    data["collection"]["reportCode"] = "japanese-source".into();
+    fs::write(&other, serde_json::to_vec(&data).unwrap()).unwrap();
+    cargo_bin_cmd!("btimeline")
+        .arg("mine")
+        .arg(INPUT)
+        .arg(&other)
+        .arg("-o")
+        .arg(&output)
+        .assert()
+        .success();
+    let document: kdl::KdlDocument = fs::read_to_string(output).unwrap().parse().unwrap();
+    let root = &document.nodes()[0];
+    assert!(root.get("language").is_none());
+    let nodes = root.children().unwrap().nodes();
+    let activities: Vec<_> = nodes
+        .iter()
+        .filter(|node| node.name().value() == "activity")
+        .collect();
+    assert_eq!(activities.len(), 1);
+    assert_eq!(
+        activities[0].get("observations").unwrap().as_integer(),
+        Some(6)
+    );
+    let languages: std::collections::BTreeSet<_> = nodes
+        .iter()
+        .filter(|node| node.name().value() == "trace")
+        .map(|node| node.get("source_language").unwrap().as_string().unwrap())
+        .collect();
+    assert_eq!(languages, ["en", "ja"].into_iter().collect());
+}
+
 #[rstest::rstest]
 #[case(1000)]
 #[case(1555)]

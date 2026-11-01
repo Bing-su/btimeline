@@ -27,6 +27,7 @@ struct Batch {
 #[derive(Debug)]
 struct Pull {
     source: String,
+    source_language: String,
     hash: String,
     report: String,
     fight: i64,
@@ -135,6 +136,7 @@ fn trace_node(pull: &Pull, ids: &BTreeMap<String, String>) -> Result<KdlNode> {
     let mut trace = KdlNode::new("trace");
     argument(&mut trace, format!("{}/{}", pull.report, pull.fight));
     prop(&mut trace, "source", pull.source.as_str());
+    prop(&mut trace, "source_language", pull.source_language.as_str());
     prop(&mut trace, "sha256", pull.hash.as_str());
     prop(&mut trace, "kill", pull.kill);
     prop(&mut trace, "end_ms", i128::from(pull.end_ms));
@@ -182,7 +184,6 @@ fn trace_node(pull: &Pull, ids: &BTreeMap<String, String>) -> Result<KdlNode> {
 // Render the discovered graph deterministically before publishing a new output file.
 fn process_document(
     group: &super::Group,
-    language: Option<&str>,
     ability_names: &BTreeMap<i64, std::collections::BTreeSet<String>>,
     pulls: &[Pull],
 ) -> Result<KdlDocument> {
@@ -227,7 +228,6 @@ fn process_document(
     prop(&mut root, "algorithm", "directly-follows");
     prop(&mut root, "encounter", i128::from(group.key.encounter));
     prop(&mut root, "difficulty", i128::from(group.key.difficulty));
-    prop(&mut root, "language", language.unwrap_or(""));
     for (key, signals) in &signals_by_key {
         let node = activity_node(
             ids.get(key).context("Missing activity ID")?,
@@ -289,7 +289,6 @@ pub(crate) fn mine(inputs: &[Utf8PathBuf], output: &Path) -> Result<()> {
         anyhow::bail!("Inputs must belong to one encounter and difficulty")
     };
     let mut pulls = Vec::new();
-    let mut language = None;
     let mut ability_names = BTreeMap::<i64, std::collections::BTreeSet<String>>::new();
     for pull in &group.pulls {
         let bytes = std::fs::read(&pull.file)?;
@@ -311,12 +310,6 @@ pub(crate) fn mine(inputs: &[Utf8PathBuf], output: &Path) -> Result<()> {
                     .is_some_and(|fight| fight.id == pull.fight),
             "Input changed during analysis"
         );
-        let lang = &log.report.master_data.lang;
-        ensure!(
-            language.as_ref().is_none_or(|previous| previous == lang),
-            "Inputs use different languages"
-        );
-        language = Some(lang.clone());
         for ability in &log.report.master_data.abilities {
             if !ability.name.is_empty() {
                 ability_names
@@ -328,6 +321,7 @@ pub(crate) fn mine(inputs: &[Utf8PathBuf], output: &Path) -> Result<()> {
         let hash = digest.as_ref().iter().map(|b| format!("{b:02x}")).collect();
         pulls.push(Pull {
             source: pull.file.clone(),
+            source_language: log.report.master_data.lang.clone(),
             hash,
             report: pull.report.clone(),
             fight: pull.fight,
@@ -346,6 +340,6 @@ pub(crate) fn mine(inputs: &[Utf8PathBuf], output: &Path) -> Result<()> {
             events: log.events,
         });
     }
-    let doc = process_document(group, language.as_deref(), &ability_names, &pulls)?;
+    let doc = process_document(group, &ability_names, &pulls)?;
     crate::output::write_new(&[(output, doc.to_string().as_bytes())])
 }
