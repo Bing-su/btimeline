@@ -32,7 +32,7 @@ pub(crate) struct Record {
     event_order: Option<usize>,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct Clock {
     base_ms: i64,
     not_before: i64,
@@ -40,12 +40,13 @@ struct Clock {
     processed: BTreeSet<usize>,
 }
 
+#[derive(Clone)]
 struct ActivePath {
     anchor: Tick,
     clock: Clock,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct BranchState {
     opened: bool,
     closed: bool,
@@ -103,7 +104,7 @@ struct LoopRef<'a> {
     owner: Option<(usize, usize)>,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct RepeatState {
     anchor: Option<Tick>,
     not_before: i64,
@@ -598,6 +599,7 @@ fn enter_repeat_after_jump(
     target: Tick,
     out: &mut Vec<Record>,
     run: usize,
+    history: &mut BTreeMap<String, Option<String>>,
 ) -> Result<()> {
     let mut pending: Vec<_> = phase
         .loops
@@ -641,6 +643,7 @@ fn enter_repeat_after_jump(
             target - state.anchor.unwrap_or(0),
             out,
             run,
+            history,
         )?;
         running = true;
     }
@@ -654,6 +657,7 @@ fn enter_repeat_after_jump_one(
     target: Tick,
     out: &mut Vec<Record>,
     run: usize,
+    history: &mut BTreeMap<String, Option<String>>,
 ) -> Result<()> {
     let offset = target - repeat.start;
     let completed = offset / repeat.every;
@@ -667,13 +671,23 @@ fn enter_repeat_after_jump_one(
             .count(),
     )
     .unwrap_or(i64::MAX);
+    let branch_count = i64::try_from(repeat.branches.len()).unwrap_or(i64::MAX);
+    let partial_branches = i64::try_from(
+        repeat
+            .branches
+            .iter()
+            .filter(|branch| branch.close <= position)
+            .count(),
+    )
+    .unwrap_or(i64::MAX);
     ensure!(
         completed <= 1_000_000
             && completed
-                .saturating_mul(event_count)
+                .saturating_mul(event_count.saturating_add(branch_count))
                 .saturating_add(partial_count)
+                .saturating_add(partial_branches)
                 <= 1_000_000,
-        "Phase sync would skip more than one million loop iterations or events in {}",
+        "Phase sync would skip more than one million loop iterations, events or branches in {}",
         repeat.id
     );
 
@@ -682,6 +696,10 @@ fn enter_repeat_after_jump_one(
     for _ in 0..completed {
         for (_, event) in &events {
             record(out, at, "skipped", event.id.clone(), run);
+        }
+        for branch in &repeat.branches {
+            history.insert(branch.id.clone(), None);
+            record(out, at, "unresolved", branch.id.clone(), run);
         }
     }
     let mut clock = Clock {
@@ -696,6 +714,18 @@ fn enter_repeat_after_jump_one(
         }
     }
     state.current = Some(clock);
+    state.branches = repeat
+        .branches
+        .iter()
+        .map(|_| BranchState::default())
+        .collect();
+    let previous_len = out.len();
+    advance_nested_branches(repeat, state, at, false, out, run, history);
+    for item in out.iter_mut().skip(previous_len) {
+        if item.action == "unresolved" && item.at_ms < at {
+            item.at_ms = at;
+        }
+    }
     Ok(())
 }
 
@@ -705,8 +735,9 @@ fn correct_phase(
     target: Tick,
     out: &mut Vec<Record>,
     run: usize,
+    history: &mut BTreeMap<String, Option<String>>,
 ) -> Result<()> {
-    enter_repeat_after_jump(phase, at, target, out, run)?;
+    enter_repeat_after_jump(phase, at, target, out, run, history)?;
     for state in &mut phase.repeats {
         if state.current.is_none() {
             state.zero_start = None;
@@ -1158,6 +1189,29 @@ impl<'a> Replay<'a> {
                 &mut self.history,
             );
         }
+    }
+
+    fn phase_sync_at_nested_boundary(&self, observation: &Observation) -> bool {
+        let Some(phase) = &self.phase else {
+            return false;
+        };
+        if sync_targets(&phase.definition.events, &phase.clock, observation).is_empty() {
+            return false;
+        }
+        let at = observation.at_ms;
+        phase
+            .loops
+            .iter()
+            .zip(&phase.repeats)
+            .any(|(entry, state)| {
+                !entry.definition.branches.is_empty()
+                    && !state.exited
+                    && !state.blocked
+                    && state.current.as_ref().map_or_else(
+                        || repeat_start(phase.clock.base_ms, entry.definition, state) == Some(at),
+                        |clock| clock.base_ms + entry.definition.every * 100 == at,
+                    )
+            })
     }
 
     fn repeat_matches(&self, observation: &Observation) -> Vec<usize> {
@@ -1622,9 +1676,14 @@ impl<'a> Replay<'a> {
             return Ok(());
         };
         match (owner, self.phase.as_mut(), self.fight.as_mut()) {
-            (SyncOwner::Phase(_), Some(phase), _) => {
-                correct_phase(phase, at, *target, &mut self.out, self.run)?
-            }
+            (SyncOwner::Phase(_), Some(phase), _) => correct_phase(
+                phase,
+                at,
+                *target,
+                &mut self.out,
+                self.run,
+                &mut self.history,
+            )?,
             (SyncOwner::Fight, _, Some(clock)) => correct(
                 &self.timeline.events,
                 clock,
@@ -1709,6 +1768,14 @@ impl<'a> Replay<'a> {
                 .any(|entry| !entry.definition.branches.is_empty())
         });
         let previous_history = (has_nested && exits.len() == 1).then(|| self.history.clone());
+        let sync_snapshot = self.phase_sync_at_nested_boundary(observation).then(|| {
+            let repeats = self
+                .phase
+                .as_ref()
+                .map(|phase| phase.repeats.clone())
+                .unwrap_or_default();
+            (repeats, self.history.clone())
+        });
         self.prepare_nested_boundary(observation.at_ms);
         let exits_without_branch =
             previous_history.is_some() && self.branch_actions(observation).0.is_empty();
@@ -1717,6 +1784,12 @@ impl<'a> Replay<'a> {
                 self.history = history;
             }
             return Ok(());
+        }
+        if let Some((repeats, history)) = sync_snapshot {
+            if let Some(phase) = &mut self.phase {
+                phase.repeats = repeats;
+            }
+            self.history = history;
         }
         self.synchronize(observation)?;
         self.advance_branches(observation.at_ms, true);
@@ -1796,10 +1869,6 @@ fn validate_nested_repeat(phase: &Phase, repeat: &Loop, input: &Recording) -> Re
             && phase.loops.first().is_some_and(|item| item.id == repeat.id)
             && phase.branches.is_empty(),
         "Replay supports branches inside a loop only when it is the phase's only loop and the phase has no other branches"
-    );
-    ensure!(
-        phase.events.iter().all(|event| event.syncs.is_empty()),
-        "Replay does not yet support phase syncs when a loop contains branches"
     );
     let cycles = input.end_ms / (repeat.every * 100);
     let branch_count = i64::try_from(repeat.branches.len()).unwrap_or(i64::MAX);
