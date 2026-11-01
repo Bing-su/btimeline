@@ -196,9 +196,13 @@ fn finite_loop_exit_window_reports_unresolved_but_keeps_repeating() {
 }
 
 #[rstest]
-#[case::two_loops(
-    r#"loop "l" start=0.0 every=2.0 {}; loop "m" start=4.0 every=2.0 {};"#,
-    "multiple loops"
+#[case::two_loops_with_sync(
+    r#"event "e" 1.0 name="E" { sync 1.0 "S"; }; loop "l" start=0.0 every=2.0 {}; loop "m" start=4.0 every=2.0 {};"#,
+    "syncs in a phase with multiple loops"
+)]
+#[case::sync_in_second_loop(
+    r#"loop "l" start=0.0 every=2.0 {}; loop "m" start=4.0 every=2.0 { event "e" 1.0 name="E" { sync 1.0 "S"; }; };"#,
+    "syncs in a phase with multiple loops"
 )]
 #[case::branch_in_loop(r#"loop "l" start=0.0 every=2.0 { branch "b" open=0.0 close=1.0 { option "a" { when "A"; }; option "b" { when "B"; }; }; };"#, "branches inside")]
 fn unsupported_loop_combinations_are_rejected(#[case] body: &str, #[case] reason: &str) {
@@ -226,6 +230,195 @@ fn excessive_loop_iterations_are_rejected() {
             .to_string()
             .contains("one million")
     );
+}
+
+#[test]
+fn sequential_loops_start_at_the_exit_boundary() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            loop "first" start=0.0 every=1.0 {
+                until "EndFirst" at=2.0 before=0.0
+                event "a" 0.0 name="A"
+            }
+            loop "second" start=2.0 every=1.0 {
+                until "EndSecond" at=5.0 before=0.0
+                event "b" 0.0 name="B"
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        6000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":2000,"type":"EndFirst","fields":{}},
+            {"at_ms":5000,"type":"EndSecond","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    let events: Vec<_> = output
+        .iter()
+        .filter(|r| r.action == "event")
+        .map(|r| (r.at_ms, r.detail.as_str()))
+        .collect();
+    assert_eq!(events.len(), 5);
+    assert!(
+        matches!(events.as_slice(), [(0, a), (1000, b), (2000, c), (3000, d), (4000, e)] if a.starts_with("a:") && b.starts_with("a:") && c.starts_with("b:") && d.starts_with("b:") && e.starts_with("b:"))
+    );
+    assert!(!output.iter().any(|r| r.action == "violation"));
+}
+
+#[test]
+fn simultaneous_active_loops_report_violation_and_do_not_restart() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            loop "second" start=1.0 every=1.0 { event "b" 0.0 name="B"; }
+            loop "first" start=0.0 every=1.0 {
+                until "EndFirst" at=3.0 before=0.0
+                event "a" 0.0 name="A"
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        5000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":3000,"type":"EndFirst","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "violation" && r.detail.contains("second") && r.at_ms == 1000)
+    );
+    assert!(
+        !output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("b:"))
+    );
+    assert_eq!(
+        output
+            .iter()
+            .filter(|r| r.action == "event" && r.detail.starts_with("a:"))
+            .count(),
+        3
+    );
+}
+
+#[test]
+fn simultaneous_loop_starts_use_document_order() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            loop "first" start=0.0 every=1.0 { event "a" 0.0 name="A"; }
+            loop "second" start=0.0 every=1.0 { event "b" 0.0 name="B"; }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        0,
+        serde_json::json!([{ "at_ms":0, "type":"Start", "fields":{} }]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("a:") && r.at_ms == 0)
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "violation" && r.detail.contains("second") && r.at_ms == 0)
+    );
+    assert!(
+        !output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("b:"))
+    );
+}
+
+#[test]
+fn watching_and_exiting_a_future_loop_does_not_count_as_running() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            loop "running" start=0.0 every=2.0 { event "pulse" 0.0 name="Pulse"; }
+            loop "waiting" start=3.0 every=1.0 {
+                until "Skip" at=1.0 before=0.0
+                event "never" 0.0 name="Never"
+                on-exit { event "after" 1.0 name="After"; }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        4000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Skip","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("after:") && r.at_ms == 2000)
+    );
+    assert!(
+        !output
+            .iter()
+            .any(|r| r.action == "violation" || r.detail.starts_with("never:"))
+    );
+}
+
+#[test]
+fn one_signal_matching_multiple_loop_exits_is_ambiguous() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            loop "a" start=5.0 every=1.0 { until "Skip" at=1.0 before=0.0; }
+            loop "b" start=6.0 every=1.0 { until "Skip" at=1.0 before=0.0; }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        2000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Skip","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "ambiguous" && r.at_ms == 1000)
+    );
+    assert!(!output.iter().any(|r| r.action == "until"));
 }
 
 #[test]
