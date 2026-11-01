@@ -55,6 +55,8 @@ cargo run -- compare tests/fixtures/timeline/fflogs-native.kdl tests/fixtures/pu
 
 예를 들어 수집 파일의 `cast`, `abilityGameID: 46376`, `sourceID: 10`이 masterData에서 `Synthetic Boss`를 가리키면 `FFLogs.cast`, `id="B528"`, `source="Synthetic Boss"`로 매칭할 수 있다. FFLogs [공식 API 문서](https://www.fflogs.com/v2-api-docs/ff/report.doc.html)는 이벤트와 masterData를 별도로 제공한다. 이 매핑은 ACT 신호와의 동등성을 뜻하지 않는다.
 
+실제 수집 파일로 확인한 범위와 입력 해시는 [FFLogs 입력 재생 확인](FFLOGS_REPLAY_VERIFICATION.md)에 기록한다.
+
 ## 결과와 한계
 
 | 구분                       | 현재 처리                                                                                                                                                                                                                                                         |

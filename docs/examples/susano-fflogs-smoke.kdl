@@ -1,0 +1,10 @@
+// This small input checks native FFLogs signal replay; it is not a complete encounter timeline.
+timeline 1 "Susano native smoke test" {
+    start "FFLogs.begincast" id="201D" source="Susano"
+    phase "sample" {
+        enter "FFLogs.begincast" id="201D" source="Susano"
+        event "second-cast" 63.4 name="Observed second cast" {
+            sync 63.4 "FFLogs.begincast" id="201D" source="Susano" before=1.0 after=1.0
+        }
+    }
+}
