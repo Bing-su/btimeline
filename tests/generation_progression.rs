@@ -83,9 +83,14 @@ fn occurrence_graph_keeps_unprinted_helpers_and_binds_timing_samples(#[case] mod
                 .iter()
                 .find(|trace| trace["trace"] == sample["trace"])
                 .unwrap();
-            let node = &trace["nodes"][event["observation_nodes"][sample["trace"].as_str().unwrap()]
-                .as_u64()
-                .unwrap() as usize];
+            let node = trace["nodes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|node| {
+                    node["index"] == event["observation_nodes"][sample["trace"].as_str().unwrap()]
+                })
+                .unwrap();
             assert_eq!(node["activity"], event["activity"]);
             let input = evidence["analysis"]["inputs"]
                 .as_array()

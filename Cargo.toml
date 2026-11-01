@@ -14,6 +14,7 @@ garde = { version = "0.23", default-features = false, features = ["derive", "reg
 indicatif = { version = "0.18", features = ["rayon"] }
 kdl = "6.7.1"
 path-slash = "0.2"
+petgraph = { version = "0.8.3", default-features = false, features = ["stable_graph", "std"] }
 process_mining = { version = "=0.6.2", default-features = false }
 rayon = "1"
 regress = "0.12.0"

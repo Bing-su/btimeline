@@ -149,6 +149,7 @@ dependencies = [
  "insta",
  "kdl",
  "path-slash",
+ "petgraph",
  "process_mining",
  "proptest",
  "rayon",
