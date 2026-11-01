@@ -18,6 +18,8 @@ pub enum MainCommands {
     Inspect(InspectCommand),
     /// Mine observed event sequences into a KDL process graph.
     Mine(MineCommand),
+    /// Generate a common cast schedule from a process graph and an authored clock template.
+    Generate(GenerateCommand),
     /// Check timeline structure and authored constraints.
     Validate(ValidateCommand),
     /// Replay normalized recorded signals against a timeline.
@@ -151,6 +153,33 @@ impl Run for MineCommand {
     fn run(self) -> Self::Output {
         crate::generate::mine(&self.inputs, self.output.as_std_path())?;
         eprintln!("Process graph saved to {}", self.output);
+        Ok(())
+    }
+}
+
+#[derive(Args)]
+pub struct GenerateCommand {
+    #[usage(arg)]
+    graph: Utf8PathBuf,
+    /// KDL lifecycle and one zero-time event naming the observed origin cast.
+    #[usage(long)]
+    template: Utf8PathBuf,
+    #[usage(short = 'o', long)]
+    output: Utf8PathBuf,
+}
+
+impl Run for GenerateCommand {
+    type Output = Result<()>;
+
+    fn run(self) -> Self::Output {
+        let count = crate::generate::generate(
+            self.graph.as_std_path(),
+            self.template.as_std_path(),
+            self.output.as_std_path(),
+        )?;
+        println!("Generated {} ({} common cast events).", self.output, count);
+        println!("Evidence: {}", self.output.with_extension("evidence.json"));
+        println!("Review the authored origin binding and excluded observations before use.");
         Ok(())
     }
 }

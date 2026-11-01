@@ -1,6 +1,7 @@
 mod input;
 mod mining;
 mod pairing;
+mod render;
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -89,3 +90,4 @@ fn slash_path(path: &Path) -> String {
 pub use input::inspect;
 pub(crate) use input::validated_collected;
 pub(crate) use mining::mine;
+pub(crate) use render::generate;
