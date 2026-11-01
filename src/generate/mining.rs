@@ -14,21 +14,21 @@ mod common;
 mod repeats;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
-enum Identifier {
+pub(super) enum Identifier {
     Ability(i64),
     Marker(i64),
     Tether(i64),
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
-struct Signal {
-    kind: String,
-    identifier: Identifier,
-    source: Option<String>,
-    target: Option<String>,
+pub(super) struct Signal {
+    pub(super) kind: String,
+    pub(super) identifier: Identifier,
+    pub(super) source: Option<String>,
+    pub(super) target: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 struct Batch {
     at_ms: i64,
     signals: Vec<Signal>,
@@ -49,6 +49,79 @@ struct Pull {
     start_ms: i64,
     actors: BTreeMap<i64, String>,
     events: Vec<crate::fflogs::model::Event>,
+}
+
+pub(super) struct Analysis {
+    group: super::Group,
+    pulls: Vec<Pull>,
+    pub(super) ability_names: BTreeMap<i64, std::collections::BTreeSet<String>>,
+    pub(super) boss_names: std::collections::BTreeSet<String>,
+    graph: DirectlyFollowsGraph<'static>,
+}
+
+// Preserve multiplicity per pull so a missing repeated cast cannot be aligned by ordinal alone.
+fn timing_table(pull: &Pull) -> BTreeMap<Signal, Vec<i64>> {
+    let mut table = BTreeMap::<Signal, Vec<i64>>::new();
+    for batch in &pull.batches {
+        for signal in &batch.signals {
+            table.entry(signal.clone()).or_default().push(batch.at_ms);
+        }
+    }
+    table
+}
+
+impl Analysis {
+    pub(super) fn signals(&self) -> std::collections::BTreeSet<Signal> {
+        self.pulls
+            .iter()
+            .flat_map(|pull| &pull.batches)
+            .flat_map(|batch| batch.signals.iter().cloned())
+            .collect()
+    }
+
+    pub(super) fn name(&self) -> Result<&str> {
+        Ok(&self.group.pulls.first().context("Missing fight")?.name)
+    }
+
+    pub(super) fn common(
+        &self,
+        include: impl Fn(&Signal) -> bool,
+    ) -> Result<BTreeMap<Signal, BTreeMap<String, i64>>> {
+        let completed: Vec<_> = self.pulls.iter().filter(|pull| pull.kill).collect();
+        ensure!(completed.len() >= 2, "Need at least two completed logs");
+        let tables: Vec<_> = completed.iter().map(|pull| timing_table(pull)).collect();
+        let mut common = common::anchors(&tables);
+        common.retain(|signal, _| include(signal));
+        ensure!(
+            common::consistent_order(&common),
+            "Completed logs disagree on common order"
+        );
+        Ok(common
+            .into_iter()
+            .map(|(signal, times)| {
+                let samples = completed
+                    .iter()
+                    .zip(times)
+                    .map(|(pull, at)| (format!("{}/{}", pull.report, pull.fight), at))
+                    .collect();
+                (signal, samples)
+            })
+            .collect())
+    }
+
+    pub(super) fn evidence(&self) -> serde_json::Value {
+        let inputs: Vec<_> = self.pulls.iter().map(|pull| serde_json::json!({
+            "file":pull.source,"sha256":pull.hash,"trace":format!("{}/{}",pull.report,pull.fight),
+            "kill":pull.kill,"source_language":pull.source_language,"end_ms":pull.end_ms,
+            "event_count":pull.events.len(),"phase_transitions":pull.phase_transitions,"observations":pull.batches,
+        })).collect();
+        serde_json::json!({"encounter":self.group.key.encounter,"difficulty":self.group.key.difficulty,"inputs":inputs,
+            "boss_names":self.boss_names,"graph":{"activities":self.graph.activities.len(),"relations":self.graph.directly_follows_relations.len()}})
+    }
+
+    fn document(&self) -> Result<KdlDocument> {
+        process_document(&self.group, &self.ability_names, &self.pulls, &self.graph)
+    }
 }
 
 fn argument(node: &mut KdlNode, value: impl Into<kdl::KdlValue>) {
@@ -241,6 +314,7 @@ fn process_document(
     group: &super::Group,
     ability_names: &BTreeMap<i64, std::collections::BTreeSet<String>>,
     pulls: &[Pull],
+    graph: &DirectlyFollowsGraph<'_>,
 ) -> Result<KdlDocument> {
     let mut signals_by_key = BTreeMap::new();
     let mut starts = BTreeMap::<String, usize>::new();
@@ -268,7 +342,6 @@ fn process_document(
         pulls.iter().any(|pull| !pull.events.is_empty()),
         "No observations found"
     );
-    let graph = discover(pulls)?;
     let ids: BTreeMap<_, _> = signals_by_key
         .keys()
         .enumerate()
@@ -278,6 +351,11 @@ fn process_document(
     let mut root = KdlNode::new("process");
     argument(&mut root, 1_i128);
     prop(&mut root, "algorithm", "adjacent-batches");
+    prop(
+        &mut root,
+        "name",
+        group.pulls.first().context("Missing fight")?.name.as_str(),
+    );
     prop(&mut root, "encounter", i128::from(group.key.encounter));
     prop(&mut root, "difficulty", i128::from(group.key.difficulty));
     for (key, signals) in &signals_by_key {
@@ -328,7 +406,7 @@ fn process_document(
     Ok(doc)
 }
 
-pub(crate) fn mine(inputs: &[Utf8PathBuf], output: &Path) -> Result<()> {
+pub(super) fn analyze(inputs: &[Utf8PathBuf]) -> Result<Analysis> {
     let hashes: BTreeMap<_, _> = inputs
         .iter()
         .map(|path| {
@@ -339,12 +417,15 @@ pub(crate) fn mine(inputs: &[Utf8PathBuf], output: &Path) -> Result<()> {
             ))
         })
         .collect::<Result<_>>()?;
-    let groups = super::inspect(inputs)?;
-    let [group] = groups.as_slice() else {
-        anyhow::bail!("Inputs must belong to one encounter and difficulty")
-    };
+    let mut groups = super::inspect(inputs)?;
+    ensure!(
+        groups.len() == 1,
+        "Inputs must belong to one encounter and difficulty"
+    );
+    let group = groups.pop().context("Missing encounter")?;
     let mut pulls = Vec::new();
     let mut ability_names = BTreeMap::<i64, std::collections::BTreeSet<String>>::new();
+    let mut boss_names = std::collections::BTreeSet::new();
     for pull in &group.pulls {
         let bytes = std::fs::read(&pull.file)?;
         let digest = ring::digest::digest(&ring::digest::SHA256, &bytes);
@@ -374,6 +455,14 @@ pub(crate) fn mine(inputs: &[Utf8PathBuf], output: &Path) -> Result<()> {
             }
         }
         let hash = digest.as_ref().iter().map(|b| format!("{b:02x}")).collect();
+        boss_names.extend(
+            log.report
+                .master_data
+                .actors
+                .iter()
+                .filter(|actor| actor.sub_type == "Boss" && pull.actors.contains_key(&actor.id))
+                .map(|actor| actor.name.clone()),
+        );
         pulls.push(Pull {
             source: pull.file.clone(),
             source_language: log.report.master_data.lang.clone(),
@@ -395,7 +484,18 @@ pub(crate) fn mine(inputs: &[Utf8PathBuf], output: &Path) -> Result<()> {
             events: log.events,
         });
     }
-    let doc = process_document(group, &ability_names, &pulls)?;
+    let graph = discover(&pulls)?;
+    Ok(Analysis {
+        group,
+        pulls,
+        ability_names,
+        boss_names,
+        graph,
+    })
+}
+
+pub(crate) fn mine(inputs: &[Utf8PathBuf], output: &Path) -> Result<()> {
+    let doc = analyze(inputs)?.document()?;
     crate::output::write_new(&[(output, doc.to_string().as_bytes())])
 }
 

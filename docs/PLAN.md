@@ -95,19 +95,21 @@ FFLogs에서 사람이 검토하고 편집할 수 있는 실행 가능한 타임
 
 ## 6. 사람이 사용하기 쉬운 CLI
 
-사용 흐름은 입력 확인 → 분석 → 생성 → 검토 → 검증·비교로 정리한다. inspect·mine과 제한된 validate·compare·generate의 첫 구현이 있다. compare는 정규화 관측 JSON과 수집 FFLogs 파일을 받으며, FFLogs 신호를 ACT 신호로 추정 변환하지 않는다. generate는 분석 그래프와 작성자가 제공한 기준점 템플릿에서 공통 시전 표시 일정을 생성한다. 세부 조건은 [생성 계약](GENERATION.md)에 정의한다. review와 로그에서 바로 생성하는 경로는 아직 미구현이다.
+사용 흐름은 입력 확인 → 생성 → 검토 → 검증·비교로 정리한다. generate는 FFLogs JSON들과 mode만 받아 검사·프로세스 분석·그래프 구성·KDL 생성·구조 검증을 수행한다. 템플릿과 중간 파일을 요구하지 않으며 mine은 동일한 분석 결과를 확인하는 선택적 명령이다. compare는 정규화 관측 JSON과 수집 FFLogs 파일을 받되 원본 FFLogs 관측을 runtime 신호로 자동 변환하지 않는다. 현재 생성 범위와 mode 정책은 [생성 계약](GENERATION.md)에 정의하며 review는 아직 미구현이다.
 
-| 작업        | 명령 초안                                                              |
-| ----------- | ---------------------------------------------------------------------- |
-| 입력 확인   | `btimeline inspect LOG...`                                             |
-| 생성        | `btimeline generate process.kdl --template origin.kdl -o timeline.kdl` |
-| 검토        | `btimeline review timeline.kdl`                                        |
-| 유효성 확인 | `btimeline validate timeline.kdl`                                      |
-| 로그 비교   | `btimeline compare timeline.kdl LOG...`                                |
+| 작업        | 명령 초안                                                    |
+| ----------- | ------------------------------------------------------------ |
+| 입력 확인   | `btimeline inspect LOG...`                                   |
+| 생성        | `btimeline generate LOG.json... --mode raid -o timeline.kdl` |
+| 검토        | `btimeline review timeline.kdl`                              |
+| 유효성 확인 | `btimeline validate timeline.kdl`                            |
+| 로그 비교   | `btimeline compare timeline.kdl LOG...`                      |
 
 - [ ] 기본 출력은 사람이 읽기 쉬운 요약과 다음 행동을 제공하고, 자동화용 JSON은 명시적으로 요청한다.
-- [x] 작성된 lifecycle·기준점을 보존하는 공통 시전 일정 생성, 별도 근거 출력, 생성 후 구조 검사와 KDL 단독 재생 경로를 구현한다. 합성 전멸·재시작을 검증하고 신호 대응·실제 전투 정확성은 미검사로 남긴다.
-- [ ] 로그에서 바로 생성하는 명령과 시전 외 이벤트·페이즈·분기·반복 생성, 기준점 대응 검증을 이어 구현한다.
+- [x] FFLogs JSON들을 직접 받는 generate와 raid·dungeon·alliance mode 정책을 구현한다. 시작·리셋·공통 시전·동기화와 별도 근거를 생성하고 중간 KDL을 입출력 경계로 사용하지 않는다.
+- [x] dungeon·alliance는 적대 Boss 메타데이터와 공통 시전으로 보스별 phase·진입 조건을 생성한다. 잡몹을 제외하고 이동 시간과 시계를 분리하며 이후 보스의 전멸·재시작도 허용한다.
+- [x] 생성 후 구조 검사와 KDL 단독 재생·동기화·전멸·구역 변경·재시작을 합성 사례로 검증한다. 실제 게임·ACT 실행 검증은 별도로 남긴다.
+- [ ] 시전 외 이벤트·보스 내부 페이즈·분기·반복 생성, helper 소속·서로 다른 encounter 연결과 콘텐츠별 lifecycle 예외 처리를 이어 구현한다.
 - [x] `inspect`의 기본 출력을 전투별 요약과 다음 분석 명령으로 제공하고 상세 관측·근거 JSON은 `--json`으로 요청한다. 모든 입력을 검사한 뒤 출력해 부분 결과를 방지한다.
 - [ ] 사용자가 자주 결정하는 설정만 기본 옵션으로 노출한다. 오류는 문제와 수정 방법을 함께 표시한다.
 - [ ] 기존 파일은 명시적 요청 없이 덮어쓰지 않는다. 상세 원본 근거는 필요할 때 확인할 수 있게 한다.

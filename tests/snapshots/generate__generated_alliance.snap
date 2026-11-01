@@ -1,0 +1,22 @@
+---
+source: tests/generate.rs
+expression: timeline
+---
+timeline 1 "Unknown Encounter" {
+    start Ability id=B528 source="Synthetic Boss"
+    wipe ActorControl command="4000000F"
+    wipe ActorControl command="40000010"
+    zone-exit ChangeZone
+    phase synthetic-boss {
+        enter Ability id=B528 source="Synthetic Boss"
+        event a-synthetic-boss-b528 0.0 name=A {
+            sync 0.0 Ability id=B528 source="Synthetic Boss" before=2.5 after=2.5
+        }
+        event b-synthetic-boss-b529 4.1 name=B {
+            sync 4.1 Ability id=B529 source="Synthetic Boss" before=2.5 after=2.5
+        }
+        event c-synthetic-boss-b52a 8.0 name=C {
+            sync 8.0 Ability id=B52A source="Synthetic Boss" before=2.5 after=2.5
+        }
+    }
+}

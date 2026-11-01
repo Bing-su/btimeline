@@ -1,6 +1,6 @@
 # 오프라인 타임라인 검증: 첫 구현
 
-최종 타임라인 KDL의 구조 검사와 lifecycle·phase·event·sync·branch·loop 재생을 구현했다. `compare`는 정규화 관측 JSON과 이 도구가 수집한 FFLogs 전투 파일을 받는다. [첫 생성기](GENERATION.md)는 작성한 lifecycle과 기준점에서 공통 시전의 표시 일정을 생성하며 FFLogs/ACT 신호 변환은 구현하지 않는다.
+최종 타임라인 KDL의 구조 검사와 lifecycle·phase·event·sync·branch·loop 재생을 구현했다. `compare`는 정규화 관측 JSON과 이 도구가 수집한 FFLogs 전투 파일을 받는다. [생성기](GENERATION.md)는 FFLogs JSON과 mode에서 lifecycle·공통 시전 일정·Ability 동기화를 생성한다. `compare`의 FFLogs 입력은 아래 원본 관측 계약을 유지하며 생성된 실행 조건을 검증하는 runtime 관측으로 자동 변환하지 않는다.
 
 | 명령                                                           | 현재 동작                                                                                                           |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |

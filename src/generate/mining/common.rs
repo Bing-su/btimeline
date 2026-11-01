@@ -5,7 +5,7 @@ use kdl::KdlNode;
 
 use super::{Pull, argument, prop};
 
-type Timings = BTreeMap<String, Vec<i64>>;
+type Timings<K = String> = BTreeMap<K, Vec<i64>>;
 
 // Match final display precision without rounding evidence, e.g. 1049 and 1050 ms stay unordered.
 const ORDER_RESOLUTION_MS: i64 = 100;
@@ -19,7 +19,7 @@ fn relation(left: i64, right: i64) -> std::cmp::Ordering {
 }
 
 // Match unique occurrences only; missing an earlier repeated cast must not shift every later match.
-fn anchors(tables: &[Timings]) -> Timings {
+pub(super) fn anchors<K: Ord + Clone>(tables: &[Timings<K>]) -> Timings<K> {
     let Some(first) = tables.first().filter(|_| tables.len() >= 2) else {
         return Timings::new();
     };
@@ -41,7 +41,7 @@ fn anchors(tables: &[Timings]) -> Timings {
         .collect()
 }
 
-fn consistent_order(common: &Timings) -> bool {
+pub(super) fn consistent_order<K: Ord>(common: &Timings<K>) -> bool {
     common.values().enumerate().all(|(index, times)| {
         common.values().skip(index + 1).all(|other| {
             let mut pairs = times.iter().zip(other);

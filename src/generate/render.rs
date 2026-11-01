@@ -1,248 +1,176 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+use std::str::FromStr;
 
 use anyhow::{Context, Result, ensure};
-use kdl::{KdlDocument, KdlNode, KdlValue};
+use camino::Utf8PathBuf;
+use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 use serde_json::{Value, json};
 
-fn children(node: &KdlNode) -> &[KdlNode] {
-    node.children().map_or(&[], |document| document.nodes())
+use super::mining::{Analysis, Identifier, Signal};
+
+#[derive(Clone, Copy, Debug, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum Mode {
+    Raid,
+    Dungeon,
+    Alliance,
 }
 
-fn text(node: &KdlNode, field: &str) -> Result<String> {
-    let value = node
-        .get(field)
-        .and_then(KdlValue::as_string)
-        .context(format!("Missing {field}"))?;
-    ensure!(!value.trim().is_empty(), "Empty {field}");
-    Ok(value.to_owned())
-}
+impl FromStr for Mode {
+    type Err = anyhow::Error;
 
-fn id(node: &KdlNode) -> Result<String> {
-    Ok(node
-        .get(0)
-        .and_then(KdlValue::as_string)
-        .context("Missing ID")?
-        .to_owned())
-}
-
-fn integer(node: &KdlNode, field: &str) -> Result<i64> {
-    i64::try_from(
-        node.get(field)
-            .and_then(KdlValue::as_integer)
-            .context(format!("Missing {field}"))?,
-    )
-    .context("Integer out of range")
-}
-
-fn one<'a>(nodes: &'a [KdlNode], name: &str) -> Result<&'a KdlNode> {
-    let mut matching = nodes.iter().filter(|node| node.name().value() == name);
-    let node = matching.next().context(format!("Missing {name}"))?;
-    ensure!(matching.next().is_none(), "Duplicate {name}");
-    Ok(node)
-}
-
-fn template(source: &str) -> Result<(KdlDocument, String, String)> {
-    crate::timeline::parse(source).context("Invalid timeline template")?;
-    let doc: KdlDocument = source.parse()?;
-    let root = doc.nodes().first().context("Missing timeline")?;
-    ensure!(
-        children(root)
-            .iter()
-            .any(|node| node.name().value() == "start"),
-        "Template needs a start signal"
-    );
-    ensure!(
-        children(root)
-            .iter()
-            .any(|node| matches!(node.name().value(), "wipe" | "finish" | "zone-exit")),
-        "Template needs a reset signal: wipe, finish, or zone-exit"
-    );
-    let anchor = one(children(root), "event")?;
-    ensure!(
-        anchor
-            .get(1)
-            .is_some_and(|value| value.as_integer() == Some(0)
-                || value.as_float().is_some_and(|value| value.abs() < 1e-7)),
-        "Template event must be at 0.0"
-    );
-    ensure!(
-        children(anchor).is_empty(),
-        "Template origin event cannot have syncs yet"
-    );
-    for node in children(root) {
-        ensure!(
-            matches!(
-                node.name().value(),
-                "event" | "start" | "wipe" | "finish" | "zone-exit"
-            ),
-            "Template supports lifecycle and one root origin event only"
-        );
-        if node.name().value() != "event" {
-            ensure!(
-                !id(node)?.starts_with("FFLogs."),
-                "Template requires runtime signals, not FFLogs-only signals"
-            );
+    fn from_str(value: &str) -> Result<Self> {
+        match value {
+            "raid" => Ok(Self::Raid),
+            "dungeon" => Ok(Self::Dungeon),
+            "alliance" => Ok(Self::Alliance),
+            _ => anyhow::bail!("Unknown mode {value}; use raid, dungeon, or alliance"),
         }
     }
-    let name = text(anchor, "name")?;
-    let anchor_id = id(anchor)?;
-    Ok((doc, name, anchor_id))
 }
 
-#[derive(Debug)]
+fn median(values: impl Iterator<Item = i64>) -> Result<i64> {
+    let mut values: Vec<_> = values.collect();
+    ensure!(!values.is_empty(), "Missing timing samples");
+    values.sort_unstable();
+    values
+        .get((values.len() - 1) / 2)
+        .copied()
+        .context("Missing median")
+}
+
 struct Anchor {
-    activity: String,
+    activity: Signal,
     name: String,
     source: String,
     ability: String,
     samples: BTreeMap<String, i64>,
 }
 
-fn read_samples(
-    node: &KdlNode,
-    completed: &BTreeMap<String, i64>,
-) -> Result<BTreeMap<String, i64>> {
-    let mut samples = BTreeMap::new();
-    for sample in children(node) {
-        ensure!(sample.name().value() == "sample", "Unknown anchor child");
-        let trace = id(sample)?;
-        let at = integer(sample, "at_ms")?;
-        ensure!(
-            completed
-                .get(&trace)
-                .is_some_and(|end| 0 <= at && at <= *end),
-            "Sample outside a completed trace"
-        );
-        ensure!(
-            samples.insert(trace, at).is_none(),
-            "Duplicate anchor sample"
-        );
-    }
-    ensure!(
-        samples.len() == completed.len(),
-        "Anchor must have one sample per completed trace"
-    );
-    Ok(samples)
-}
-
-// Reject ambiguous edits, e.g. duplicate status properties must not silently pick the last one.
-fn validate_graph_nodes(root: &KdlNode) -> Result<()> {
-    let mut pending = vec![root];
-    while let Some(node) = pending.pop() {
-        ensure!(
-            node.ty().is_none(),
-            "Graph type annotations are unsupported"
-        );
-        let mut properties = BTreeSet::new();
-        for entry in node.entries() {
-            ensure!(
-                entry.ty().is_none(),
-                "Graph entry annotations are unsupported"
-            );
-            if let Some(name) = entry.name() {
-                ensure!(
-                    properties.insert(name.value()),
-                    "Duplicate graph property {}",
-                    name.value()
-                );
-            }
-        }
-        pending.extend(children(node));
-    }
-    Ok(())
-}
-
-fn graph(source: &str) -> Result<(Vec<Anchor>, Vec<Value>)> {
-    let doc: KdlDocument = source.parse()?;
-    let [root] = doc.nodes() else {
-        anyhow::bail!("Expected one process graph");
+// Consume the shared in-memory mining result; generation never requires a serialized graph input.
+fn anchors(analysis: &Analysis, mode: Mode) -> Result<(Vec<Anchor>, Vec<Value>)> {
+    let include = |signal: &Signal| {
+        signal.kind == "cast"
+            && (matches!(mode, Mode::Raid)
+                || signal
+                    .source
+                    .as_ref()
+                    .is_some_and(|source| analysis.boss_names.contains(source)))
     };
-    validate_graph_nodes(root)?;
-    ensure!(
-        root.name().value() == "process" && root.get(0).and_then(KdlValue::as_integer) == Some(1),
-        "Unsupported process graph"
-    );
-    ensure!(
-        text(root, "algorithm")? == "adjacent-batches",
-        "Unsupported graph algorithm"
-    );
-    let nodes = children(root);
-    let common = one(nodes, "common-progress")?;
-    ensure!(
-        text(common, "status")? == "observed-common-order",
-        "Generation requires an agreed common order"
-    );
-    let mut completed = BTreeMap::new();
-    for trace in nodes.iter().filter(|node| node.name().value() == "trace") {
-        if trace.get("kill").and_then(KdlValue::as_bool) == Some(true) {
-            ensure!(
-                completed
-                    .insert(id(trace)?, integer(trace, "end_ms")?)
-                    .is_none(),
-                "Duplicate completed trace"
-            );
-        }
-    }
-    ensure!(
-        completed.len() >= 2
-            && integer(common, "completed_pulls")? == i64::try_from(completed.len())?,
-        "Need at least two completed traces"
-    );
-    let mut activities = BTreeMap::new();
-    for activity in nodes
-        .iter()
-        .filter(|node| node.name().value() == "activity")
-    {
+    if !matches!(mode, Mode::Raid) {
         ensure!(
-            activities
-                .insert(id(activity)?, one(children(activity), "signal")?)
-                .is_none(),
-            "Duplicate activity"
+            !analysis.boss_names.is_empty(),
+            "Input metadata does not identify Boss actors"
         );
     }
+    let common = analysis.common(include)?;
     let mut anchors = Vec::new();
-    let mut excluded = Vec::new();
     let mut seen = BTreeSet::new();
-    for anchor in children(common)
-        .iter()
-        .filter(|node| node.name().value() == "anchor")
-    {
-        let activity = id(anchor)?;
-        ensure!(seen.insert(activity.clone()), "Duplicate common anchor");
-        let signal = activities
-            .get(&activity)
-            .context("Unknown common activity")?;
-        let samples = read_samples(anchor, &completed)?;
-        if id(signal)? != "cast" {
-            excluded.push(json!({"activity":activity,"reason":"non-cast anchor"}));
-            continue;
-        }
-        let ability = text(signal, "id")?;
+    let mut excluded = Vec::new();
+    for (activity, samples) in common {
+        seen.insert(activity.clone());
+        let Identifier::Ability(ability) = activity.identifier else {
+            anyhow::bail!("Cast requires an ability ID");
+        };
+        ensure!(ability >= 0, "Cast requires a nonnegative ability ID");
+        let names = analysis
+            .ability_names
+            .get(&ability)
+            .context("Missing cast name")?;
         ensure!(
-            ability.bytes().all(|byte| byte.is_ascii_hexdigit())
-                && i64::from_str_radix(&ability, 16).is_ok_and(|id| id >= 0),
-            "Invalid ability ID"
+            names.len() == 1,
+            "Ambiguous cast name for ability {ability:X}"
         );
+        let name = names.first().context("Missing cast name")?.clone();
+        let source = activity
+            .source
+            .clone()
+            .filter(|name| !name.trim().is_empty())
+            .context("Missing caster name")?;
         anchors.push(Anchor {
             activity,
-            name: text(signal, "name")?,
-            source: text(signal, "source")?,
-            ability,
+            name,
+            source,
+            ability: format!("{ability:X}"),
             samples,
         });
     }
-    for activity in activities
-        .keys()
-        .filter(|activity| !seen.contains(*activity))
-    {
-        excluded.push(json!({"activity":activity,"reason":"not a unique common anchor"}));
+    for activity in analysis.signals().difference(&seen) {
+        let reason = if activity.kind != "cast" {
+            "non-cast activity"
+        } else if !include(activity) {
+            "not a Boss actor"
+        } else {
+            "not a unique common anchor"
+        };
+        excluded.push(json!({"activity":activity,"reason":reason}));
     }
+    ensure!(!anchors.is_empty(), "No unique common casts found");
     Ok((anchors, excluded))
 }
 
+fn prop(node: &mut KdlNode, name: &str, value: impl Into<KdlValue>) {
+    node.push(KdlEntry::new_prop(name, value));
+}
+fn signal(role: &str, kind: &str, fields: &[(&str, &str)]) -> KdlNode {
+    let mut node = KdlNode::new(role);
+    node.push(kind);
+    for (name, value) in fields {
+        prop(&mut node, name, *value);
+    }
+    node
+}
+
+// Cactbot uses InCombat for raid starts and explicit action-ID/NPC-name anchors for encounter sync.
+// Local boss anchoring avoids starting a dungeon/alliance boss schedule on preceding trash combat.
+fn starts(mode: Mode, origins: &[&Anchor]) -> Vec<KdlNode> {
+    match mode {
+        Mode::Raid => vec![signal("start", "InCombat", &[("inGameCombat", "1")])],
+        _ => origins
+            .iter()
+            .map(|origin| {
+                signal(
+                    "start",
+                    "Ability",
+                    &[("id", &origin.ability), ("source", &origin.source)],
+                )
+            })
+            .collect(),
+    }
+}
+
+fn clocks(anchors: &[Anchor], mode: Mode) -> Result<(BTreeMap<String, i64>, Vec<&Anchor>)> {
+    let first = anchors.first().context("Missing timing samples")?;
+    let mut zeros = BTreeMap::new();
+    for trace in first.samples.keys() {
+        let zero = match mode {
+            Mode::Raid => 0,
+            _ => *anchors
+                .iter()
+                .filter_map(|anchor| anchor.samples.get(trace))
+                .min()
+                .context("Missing boss origin")?,
+        };
+        zeros.insert(trace.clone(), zero);
+    }
+    let origins = match mode {
+        Mode::Raid => Vec::new(),
+        _ => anchors
+            .iter()
+            .filter(|anchor| {
+                anchor
+                    .samples
+                    .iter()
+                    .any(|(trace, at)| zeros.get(trace) == Some(at))
+            })
+            .collect(),
+    };
+    Ok((zeros, origins))
+}
+
 fn slug(name: &str) -> String {
-    name.split(|character: char| !character.is_alphanumeric())
+    name.split(|c: char| !c.is_alphanumeric())
         .filter(|part| !part.is_empty())
         .map(str::to_lowercase)
         .collect::<Vec<_>>()
@@ -259,22 +187,18 @@ struct Sample<'a> {
 
 fn schedule(
     anchors: &[Anchor],
-    origin: &Anchor,
-    used_id: &str,
-) -> Result<(Vec<KdlNode>, Vec<Value>, Vec<Value>)> {
+    zeros: &BTreeMap<String, i64>,
+    mode: Mode,
+) -> Result<(Vec<KdlNode>, Vec<Value>)> {
     let mut events = Vec::new();
     let mut evidence = Vec::new();
-    let mut excluded = Vec::new();
-    let mut used = BTreeSet::from([used_id.to_owned()]);
-    for anchor in anchors
-        .iter()
-        .filter(|anchor| anchor.activity != origin.activity)
-    {
+    let mut used = BTreeSet::new();
+    for anchor in anchors {
         let samples = anchor
             .samples
             .iter()
             .map(|(trace, at)| {
-                let zero = origin.samples.get(trace).context("Missing origin sample")?;
+                let zero = zeros.get(trace).context("Missing origin sample")?;
                 Ok(Sample {
                     trace,
                     at_ms: *at,
@@ -283,20 +207,19 @@ fn schedule(
                 })
             })
             .collect::<Result<Vec<_>>>()?;
-        let mut offsets: Vec<_> = samples.iter().map(|sample| sample.offset_ms).collect();
-        if offsets.iter().any(|offset| *offset < 0) {
-            excluded.push(json!({"activity":anchor.activity,"reason":"before authored origin in a completed trace","samples":samples}));
-            continue;
-        }
-        offsets.sort_unstable();
-        let median = *offsets
-            .get((offsets.len() - 1) / 2)
-            .context("Missing schedule samples")?;
         ensure!(
-            median <= crate::timeline::MAX_MS,
+            samples
+                .iter()
+                .all(|sample| (0..=crate::timeline::MAX_MS).contains(&sample.offset_ms)),
+            "Sample exceeds supported time range"
+        );
+        let time = median(samples.iter().map(|sample| sample.offset_ms))?;
+        ensure!(
+            time <= crate::timeline::MAX_MS,
             "Schedule exceeds supported time range"
         );
-        let tick = (median + 50) / 100;
+        let tick = (time + 50) / 100;
+        let seconds = tick as f64 / 10.0;
         let event_id = format!(
             "{}-{}-{}",
             slug(&anchor.name),
@@ -309,66 +232,159 @@ fn schedule(
         );
         let mut event = KdlNode::new("event");
         event.push(event_id.clone());
-        event.push(tick as f64 / 10.0);
-        event.push(kdl::KdlEntry::new_prop("name", anchor.name.clone()));
+        event.push(seconds);
+        prop(&mut event, "name", anchor.name.as_str());
+        let mut sync = KdlNode::new("sync");
+        sync.push(seconds);
+        sync.push("Ability");
+        prop(&mut sync, "id", anchor.ability.as_str());
+        prop(&mut sync, "source", anchor.source.as_str());
+        let min_tick = samples
+            .iter()
+            .map(|sample| (sample.offset_ms + 50) / 100)
+            .min()
+            .context("Missing sync samples")?;
+        let max_tick = samples
+            .iter()
+            .map(|sample| (sample.offset_ms + 50) / 100)
+            .max()
+            .context("Missing sync samples")?;
+        prop(&mut sync, "before", (tick - min_tick).max(25) as f64 / 10.0);
+        prop(&mut sync, "after", (max_tick - tick).max(25) as f64 / 10.0);
+        event.ensure_children().nodes_mut().push(sync);
         events.push((tick, event_id.clone(), event));
         evidence.push(
-            json!({"event":event_id,"activity":anchor.activity,"median_offset_ms":median,
-            "rounded_offset_ms":tick*100,"rounding_delta_ms":tick*100-median,"samples":samples}),
+            json!({"event":event_id,"activity":anchor.activity,"median_offset_ms":time,
+            "rounded_offset_ms":tick*100,"rounding_delta_ms":tick*100-time,"samples":samples}),
         );
     }
     events.sort_by(|left, right| (left.0, &left.1).cmp(&(right.0, &right.1)));
+    // Cactbot opening anchors use wider windows to correct the initial combat-clock estimate.
+    if matches!(mode, Mode::Raid)
+        && let Some((_, _, event)) = events.first_mut()
+    {
+        let sync = event
+            .ensure_children()
+            .nodes_mut()
+            .first_mut()
+            .context("Missing opening sync")?;
+        for field in ["before", "after"] {
+            let value = sync.get_mut(field).context("Missing sync window")?;
+            *value = KdlValue::Float(value.as_float().context("Invalid sync window")?.max(10.0));
+        }
+    }
     Ok((
         events.into_iter().map(|(_, _, event)| event).collect(),
         evidence,
-        excluded,
     ))
 }
 
-fn hash(source: &str) -> String {
-    ring::digest::digest(&ring::digest::SHA256, source.as_bytes())
+#[derive(Default)]
+struct Rendered {
+    nodes: Vec<KdlNode>,
+    events: Vec<Value>,
+    origins: Vec<Value>,
+}
+
+// Boss metadata supplies scope boundaries; travel and preceding trash never share a boss clock.
+fn compose(anchors: Vec<Anchor>, mode: Mode) -> Result<Rendered> {
+    let mut scopes = BTreeMap::<Option<String>, Vec<Anchor>>::new();
+    for anchor in anchors {
+        let scope = if matches!(mode, Mode::Raid) {
+            None
+        } else {
+            Some(anchor.source.clone())
+        };
+        scopes.entry(scope).or_default().push(anchor);
+    }
+    let mut result = Rendered::default();
+    let mut bodies = Vec::new();
+    let mut phase_ids = BTreeSet::new();
+    for (name, anchors) in scopes {
+        let (zeros, origins) = clocks(&anchors, mode)?;
+        result.nodes.extend(starts(mode, &origins));
+        let (events, mut evidence) = schedule(&anchors, &zeros, mode)?;
+        let phase_id = name.as_deref().map(slug);
+        result.origins.push(json!({"phase":phase_id,"policy":if matches!(mode,Mode::Raid){"combat-start"}else{"boss-cast"},
+            "activities":origins.iter().map(|anchor|&anchor.activity).collect::<Vec<_>>(),"samples":zeros}));
+        if let Some(phase_id) = phase_id {
+            ensure!(
+                phase_ids.insert(phase_id.clone()),
+                "Boss phase ID collision: {phase_id}"
+            );
+            let mut phase = KdlNode::new("phase");
+            phase.push(phase_id.clone());
+            for origin in &origins {
+                phase.ensure_children().nodes_mut().push(signal(
+                    "enter",
+                    "Ability",
+                    &[("id", &origin.ability), ("source", &origin.source)],
+                ));
+            }
+            phase.ensure_children().nodes_mut().extend(events);
+            for row in &mut evidence {
+                row.as_object_mut()
+                    .context("Invalid event evidence")?
+                    .insert("phase".into(), phase_id.clone().into());
+            }
+            bodies.push((median(zeros.values().copied())?, phase_id, phase));
+        } else {
+            for event in events {
+                bodies.push((0, String::new(), event));
+            }
+        }
+        result.events.extend(evidence);
+    }
+    bodies.sort_by(|left, right| (left.0, &left.1).cmp(&(right.0, &right.1)));
+    result.nodes.extend([
+        signal("wipe", "ActorControl", &[("command", "4000000F")]),
+        signal("wipe", "ActorControl", &[("command", "40000010")]),
+        signal("zone-exit", "ChangeZone", &[]),
+    ]);
+    result
+        .nodes
+        .extend(bodies.into_iter().map(|(_, _, node)| node));
+    Ok(result)
+}
+
+// Mode is the only domain input; reading, mining, runtime policy, validation and publication stay internal.
+pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Result<usize> {
+    let analysis = super::mining::analyze(inputs)?;
+    let (anchors, mut excluded) = anchors(&analysis, mode)?;
+    let represented: BTreeSet<_> = anchors.iter().map(|anchor| anchor.source.clone()).collect();
+    if !matches!(mode, Mode::Raid) {
+        for boss in analysis.boss_names.difference(&represented) {
+            excluded.push(json!({"boss":boss,"reason":"no unique common casts for this boss"}));
+        }
+    }
+    let rendered = compose(anchors, mode)?;
+    ensure!(
+        !rendered.events.is_empty(),
+        "No common cast events after the selected origin"
+    );
+    let count = rendered.events.len();
+    let mut timeline_root = KdlNode::new("timeline");
+    timeline_root.push(1_i128);
+    timeline_root.push(analysis.name()?);
+    timeline_root
+        .ensure_children()
+        .nodes_mut()
+        .extend(rendered.nodes);
+    let mut document = KdlDocument::new();
+    document.nodes_mut().push(timeline_root);
+    document.autoformat();
+    let timeline = document.to_string();
+    crate::timeline::parse(&timeline).context("Generated timeline failed validation")?;
+    let timeline_sha256: String = ring::digest::digest(&ring::digest::SHA256, timeline.as_bytes())
         .as_ref()
         .iter()
         .map(|byte| format!("{byte:02x}"))
-        .collect()
-}
-
-// Keep the authored clock contract intact; FFLogs fight boundaries never manufacture lifecycle signals.
-pub(crate) fn generate(graph_path: &Path, template_path: &Path, output: &Path) -> Result<usize> {
-    let graph_source = std::fs::read_to_string(graph_path)?;
-    let template_source = std::fs::read_to_string(template_path)?;
-    let (mut doc, origin_name, origin_id) = template(&template_source)?;
-    let (anchors, mut excluded) = graph(&graph_source)?;
-    let mut origins = anchors.iter().filter(|anchor| anchor.name == origin_name);
-    let origin = origins
-        .next()
-        .context("Origin event name must match a unique common cast name")?;
-    ensure!(
-        origins.next().is_none(),
-        "Origin cast name matches multiple sources or abilities"
-    );
-    let (events, evidence, skipped) = schedule(&anchors, origin, &origin_id)?;
-    ensure!(
-        !events.is_empty(),
-        "No common cast events after the authored origin"
-    );
-    let count = events.len() + 1;
-    excluded.extend(skipped);
-    doc.nodes_mut()
-        .first_mut()
-        .context("Missing timeline")?
-        .ensure_children()
-        .nodes_mut()
-        .extend(events);
-    doc.autoformat();
-    let timeline = doc.to_string();
-    crate::timeline::parse(&timeline).context("Generated timeline failed validation")?;
-    let report = json!({"version":1,"graph":{"path":graph_path,"sha256":hash(&graph_source)},
-        "template":{"path":template_path,"sha256":hash(&template_source)},
-        "origin":{"event":origin_id,"activity":origin.activity,"name":origin.name,"samples":origin.samples,
-            "binding":"author asserts that lifecycle start and the named FFLogs cast share time zero"},
-        "timeline_sha256":hash(&timeline),"events":evidence,"excluded":excluded,
-        "not_checked":["origin signal equivalence","English name accuracy","game accuracy","missing-signal coverage","branches and loops"]});
+        .collect();
+    let report = json!({"version":2,"mode":mode,"analysis":analysis.evidence(),
+        "timeline_sha256":timeline_sha256,"policy_reference":"cactbot@e79ea7f16093be5b80cda0e2d5bc8eb899d6fb4b",
+        "origins":rendered.origins,
+        "events":rendered.events,"excluded":excluded,
+        "not_checked":["live ACT/runtime behavior","English name accuracy","missing-signal coverage","branches and loops","internal boss phases and helper assignment","completion signals and content-specific lifecycle exceptions"]});
     crate::output::write_new(&[
         (output, timeline.as_bytes()),
         (
@@ -377,33 +393,4 @@ pub(crate) fn generate(graph_path: &Path, template_path: &Path, output: &Path) -
         ),
     ])?;
     Ok(count)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[rstest::rstest]
-    #[case("start \"Ability\" id=\"A001\"")]
-    #[case("wipe \"ActorControl\" command=\"4000000F\"")]
-    fn generation_requires_an_explicit_start_and_reset(#[case] lifecycle: &str) {
-        let source = format!(
-            "timeline 1 \"Example\" {{\n {lifecycle}\n event \"origin\" 0.0 name=\"A\"\n}}\n"
-        );
-        let error = template(&source).unwrap_err();
-        assert!(error.to_string().contains("Template needs"));
-    }
-
-    #[test]
-    fn edited_graph_properties_cannot_hide_earlier_values() {
-        let mut node = KdlNode::new("common-progress");
-        node.push(kdl::KdlEntry::new_prop("status", "ambiguous-order"));
-        node.push(kdl::KdlEntry::new_prop("status", "observed-common-order"));
-        let error = validate_graph_nodes(&node).unwrap_err();
-        assert!(
-            error
-                .to_string()
-                .contains("Duplicate graph property status")
-        );
-    }
 }

@@ -5,7 +5,7 @@
 | When changing                                            | Read                                           |
 | -------------------------------------------------------- | ---------------------------------------------- |
 | Timeline syntax, validation, or execution semantics      | [Timeline schema](docs/TIMELINE_SCHEMA.md)     |
-| Timeline generation or authored clock origins            | [Generation contract](docs/GENERATION.md)      |
+| FFLogs-to-KDL generation or mode policies                | [Generation contract](docs/GENERATION.md)      |
 | Replay input, supported behavior, or verification claims | [Offline replay guide](docs/OFFLINE_REPLAY.md) |
 | FFLogs collection, mining, generation, or project goals  | [Implementation plan](docs/PLAN.md)            |
 

@@ -5,98 +5,93 @@ use assert_cmd::cargo::cargo_bin_cmd;
 use serde_json::{Value, json};
 
 const INPUT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/pull.json");
-const TEMPLATE: &str = r#"timeline 1 "Generated common schedule" {
-    start "Ability" id="B528" source="Synthetic Boss"
-    wipe "ActorControl" command="4000000F"
-    event "opening" 0.0 name="A"
-}
-"#;
 
-fn graph(directory: &Path) -> PathBuf {
+fn inputs(directory: &Path) -> Vec<PathBuf> {
     let base: Value =
         serde_json::from_slice(&fs::read(INPUT).expect("read fixture")).expect("parse fixture");
-    let paths: Vec<_> = [[2000, 6050, 10000], [2500, 6551, 10501]]
-        .iter()
-        .enumerate()
-        .map(|(index, times)| {
-            let mut data = base.clone();
-            let code = format!("generation{index}");
-            *data.pointer_mut("/report/code").expect("report code") = code.clone().into();
-            *data
-                .pointer_mut("/collection/reportCode")
-                .expect("collection code") = code.into();
-            *data
-                .pointer_mut("/report/masterData/abilities")
-                .expect("abilities") = json!([
+    [[2000,6050,10000],[2500,6551,10501]].iter().enumerate().map(|(index,times)| {
+        let mut data = base.clone();
+        let code = format!("generation{index}");
+        *data.pointer_mut("/report/code").expect("report code") = code.clone().into();
+        *data.pointer_mut("/collection/reportCode").expect("collection code") = code.into();
+        *data.pointer_mut("/report/masterData/abilities").expect("abilities") = json!([
             {"gameID":46376,"name":"A","type":"1"},
             {"gameID":46377,"name":"B","type":"1"},
             {"gameID":46378,"name":"C","type":"1"}]);
-            *data.pointer_mut("/events").expect("events") = times
-                .iter()
-                .zip([46376, 46377, 46378])
-                .map(|(at, id)| {
-                    json!({
-                        "timestamp":at,"type":"cast","sourceID":10,"abilityGameID":id,"fight":1
-                    })
-                })
-                .collect();
-            let path = directory.join(format!("pull{index}.json"));
-            fs::write(&path, serde_json::to_vec(&data).expect("serialize input"))
-                .expect("write input");
-            path
-        })
-        .collect();
-    let output = directory.join("process.kdl");
-    cargo_bin_cmd!("btimeline")
-        .arg("mine")
-        .args(paths)
-        .arg("-o")
-        .arg(&output)
-        .assert()
-        .success();
-    output
+        *data.pointer_mut("/events").expect("events") = times.iter().zip([46376,46377,46378])
+            .map(|(at,id)| json!({"timestamp":at,"type":"cast","sourceID":10,"abilityGameID":id,"fight":1})).collect();
+        let path = directory.join(format!("pull{index}.json"));
+        fs::write(&path,serde_json::to_vec(&data).expect("serialize input")).expect("write input");
+        path
+    }).collect()
 }
 
-#[test]
-fn collected_logs_generate_a_standalone_schedule_that_replays_and_restarts() {
+#[rstest::rstest]
+#[case("raid", true, "4000000F")]
+#[case("dungeon", false, "40000010")]
+#[case("alliance", false, "zone")]
+fn logs_generate_and_replay_without_a_template_or_intermediate_file(
+    #[case] mode: &str,
+    #[case] combat_start: bool,
+    #[case] reset: &str,
+) {
     let dir = tempfile::tempdir().unwrap();
-    let graph = graph(dir.path());
-    let template = dir.path().join("origin.kdl");
+    let inputs = inputs(dir.path());
     let output = dir.path().join("timeline.kdl");
-    fs::write(&template, TEMPLATE).unwrap();
     cargo_bin_cmd!("btimeline")
         .arg("generate")
-        .arg(&graph)
-        .arg("--template")
-        .arg(&template)
-        .arg("-o")
+        .args(&inputs)
+        .args(["--mode", mode, "-o"])
         .arg(&output)
         .assert()
         .success();
     let timeline = fs::read_to_string(&output).unwrap();
-    insta::assert_snapshot!("generated_common_timeline", timeline);
+    insta::assert_snapshot!(format!("generated_{mode}"), timeline);
     assert!(!timeline.contains("FFLogs."));
-    let evidence: Value =
-        serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
-    let events = evidence["events"].as_array().unwrap();
-    assert_eq!(events.len(), 2);
-    assert_eq!(events[0]["median_offset_ms"], 4050);
-    assert_eq!(events[0]["rounded_offset_ms"], 4100);
-    assert_eq!(events[0]["rounding_delta_ms"], 50);
-    assert_eq!(events[0]["samples"][1]["offset_ms"], 4051);
+    assert!(!dir.path().join("process.kdl").exists());
+    let report = output.with_extension("evidence.json");
+    let evidence: Value = serde_json::from_slice(&fs::read(&report).unwrap()).unwrap();
+    assert_eq!(evidence["version"], 2);
+    assert_eq!(evidence["mode"], mode);
+    assert_eq!(evidence["analysis"]["inputs"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        evidence["analysis"]["inputs"][0]["observations"][0]["indices"][0],
+        0
+    );
+    let hash: String = ring::digest::digest(&ring::digest::SHA256, timeline.as_bytes())
+        .as_ref()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    assert_eq!(evidence["timeline_sha256"], hash);
+    let expected_b = if combat_start { 5050 } else { 4050 };
+    assert_eq!(evidence["events"][1]["median_offset_ms"], expected_b);
+    assert_eq!(evidence["events"][1]["rounding_delta_ms"], 50);
     let recording = dir.path().join("recording.json");
+    let start = if combat_start {
+        json!({"type":"InCombat","fields":{"inGameCombat":"1"}})
+    } else {
+        json!({"type":"Ability","fields":{"id":"B528","source":"Synthetic Boss"}})
+    };
+    let mut first = start.clone();
+    first["at_ms"] = 0.into();
+    let mut second = start;
+    second["at_ms"] = 13000.into();
+    let reset = if reset == "zone" {
+        json!({"at_ms":12000,"type":"ChangeZone","fields":{}})
+    } else {
+        json!({"at_ms":12000,"type":"ActorControl","fields":{"command":reset}})
+    };
+    let corrected_b = if combat_start { 5200 } else { 4200 };
     fs::write(
         &recording,
-        serde_json::to_vec(&json!({"version":1,"end_ms":22000,"observations":[
-            {"at_ms":0,"type":"Ability","fields":{"id":"B528","source":"Synthetic Boss"}},
-            {"at_ms":12000,"type":"ActorControl","fields":{"command":"4000000F"}},
-            {"at_ms":13000,"type":"Ability","fields":{"id":"B528","source":"Synthetic Boss"}}
-        ]}))
+        serde_json::to_vec(&json!({"version":1,"end_ms":24000,"observations":[first,
+        {"at_ms":corrected_b,"type":"Ability","fields":{"id":"B529","source":"Synthetic Boss"}},reset,second]}))
         .unwrap(),
     )
     .unwrap();
-    // Execution uses the KDL alone; remove evidence before replay to guard that boundary.
-    fs::remove_file(output.with_extension("evidence.json")).unwrap();
+    // Only the generated KDL participates in replay; provenance remains optional for execution.
+    fs::remove_file(report).unwrap();
     cargo_bin_cmd!("btimeline")
         .arg("validate")
         .arg(&output)
@@ -122,31 +117,67 @@ fn collected_logs_generate_a_standalone_schedule_that_replays_and_restarts() {
         .filter(|record| record["action"] == "event")
         .collect();
     assert_eq!(displayed.len(), 6);
-    assert_eq!(displayed[1]["at_ms"], 4100);
-    assert_eq!(displayed[4]["at_ms"], 17100);
-    assert_eq!(fs::read_to_string(template).unwrap(), TEMPLATE);
+    assert_eq!(
+        displayed[1]["at_ms"],
+        if combat_start { 5100 } else { 4100 }
+    );
+    assert_eq!(
+        displayed[2]["at_ms"],
+        if combat_start { 9100 } else { 8100 }
+    );
+    assert!(
+        records
+            .iter()
+            .any(|record| record["action"] == "sync" && record["at_ms"] == corrected_b)
+    );
+    assert_eq!(
+        displayed[4]["at_ms"],
+        if combat_start { 18100 } else { 17100 }
+    );
 }
 
 #[rstest::rstest]
-#[case("FFLogs.cast", "A", "0.0")]
-#[case("Ability", "Unknown", "0.0")]
-#[case("Ability", "A", "1.0")]
-fn invalid_origin_contracts_leave_no_outputs(
-    #[case] kind: &str,
-    #[case] name: &str,
-    #[case] time: &str,
-) {
+#[case("invalid-mode")]
+#[case("incomplete-input")]
+#[case("mixed-encounters")]
+#[case("duplicate-input")]
+#[case("intermediate-graph")]
+#[case("missing-boss-metadata")]
+fn invalid_generation_inputs_leave_no_outputs(#[case] problem: &str) {
     let dir = tempfile::tempdir().unwrap();
-    let graph = graph(dir.path());
-    let template = dir.path().join("origin.kdl");
+    let mut paths = inputs(dir.path());
     let output = dir.path().join("timeline.kdl");
-    fs::write(&template, format!("timeline 1 \"Invalid\" {{\n start \"{kind}\" id=\"B528\"\n wipe \"ActorControl\" command=\"4000000F\"\n event \"opening\" {time} name=\"{name}\"\n}}\n")).unwrap();
+    let mut data: Value = serde_json::from_slice(&fs::read(&paths[1]).unwrap()).unwrap();
+    match problem {
+        "incomplete-input" => data["collection"]["complete"] = false.into(),
+        "mixed-encounters" => data["report"]["fights"][0]["encounterID"] = 99198.into(),
+        "duplicate-input" => paths[1] = paths[0].clone(),
+        _ => (),
+    }
+    if problem != "duplicate-input" {
+        fs::write(&paths[1], serde_json::to_vec(&data).unwrap()).unwrap();
+    }
+    if problem == "intermediate-graph" {
+        fs::write(&paths[0], "process 1 algorithm=adjacent-batches {}\n").unwrap();
+    }
+    if problem == "missing-boss-metadata" {
+        for path in &paths {
+            let mut data: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+            data["report"]["masterData"]["actors"][0]["subType"] = "NPC".into();
+            fs::write(path, serde_json::to_vec(&data).unwrap()).unwrap();
+        }
+    }
+    let mode = if problem == "invalid-mode" {
+        "unknown"
+    } else if problem == "missing-boss-metadata" {
+        "dungeon"
+    } else {
+        "raid"
+    };
     let result = cargo_bin_cmd!("btimeline")
         .arg("generate")
-        .arg(&graph)
-        .arg("--template")
-        .arg(template)
-        .arg("-o")
+        .args(&paths)
+        .args(["--mode", mode, "-o"])
         .arg(&output)
         .assert()
         .failure();
@@ -156,100 +187,207 @@ fn invalid_origin_contracts_leave_no_outputs(
 }
 
 #[test]
-fn blocked_evidence_preserves_existing_files_and_rolls_back_new_timeline() {
+fn failed_publication_preserves_inputs_and_existing_evidence() {
     let dir = tempfile::tempdir().unwrap();
-    let graph = graph(dir.path());
-    let original_graph = fs::read(&graph).unwrap();
-    let template = dir.path().join("origin.kdl");
+    let paths = inputs(dir.path());
+    let before: Vec<_> = paths.iter().map(|path| fs::read(path).unwrap()).collect();
     let output = dir.path().join("timeline.kdl");
     let report = output.with_extension("evidence.json");
-    fs::write(&template, TEMPLATE).unwrap();
     fs::write(&report, "previous evidence").unwrap();
     cargo_bin_cmd!("btimeline")
         .arg("generate")
-        .arg(&graph)
-        .arg("--template")
-        .arg(template)
-        .arg("-o")
+        .args(&paths)
+        .args(["--mode", "raid", "-o"])
         .arg(&output)
         .assert()
         .failure();
     assert!(!output.exists());
     assert_eq!(fs::read_to_string(report).unwrap(), "previous evidence");
-    assert_eq!(fs::read(graph).unwrap(), original_graph);
+    assert_eq!(
+        paths
+            .iter()
+            .map(|path| fs::read(path).unwrap())
+            .collect::<Vec<_>>(),
+        before
+    );
 }
 
 #[test]
-fn events_before_the_authored_origin_are_reported_instead_of_moved() {
+fn mode_is_the_only_required_generation_policy() {
+    let help = cargo_bin_cmd!("btimeline")
+        .args(["generate", "--help"])
+        .assert()
+        .success();
+    let text = String::from_utf8_lossy(&help.get_output().stdout);
+    assert!(text.contains("--mode"));
+    assert!(!text.contains("--template"));
+}
+
+#[test]
+fn boss_origin_alternatives_are_inferred_without_dropping_close_opening_casts() {
     let dir = tempfile::tempdir().unwrap();
-    let graph = graph(dir.path());
-    let template = dir.path().join("origin.kdl");
+    let paths = inputs(dir.path());
+    for (path, times) in paths.iter().zip([[2000, 2001], [2501, 2500]]) {
+        let mut data: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        data["events"][0]["timestamp"] = times[0].into();
+        data["events"][1]["timestamp"] = times[1].into();
+        fs::write(path, serde_json::to_vec(&data).unwrap()).unwrap();
+    }
     let output = dir.path().join("timeline.kdl");
-    fs::write(
-        &template,
-        TEMPLATE
-            .replace("B528", "B529")
-            .replace("name=\"A\"", "name=\"B\""),
-    )
-    .unwrap();
     cargo_bin_cmd!("btimeline")
         .arg("generate")
-        .arg(&graph)
-        .arg("--template")
-        .arg(template)
-        .arg("-o")
+        .args(&paths)
+        .args(["--mode", "dungeon", "-o"])
         .arg(&output)
         .assert()
         .success();
-    let evidence: Value =
-        serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
-    assert_eq!(evidence["events"].as_array().unwrap().len(), 1);
-    assert_eq!(evidence["events"][0]["median_offset_ms"], 3950);
+    let doc: kdl::KdlDocument = fs::read_to_string(output).unwrap().parse().unwrap();
+    let nodes = doc.nodes()[0].children().unwrap().nodes();
     assert_eq!(
-        evidence["excluded"][0]["reason"],
-        "before authored origin in a completed trace"
+        nodes
+            .iter()
+            .filter(|node| node.name().value() == "start")
+            .count(),
+        2
     );
-    assert_eq!(evidence["excluded"][0]["samples"][0]["offset_ms"], -4050);
+    let nodes = nodes
+        .iter()
+        .find(|node| node.name().value() == "phase")
+        .unwrap()
+        .children()
+        .unwrap()
+        .nodes();
+    assert_eq!(
+        nodes
+            .iter()
+            .filter(|node| node.name().value() == "event")
+            .count(),
+        3
+    );
+}
+
+#[test]
+fn sync_windows_cover_observed_timing_spread() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = inputs(dir.path());
+    let mut data: Value = serde_json::from_slice(&fs::read(&paths[1]).unwrap()).unwrap();
+    data["events"][1]["timestamp"] = 12051.into();
+    data["events"][2]["timestamp"] = 18001.into();
+    fs::write(&paths[1], serde_json::to_vec(&data).unwrap()).unwrap();
+    let output = dir.path().join("timeline.kdl");
+    cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(&paths)
+        .args(["--mode", "raid", "-o"])
+        .arg(&output)
+        .assert()
+        .success();
+    let doc: kdl::KdlDocument = fs::read_to_string(output).unwrap().parse().unwrap();
+    let event = doc.nodes()[0]
+        .children()
+        .unwrap()
+        .nodes()
+        .iter()
+        .find(|node| node.get("name").and_then(kdl::KdlValue::as_string) == Some("B"))
+        .unwrap();
+    let sync = &event.children().unwrap().nodes()[0];
+    assert!(sync.get("after").unwrap().as_float().unwrap() >= 6.0);
 }
 
 #[rstest::rstest]
-#[case(true)]
-#[case(false)]
-fn invalid_common_samples_do_not_generate_outputs(#[case] duplicate: bool) {
+#[case("dungeon")]
+#[case("alliance")]
+fn boss_scopes_exclude_trash_and_restart_directly_on_a_later_boss(#[case] mode: &str) {
     let dir = tempfile::tempdir().unwrap();
-    let graph = graph(dir.path());
-    let template = dir.path().join("origin.kdl");
-    let output = dir.path().join("timeline.kdl");
-    fs::write(&template, TEMPLATE).unwrap();
-    let mut document: kdl::KdlDocument = fs::read_to_string(&graph).unwrap().parse().unwrap();
-    let common = document.nodes_mut()[0]
-        .ensure_children()
-        .nodes_mut()
-        .iter_mut()
-        .find(|node| node.name().value() == "common-progress")
-        .unwrap();
-    let anchor = common
-        .ensure_children()
-        .nodes_mut()
-        .iter_mut()
-        .find(|node| node.name().value() == "anchor")
-        .unwrap();
-    let samples = anchor.ensure_children().nodes_mut();
-    if duplicate {
-        samples.push(samples[0].clone());
-    } else {
-        samples.pop();
+    let paths = inputs(dir.path());
+    for (path, times) in paths.iter().zip([[14000, 18000], [15500, 19600]]) {
+        let mut data: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        data["report"]["masterData"]["actors"]
+            .as_array_mut()
+            .unwrap()
+            .extend([
+                json!({"id":11,"gameID":99002,"name":"Second Boss","type":"NPC","subType":"Boss"}),
+                json!({"id":12,"gameID":99003,"name":"Trash","type":"NPC","subType":"NPC"}),
+            ]);
+        data["report"]["fights"][0]["enemyNPCs"]
+            .as_array_mut()
+            .unwrap()
+            .extend([
+                json!({"id":11,"gameID":99002}),
+                json!({"id":12,"gameID":99003}),
+            ]);
+        data["report"]["masterData"]["abilities"]
+            .as_array_mut()
+            .unwrap()
+            .extend([
+                json!({"gameID":46379,"name":"D","type":"1"}),
+                json!({"gameID":46380,"name":"E","type":"1"}),
+                json!({"gameID":46381,"name":"Trash cast","type":"1"}),
+            ]);
+        data["events"].as_array_mut().unwrap().extend([
+            json!({"timestamp":times[0],"type":"cast","sourceID":11,"abilityGameID":46379,"fight":1}),
+            json!({"timestamp":times[1],"type":"cast","sourceID":11,"abilityGameID":46380,"fight":1}),
+            json!({"timestamp":1100,"type":"cast","sourceID":12,"abilityGameID":46381,"fight":1})]);
+        data["collection"]["eventCount"] = 6.into();
+        fs::write(path, serde_json::to_vec(&data).unwrap()).unwrap();
     }
-    fs::write(&graph, document.to_string()).unwrap();
+    let output = dir.path().join("timeline.kdl");
     cargo_bin_cmd!("btimeline")
         .arg("generate")
-        .arg(graph)
-        .arg("--template")
-        .arg(template)
-        .arg("-o")
+        .args(&paths)
+        .args(["--mode", mode, "-o"])
         .arg(&output)
         .assert()
-        .failure();
-    assert!(!output.exists());
-    assert!(!output.with_extension("evidence.json").exists());
+        .success();
+    let timeline = fs::read_to_string(&output).unwrap();
+    assert!(!timeline.contains("Trash"));
+    let doc: kdl::KdlDocument = timeline.parse().unwrap();
+    let phases: Vec<_> = doc.nodes()[0]
+        .children()
+        .unwrap()
+        .nodes()
+        .iter()
+        .filter(|node| node.name().value() == "phase")
+        .collect();
+    assert_eq!(phases.len(), 2);
+    assert_eq!(
+        phases[0].get(0).unwrap().as_string(),
+        Some("synthetic-boss")
+    );
+    assert_eq!(phases[1].get(0).unwrap().as_string(), Some("second-boss"));
+    let recording = dir.path().join("recording.json");
+    fs::write(
+        &recording,
+        serde_json::to_vec(&json!({"version":1,"end_ms":22000,"observations":[
+            {"at_ms":0,"type":"Ability","fields":{"id":"B528","source":"Synthetic Boss"}},
+            {"at_ms":10000,"type":"Ability","fields":{"id":"B52B","source":"Second Boss"}},
+            {"at_ms":16000,"type":"ActorControl","fields":{"command":"4000000F"}},
+            {"at_ms":17000,"type":"Ability","fields":{"id":"B52B","source":"Second Boss"}}
+        ]}))
+        .unwrap(),
+    )
+    .unwrap();
+    let replay = cargo_bin_cmd!("btimeline")
+        .arg("compare")
+        .arg(&output)
+        .arg(&recording)
+        .arg("--json")
+        .assert()
+        .success();
+    let result: Value = serde_json::from_slice(&replay.get_output().stdout).unwrap();
+    let records = result["recordings"][recording.to_str().unwrap()]
+        .as_array()
+        .unwrap();
+    let restarted: Vec<_> = records
+        .iter()
+        .filter(|record| record["run"] == 2 && record["action"] == "event")
+        .collect();
+    assert_eq!(restarted.len(), 2);
+    assert_eq!(restarted[0]["at_ms"], 17000);
+    assert_eq!(restarted[1]["at_ms"], 21000);
+    assert!(
+        restarted
+            .iter()
+            .all(|record| record["detail"].as_str().unwrap().contains("second-boss"))
+    );
 }

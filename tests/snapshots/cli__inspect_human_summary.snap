@@ -5,4 +5,4 @@ expression: "String::from_utf8_lossy(&result.get_output().stdout)"
 Encounter 99199 (difficulty 123): fights=1, clears=1
   synthetic/1 Unknown Encounter: 20.0s, 3 events, 3 cast observations, 0 reported phase boundaries
   Common progress needs at least two clear logs.
-Next: btimeline mine LOG... -o process.kdl (one encounter and difficulty).
+Next: btimeline generate LOG... --mode MODE -o timeline.kdl (MODE: raid, dungeon, alliance).

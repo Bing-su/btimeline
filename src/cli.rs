@@ -18,7 +18,7 @@ pub enum MainCommands {
     Inspect(InspectCommand),
     /// Mine observed event sequences into a KDL process graph.
     Mine(MineCommand),
-    /// Generate a common cast schedule from a process graph and an authored clock template.
+    /// Analyze collected FFLogs fights and generate a KDL timeline.
     Generate(GenerateCommand),
     /// Check timeline structure and authored constraints.
     Validate(ValidateCommand),
@@ -160,10 +160,10 @@ impl Run for MineCommand {
 #[derive(Args)]
 pub struct GenerateCommand {
     #[usage(arg)]
-    graph: Utf8PathBuf,
-    /// KDL lifecycle and one zero-time event naming the observed origin cast.
+    inputs: Vec<Utf8PathBuf>,
+    /// Content mode: raid, dungeon, or alliance.
     #[usage(long)]
-    template: Utf8PathBuf,
+    mode: String,
     #[usage(short = 'o', long)]
     output: Utf8PathBuf,
 }
@@ -172,14 +172,11 @@ impl Run for GenerateCommand {
     type Output = Result<()>;
 
     fn run(self) -> Self::Output {
-        let count = crate::generate::generate(
-            self.graph.as_std_path(),
-            self.template.as_std_path(),
-            self.output.as_std_path(),
-        )?;
+        let count =
+            crate::generate::generate(&self.inputs, self.mode.parse()?, self.output.as_std_path())?;
         println!("Generated {} ({} common cast events).", self.output, count);
         println!("Evidence: {}", self.output.with_extension("evidence.json"));
-        println!("Review the authored origin binding and excluded observations before use.");
+        println!("Review the generation evidence for unsupported paths and excluded observations.");
         Ok(())
     }
 }
@@ -230,7 +227,9 @@ impl Run for InspectCommand {
                 println!("  Common progress needs at least two clear logs.");
             }
         }
-        println!("Next: btimeline mine LOG... -o process.kdl (one encounter and difficulty).");
+        println!(
+            "Next: btimeline generate LOG... --mode MODE -o timeline.kdl (MODE: raid, dungeon, alliance)."
+        );
         Ok(())
     }
 }
