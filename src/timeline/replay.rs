@@ -779,6 +779,28 @@ fn due(at: i64, limit: i64, inclusive: bool) -> bool {
     at < limit || (inclusive && at == limit)
 }
 
+fn activate_repeat(definition: &Loop, state: &mut RepeatState, phase_base: i64) -> bool {
+    let Some(anchor) = state.anchor else {
+        return false;
+    };
+    state.current = Some(Clock {
+        base_ms: phase_base + (anchor + definition.start) * 100,
+        not_before: state.not_before,
+        zero_at: if definition.start == 0 {
+            state.zero_start
+        } else {
+            None
+        },
+        ..Clock::default()
+    });
+    state.branches = definition
+        .branches
+        .iter()
+        .map(|_| BranchState::default())
+        .collect();
+    true
+}
+
 fn start_repeats(
     phase: &mut PhaseState<'_>,
     at: i64,
@@ -822,25 +844,7 @@ fn start_repeats(
             );
             continue;
         }
-        let Some(anchor) = state.anchor else {
-            continue;
-        };
-        state.current = Some(Clock {
-            base_ms: phase.clock.base_ms + (anchor + definition.start) * 100,
-            not_before: state.not_before,
-            zero_at: if definition.start == 0 {
-                state.zero_start
-            } else {
-                None
-            },
-            ..Clock::default()
-        });
-        state.branches = definition
-            .branches
-            .iter()
-            .map(|_| BranchState::default())
-            .collect();
-        running = true;
+        running = activate_repeat(definition, state, phase.clock.base_ms);
     }
 }
 
@@ -1152,43 +1156,59 @@ impl<'a> Replay<'a> {
     }
 
     // Prepare a new iteration for a signal at its boundary without firing zero-time events.
-    fn prepare_nested_boundary(&mut self, at: i64) {
+    fn prepare_nested_boundary(&mut self, at: i64) -> Option<usize> {
         let Some(phase) = &mut self.phase else {
-            return;
+            return None;
         };
-        if !phase
-            .loops
+        let active = phase
+            .repeats
             .iter()
-            .any(|entry| !entry.definition.branches.is_empty())
-        {
-            return;
+            .position(|state| state.current.is_some());
+        let index = active.or_else(|| {
+            phase
+                .loops
+                .iter()
+                .zip(&phase.repeats)
+                .position(|(entry, state)| {
+                    !state.exited
+                        && !state.blocked
+                        && state.current.is_none()
+                        && repeat_start(phase.clock.base_ms, entry.definition, state) == Some(at)
+                })
+        })?;
+        let (entry, state) = (phase.loops.get(index)?, phase.repeats.get_mut(index)?);
+        if entry.definition.branches.is_empty() {
+            return None;
         }
-        start_repeats(phase, at, true, &mut self.out, self.run);
-        for (entry, state) in phase.loops.iter().zip(&mut phase.repeats) {
-            let Some(clock) = &mut state.current else {
-                continue;
-            };
-            if clock.base_ms + entry.definition.every * 100 == at {
-                clock.base_ms = at;
-                clock.zero_at = None;
-                clock.processed.clear();
-                state.branches = entry
-                    .definition
-                    .branches
-                    .iter()
-                    .map(|_| BranchState::default())
-                    .collect();
+        if active.is_none() {
+            if !activate_repeat(entry.definition, state, phase.clock.base_ms) {
+                return None;
             }
-            advance_nested_branches(
-                entry.definition,
-                state,
-                at,
-                false,
-                &mut self.out,
-                self.run,
-                &mut self.history,
-            );
+        } else {
+            let clock = state.current.as_mut()?;
+            if clock.base_ms + entry.definition.every * 100 != at {
+                return None;
+            }
+            clock.base_ms = at;
+            clock.zero_at = None;
+            clock.processed.clear();
+            state.branches = entry
+                .definition
+                .branches
+                .iter()
+                .map(|_| BranchState::default())
+                .collect();
         }
+        advance_nested_branches(
+            entry.definition,
+            state,
+            at,
+            false,
+            &mut self.out,
+            self.run,
+            &mut self.history,
+        );
+        Some(index)
     }
 
     fn phase_sync_at_nested_boundary(&self, observation: &Observation) -> bool {
@@ -1213,6 +1233,33 @@ impl<'a> Replay<'a> {
                         || repeat_start(phase.clock.base_ms, entry.definition, state) == Some(at),
                         |clock| clock.base_ms + entry.definition.every * 100 == at,
                     )
+            })
+    }
+
+    fn phase_action_at_nested_boundary(&self, observation: &Observation) -> bool {
+        let Some(phase) = &self.phase else {
+            return false;
+        };
+        let at = observation.at_ms;
+        let boundary = phase
+            .loops
+            .iter()
+            .zip(&phase.repeats)
+            .any(|(entry, state)| {
+                !entry.definition.branches.is_empty()
+                    && !state.exited
+                    && !state.blocked
+                    && state.current.as_ref().map_or_else(
+                        || repeat_start(phase.clock.base_ms, entry.definition, state) == Some(at),
+                        |clock| clock.base_ms + entry.definition.every * 100 == at,
+                    )
+            });
+        boundary
+            && self.branch_actions(observation).0.iter().any(|action| {
+                matches!(
+                    action,
+                    BranchAction::Select(..) | BranchAction::Merge(..) | BranchAction::Conflict(..)
+                )
             })
     }
 
@@ -1770,7 +1817,9 @@ impl<'a> Replay<'a> {
                 .any(|entry| !entry.definition.branches.is_empty())
         });
         let previous_history = (has_nested && exits.len() == 1).then(|| self.history.clone());
-        let sync_snapshot = self.phase_sync_at_nested_boundary(observation).then(|| {
+        let sync_snapshot = (self.phase_sync_at_nested_boundary(observation)
+            || self.phase_action_at_nested_boundary(observation))
+        .then(|| {
             let repeats = self
                 .phase
                 .as_ref()
@@ -1778,9 +1827,24 @@ impl<'a> Replay<'a> {
                 .unwrap_or_default();
             (repeats, self.history.clone())
         });
-        self.prepare_nested_boundary(observation.at_ms);
-        let exits_without_branch =
-            previous_history.is_some() && self.branch_actions(observation).0.is_empty();
+        let prepared = self.prepare_nested_boundary(observation.at_ms);
+        let branch_actions = self.branch_actions(observation).0;
+        let phase_action_precedes_timer = prepared.is_some()
+            && exits.is_empty()
+            && matches!(
+                branch_actions.as_slice(),
+                [BranchAction::Select(..) | BranchAction::Merge(..) | BranchAction::Conflict(..)]
+            );
+        let mut sync_snapshot = sync_snapshot;
+        if phase_action_precedes_timer && let Some((repeats, history)) = sync_snapshot.take() {
+            if let Some(phase) = &mut self.phase {
+                phase.repeats = repeats;
+            }
+            self.history = history;
+        }
+        let exits_without_branch = previous_history.is_some()
+            && exits.first().copied() == prepared
+            && branch_actions.is_empty();
         if self.control_observation(observation) {
             if let (true, Some(history)) = (exits_without_branch, previous_history) {
                 self.history = history;
@@ -1854,7 +1918,7 @@ fn validate_repeat_support(timeline: &Timeline, input: &Recording) -> Result<()>
         );
         for repeat in repeats {
             if !repeat.branches.is_empty() {
-                validate_nested_repeat(phase, repeat, input)?;
+                validate_nested_repeat(repeat, input)?;
             }
             ensure!(
                 input.end_ms / (repeat.every * 100) <= 1_000_000,
@@ -1865,17 +1929,7 @@ fn validate_repeat_support(timeline: &Timeline, input: &Recording) -> Result<()>
     Ok(())
 }
 
-fn validate_nested_repeat(phase: &Phase, repeat: &Loop, input: &Recording) -> Result<()> {
-    ensure!(
-        phase.loops.len() == 1
-            && phase.loops.first().is_some_and(|item| item.id == repeat.id)
-            && phase
-                .branches
-                .iter()
-                .flat_map(|branch| &branch.options)
-                .all(|option| option.loops.is_empty()),
-        "Replay supports branches inside a loop only when it is the phase's only loop and no option contains a loop"
-    );
+fn validate_nested_repeat(repeat: &Loop, input: &Recording) -> Result<()> {
     let cycles = input.end_ms / (repeat.every * 100);
     let branch_count = i64::try_from(repeat.branches.len()).unwrap_or(i64::MAX);
     ensure!(
