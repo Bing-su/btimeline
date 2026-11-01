@@ -528,6 +528,17 @@ fn repeat_sync_targets_one<'a>(
                 .map(|t| (SyncOwner::Repeat(repeat.id.as_str()), t)),
         );
     }
+    if !boundary && state.current.is_some() {
+        for (branch, branch_state) in repeat.branches.iter().zip(&state.branches) {
+            for (events, path) in branch_state.paths(branch) {
+                targets.extend(
+                    sync_targets(events, &path.clock, observation)
+                        .into_iter()
+                        .map(|t| (SyncOwner::Repeat(repeat.id.as_str()), path.anchor + t)),
+                );
+            }
+        }
+    }
     targets
 }
 
@@ -840,6 +851,33 @@ fn advance_nested_branches(
     }
 }
 
+fn correct_repeat(
+    definition: &Loop,
+    state: &mut RepeatState,
+    at: i64,
+    target: Tick,
+    out: &mut Vec<Record>,
+    run: usize,
+    history: &mut BTreeMap<String, Option<String>>,
+) {
+    let Some(clock) = &mut state.current else {
+        return;
+    };
+    correct(&definition.events, clock, at, target, out, run);
+    for (branch, branch_state) in definition.branches.iter().zip(&mut state.branches) {
+        for (events, path) in branch_state.paths_mut(branch) {
+            correct(events, &mut path.clock, at, target - path.anchor, out, run);
+        }
+    }
+    let previous_len = out.len();
+    advance_nested_branches(definition, state, at, false, out, run, history);
+    for item in out.iter_mut().skip(previous_len) {
+        if item.action == "unresolved" && item.at_ms < at {
+            item.at_ms = at;
+        }
+    }
+}
+
 // Close each completed iteration before emitting the next iteration's events.
 fn advance_repeat(
     definition: &Loop,
@@ -1021,7 +1059,7 @@ fn nested_actions_for_loop(
     for (index, (branch, branch_state)) in
         definition.branches.iter().zip(&state.branches).enumerate()
     {
-        if !branch_state.opened || branch_state.merge.is_some() {
+        if !branch_state.opened || branch_state.merge.is_some() || time < branch.open {
             continue;
         }
         if branch
@@ -1031,7 +1069,7 @@ fn nested_actions_for_loop(
         {
             actions.push(BranchAction::RepeatMerge(loop_index, index));
         }
-        if branch_state.closed {
+        if branch_state.closed || time >= branch.close {
             continue;
         }
         let (choices, missing) =
@@ -1247,7 +1285,7 @@ impl<'a> Replay<'a> {
             .zip(&phase.branches)
             .enumerate()
         {
-            if !state.opened || state.merge.is_some() {
+            if !state.opened || state.merge.is_some() || time < branch.open {
                 continue;
             }
             if branch
@@ -1257,7 +1295,7 @@ impl<'a> Replay<'a> {
             {
                 actions.push(BranchAction::Merge(index));
             }
-            if state.closed {
+            if state.closed || time >= branch.close {
                 continue;
             }
             let (candidates, missing) =
@@ -1601,15 +1639,22 @@ impl<'a> Replay<'a> {
                     .loops
                     .iter()
                     .position(|repeat| repeat.definition.id == *id);
-                if let Some((repeat, clock)) = index.and_then(|i| {
-                    phase.loops.get(i).map(|entry| entry.definition).zip(
-                        phase
-                            .repeats
-                            .get_mut(i)
-                            .and_then(|state| state.current.as_mut()),
-                    )
+                if let Some((repeat, state)) = index.and_then(|i| {
+                    phase
+                        .loops
+                        .get(i)
+                        .map(|entry| entry.definition)
+                        .zip(phase.repeats.get_mut(i))
                 }) {
-                    correct(&repeat.events, clock, at, *target, &mut self.out, self.run);
+                    correct_repeat(
+                        repeat,
+                        state,
+                        at,
+                        *target,
+                        &mut self.out,
+                        self.run,
+                        &mut self.history,
+                    );
                 }
             }
             _ => {}
@@ -1752,27 +1797,9 @@ fn validate_nested_repeat(phase: &Phase, repeat: &Loop, input: &Recording) -> Re
             && phase.branches.is_empty(),
         "Replay supports branches inside a loop only when it is the phase's only loop and the phase has no other branches"
     );
-    let events = phase
-        .events
-        .iter()
-        .chain(&repeat.events)
-        .chain(&repeat.on_exit)
-        .chain(
-            repeat
-                .branches
-                .iter()
-                .flat_map(|branch| branch.options.iter().flat_map(|option| &option.events)),
-        )
-        .chain(
-            repeat
-                .branches
-                .iter()
-                .filter_map(|branch| branch.merge.as_ref())
-                .flat_map(|merge| &merge.events),
-        );
     ensure!(
-        events.into_iter().all(|event| event.syncs.is_empty()),
-        "Replay does not yet support phase or loop syncs when a loop contains branches"
+        phase.events.iter().all(|event| event.syncs.is_empty()),
+        "Replay does not yet support phase syncs when a loop contains branches"
     );
     let cycles = input.end_ms / (repeat.every * 100);
     let branch_count = i64::try_from(repeat.branches.len()).unwrap_or(i64::MAX);
