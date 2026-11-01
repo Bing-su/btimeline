@@ -20,6 +20,19 @@ fn censor_timing(
     if status != "unobserved" && !(pull.kill && status == "mismatch") {
         return Ok(());
     }
+    if event
+        .samples
+        .keys()
+        .any(|trace| !origin.samples.contains_key(trace))
+    {
+        let fields = row.as_object_mut().context("Invalid event check")?;
+        fields.insert("status".into(), "unresolved".into());
+        fields.insert(
+            "reason".into(),
+            "partial-trace samples lack comparison-origin timings".into(),
+        );
+        return Ok(());
+    }
     let earliest = event
         .samples
         .iter()
@@ -195,6 +208,11 @@ fn check(
     let aligned = align(&model, &observed, pull.kill)?;
     let mut checks = Vec::new();
     for event in events {
+        // A tail learned only from longer traces is outside this completed reference, not absent.
+        if !event.samples.contains_key(&reference_id) {
+            checks.push(json!({"event":{"activity":event.signal},"status":"unresolved","reason":"event not observed in completed comparison reference"}));
+            continue;
+        }
         let mut row = if event.signal == origin.signal {
             json!({"event":{"activity":event.signal,"reference_at_ms":reference_at},"status":"matched","at_ms":at,
                 "batch":pull.batches.iter().position(|batch|batch.at_ms==at)})
@@ -233,8 +251,11 @@ pub(super) fn checks<'a>(
         } else {
             "censored-reference-prefix-v1"
         };
+        let training = events
+            .iter()
+            .any(|event| event.samples.contains_key(&trace(pull)));
         result.push(json!({"method":method,"trace":trace(pull),"reference":trace(reference),
-            "training":false,"scopes":checks,"not_checked":["KDL schedule timing","ACT signal equivalence","game mechanic identity"]}));
+            "training":training,"scopes":checks,"not_checked":["KDL schedule timing","ACT signal equivalence","game mechanic identity"]}));
     }
     Ok(result)
 }

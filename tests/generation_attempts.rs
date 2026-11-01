@@ -39,7 +39,7 @@ fn input(directory: &Path, index: usize, sequence: &[i64], kill: bool) -> PathBu
 #[case("raid",vec![0,1],"matched","unobserved")]
 #[case("dungeon",vec![0,2,3,4,5],"mismatch","mismatch")]
 #[case("alliance",vec![0,1,2],"ambiguous","ambiguous")]
-fn wipes_are_checked_without_training_or_suppressing_internal_gaps(
+fn wipes_do_not_change_bounded_learning_or_suppress_internal_gaps(
     #[case] mode: &str,
     #[case] sequence: Vec<i64>,
     #[case] first: &str,
@@ -58,7 +58,7 @@ fn wipes_are_checked_without_training_or_suppressing_internal_gaps(
     assert_eq!(
         fs::read(&baseline).unwrap(),
         fs::read(&output).unwrap(),
-        "wipes must not affect learned events"
+        "wipes outside a supported tail must not affect bounded events"
     );
     let report: Value =
         serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
@@ -160,13 +160,17 @@ fn automatic_validation_uses_a_separate_model_before_final_refit(
         .unwrap();
     assert_eq!(tail["status"], tail_status);
     let count = if kill { 3 } else { 2 };
-    assert!(
-        report["events"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|event| event["samples"].as_array().unwrap().len() == count)
-    );
+    for event in report["events"].as_array().unwrap() {
+        let future =
+            end.is_some_and(|end| event["median_offset_ms"].as_i64().unwrap() > end - 1000);
+        assert_eq!(
+            event["samples"].as_array().unwrap().len(),
+            if future { 2 } else { count }
+        );
+        if future {
+            assert_eq!(event["alignment"]["method"], "censored-tail-v1");
+        }
+    }
     let reversed: Vec<_> = paths.iter().rev().cloned().collect();
     let reordered = dir.path().join("reordered.kdl");
     generate(&reversed, "raid", &reordered);

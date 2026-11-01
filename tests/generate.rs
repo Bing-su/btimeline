@@ -138,7 +138,7 @@ fn uncertainty_records(problem: &str, index: usize) -> Vec<(i64, i64)> {
 #[case("nearby", vec![0,1,1,2], vec![0,1,1,2], vec![])]
 #[case("phase", vec![0,1,1,2], vec![0,1,1,2], vec![])]
 #[case("simultaneous", vec![0,1,3,1,2], vec![0,1,3,1,2], vec![])]
-#[case("unbounded", vec![1,0,1,2,1], vec![1,0,1,2,1], vec!["-02"])]
+#[case("unbounded", vec![1,0,1,2,1], vec![1,0,1,2,1], vec!["-02","-03"])]
 fn repeated_casts_require_unambiguous_bounded_alignment(
     #[case] case: &str,
     #[case] left: Vec<i64>,
@@ -222,10 +222,10 @@ fn repeated_casts_require_unambiguous_bounded_alignment(
             .iter()
             .filter(|event| !event["alignment"].is_null())
         {
-            assert_eq!(
-                event["alignment"]["method"],
-                "anchor-constrained-multiset-lcs-v2"
-            );
+            assert!(matches!(
+                event["alignment"]["method"].as_str(),
+                Some("anchor-constrained-multiset-lcs-v2" | "censored-tail-v1")
+            ));
             assert_eq!(event["alignment"]["batches"].as_object().unwrap().len(), 2);
         }
         outputs.push(timeline);

@@ -16,7 +16,7 @@ pub(super) fn check(
     let mut completed: Vec<_> = pulls.iter().copied().filter(|pull| pull.kill).collect();
     completed.sort_by(|left, right| (&left.report, left.fight).cmp(&(&right.report, right.fight)));
     let base = json!({"selection":"greatest-report-and-fight-v1",
-        "final_fit":"all-completed-inputs","not_checked":["final KDL execution and timing","branch path conformance","all possible validation splits","statistical independence","ACT signal equivalence"]});
+        "final_fit":"completed-backbone-with-censored-tail","not_checked":["final KDL execution and timing","branch path conformance","tail events outside completed comparison reference","all possible validation splits","statistical independence","ACT signal equivalence"]});
     if completed.len() < 3 {
         return Ok(
             json!({"method":"automatic-validation-v1","policy":base,"status":"insufficient-completed-pulls","completed":completed.len(),"required":3}),
@@ -27,7 +27,12 @@ pub(super) fn check(
             json!({"method":"automatic-validation-v1","policy":base,"status":"unresolved","reason":"missing validation input"}),
         );
     };
-    let split = json!({"training":completed.iter().map(|pull|trace(pull)).collect::<Vec<_>>(),"held_out":trace(held_out)});
+    let mut training = completed.clone();
+    if !boss_only {
+        training.extend(pulls.iter().copied().filter(|pull| !pull.kill));
+    }
+    training.sort_by(|left, right| (&left.report, left.fight).cmp(&(&right.report, right.fight)));
+    let split = json!({"training":training.iter().map(|pull|trace(pull)).collect::<Vec<_>>(),"held_out":trace(held_out)});
     let bosses: std::collections::BTreeSet<_> = completed
         .iter()
         .flat_map(|pull| pull.boss_names.iter())
@@ -40,8 +45,8 @@ pub(super) fn check(
                     .as_ref()
                     .is_some_and(|source| bosses.contains(source)))
     };
-    let model = Analysis::common(&completed, include)
-        .and_then(|common| occurrences::expand(&completed, common, include, !boss_only));
+    let model = Analysis::common(&training, include)
+        .and_then(|common| occurrences::expand(&training, common, include, !boss_only));
     let model = match model {
         Ok(model) if !model.events.is_empty() => model,
         Ok(_) => {
@@ -55,7 +60,7 @@ pub(super) fn check(
             );
         }
     };
-    let checks = occurrences::holdout_checks(&completed, &[held_out], &model.events, &include)?;
+    let checks = occurrences::holdout_checks(&training, &[held_out], &model.events, &include)?;
     let events:Vec<_>=model.events.iter().map(|event|json!({"activity":event.signal,"samples":event.samples,"occurrence":event.occurrence})).collect();
     Ok(
         json!({"method":"automatic-validation-v1","policy":base,"split":split,"status":"evaluated","model_events":events,"checks":checks,

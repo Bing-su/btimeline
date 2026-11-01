@@ -178,9 +178,13 @@ fn starts(mode: Mode, origins: &[&Anchor]) -> Vec<KdlNode> {
 }
 
 fn clocks(anchors: &[Anchor], mode: Mode) -> Result<(BTreeMap<String, i64>, Vec<&Anchor>)> {
-    let first = anchors.first().context("Missing timing samples")?;
+    ensure!(!anchors.is_empty(), "Missing timing samples");
     let mut zeros = BTreeMap::new();
-    for trace in first.samples.keys() {
+    for trace in anchors
+        .iter()
+        .flat_map(|anchor| anchor.samples.keys())
+        .collect::<BTreeSet<_>>()
+    {
         let zero = match mode {
             Mode::Raid => 0,
             _ => *anchors

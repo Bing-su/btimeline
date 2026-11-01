@@ -7,6 +7,7 @@ use super::{Pull, Signal, alignment};
 
 mod attempts;
 mod branches;
+mod tail;
 
 pub(in crate::generate) struct Event {
     pub signal: Signal,
@@ -156,7 +157,7 @@ fn unrepresented(pull: &Pull, events: &[&Event], include: &impl Fn(&Signal) -> b
                 .map(move |signal| json!({"batch":batch,"activity":signal}))
         })
         .collect();
-    json!({"trace":id,"unrepresented":rows,"reason":"no forced bounded correspondence"})
+    json!({"trace":id,"unrepresented":rows,"reason":"no forced correspondence or supported branch"})
 }
 
 fn pair(reference: &[Group<'_>], peer: &[Group<'_>]) -> Result<alignment::Alignment> {
@@ -342,6 +343,7 @@ pub(super) fn expand(
     }
     for (source, mut anchors) in scopes {
         anchors.sort_by_key(|(_, samples)| samples.get(&reference));
+        tail::expand(pulls, &anchors, &include, raid, &mut result)?;
         for window in anchors.windows(2) {
             let [(left, a), (right, b)] = window else {
                 continue;
@@ -391,7 +393,7 @@ pub(super) fn expand(
         )
         .collect();
     result.diagnostics.extend(
-        completed
+        pulls
             .iter()
             .map(|pull| unrepresented(pull, &represented, &include)),
     );
