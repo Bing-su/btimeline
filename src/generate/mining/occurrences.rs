@@ -24,18 +24,56 @@ struct Observation<'a> {
     ordinal: usize,
 }
 
+struct Group<'a> {
+    observations: Vec<Observation<'a>>,
+    key: Vec<&'a Signal>,
+}
+
+// Forget internal order conservatively, e.g. A@0,B@80,C@160 form one uncertainty block.
+fn groups(observations: Vec<Observation<'_>>) -> Vec<Group<'_>> {
+    let mut groups: Vec<Group<'_>> = Vec::new();
+    for observation in observations {
+        let previous = groups.last_mut().filter(|group| {
+            group
+                .observations
+                .last()
+                .is_some_and(|last| observation.at - last.at <= super::common::ORDER_RESOLUTION_MS)
+        });
+        if let Some(group) = previous {
+            group.key.push(observation.signal);
+            group.observations.push(observation);
+        } else {
+            groups.push(Group {
+                key: vec![observation.signal],
+                observations: vec![observation],
+            });
+        }
+    }
+    for group in &mut groups {
+        group.key.sort_unstable();
+    }
+    groups
+}
+
+impl Group<'_> {
+    fn unique(&self, signal: &Signal) -> Option<&Observation<'_>> {
+        let mut matches = self.observations.iter().filter(|row| row.signal == signal);
+        let first = matches.next()?;
+        matches.next().is_none().then_some(first)
+    }
+}
+
 fn trace(pull: &Pull) -> String {
     format!("{}/{}", pull.report, pull.fight)
 }
 
-// shortcut: defer unordered intervals until set-aware alignment exists; simultaneous A,B has no order.
 fn interval<'a>(
     pull: &'a Pull,
     left: i64,
     right: i64,
     source: &Option<String>,
     include: &impl Fn(&Signal) -> bool,
-) -> Result<Vec<Observation<'a>>, &'static str> {
+) -> Result<Vec<Group<'a>>, &'static str> {
     if pull
         .phase_transitions
         .iter()
@@ -45,7 +83,6 @@ fn interval<'a>(
     }
     let mut counts = BTreeMap::new();
     let mut result = Vec::new();
-    let mut previous = None;
     for (batch, frame) in pull.batches.iter().enumerate() {
         let selected: Vec<_> = frame
             .signals
@@ -58,14 +95,18 @@ fn interval<'a>(
         if frame.at_ms < left || frame.at_ms > right || selected.is_empty() {
             continue;
         }
-        if selected.len() != 1
-            || previous.is_some_and(|at| frame.at_ms - at <= super::common::ORDER_RESOLUTION_MS)
-        {
-            return Err("unordered observations");
+        if selected.len() > 1 && (frame.at_ms == left || frame.at_ms == right) {
+            return Err("unordered boundary");
         }
-        previous = Some(frame.at_ms);
-        if left < frame.at_ms && frame.at_ms < right {
-            let signal = selected.first().ok_or("missing observation")?;
+        if frame.at_ms == left || frame.at_ms == right {
+            continue;
+        }
+        if frame.at_ms - left <= super::common::ORDER_RESOLUTION_MS
+            || right - frame.at_ms <= super::common::ORDER_RESOLUTION_MS
+        {
+            return Err("unordered boundary");
+        }
+        for signal in selected {
             result.push(Observation {
                 signal,
                 batch,
@@ -74,7 +115,7 @@ fn interval<'a>(
             });
         }
     }
-    Ok(result)
+    Ok(groups(result))
 }
 
 fn unrepresented(pull: &Pull, events: &[Event], include: &impl Fn(&Signal) -> bool) -> Value {
@@ -99,16 +140,68 @@ fn unrepresented(pull: &Pull, events: &[Event], include: &impl Fn(&Signal) -> bo
     json!({"trace":id,"unrepresented":rows,"reason":"no forced bounded correspondence"})
 }
 
-fn pair(reference: &[Observation<'_>], peer: &[Observation<'_>]) -> Result<alignment::Alignment> {
+fn pair(reference: &[Group<'_>], peer: &[Group<'_>]) -> Result<alignment::Alignment> {
     alignment::align(
-        &reference.iter().map(|row| row.signal).collect::<Vec<_>>(),
-        &peer.iter().map(|row| row.signal).collect::<Vec<_>>(),
+        &reference.iter().map(|row| &row.key).collect::<Vec<_>>(),
+        &peer.iter().map(|row| &row.key).collect::<Vec<_>>(),
     )
+}
+
+fn batches(rows: &[Group<'_>], indices: &[usize]) -> Vec<usize> {
+    indices
+        .iter()
+        .filter_map(|i| rows.get(*i))
+        .flat_map(|group| group.observations.iter().map(|row| row.batch))
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn events(pulls: &[&Pull], groups: &[&Group<'_>], bounds: &Value) -> Result<Vec<Event>> {
+    let reference = groups.first().context("Missing reference group")?;
+    let blocks: BTreeMap<_, _> = pulls
+        .iter()
+        .zip(groups)
+        .map(|(pull, group)| {
+            (
+                trace(pull),
+                group
+                    .observations
+                    .iter()
+                    .map(|row| row.batch)
+                    .collect::<std::collections::BTreeSet<_>>(),
+            )
+        })
+        .collect();
+    let mut result = Vec::new();
+    for observation in &reference.observations {
+        // B,B in one uncertainty block has no forced occurrence correspondence, even in equal blocks.
+        let observations = groups
+            .iter()
+            .map(|group| group.unique(observation.signal))
+            .collect::<Option<Vec<_>>>();
+        let Some(observations) = observations else {
+            continue;
+        };
+        let samples = pulls
+            .iter()
+            .zip(&observations)
+            .map(|(pull, row)| (trace(pull), row.at))
+            .collect();
+        let batches: BTreeMap<_, _> = pulls
+            .iter()
+            .zip(&observations)
+            .map(|(pull, row)| (trace(pull), row.batch))
+            .collect();
+        result.push(Event {signal:observation.signal.clone(),samples,occurrence:Some(observation.ordinal),
+            evidence:json!({"method":"anchor-constrained-multiset-lcs-v2","bounds":bounds,"reference":trace(pulls.first().context("Missing reference")?),"batches":batches,"groups":blocks,"sync":"omitted: repeated signal identity"})});
+    }
+    Ok(result)
 }
 
 fn expand_interval(
     pulls: &[&Pull],
-    rows: &[Vec<Observation<'_>>],
+    rows: &[Vec<Group<'_>>],
     bounds: Value,
     result: &mut Common,
 ) -> Result<()> {
@@ -127,18 +220,12 @@ fn expand_interval(
         .map(|row| pair(reference, row))
         .collect::<Result<Vec<_>>>()?;
     for ((pull, row), aligned) in pulls.iter().zip(rows).zip(&matches) {
-        let batches = |indices: &[usize]| {
-            indices
-                .iter()
-                .filter_map(|i| row.get(*i).map(|o| o.batch))
-                .collect::<Vec<_>>()
-        };
-        result.diagnostics.push(json!({"bounds":bounds,"reference":trace(pulls.first().context("Missing reference")?),"trace":trace(pull),"optimal_matches":aligned.optimal_matches,
-            "ambiguous_reference":aligned.ambiguous_left.iter().filter_map(|i|reference.get(*i).map(|o|o.batch)).collect::<Vec<_>>(),
-            "reference_only":aligned.reference_only.iter().filter_map(|i|reference.get(*i).map(|o|o.batch)).collect::<Vec<_>>(),
-            "ambiguous_peer":batches(&aligned.ambiguous_right),"peer_only":batches(&aligned.peer_only)}));
+        result.diagnostics.push(json!({"bounds":bounds,"reference":trace(pulls.first().context("Missing reference")?),"trace":trace(pull),"optimal_group_matches":aligned.optimal_matches,
+            "ambiguous_reference":batches(reference,&aligned.ambiguous_left),
+            "reference_only":batches(reference,&aligned.reference_only),
+            "ambiguous_peer":batches(row,&aligned.ambiguous_right),"peer_only":batches(row,&aligned.peer_only)}));
     }
-    for (index, observation) in reference.iter().enumerate() {
+    for index in 0..reference.len() {
         let peers = matches
             .iter()
             .map(|aligned| {
@@ -150,23 +237,12 @@ fn expand_interval(
             })
             .collect::<Option<Vec<_>>>();
         let Some(peers) = peers else { continue };
-        let observations = rows
+        let groups = rows
             .iter()
             .zip(peers)
             .map(|(row, j)| row.get(j).context("Missing aligned observation"))
             .collect::<Result<Vec<_>>>()?;
-        let samples = pulls
-            .iter()
-            .zip(&observations)
-            .map(|(pull, row)| (trace(pull), row.at))
-            .collect();
-        let batches: BTreeMap<_, _> = pulls
-            .iter()
-            .zip(&observations)
-            .map(|(pull, row)| (trace(pull), row.batch))
-            .collect();
-        result.events.push(Event {signal:observation.signal.clone(),samples,occurrence:Some(observation.ordinal),
-            evidence:json!({"method":"anchor-constrained-lcs-v1","bounds":bounds,"reference":trace(pulls.first().context("Missing reference")?),"batches":batches,"sync":"omitted: repeated signal identity"})});
+        result.events.extend(events(pulls, &groups, &bounds)?);
     }
     Ok(())
 }
@@ -241,4 +317,78 @@ pub(super) fn expand(
             .map(|pull| unrepresented(pull, &result.events, &include)),
     );
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use proptest::prelude::*;
+
+    use super::*;
+
+    fn signal(id: u8) -> Signal {
+        Signal {
+            kind: "cast".into(),
+            identifier: super::super::Identifier::Ability(i64::from(id)),
+            source: Some("Boss".into()),
+            target: None,
+        }
+    }
+
+    fn observations<'a>(signals: &'a [Signal], times: &[i64]) -> Vec<Observation<'a>> {
+        signals
+            .iter()
+            .zip(times)
+            .enumerate()
+            .map(|(batch, (signal, at))| Observation {
+                signal,
+                batch,
+                at: *at,
+                ordinal: 1,
+            })
+            .collect()
+    }
+
+    #[rstest::rstest]
+    #[case(vec![0,80,160],vec![3])]
+    #[case(vec![0,100,201],vec![2,1])]
+    #[case(vec![0,0,101],vec![2,1])]
+    fn uncertainty_does_not_invent_order_in_a_chain(
+        #[case] times: Vec<i64>,
+        #[case] sizes: Vec<usize>,
+    ) {
+        let signals = vec![signal(1), signal(2), signal(3)];
+        let result = groups(observations(&signals, &times));
+        assert_eq!(
+            result
+                .iter()
+                .map(|group| group.observations.len())
+                .collect::<Vec<_>>(),
+            sizes
+        );
+        assert_eq!(
+            result
+                .iter()
+                .flat_map(|group| &group.observations)
+                .map(|row| row.at)
+                .collect::<Vec<_>>(),
+            times
+        );
+    }
+
+    proptest! {
+        #[test]
+        fn reordering_unresolved_observations_preserves_keys_and_multiplicity(ids in prop::collection::vec(0_u8..4,1..12)) {
+            let signals:Vec<_>=ids.iter().copied().map(signal).collect();
+            let reversed:Vec<_>=signals.iter().rev().cloned().collect();
+            let times:Vec<_>=(0..signals.len()).map(|i| i as i64*50).collect();
+            let forward=groups(observations(&signals,&times));
+            let backward=groups(observations(&reversed,&times));
+            let first=forward.first().unwrap();
+            prop_assert_eq!(&first.key,&backward.first().unwrap().key);
+            for value in &signals {
+                let count=signals.iter().filter(|other|*other==value).count();
+                prop_assert_eq!(first.unique(value).is_some(),count==1);
+            }
+        }
+    }
 }

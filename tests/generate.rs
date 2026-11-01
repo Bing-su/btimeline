@@ -7,6 +7,131 @@ use serde_json::{Value, json};
 const INPUT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/pull.json");
 
 #[rstest::rstest]
+#[case("raid", "same", vec![1,2])]
+#[case("dungeon", "swapped", vec![1,2])]
+#[case("alliance", "jitter", vec![1,2])]
+#[case("raid", "missing", vec![])]
+#[case("raid", "duplicates", vec![3])]
+fn uncertainty_groups_preserve_multiplicity_and_individual_samples(
+    #[case] mode: &str,
+    #[case] problem: &str,
+    #[case] ordinals: Vec<usize>,
+) {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = inputs(dir.path());
+    for (index, path) in paths.iter().enumerate() {
+        let mut data: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        data["report"]["masterData"]["abilities"] = (0..4)
+            .map(|id| json!({"gameID":46376+id,"name":format!("Spell{id}"),"type":"1"}))
+            .collect();
+        let records = uncertainty_records(problem, index);
+        data["collection"]["eventCount"] = records.len().into();
+        data["events"]=records.iter().map(|(at,id)|json!({"timestamp":at,"type":"cast","sourceID":10,"abilityGameID":46376+id,"fight":1})).collect();
+        fs::write(path, serde_json::to_vec(&data).unwrap()).unwrap();
+    }
+    let output = dir.path().join("timeline.kdl");
+    cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(&paths)
+        .args(["--mode", mode, "-o"])
+        .arg(&output)
+        .assert()
+        .success();
+    let evidence: Value =
+        serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
+    let events: Vec<_> = evidence["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|event| event["activity"]["identifier"]["Ability"] == 46377)
+        .collect();
+    assert_eq!(events.len(), ordinals.len());
+    for (event, ordinal) in events.iter().zip(ordinals) {
+        assert!(
+            event["event"]
+                .as_str()
+                .unwrap()
+                .ends_with(&format!("-{ordinal:02}"))
+        );
+        assert_eq!(event["alignment"]["batches"].as_object().unwrap().len(), 2);
+    }
+    if problem == "jitter" {
+        assert_eq!(events[0]["samples"][0]["at_ms"], 3000);
+        assert_eq!(events[0]["samples"][1]["at_ms"], 3050);
+        assert_eq!(
+            events[0]["alignment"]["groups"]["generation1/1"],
+            json!([1, 2])
+        );
+    }
+    if problem == "same" {
+        insta::assert_snapshot!(
+            "generated_uncertainty_groups",
+            fs::read_to_string(&output).unwrap()
+        );
+        // The uncertainty groups are mining evidence; the external execution input stays plain KDL.
+        fs::remove_file(output.with_extension("evidence.json")).unwrap();
+        let recording = dir.path().join("recording.json");
+        fs::write(
+            &recording,
+            serde_json::to_vec(&json!({"version":1,"end_ms":12000,"observations":[
+                {"at_ms":0,"type":"InCombat","fields":{"inGameCombat":"1"}}
+            ]}))
+            .unwrap(),
+        )
+        .unwrap();
+        let replay = cargo_bin_cmd!("btimeline")
+            .arg("compare")
+            .arg(&output)
+            .arg(&recording)
+            .arg("--json")
+            .assert()
+            .success();
+        let report: Value = serde_json::from_slice(&replay.get_output().stdout).unwrap();
+        let records = report["recordings"][recording.to_str().unwrap()]
+            .as_array()
+            .unwrap();
+        assert_eq!(
+            records
+                .iter()
+                .filter(|row| row["action"] == "event")
+                .count(),
+            6
+        );
+    }
+}
+
+fn uncertainty_records(problem: &str, index: usize) -> Vec<(i64, i64)> {
+    match (problem, index) {
+        ("duplicates", _) => vec![(2000, 0), (4000, 1), (4050, 1), (8000, 1), (12000, 2)],
+        ("swapped", 1) => vec![
+            (2000, 0),
+            (4000, 3),
+            (4000, 1),
+            (8000, 3),
+            (8000, 1),
+            (12000, 2),
+        ],
+        ("jitter", 1) => vec![
+            (2000, 0),
+            (4000, 3),
+            (4050, 1),
+            (8000, 3),
+            (8050, 1),
+            (12000, 2),
+        ],
+        ("missing", 1) => vec![(2000, 0), (4000, 1), (8000, 1), (8000, 3), (12000, 2)],
+        _ => vec![
+            (2000, 0),
+            (4000, 1),
+            (4000, 3),
+            (8000, 1),
+            (8000, 3),
+            (12000, 2),
+        ],
+    }
+}
+
+#[rstest::rstest]
 #[case("equal", vec![0,1,1,2], vec![0,1,1,2], vec!["-01","-02"])]
 #[case("ambiguous", vec![0,1,1,2], vec![0,1,2], vec![])]
 #[case("context", vec![0,1,2,1,3], vec![0,2,1,3], vec!["-02"])]
@@ -97,7 +222,10 @@ fn repeated_casts_require_unambiguous_bounded_alignment(
             .iter()
             .filter(|event| !event["alignment"].is_null())
         {
-            assert_eq!(event["alignment"]["method"], "anchor-constrained-lcs-v1");
+            assert_eq!(
+                event["alignment"]["method"],
+                "anchor-constrained-multiset-lcs-v2"
+            );
             assert_eq!(event["alignment"]["batches"].as_object().unwrap().len(), 2);
         }
         outputs.push(timeline);
