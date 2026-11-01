@@ -427,6 +427,76 @@ fn mine_retains_non_cast_packets_without_inventing_activities(#[case] kind: &str
     );
 }
 
+#[rstest::rstest]
+#[case("headmarker", "markerID", "marker_id", true)]
+#[case("headmarker", "markerID", "marker_id", false)]
+#[case("tether", "tetherID", "tether_id", true)]
+#[case("tether", "tetherID", "tether_id", false)]
+#[case("applybuff", "abilityGameID", "id", true)]
+#[case("refreshbuff", "abilityGameID", "id", true)]
+#[case("removebuff", "abilityGameID", "id", true)]
+#[case("applydebuff", "abilityGameID", "id", true)]
+#[case("removedebuff", "abilityGameID", "id", true)]
+#[case("refreshdebuff", "abilityGameID", "id", true)]
+#[case("applybuff", "abilityGameID", "id", false)]
+fn mine_selects_non_cast_candidates_without_player_names(
+    #[case] kind: &str,
+    #[case] raw_id: &str,
+    #[case] field: &str,
+    #[case] enemy_target: bool,
+) {
+    let dir = tempfile::tempdir().unwrap();
+    let output = dir.path().join("process.kdl");
+    let paths: Vec<_> = ["First Player", "Second Player"].iter().enumerate().map(|(index, name)| {
+        let mut data: Value = serde_json::from_slice(&fs::read(INPUT).unwrap()).unwrap();
+        let code = format!("candidate{index}");
+        data["report"]["code"] = code.clone().into();
+        data["collection"]["reportCode"] = code.into();
+        data["report"]["masterData"]["actors"].as_array_mut().unwrap().push(
+            serde_json::json!({"id":20,"gameID":1000020,"name":name,"type":"Player","subType":"BlackMage"}));
+        let mut event = serde_json::json!({"timestamp":1555,"type":kind,"sourceID":20,
+            "targetID":if enemy_target {10} else {20},"abilityGameID":0});
+        event[raw_id] = 46376.into();
+        data["events"] = serde_json::json!([event]);
+        data["collection"]["eventCount"] = 1.into();
+        let path = dir.path().join(format!("{index}.json"));
+        fs::write(&path, serde_json::to_vec(&data).unwrap()).unwrap();
+        path
+    }).collect();
+    cargo_bin_cmd!("btimeline")
+        .arg("mine")
+        .args(&paths)
+        .arg("-o")
+        .arg(&output)
+        .assert()
+        .success();
+    let document: kdl::KdlDocument = fs::read_to_string(output).unwrap().parse().unwrap();
+    let activities: Vec<_> = document.nodes()[0]
+        .children()
+        .unwrap()
+        .nodes()
+        .iter()
+        .filter(|node| node.name().value() == "activity")
+        .collect();
+    if !enemy_target && field == "id" {
+        assert!(activities.is_empty());
+        return;
+    }
+    assert_eq!(activities.len(), 1);
+    assert_eq!(
+        activities[0].get("observations").unwrap().as_integer(),
+        Some(2)
+    );
+    let signal = &activities[0].children().unwrap().nodes()[0];
+    assert_eq!(signal.get(0).unwrap().as_string(), Some(kind));
+    assert_eq!(signal.get(field).unwrap().as_string(), Some("B528"));
+    assert!(signal.get("source").is_none());
+    assert_eq!(
+        signal.get("target").and_then(kdl::KdlValue::as_string),
+        enemy_target.then_some("Synthetic Boss")
+    );
+}
+
 #[test]
 fn timeline_validation_and_replay_are_accessible_without_overwriting_inputs() {
     let timeline = concat!(

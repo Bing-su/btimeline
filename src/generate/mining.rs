@@ -9,11 +9,21 @@ use serde::{Deserialize, Serialize};
 
 use crate::fflogs::model::CollectedLog;
 
+mod candidates;
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+enum Identifier {
+    Ability(i64),
+    Marker(i64),
+    Tether(i64),
+}
+
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 struct Signal {
     kind: String,
-    ability: i64,
-    source: String,
+    identifier: Identifier,
+    source: Option<String>,
+    target: Option<String>,
 }
 
 #[derive(Debug)]
@@ -57,32 +67,40 @@ fn batches(pull: &super::Pull, log: &CollectedLog) -> Result<Vec<Batch>> {
         .map(|a| (a.id, a.name.as_str()))
         .collect();
     let mut groups = BTreeMap::<i64, (BTreeMap<_, Signal>, Vec<usize>)>::new();
+    let mut selected = Vec::new();
     for occurrence in pull.occurrences.iter() {
         let source = names
             .get(&occurrence.actor_id)
             .context("Missing event source name")?;
         ensure!(!source.is_empty(), "Empty event source name");
-        let group = groups.entry(occurrence.relative_ms).or_default();
-        group.0.insert(
-            (
-                occurrence.actor_id,
-                occurrence.instance,
-                occurrence.kind.clone(),
-                occurrence.ability_id,
-            ),
+        selected.push((
+            occurrence.event_index,
             Signal {
                 kind: occurrence.kind.clone(),
-                ability: occurrence.ability_id,
-                source: (*source).to_owned(),
+                identifier: Identifier::Ability(occurrence.ability_id),
+                source: Some((*source).to_owned()),
+                target: None,
             },
+        ));
+    }
+    selected.extend(candidates::select(log)?);
+    for (index, signal) in selected {
+        let event = log.events.get(index).context("Missing candidate event")?;
+        let group = groups
+            .entry(event.timestamp - log.collection.start_time as i64)
+            .or_default();
+        group.0.insert(
+            (event.source_id, event.source_instance, signal.clone()),
+            signal,
         );
-        group.1.push(occurrence.event_index);
+        group.1.push(index);
     }
     Ok(groups
         .into_iter()
-        .map(|(at_ms, (signals, indices))| {
+        .map(|(at_ms, (signals, mut indices))| {
             let mut signals: Vec<_> = signals.into_values().collect();
             signals.sort();
+            indices.sort_unstable();
             Batch {
                 at_ms,
                 signals,
@@ -137,9 +155,19 @@ fn activity_node(
     prop(&mut activity, "last_seen_in_kills", i128::try_from(last)?);
     let mut node = KdlNode::new("signal");
     argument(&mut node, signal.kind.as_str());
-    prop(&mut node, "id", format!("{:X}", signal.ability));
-    prop(&mut node, "source", signal.source.as_str());
-    if let Some(names) = ability_names.get(&signal.ability)
+    let (field, id) = match signal.identifier {
+        Identifier::Ability(id) => ("id", id),
+        Identifier::Marker(id) => ("marker_id", id),
+        Identifier::Tether(id) => ("tether_id", id),
+    };
+    prop(&mut node, field, format!("{id:X}"));
+    for (field, name) in [("source", &signal.source), ("target", &signal.target)] {
+        if let Some(name) = name {
+            prop(&mut node, field, name.as_str());
+        }
+    }
+    if let Identifier::Ability(id) = signal.identifier
+        && let Some(names) = ability_names.get(&id)
         && names.len() == 1
         && let Some(name) = names.first()
     {
@@ -375,8 +403,9 @@ mod tests {
                 .iter()
                 .map(|ability| Signal {
                     kind: "cast".into(),
-                    ability: i64::from(*ability),
-                    source: "Boss".into(),
+                    identifier: Identifier::Ability(i64::from(*ability)),
+                    source: Some("Boss".into()),
+                    target: None,
                 })
                 .collect(),
             indices: Vec::new(),
