@@ -110,6 +110,13 @@ enum BranchAction {
     Conflict(usize),
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum SyncOwner<'a> {
+    Fight,
+    Phase(&'a str),
+    Repeat(&'a str),
+}
+
 fn matches_any(signals: &[super::Signal], observation: &Observation, time: Tick) -> bool {
     signals
         .iter()
@@ -332,7 +339,7 @@ fn advance_paths(
 fn branch_sync_targets<'a>(
     phase: &PhaseState<'a>,
     observation: &Observation,
-) -> Vec<(Option<&'a str>, Tick)> {
+) -> Vec<(SyncOwner<'a>, Tick)> {
     phase
         .definition
         .branches
@@ -342,9 +349,40 @@ fn branch_sync_targets<'a>(
         .flat_map(|(events, path)| {
             sync_targets(events, &path.clock, observation)
                 .into_iter()
-                .map(move |target| (Some(phase.definition.id.as_str()), path.anchor + target))
+                .map(move |target| {
+                    (
+                        SyncOwner::Phase(phase.definition.id.as_str()),
+                        path.anchor + target,
+                    )
+                })
         })
         .collect()
+}
+
+// At a boundary the observation can synchronize the new iteration before its zero-time event.
+fn prepare_repeat_boundary(phase: &mut PhaseState<'_>, at: i64) {
+    let (Some(definition), Some(state)) = (phase.definition.loops.first(), phase.repeat.as_mut())
+    else {
+        return;
+    };
+    if state.exited {
+        return;
+    }
+    let start = phase.clock.base_ms + definition.start * 100;
+    if state.current.is_none() && start == at {
+        state.current = Some(Clock {
+            base_ms: at,
+            ..Clock::default()
+        });
+        return;
+    }
+    let Some(clock) = &mut state.current else {
+        return;
+    };
+    if clock.base_ms + definition.every * 100 == at {
+        clock.base_ms = at;
+        clock.processed.clear();
+    }
 }
 
 fn correct_paths(
@@ -767,16 +805,29 @@ impl<'a> Replay<'a> {
             targets.extend(
                 sync_targets(&self.timeline.events, clock, observation)
                     .into_iter()
-                    .map(|t| (None, t)),
+                    .map(|t| (SyncOwner::Fight, t)),
             );
         }
         if let Some(phase) = self.phase.as_ref() {
             targets.extend(
                 sync_targets(&phase.definition.events, &phase.clock, observation)
                     .into_iter()
-                    .map(|t| (Some(phase.definition.id.as_str()), t)),
+                    .map(|t| (SyncOwner::Phase(phase.definition.id.as_str()), t)),
             );
             targets.extend(branch_sync_targets(phase, observation));
+            if let (Some(repeat), Some(clock)) = (
+                phase.definition.loops.first(),
+                phase
+                    .repeat
+                    .as_ref()
+                    .and_then(|state| state.current.as_ref()),
+            ) {
+                targets.extend(
+                    sync_targets(&repeat.events, clock, observation)
+                        .into_iter()
+                        .map(|t| (SyncOwner::Repeat(repeat.id.as_str()), t)),
+                );
+            }
         }
         if targets.len() > 1 {
             record(
@@ -792,7 +843,7 @@ impl<'a> Replay<'a> {
             return;
         };
         match (owner, self.phase.as_mut(), self.fight.as_mut()) {
-            (Some(_), Some(phase), _) => {
+            (SyncOwner::Phase(_), Some(phase), _) => {
                 correct(
                     &phase.definition.events,
                     &mut phase.clock,
@@ -803,7 +854,7 @@ impl<'a> Replay<'a> {
                 );
                 correct_paths(phase, at, *target, &mut self.out, self.run);
             }
-            (None, _, Some(clock)) => correct(
+            (SyncOwner::Fight, _, Some(clock)) => correct(
                 &self.timeline.events,
                 clock,
                 at,
@@ -811,6 +862,17 @@ impl<'a> Replay<'a> {
                 &mut self.out,
                 self.run,
             ),
+            (SyncOwner::Repeat(_), Some(phase), _) => {
+                if let (Some(repeat), Some(clock)) = (
+                    phase.definition.loops.first(),
+                    phase
+                        .repeat
+                        .as_mut()
+                        .and_then(|state| state.current.as_mut()),
+                ) {
+                    correct(&repeat.events, clock, at, *target, &mut self.out, self.run);
+                }
+            }
             _ => {}
         }
         record(
@@ -819,7 +881,10 @@ impl<'a> Replay<'a> {
             "sync",
             format!(
                 "{} -> {:.1}s",
-                owner.unwrap_or("fight"),
+                match owner {
+                    SyncOwner::Fight => "fight",
+                    SyncOwner::Phase(id) | SyncOwner::Repeat(id) => id,
+                },
                 *target as f64 / 10.0
             ),
             self.run,
@@ -850,6 +915,9 @@ impl<'a> Replay<'a> {
             && !self.repeat_observation(observation)
             && !self.branch_observation(observation)
         {
+            if let Some(phase) = &mut self.phase {
+                prepare_repeat_boundary(phase, at);
+            }
             self.synchronize(observation);
             self.advance_branches(at, true);
         }
@@ -932,10 +1000,9 @@ fn validate_repeat_support(timeline: &Timeline, input: &Recording) -> Result<()>
             phase
                 .events
                 .iter()
-                .chain(&repeat.events)
                 .chain(&repeat.on_exit)
                 .all(|event| event.syncs.is_empty()),
-            "Replay does not yet support phase or loop syncs in a phase containing a loop"
+            "Replay does not yet support phase or on-exit syncs in a phase containing a loop"
         );
         ensure!(
             input.end_ms / (repeat.every * 100) <= 1_000_000,
