@@ -11,7 +11,8 @@ FFLogs 전투 로그를 수집하고 타임라인을 작성하기 위한 도구�
 | `btimeline fflogs`                                 | 보고서의 전투 목록 확인 및 로그 다운로드         |
 | `btimeline fflogs-collect`                         | 보고서·전투 후보를 찾아 다운로드 계획 저장       |
 | `btimeline fflogs-download`                        | 저장된 계획에 따라 다운로드 또는 재개            |
-| `btimeline inspect LOG.json...`                    | 수집된 로그 검사                                 |
+| `btimeline inspect LOG.json...`                    | 수집된 로그를 검사하고 전투별 요약 출력          |
+| `btimeline inspect LOG.json... --json`             | 원본 근거와 정규화 관측을 JSON으로 출력          |
 | `btimeline mine LOG.json... -o process.kdl`        | 관측된 활동 후보와 인접 관계를 KDL 그래프로 저장 |
 | `btimeline validate timeline.kdl`                  | 타임라인의 구조·참조·명확한 범위 검사            |
 | `btimeline compare timeline.kdl recording.json...` | 정규화 관측 또는 수집 FFLogs의 오프라인 재생     |
@@ -20,7 +21,9 @@ FFLogs 전투 로그를 수집하고 타임라인을 작성하기 위한 도구�
 
 `mine`은 한 전투·난이도의 수집 로그를 분석합니다. 원본 언어는 각 `trace`의 `source_language`에 보존하며 언어 차이만으로 입력을 거부하지 않습니다. 이름은 수집 파일의 masterData를 사용하므로 실제 이름이 다른 경우의 영어 정규화는 아직 필요합니다. 개별 신호가 활동이며 같은 밀리초의 신호는 순서가 없는 묶음으로 관측합니다. `algorithm=adjacent-batches`의 `follows`는 인접한 두 묶음 사이의 신호 쌍별 관측 횟수로, 같은 묶음 안에는 간선을 만들지 않습니다. `observed`는 활동 ID 목록 뒤에 원본 이벤트 인덱스 목록을 기록합니다. 동일한 이름의 여러 시전자는 활동 ID를 공유하며 각 발생을 집계합니다. `trace`는 각 풀의 시간, 원본 이벤트 인덱스, 해시와 클리어 여부를 보존합니다. 첫·마지막 묶음에 속한 신호를 각각 집계하며 마지막 관측은 클리어한 풀에서만 집계하고 전투 종료 신호로 취급하지 않습니다.
 
-`inspect`는 수집된 페이즈 전환의 ID와 원본·상대 시각을 보존하고, `mine`은 각 `trace`의 `phase-boundary ID at_ms=...`에 전환 근거를 남깁니다. 이는 FFLogs가 보고한 경계이며 실행용 페이즈나 동기화 신호로 자동 확정하지 않습니다.
+`inspect`는 기본으로 전투·난이도별 입력과 클리어 수, 각 전투의 길이·전체 이벤트 수·시전 관측 수·보고된 페이즈 경계 수를 요약합니다. 공통 진행 분석에 필요한 완료 로그 수와 다음 명령도 안내합니다. 자동화에서는 `--json`을 사용합니다. 모든 입력을 검증한 뒤 출력하므로 뒤쪽 입력이 잘못되어도 일부 결과를 먼저 내보내지 않습니다.
+
+`inspect --json`은 수집된 페이즈 전환의 ID와 원본·상대 시각을 보존하고, `mine`은 각 `trace`의 `phase-boundary ID at_ms=...`에 전환 근거를 남깁니다. 이는 FFLogs가 보고한 경계이며 실행용 페이즈나 동기화 신호로 자동 확정하지 않습니다.
 
 `mine`은 시전 여부와 관계없이 모든 수집 이벤트를 `trace`의 `raw-event INDEX at_ms=... type=... data=...`에 원본 배열 순서대로 보존합니다. `data`는 원본 이벤트 필드의 JSON이며 액터 이름은 `source`·`target`에 함께 기록합니다. 원본 인덱스로 활동 그래프의 `observed`와 연결할 수 있습니다. 활동 후보가 없는 로그도 근거를 출력합니다.
 

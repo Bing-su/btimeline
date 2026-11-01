@@ -234,6 +234,7 @@ fn source_from_collected(path: &Path, data: &CollectedLog) -> Result<Source> {
             name: fight.name.clone(),
             kill: fight.kill,
             end_ms: end - start,
+            event_count: events.len(),
             phase_transitions,
             occurrences: occurrences.into(),
             actors,

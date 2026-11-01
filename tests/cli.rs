@@ -6,6 +6,46 @@ use serde_json::Value;
 const INPUT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/pull.json");
 
 #[test]
+fn inspect_defaults_to_a_human_summary_and_keeps_json_explicit() {
+    let result = cargo_bin_cmd!("btimeline")
+        .args(["inspect", INPUT])
+        .assert()
+        .success();
+    insta::assert_snapshot!(
+        "inspect_human_summary",
+        String::from_utf8_lossy(&result.get_output().stdout)
+    );
+    let result = cargo_bin_cmd!("btimeline")
+        .args(["inspect", INPUT, "--json"])
+        .assert()
+        .success();
+    let groups: Value = serde_json::from_slice(&result.get_output().stdout).unwrap();
+    let pull = &groups[0]["pulls"][0];
+    assert_eq!(pull["event_count"], 3);
+    assert_eq!(pull["end_seconds"], 20);
+    assert_eq!(pull["occurrences"].as_array().unwrap().len(), 3);
+    assert!(pull.get("end_ms").is_none());
+}
+
+#[rstest::rstest]
+#[case(false)]
+#[case(true)]
+fn inspect_rejects_late_invalid_input_without_partial_output(#[case] json: bool) {
+    let dir = tempfile::tempdir().unwrap();
+    let invalid = dir.path().join("invalid.json");
+    let mut data: Value = serde_json::from_slice(&fs::read(INPUT).unwrap()).unwrap();
+    data["collection"]["complete"] = false.into();
+    fs::write(&invalid, serde_json::to_vec(&data).unwrap()).unwrap();
+    let mut command = cargo_bin_cmd!("btimeline");
+    command.args(["inspect", INPUT]).arg(&invalid);
+    if json {
+        command.arg("--json");
+    }
+    let result = command.assert().failure();
+    assert!(result.get_output().stdout.is_empty());
+}
+
+#[test]
 fn inspect_rejects_invalid_input_and_preserves_json_boundaries() {
     let dir = tempfile::tempdir().unwrap();
     let input = dir.path().join("input.json");
@@ -543,6 +583,7 @@ fn phase_boundaries_survive_inspection_and_mining(#[case] timestamp: i64) {
     let inspection = cargo_bin_cmd!("btimeline")
         .arg("inspect")
         .arg(&input)
+        .arg("--json")
         .assert()
         .success();
     let inspected: Value = serde_json::from_slice(&inspection.get_output().stdout).unwrap();

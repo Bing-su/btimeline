@@ -159,16 +159,49 @@ impl Run for MineCommand {
 pub struct InspectCommand {
     #[usage(arg)]
     inputs: Vec<Utf8PathBuf>,
+    /// Print detailed observations and provenance as JSON instead of a summary.
+    #[usage(long)]
+    json: bool,
 }
 
 impl Run for InspectCommand {
     type Output = Result<()>;
 
     fn run(self) -> Self::Output {
-        let mut groups = serde_json::to_value(crate::generate::inspect(&self.inputs)?)?;
-        crate::time::json_times(&mut groups, true)?;
-        serde_json::to_writer_pretty(std::io::stdout().lock(), &groups)?;
-        println!();
+        let groups = crate::generate::inspect(&self.inputs)?;
+        if self.json {
+            let mut value = serde_json::to_value(&groups)?;
+            crate::time::json_times(&mut value, true)?;
+            serde_json::to_writer_pretty(std::io::stdout().lock(), &value)?;
+            println!();
+            return Ok(());
+        }
+        for group in &groups {
+            let clears = group.pulls.iter().filter(|pull| pull.kill).count();
+            println!(
+                "Encounter {} (difficulty {}): fights={}, clears={}",
+                group.key.encounter,
+                group.key.difficulty,
+                group.pulls.len(),
+                clears
+            );
+            for pull in &group.pulls {
+                println!(
+                    "  {}/{} {}: {:.1}s, {} events, {} cast observations, {} reported phase boundaries",
+                    pull.report,
+                    pull.fight,
+                    pull.name,
+                    pull.end_ms as f64 / 1000.0,
+                    pull.event_count,
+                    pull.occurrences.len(),
+                    pull.phase_transitions.len()
+                );
+            }
+            if clears < 2 {
+                println!("  Common progress needs at least two clear logs.");
+            }
+        }
+        println!("Next: btimeline mine LOG... -o process.kdl (one encounter and difficulty).");
         Ok(())
     }
 }
