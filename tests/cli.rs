@@ -256,6 +256,98 @@ fn mine_combines_translated_names_from_different_source_languages() {
 }
 
 #[rstest::rstest]
+#[case(false)]
+#[case(true)]
+fn mine_reports_common_progress_without_treating_wipes_as_missing_suffixes(#[case] reversed: bool) {
+    let dir = tempfile::tempdir().unwrap();
+    let output = dir.path().join("process.kdl");
+    let base: Value = serde_json::from_slice(&fs::read(INPUT).unwrap()).unwrap();
+    let observations = [
+        vec![(2000, 46376), (6000, 46377), (10000, 46378)],
+        vec![
+            (if reversed { 10001 } else { 2100 }, 46376),
+            (if reversed { 2100 } else { 10100 }, 46378),
+        ],
+        vec![(2000, 46376)],
+    ];
+    let paths: Vec<_> = observations
+        .iter()
+        .enumerate()
+        .map(|(index, events)| {
+            let mut data = base.clone();
+            let code = format!("pull{index}");
+            data["report"]["code"] = code.clone().into();
+            data["collection"]["reportCode"] = code.into();
+            data["report"]["fights"][0]["kill"] = (index != 2).into();
+            data["report"]["masterData"]["abilities"] = serde_json::json!([
+            {"gameID":46376,"name":"A","type":"1"},
+            {"gameID":46377,"name":"B","type":"1"},
+            {"gameID":46378,"name":"C","type":"1"}]);
+            data["events"] = events
+                .iter()
+                .map(|(at, id)| {
+                    serde_json::json!({
+                        "timestamp":at,"type":"cast","sourceID":10,"abilityGameID":id,"fight":1
+                    })
+                })
+                .collect();
+            data["collection"]["eventCount"] = events.len().into();
+            let path = dir.path().join(format!("{index}.json"));
+            fs::write(&path, serde_json::to_vec(&data).unwrap()).unwrap();
+            path
+        })
+        .collect();
+    cargo_bin_cmd!("btimeline")
+        .arg("mine")
+        .args(&paths)
+        .arg("-o")
+        .arg(&output)
+        .assert()
+        .success();
+    let document: kdl::KdlDocument = fs::read_to_string(output).unwrap().parse().unwrap();
+    let common = document.nodes()[0]
+        .children()
+        .unwrap()
+        .nodes()
+        .iter()
+        .find(|node| node.name().value() == "common-progress")
+        .unwrap();
+    assert_eq!(common.get("completed_pulls").unwrap().as_integer(), Some(2));
+    assert_eq!(
+        common.get("status").unwrap().as_string(),
+        Some(if reversed {
+            "ambiguous-order"
+        } else {
+            "observed-common-order"
+        })
+    );
+    let nodes = common.children().unwrap().nodes();
+    let anchors: Vec<_> = nodes
+        .iter()
+        .filter(|node| node.name().value() == "anchor")
+        .collect();
+    assert_eq!(anchors.len(), 2);
+    for anchor in anchors {
+        assert_eq!(anchor.children().unwrap().nodes().len(), 2);
+        assert!(
+            anchor.get("min_ms").unwrap().as_integer()
+                <= anchor.get("median_ms").unwrap().as_integer()
+        );
+        assert!(
+            anchor.get("median_ms").unwrap().as_integer()
+                <= anchor.get("max_ms").unwrap().as_integer()
+        );
+    }
+    assert_eq!(
+        nodes
+            .iter()
+            .filter(|node| node.name().value() == "step")
+            .count(),
+        if reversed { 0 } else { 2 }
+    );
+}
+
+#[rstest::rstest]
 #[case(0)]
 #[case(1)]
 fn mine_preserves_common_signal_identity_with_an_extra_packet(#[case] offset_ms: i64) {

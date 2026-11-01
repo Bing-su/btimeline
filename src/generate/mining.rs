@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::fflogs::model::CollectedLog;
 
 mod candidates;
+mod common;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 enum Identifier {
@@ -314,6 +315,9 @@ fn process_document(
             .nodes_mut()
             .push(trace_node(pull, &ids)?);
     }
+    root.ensure_children()
+        .nodes_mut()
+        .push(common::node(pulls, &ids)?);
     doc.nodes_mut().push(root);
     doc.autoformat();
     Ok(doc)
