@@ -8,18 +8,20 @@ use super::{Branch, BranchOption, Event, Loop, MAX_MS, Phase, Tick, Timeline};
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Observation {
-    at_ms: i64,
+    pub(super) at_ms: i64,
     #[serde(rename = "type")]
-    kind: String,
-    fields: BTreeMap<String, String>,
+    pub(super) kind: String,
+    pub(super) fields: BTreeMap<String, String>,
+    #[serde(skip)]
+    pub(super) source_event_index: Option<usize>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Recording {
-    version: u32,
-    end_ms: i64,
-    observations: Vec<Observation>,
+    pub(super) version: u32,
+    pub(super) end_ms: i64,
+    pub(super) observations: Vec<Observation>,
 }
 
 #[derive(Debug, Serialize)]
@@ -28,6 +30,8 @@ pub(crate) struct Record {
     pub(crate) action: String,
     pub(crate) detail: String,
     pub(crate) run: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) source_event_index: Option<usize>,
     #[serde(skip)]
     event_order: Option<usize>,
 }
@@ -289,6 +293,7 @@ fn record(out: &mut Vec<Record>, at_ms: i64, action: &str, detail: impl Into<Str
         action: action.into(),
         detail: detail.into(),
         run,
+        source_event_index: None,
         event_order: None,
     });
 }
@@ -1792,6 +1797,7 @@ impl<'a> Replay<'a> {
         if let Some(phase) = &mut self.phase {
             repeat_unresolved(phase, at, false, &mut self.out, self.run);
         }
+        let first_signal_record = self.out.len();
         let candidates = self.enter_candidates(observation);
         let lifecycle = self.lifecycle(observation);
         if let Some(role) = lifecycle {
@@ -1804,6 +1810,11 @@ impl<'a> Replay<'a> {
         }
         if lifecycle.is_none() && !enter && self.fight.is_some() {
             self.observe_control(observation)?;
+        }
+        for record in self.out.iter_mut().skip(first_signal_record) {
+            if record.at_ms == at {
+                record.source_event_index = observation.source_event_index;
+            }
         }
         Ok(())
     }

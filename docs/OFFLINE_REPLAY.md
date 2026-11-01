@@ -1,6 +1,6 @@
 # 오프라인 타임라인 검증: 첫 구현
 
-최종 타임라인 KDL의 구조 검사와 lifecycle·phase·event·sync, phase 직속 branch 및 제한적인 loop 재생을 구현했다. 자동 생성기와 FFLogs/ACT 변환기는 아직 연결하지 않았다. 아래 JSON은 테스트·비교용으로 정규화한 관측이며, FFLogs 다운로드 파일을 그대로 입력할 수는 없다.
+최종 타임라인 KDL의 구조 검사와 lifecycle·phase·event·sync·branch·loop 재생을 구현했다. `compare`는 정규화 관측 JSON과 이 도구가 수집한 FFLogs 전투 파일을 받는다. 자동 생성기와 FFLogs/ACT 신호 변환은 아직 구현하지 않았다.
 
 | 명령                                                           | 현재 동작                                                                                                           |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -13,6 +13,7 @@
 ```sh
 cargo run -- validate tests/fixtures/timeline/basic.kdl
 cargo run -- compare tests/fixtures/timeline/basic.kdl tests/fixtures/timeline/basic.json
+cargo run -- compare tests/fixtures/timeline/fflogs-native.kdl tests/fixtures/pull.json --json
 ```
 
 ## 입력 관측
@@ -39,6 +40,20 @@ cargo run -- compare tests/fixtures/timeline/basic.kdl tests/fixtures/timeline/b
 관측 시각은 밀리초를 보존하고, 타임라인의 예정 시각·window 비교는 정수 0.1초 단위로 처리한다. 현재 구현의 최대 입력 시각은 10조 밀리초이며 계산 범위를 위한 제한이다. 게임 전투 길이 제한을 의미하지 않는다.
 
 동일한 원본 밀리초의 관측은 배열 순서대로 모두 처리한 뒤 그 시각의 예정 이벤트를 실행한다. 예를 들어 같은 시각의 무관한 로그 뒤에 전멸 신호가 오면 전멸이 해당 시각의 이벤트를 취소한다. 반올림 후에만 같은 0.1초가 된 관측은 묶지 않는다.
+
+## 수집된 FFLogs 입력
+
+수집 완료·페이지·전투 범위·액터 참조는 `inspect`와 같은 검증을 거친다. 이벤트의 시각이 배열 순서와 다르면 원본 인덱스를 보존하며 시각순으로 안정 정렬하고, 같은 시각의 원본 순서는 유지한다. 전투 시작 시각은 상대 밀리초를 계산하는 기준일 뿐이며 start·wipe·finish 신호를 자동으로 생성하지 않는다.
+
+| FFLogs 원본           | 재생에서 사용하는 값                                                                                                                                            |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 이벤트 타입 `cast` 등 | 독립적인 `FFLogs.cast` 등. ACT의 `Ability`·`StartsUsing`과 동일하다고 가정하지 않는다.                                                                          |
+| `abilityGameID`       | 문자열 `raw.abilityGameID`와, 음이 아닌 경우 대문자 16진수 `id`. 이벤트 타입별 의미는 원본을 따른다.                                                            |
+| 액터 참조             | masterData의 이름을 `source`·`target`으로 사용한다. `raw.sourceID`·`raw.targetID`는 보고서 내부 ID다. 이름의 언어와 번역 정확도는 별도 확인이 필요하다.         |
+| 그 밖의 이벤트 필드   | `raw.필드명`으로 보존한다. 문자열은 그대로, 숫자·불리언·null 및 배열·객체는 JSON 텍스트로 표현한다.                                                             |
+| 원본 위치             | 해당 관측이 직접 일으킨 start·phase·option·sync 등의 JSON 결과에 0부터 시작하는 `source_event_index`를 기록한다. 예정 이벤트 자체에는 인덱스를 추정하지 않는다. |
+
+예를 들어 수집 파일의 `cast`, `abilityGameID: 46376`, `sourceID: 10`이 masterData에서 `Synthetic Boss`를 가리키면 `FFLogs.cast`, `id="B528"`, `source="Synthetic Boss"`로 매칭할 수 있다. FFLogs [공식 API 문서](https://www.fflogs.com/v2-api-docs/ff/report.doc.html)는 이벤트와 masterData를 별도로 제공한다. 이 매핑은 ACT 신호와의 동등성을 뜻하지 않는다.
 
 ## 결과와 한계
 

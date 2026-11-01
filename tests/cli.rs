@@ -320,3 +320,95 @@ fn compare_fails_without_partial_output_when_a_recording_is_invalid() {
             .contains("Observations must be in original time order")
     );
 }
+
+#[test]
+fn compare_accepts_native_fflogs_events_and_retains_source_indices() {
+    let timeline = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/timeline/fflogs-native.kdl"
+    );
+    let result = cargo_bin_cmd!("btimeline")
+        .args(["compare", timeline, INPUT, "--json"])
+        .assert()
+        .success();
+    let output: Value = serde_json::from_slice(&result.get_output().stdout).unwrap();
+    let records = output["recordings"][INPUT].as_array().unwrap();
+    assert!(
+        records
+            .iter()
+            .any(|r| r["action"] == "start" && r["at_ms"] == 1000 && r["source_event_index"] == 0)
+    );
+    assert!(
+        records
+            .iter()
+            .any(|r| r["action"] == "phase" && r["source_event_index"] == 0)
+    );
+    assert!(
+        records
+            .iter()
+            .any(|r| r["action"] == "sync" && r["at_ms"] == 5000 && r["source_event_index"] == 1)
+    );
+    assert!(records.iter().any(|r| r["action"] == "event"
+        && r["at_ms"] == 5000
+        && r.get("source_event_index").is_none()));
+    assert!(
+        output["not_checked"]
+            .as_array()
+            .unwrap()
+            .contains(&Value::from("FFLogs-to-ACT signal equivalence"))
+    );
+}
+
+#[test]
+fn compare_rejects_incomplete_fflogs_input() {
+    let timeline = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/timeline/fflogs-native.kdl"
+    );
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("invalid.json");
+    let mut incomplete: Value = serde_json::from_slice(&fs::read(INPUT).unwrap()).unwrap();
+    incomplete["collection"]["complete"] = false.into();
+    fs::write(&path, serde_json::to_vec(&incomplete).unwrap()).unwrap();
+    let result = cargo_bin_cmd!("btimeline")
+        .args(["compare", timeline])
+        .arg(&path)
+        .arg("--json")
+        .assert()
+        .failure();
+    assert!(result.get_output().stdout.is_empty());
+    assert!(String::from_utf8_lossy(&result.get_output().stderr).contains("Incomplete collection"));
+}
+
+#[test]
+fn compare_orders_late_fflogs_events_without_losing_original_indices() {
+    let timeline = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/timeline/fflogs-native.kdl"
+    );
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("unordered.json");
+    let mut data: Value = serde_json::from_slice(&fs::read(INPUT).unwrap()).unwrap();
+    data["events"].as_array_mut().unwrap().swap(0, 1);
+    fs::write(&path, serde_json::to_vec(&data).unwrap()).unwrap();
+    let result = cargo_bin_cmd!("btimeline")
+        .args(["compare", timeline])
+        .arg(&path)
+        .arg("--json")
+        .assert()
+        .success();
+    let output: Value = serde_json::from_slice(&result.get_output().stdout).unwrap();
+    let records = output["recordings"][path.to_str().unwrap()]
+        .as_array()
+        .unwrap();
+    assert!(
+        records
+            .iter()
+            .any(|r| r["action"] == "start" && r["at_ms"] == 1000 && r["source_event_index"] == 1)
+    );
+    assert!(
+        records
+            .iter()
+            .any(|r| r["action"] == "sync" && r["at_ms"] == 5000 && r["source_event_index"] == 0)
+    );
+}

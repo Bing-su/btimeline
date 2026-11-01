@@ -78,4 +78,5 @@ fn slash_path(path: &Path) -> String {
 }
 
 pub use input::inspect;
+pub(crate) use input::validated_collected;
 pub(crate) use mining::mine;

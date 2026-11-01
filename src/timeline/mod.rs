@@ -1,3 +1,4 @@
+mod fflogs;
 mod parse;
 mod replay;
 #[cfg(test)]
@@ -5,6 +6,7 @@ mod tests;
 
 use std::collections::BTreeMap;
 
+pub(crate) use fflogs::from_fflogs;
 pub(crate) use parse::parse;
 use regress::Regex;
 pub(crate) use replay::{Recording, replay};

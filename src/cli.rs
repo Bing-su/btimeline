@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use camino::Utf8PathBuf;
+use serde::Deserialize;
 use usage_rs::{Args, Cli, Run, Subcommands};
 
 use crate::fflogs::{FFLogsCollectCommand, FFLogsCommand, FFLogsDownloadCommand};
@@ -51,7 +52,7 @@ impl Run for ValidateCommand {
 pub struct CompareCommand {
     #[usage(arg)]
     timeline: Utf8PathBuf,
-    /// Normalized signal recordings; each file is an independent replay.
+    /// Normalized signal recordings or collected FFLogs fights; each file is an independent replay.
     #[usage(arg)]
     recordings: Vec<Utf8PathBuf>,
     /// Print replay records as JSON, retaining raw millisecond timestamps.
@@ -70,22 +71,38 @@ impl Run for CompareCommand {
         let model = crate::timeline::parse(&std::fs::read_to_string(&self.timeline)?)
             .with_context(|| format!("Validating {}", self.timeline))?;
         let mut results = std::collections::BTreeMap::new();
+        let mut has_fflogs = false;
         for path in &self.recordings {
+            let bytes = std::fs::read(path).with_context(|| format!("Reading recording {path}"))?;
+            let shape: RecordingShape = serde_json::from_slice(&bytes)
+                .with_context(|| format!("Reading recording {path}"))?;
             let recording: crate::timeline::Recording =
-                serde_json::from_slice(&std::fs::read(path)?)
-                    .with_context(|| format!("Reading recording {path}"))?;
+                if shape.report.is_some() || shape.collection.is_some() {
+                    has_fflogs = true;
+                    let log = crate::generate::validated_collected(path.as_std_path(), &bytes)
+                        .with_context(|| format!("Validating FFLogs input {path}"))?;
+                    crate::timeline::from_fflogs(&log)
+                        .with_context(|| format!("Reading FFLogs input {path}"))?
+                } else {
+                    serde_json::from_slice(&bytes)
+                        .with_context(|| format!("Reading recording {path}"))?
+                };
             results.insert(
                 path.as_str(),
                 crate::timeline::replay(&model, &recording)
                     .with_context(|| format!("Replaying {path}"))?,
             );
         }
+        let mut not_checked = vec!["missing-signal coverage", "game accuracy"];
+        if has_fflogs {
+            not_checked.push("FFLogs-to-ACT signal equivalence");
+        }
         if self.json {
             serde_json::to_writer_pretty(
                 std::io::stdout().lock(),
                 &serde_json::json!({
                     "recordings": results,
-                    "not_checked": ["missing-signal coverage", "game accuracy"]
+                    "not_checked": not_checked
                 }),
             )?;
             println!();
@@ -103,9 +120,15 @@ impl Run for CompareCommand {
                 );
             }
         }
-        println!("Replay only: missing-signal coverage and game accuracy are not checked.");
+        println!("Replay only: {} not checked.", not_checked.join(", "));
         Ok(())
     }
+}
+
+#[derive(Deserialize)]
+struct RecordingShape {
+    report: Option<serde::de::IgnoredAny>,
+    collection: Option<serde::de::IgnoredAny>,
 }
 
 #[derive(Args)]

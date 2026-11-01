@@ -157,15 +157,16 @@ fn paired_occurrences(
     Ok(occurrences)
 }
 
-fn load_one(path: &Path) -> Result<Source> {
-    let bytes = fs::read(path)?;
-    let mut deserializer = serde_json::Deserializer::from_slice(&bytes);
+fn parse_collected(bytes: &[u8]) -> Result<CollectedLog> {
+    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
     let data: CollectedLog = serde_path_to_error::deserialize(&mut deserializer)?;
     // Consume the whole file, e.g. reject a second JSON value after an otherwise valid log.
     deserializer.end()?;
-    // Release raw bytes before building normalized events, e.g. several large pulls load in parallel.
-    drop(bytes);
     data.validate().context("Invalid collection")?;
+    Ok(data)
+}
+
+fn source_from_collected(path: &Path, data: &CollectedLog) -> Result<Source> {
     let report = &data.report;
     let events = &data.events;
     let fight = report
@@ -241,6 +242,19 @@ fn load_one(path: &Path) -> Result<Source> {
                 .collect(),
         },
     })
+}
+
+fn load_one(path: &Path) -> Result<Source> {
+    let bytes = fs::read(path)?;
+    let data = parse_collected(&bytes)?;
+    drop(bytes);
+    source_from_collected(path, &data)
+}
+
+pub(crate) fn validated_collected(path: &Path, bytes: &[u8]) -> Result<CollectedLog> {
+    let data = parse_collected(bytes)?;
+    source_from_collected(path, &data)?;
+    Ok(data)
 }
 
 pub fn inspect(paths: &[impl AsRef<Path>]) -> Result<Vec<Group>> {
