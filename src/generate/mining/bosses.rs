@@ -6,17 +6,17 @@ use serde_json::{Value, json};
 use super::Pull;
 
 #[derive(Debug, Serialize)]
-struct Attempt {
-    actor: i64,
-    instance: i64,
-    start_ms: i64,
+pub(super) struct Attempt {
+    pub(super) actor: i64,
+    pub(super) instance: i64,
+    pub(super) start_ms: i64,
     start_event: usize,
-    last_cast_ms: i64,
-    end_ms: Option<i64>,
+    pub(super) last_cast_ms: i64,
+    pub(super) end_ms: Option<i64>,
     completion_event: Option<usize>,
 }
 
-fn attempts(pull: &Pull) -> BTreeMap<String, Vec<Attempt>> {
+pub(super) fn attempts(pull: &Pull) -> BTreeMap<String, Vec<Attempt>> {
     let mut starts = BTreeMap::<_, ((i64, usize), i64)>::new();
     for (index, event) in pull.events.iter().enumerate() {
         let Some(actor) = event.source_id.filter(|id| pull.boss_ids.contains(id)) else {
@@ -92,7 +92,7 @@ fn attempts(pull: &Pull) -> BTreeMap<String, Vec<Attempt>> {
     result
 }
 
-fn concurrent(attempts: &[Attempt]) -> bool {
+pub(super) fn concurrent(attempts: &[Attempt]) -> bool {
     attempts.iter().enumerate().any(|(index, a)| {
         attempts.iter().skip(index + 1).any(|b| {
             a.start_ms <= b.end_ms.unwrap_or(b.last_cast_ms)

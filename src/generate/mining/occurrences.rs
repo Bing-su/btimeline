@@ -9,7 +9,13 @@ mod attempts;
 mod branches;
 mod entry;
 mod fragments;
+mod loops;
 mod tail;
+pub(in crate::generate) use loops::{LoopDiscovery, LoopModel};
+
+pub(super) fn loop_models(pulls: &[Pull]) -> Result<LoopDiscovery> {
+    loops::discover(pulls)
+}
 
 pub(in crate::generate) struct Event {
     pub signal: Signal,

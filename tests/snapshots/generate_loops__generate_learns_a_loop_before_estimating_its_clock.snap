@@ -1,0 +1,30 @@
+---
+source: tests/generate_loops.rs
+expression: kdl
+---
+timeline 1 "Unknown Encounter" {
+    start Ability id="9" source="Synthetic Boss"
+    wipe ActorControl command="4000000F"
+    wipe ActorControl command="40000010"
+    zone-exit ChangeZone
+    phase synthetic-boss {
+        enter Ability id="9" source="Synthetic Boss"
+        event opening-synthetic-boss-9 0.0 name=Opening {
+            sync 0.0 Ability id="9" source="Synthetic Boss" before=2.5 after=2.5
+        }
+        loop synthetic-boss-rotation start=1.0 every=4.0 {
+            event synthetic-boss-rotation-01-boundary-1 0.0 name=Boundary {
+                sync 0.0 Ability source="Synthetic Boss" before=2.5 after=2.5 {
+                    field id "1"
+                }
+            }
+            event synthetic-boss-rotation-02-left-right-2-3 1.0 name="Left / Right"
+            event synthetic-boss-rotation-03-left-right-2-3 2.0 name="Left / Right"
+            event synthetic-boss-rotation-04-closing-4 3.0 name=Closing {
+                sync 3.0 Ability source="Synthetic Boss" before=2.5 after=2.5 {
+                    field id "4"
+                }
+            }
+        }
+    }
+}

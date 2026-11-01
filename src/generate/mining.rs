@@ -18,7 +18,7 @@ mod occurrences;
 mod progression;
 mod repeats;
 mod validation;
-pub(super) use occurrences::{Branch, Event as CommonEvent};
+pub(super) use occurrences::{Branch, Event as CommonEvent, LoopDiscovery, LoopModel};
 pub(super) use progression::Progression;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
@@ -100,6 +100,10 @@ fn timing_table(pull: &Pull) -> BTreeMap<Signal, Vec<i64>> {
 impl Analysis {
     pub(super) fn progression(&self) -> Progression {
         Progression::new(&self.pulls)
+    }
+
+    pub(super) fn loop_models(&self) -> Result<LoopDiscovery> {
+        occurrences::loop_models(&self.pulls)
     }
 
     pub(super) fn aligned(
@@ -458,6 +462,21 @@ fn process_document(
     Ok(doc)
 }
 
+fn body_ids(log: &CollectedLog, pull: &super::Pull) -> std::collections::BTreeSet<i64> {
+    // Virtual helpers may be labeled Boss; only real NPCs establish body attempts.
+    log.report
+        .master_data
+        .actors
+        .iter()
+        .filter(|actor| {
+            actor.sub_type == "Boss"
+                && pull.actors.contains_key(&actor.id)
+                && !pull.virtual_actors.contains_key(&actor.id)
+        })
+        .map(|actor| actor.id)
+        .collect()
+}
+
 pub(super) fn analyze(inputs: &[Utf8PathBuf]) -> Result<Analysis> {
     let hashes: BTreeMap<_, _> = inputs
         .iter()
@@ -507,23 +526,16 @@ pub(super) fn analyze(inputs: &[Utf8PathBuf]) -> Result<Analysis> {
             }
         }
         let hash = digest.as_ref().iter().map(|b| format!("{b:02x}")).collect();
+        let boss_ids = body_ids(&log, pull);
         let pull_bosses: std::collections::BTreeSet<_> = log
             .report
             .master_data
             .actors
             .iter()
-            .filter(|actor| actor.sub_type == "Boss" && pull.actors.contains_key(&actor.id))
+            .filter(|actor| boss_ids.contains(&actor.id))
             .map(|actor| actor.name.clone())
             .collect();
         boss_names.extend(pull_bosses.iter().cloned());
-        let boss_ids = log
-            .report
-            .master_data
-            .actors
-            .iter()
-            .filter(|actor| actor.sub_type == "Boss" && pull.actors.contains_key(&actor.id))
-            .map(|actor| actor.id)
-            .collect();
         pulls.push(Pull {
             source: pull.file.clone(),
             source_language: log.report.master_data.lang.clone(),

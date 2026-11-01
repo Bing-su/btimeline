@@ -197,3 +197,50 @@ fn boss_defeat_censors_a_tail_even_while_the_dungeon_recording_continues() {
             )
     );
 }
+
+#[test]
+fn virtual_helpers_marked_boss_do_not_define_body_completion() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths:Vec<_>=(0..3).map(|peer| {
+        let path=fixture(dir.path(),&format!("virtual{peer}"),vec![
+            json!({"timestamp":2000,"type":"cast","sourceID":10,"abilityGameID":100,"fight":1}),
+            json!({"timestamp":4000,"type":"cast","sourceID":11,"abilityGameID":200,"fight":1}),
+            json!({"timestamp":6000,"type":"cast","sourceID":10,"abilityGameID":300,"fight":1}),
+            json!({"timestamp":8000,"type":"damage","targetID":10,"targetResources":{"hitPoints":0},"fight":1}),
+            json!({"timestamp":10000,"type":"cast","sourceID":11,"abilityGameID":200,"fight":1}),
+        ]);
+        let mut data:Value=serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        data["report"]["masterData"]["actors"][1]["gameID"]=2_000_011.into();
+        data["report"]["masterData"]["actors"][1]["subType"]="Boss".into();
+        data["report"]["fights"][0]["enemyNPCs"][1]["gameID"]=2_000_011.into();
+        fs::write(&path,serde_json::to_vec(&data).unwrap()).unwrap();
+        path
+    }).collect();
+    let output = dir.path().join("timeline.kdl");
+    cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(paths)
+        .args(["--mode", "dungeon", "-o"])
+        .arg(&output)
+        .assert()
+        .success();
+    let evidence: Value =
+        serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
+    assert_eq!(evidence["events"].as_array().unwrap().len(), 3);
+    assert!(
+        evidence["progression"]["traces"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|trace| trace["nodes"].as_array().unwrap().len() == 4)
+    );
+    assert!(
+        evidence["alignment_diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|row| row["method"] == "boss-attempt-scope-v1")
+            .all(|row| row["attempts"].as_array().unwrap().len() == 1
+                && row["selected"] == json!([1000, 7000]))
+    );
+}

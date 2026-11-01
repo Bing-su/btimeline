@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 
 use super::{Group, Pull, Signal, alignment, trace};
 
-fn disjoint(group: &Group<'_>, signal: &Signal) -> bool {
+pub(super) fn disjoint(group: &Group<'_>, signal: &Signal) -> bool {
     let mut entities = BTreeSet::new();
     let mut times = Vec::new();
     for row in group.observations.iter().filter(|row| row.signal == signal) {

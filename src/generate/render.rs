@@ -7,10 +7,20 @@ use camino::Utf8PathBuf;
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 use serde_json::{Value, json};
 
-use super::mining::{Analysis, Branch, CommonEvent, Identifier, Progression, Signal};
+use super::mining::{
+    Analysis,
+    Branch,
+    CommonEvent,
+    Identifier,
+    LoopDiscovery,
+    LoopModel,
+    Progression,
+    Signal,
+};
 use super::timing::{self, median};
 
 mod branches;
+mod loops;
 
 #[derive(Clone, Copy, Debug, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -305,6 +315,7 @@ struct Rendered {
     nodes: Vec<KdlNode>,
     events: Vec<Value>,
     origins: Vec<Value>,
+    loops: Vec<Value>,
 }
 
 // Boss metadata supplies scope boundaries; travel and preceding trash never share a boss clock.
@@ -314,6 +325,7 @@ fn compose(
     anchors: Vec<Anchor>,
     choices: Vec<Branch>,
     mode: Mode,
+    models: &[LoopModel],
 ) -> Result<Rendered> {
     let mut scopes = BTreeMap::<Option<String>, Vec<Anchor>>::new();
     for anchor in anchors {
@@ -333,6 +345,15 @@ fn compose(
         let (mut events, mut evidence) = schedule(&anchors, &zeros, mode, None, progression)?;
         let branches = branches::render(analysis, progression, &choices, &zeros)?;
         let has_branches = !branches.nodes.is_empty();
+        result.loops.extend(loops::apply(
+            analysis,
+            progression,
+            models,
+            &origins,
+            &mut events,
+            &mut evidence,
+            &name,
+        ));
         // Place choices by their opening time so the generated schedule reads chronologically.
         for (choice, node) in choices.iter().zip(branches.nodes) {
             let position = events
@@ -405,6 +426,14 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
     let analysis = super::mining::analyze(inputs)?;
     // Build occurrence structure before choosing printable rows or estimating any schedule.
     let progression = analysis.progression();
+    let LoopDiscovery {
+        models,
+        diagnostics: loop_diagnostics,
+    } = if matches!(mode, Mode::Raid) {
+        LoopDiscovery::default()
+    } else {
+        analysis.loop_models()?
+    };
     let Prepared {
         events: anchors,
         branches,
@@ -417,12 +446,22 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
             excluded.push(json!({"boss":boss,"reason":"no unique common casts for this boss"}));
         }
     }
-    let rendered = compose(&analysis, &progression, anchors, branches, mode)?;
-    ensure!(
-        !rendered.events.is_empty(),
-        "No common cast events after the selected origin"
-    );
-    let count = rendered.events.len();
+    let rendered = compose(&analysis, &progression, anchors, branches, mode, &models)?;
+    excluded.retain(|row| {
+        !rendered.loops.iter().any(|item| {
+            item["activities"]
+                .as_array()
+                .is_some_and(|activities| activities.contains(&row["activity"]))
+        })
+    });
+    let count = rendered.events.len()
+        + rendered
+            .loops
+            .iter()
+            .filter_map(|item| item["events"].as_array())
+            .map(Vec::len)
+            .sum::<usize>();
+    ensure!(count > 0, "No common cast events after the selected origin");
     let mut timeline_root = KdlNode::new("timeline");
     timeline_root.push(1_i128);
     timeline_root.push(analysis.name()?);
@@ -445,7 +484,8 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
         "timeline_sha256":timeline_sha256,"policy_reference":"cactbot@e79ea7f16093be5b80cda0e2d5bc8eb899d6fb4b",
         "origins":rendered.origins,
         "events":rendered.events,"excluded":excluded,"alignment_diagnostics":alignment_diagnostics,
-        "not_checked":["live ACT/runtime behavior","English name accuracy","missing-signal coverage","branch path conformance in automatic validation","correlated choices, variable joins and loops","internal boss phases and helper assignment","completion signals and content-specific lifecycle exceptions"]});
+        "loops":rendered.loops,"loop_diagnostics":loop_diagnostics,
+        "not_checked":["live ACT/runtime behavior","English name accuracy","missing-signal coverage","branch and loop path conformance in automatic validation","correlated choices and variable joins","internal boss phases and helper assignment","completion signals and content-specific lifecycle exceptions"]});
     crate::output::write_new(&[
         (output, timeline.as_bytes()),
         (
