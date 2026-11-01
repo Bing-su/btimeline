@@ -160,11 +160,17 @@ fn mine_preserves_wipes_simultaneous_events_and_existing_output() {
     assert!(
         activities
             .iter()
-            .any(|n| n.children().unwrap().nodes().len() == 2)
+            .all(|n| n.children().unwrap().nodes().len() == 1)
     );
     let opening = activities
         .iter()
-        .find(|n| n.children().unwrap().nodes().len() == 2)
+        .find(|n| {
+            n.children().unwrap().nodes()[0]
+                .get("id")
+                .unwrap()
+                .as_string()
+                == Some("B529")
+        })
         .unwrap();
     assert_eq!(opening.get("first_seen").unwrap().as_integer(), Some(2));
     assert_eq!(
@@ -183,7 +189,7 @@ fn mine_preserves_wipes_simultaneous_events_and_existing_output() {
             .iter()
             .filter(|n| n.name().value() == "follows")
             .count(),
-        1
+        2
     );
     let traces: Vec<_> = nodes
         .iter()
@@ -247,6 +253,73 @@ fn mine_combines_translated_names_from_different_source_languages() {
         .map(|node| node.get("source_language").unwrap().as_string().unwrap())
         .collect();
     assert_eq!(languages, ["en", "ja"].into_iter().collect());
+}
+
+#[rstest::rstest]
+#[case(0)]
+#[case(1)]
+fn mine_preserves_common_signal_identity_with_an_extra_packet(#[case] offset_ms: i64) {
+    let dir = tempfile::tempdir().unwrap();
+    let other = dir.path().join("extra.json");
+    let output = dir.path().join("process.kdl");
+    let mut data: Value = serde_json::from_slice(&fs::read(INPUT).unwrap()).unwrap();
+    data["report"]["code"] = "extra".into();
+    data["collection"]["reportCode"] = "extra".into();
+    data["report"]["masterData"]["abilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({"gameID":46377,"name":"B","type":"1"}));
+    data["events"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "timestamp":2000 + offset_ms,"type":"cast","sourceID":10,"abilityGameID":46377,"fight":1
+        }));
+    data["collection"]["eventCount"] = 4.into();
+    fs::write(&other, serde_json::to_vec(&data).unwrap()).unwrap();
+    cargo_bin_cmd!("btimeline")
+        .arg("mine")
+        .arg(INPUT)
+        .arg(&other)
+        .arg("-o")
+        .arg(&output)
+        .assert()
+        .success();
+    let document: kdl::KdlDocument = fs::read_to_string(output).unwrap().parse().unwrap();
+    let nodes = document.nodes()[0].children().unwrap().nodes();
+    let activities: Vec<_> = nodes
+        .iter()
+        .filter(|node| node.name().value() == "activity")
+        .collect();
+    assert_eq!(activities.len(), 2);
+    let common = activities
+        .iter()
+        .find(|node| {
+            node.children().unwrap().nodes()[0]
+                .get("id")
+                .unwrap()
+                .as_string()
+                == Some("B528")
+        })
+        .unwrap();
+    assert_eq!(common.get("observations").unwrap().as_integer(), Some(6));
+    let extra = activities
+        .iter()
+        .find(|node| {
+            node.children().unwrap().nodes()[0]
+                .get("id")
+                .unwrap()
+                .as_string()
+                == Some("B529")
+        })
+        .unwrap();
+    assert_eq!(extra.get("observations").unwrap().as_integer(), Some(1));
+    let within_batch_edge = nodes.iter().any(|node| {
+        node.name().value() == "follows"
+            && node.get(0) == common.get(0)
+            && node.get(1) == extra.get(0)
+    });
+    assert_eq!(within_batch_edge, offset_ms != 0);
 }
 
 #[rstest::rstest]

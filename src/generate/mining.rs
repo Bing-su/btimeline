@@ -4,8 +4,7 @@ use std::path::Path;
 use anyhow::{Context, Result, ensure};
 use camino::Utf8PathBuf;
 use kdl::{KdlDocument, KdlEntry, KdlNode};
-use process_mining::core::event_data::case_centric::{Event, EventLog, Trace};
-use process_mining::discovery::case_centric::dfg::discover_dfg;
+use process_mining::core::process_models::case_centric::dfg::DirectlyFollowsGraph;
 use serde::{Deserialize, Serialize};
 
 use crate::fflogs::model::CollectedLog;
@@ -93,10 +92,39 @@ fn batches(pull: &super::Pull, log: &CollectedLog) -> Result<Vec<Batch>> {
         .collect())
 }
 
-// Serialize signal multiplicity without inventing separate graph activities.
+// Discover adjacency between batches without imposing an order inside a simultaneous batch.
+fn discover(pulls: &[Pull]) -> Result<DirectlyFollowsGraph<'static>> {
+    let mut graph = DirectlyFollowsGraph::new();
+    for pull in pulls {
+        discover_trace(&pull.batches, &mut graph)?;
+    }
+    Ok(graph)
+}
+
+// Reset adjacency per pull so the end of one fight never connects to the next fight.
+fn discover_trace(batches: &[Batch], graph: &mut DirectlyFollowsGraph<'static>) -> Result<()> {
+    let mut previous: Vec<String> = Vec::new();
+    for batch in batches {
+        let current = batch
+            .signals
+            .iter()
+            .map(serde_json::to_string)
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        for key in &current {
+            graph.add_activity(key.clone(), 1);
+            for from in &previous {
+                graph.add_df_relation(from.clone().into(), key.clone().into(), 1);
+            }
+        }
+        previous = current;
+    }
+    Ok(())
+}
+
+// Give each signal its own identity, e.g. A stays the same activity in both A and A+B.
 fn activity_node(
     id: &str,
-    signals: &[Signal],
+    signal: &Signal,
     ability_names: &BTreeMap<i64, std::collections::BTreeSet<String>>,
     observations: i128,
     first: usize,
@@ -107,26 +135,17 @@ fn activity_node(
     prop(&mut activity, "observations", observations);
     prop(&mut activity, "first_seen", i128::try_from(first)?);
     prop(&mut activity, "last_seen_in_kills", i128::try_from(last)?);
-    let mut counts = BTreeMap::<&Signal, usize>::new();
-    for signal in signals {
-        *counts.entry(signal).or_default() += 1;
+    let mut node = KdlNode::new("signal");
+    argument(&mut node, signal.kind.as_str());
+    prop(&mut node, "id", format!("{:X}", signal.ability));
+    prop(&mut node, "source", signal.source.as_str());
+    if let Some(names) = ability_names.get(&signal.ability)
+        && names.len() == 1
+        && let Some(name) = names.first()
+    {
+        prop(&mut node, "name", name.as_str());
     }
-    for (signal, count) in counts {
-        let mut node = KdlNode::new("signal");
-        argument(&mut node, signal.kind.as_str());
-        prop(&mut node, "id", format!("{:X}", signal.ability));
-        prop(&mut node, "source", signal.source.as_str());
-        if let Some(names) = ability_names.get(&signal.ability)
-            && names.len() == 1
-            && let Some(name) = names.first()
-        {
-            prop(&mut node, "name", name.as_str());
-        }
-        if count > 1 {
-            prop(&mut node, "count", i128::try_from(count)?);
-        }
-        activity.ensure_children().nodes_mut().push(node);
-    }
+    activity.ensure_children().nodes_mut().push(node);
 
     Ok(activity)
 }
@@ -147,12 +166,14 @@ fn trace_node(pull: &Pull, ids: &BTreeMap<String, String>) -> Result<KdlNode> {
         trace.ensure_children().nodes_mut().push(boundary);
     }
     for batch in &pull.batches {
-        let key = serde_json::to_string(&batch.signals)?;
         let mut observation = KdlNode::new("observed");
-        argument(
-            &mut observation,
-            ids.get(&key).context("Missing trace activity")?.as_str(),
-        );
+        for signal in &batch.signals {
+            let key = serde_json::to_string(signal)?;
+            argument(
+                &mut observation,
+                ids.get(&key).context("Missing trace activity")?.as_str(),
+            );
+        }
         prop(&mut observation, "at_ms", i128::from(batch.at_ms));
         for index in &batch.indices {
             argument(&mut observation, i128::try_from(*index)?);
@@ -187,36 +208,33 @@ fn process_document(
     ability_names: &BTreeMap<i64, std::collections::BTreeSet<String>>,
     pulls: &[Pull],
 ) -> Result<KdlDocument> {
-    let mut log = EventLog::new();
     let mut signals_by_key = BTreeMap::new();
     let mut starts = BTreeMap::<String, usize>::new();
     let mut ends = BTreeMap::<String, usize>::new();
     for pull in pulls {
-        let mut trace = Trace::new();
         for batch in &pull.batches {
-            let key = serde_json::to_string(&batch.signals)?;
-            signals_by_key.insert(key.clone(), batch.signals.clone());
-            trace.events.push(Event::new(key));
+            for signal in &batch.signals {
+                signals_by_key.insert(serde_json::to_string(signal)?, signal);
+            }
         }
         if let Some(first) = pull.batches.first() {
-            *starts
-                .entry(serde_json::to_string(&first.signals)?)
-                .or_default() += 1;
+            for signal in &first.signals {
+                *starts.entry(serde_json::to_string(signal)?).or_default() += 1;
+            }
         }
         if pull.kill
             && let Some(last) = pull.batches.last()
         {
-            *ends
-                .entry(serde_json::to_string(&last.signals)?)
-                .or_default() += 1;
+            for signal in &last.signals {
+                *ends.entry(serde_json::to_string(signal)?).or_default() += 1;
+            }
         }
-        log.traces.push(trace);
     }
     ensure!(
         pulls.iter().any(|pull| !pull.events.is_empty()),
         "No observations found"
     );
-    let graph = discover_dfg(&log);
+    let graph = discover(pulls)?;
     let ids: BTreeMap<_, _> = signals_by_key
         .keys()
         .enumerate()
@@ -225,7 +243,7 @@ fn process_document(
     let mut doc = KdlDocument::new();
     let mut root = KdlNode::new("process");
     argument(&mut root, 1_i128);
-    prop(&mut root, "algorithm", "directly-follows");
+    prop(&mut root, "algorithm", "adjacent-batches");
     prop(&mut root, "encounter", i128::from(group.key.encounter));
     prop(&mut root, "difficulty", i128::from(group.key.difficulty));
     for (key, signals) in &signals_by_key {
@@ -342,4 +360,55 @@ pub(crate) fn mine(inputs: &[Utf8PathBuf], output: &Path) -> Result<()> {
     }
     let doc = process_document(group, &ability_names, &pulls)?;
     crate::output::write_new(&[(output, doc.to_string().as_bytes())])
+}
+
+#[cfg(test)]
+mod tests {
+    use proptest::prelude::*;
+
+    use super::*;
+
+    fn batch(abilities: &[u8]) -> Batch {
+        Batch {
+            at_ms: 0,
+            signals: abilities
+                .iter()
+                .map(|ability| Signal {
+                    kind: "cast".into(),
+                    ability: i64::from(*ability),
+                    source: "Boss".into(),
+                })
+                .collect(),
+            indices: Vec::new(),
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn simultaneous_packet_order_does_not_change_the_graph(
+            groups in prop::collection::vec(prop::collection::vec(0_u8..8, 1..5), 1..8)
+        ) {
+            let batches: Vec<_> = groups.iter().map(|group| batch(group)).collect();
+            let reversed: Vec<_> = groups.iter().map(|group| {
+                let mut group = group.clone();
+                group.reverse();
+                batch(&group)
+            }).collect();
+            let mut first = DirectlyFollowsGraph::new();
+            let mut second = DirectlyFollowsGraph::new();
+            discover_trace(&batches, &mut first).unwrap();
+            discover_trace(&reversed, &mut second).unwrap();
+            prop_assert_eq!(first.activities, second.activities);
+            prop_assert_eq!(first.directly_follows_relations, second.directly_follows_relations);
+        }
+    }
+
+    #[test]
+    fn independent_pulls_have_no_cross_fight_edges() {
+        let mut graph = DirectlyFollowsGraph::new();
+        discover_trace(&[batch(&[1])], &mut graph).unwrap();
+        discover_trace(&[batch(&[2])], &mut graph).unwrap();
+        assert_eq!(graph.activities.len(), 2);
+        assert!(graph.directly_follows_relations.is_empty());
+    }
 }
