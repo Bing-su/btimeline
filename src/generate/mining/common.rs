@@ -8,7 +8,7 @@ use super::{Pull, argument, prop};
 type Timings<K = String> = BTreeMap<K, Vec<i64>>;
 
 // Match final display precision without rounding evidence, e.g. 1049 and 1050 ms stay unordered.
-const ORDER_RESOLUTION_MS: i64 = 100;
+pub(super) const ORDER_RESOLUTION_MS: i64 = 100;
 
 fn relation(left: i64, right: i64) -> std::cmp::Ordering {
     if left.abs_diff(right) <= ORDER_RESOLUTION_MS as u64 {

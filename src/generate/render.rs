@@ -46,10 +46,12 @@ struct Anchor {
     source: String,
     ability: String,
     samples: BTreeMap<String, i64>,
+    occurrence: Option<usize>,
+    alignment: Value,
 }
 
 // Consume the shared in-memory mining result; generation never requires a serialized graph input.
-fn anchors(analysis: &Analysis, mode: Mode) -> Result<(Vec<Anchor>, Vec<Value>)> {
+fn anchors(analysis: &Analysis, mode: Mode) -> Result<(Vec<Anchor>, Vec<Value>, Vec<Value>)> {
     let include = |signal: &Signal| {
         signal.kind == "cast"
             && (matches!(mode, Mode::Raid)
@@ -64,11 +66,12 @@ fn anchors(analysis: &Analysis, mode: Mode) -> Result<(Vec<Anchor>, Vec<Value>)>
             "Input metadata does not identify Boss actors"
         );
     }
-    let common = analysis.common(include)?;
+    let common = analysis.aligned(include)?;
     let mut anchors = Vec::new();
     let mut seen = BTreeSet::new();
     let mut excluded = Vec::new();
-    for (activity, samples) in common {
+    for row in common.events {
+        let activity = row.signal;
         seen.insert(activity.clone());
         let Identifier::Ability(ability) = activity.identifier else {
             anyhow::bail!("Cast requires an ability ID");
@@ -93,7 +96,9 @@ fn anchors(analysis: &Analysis, mode: Mode) -> Result<(Vec<Anchor>, Vec<Value>)>
             name,
             source,
             ability: format!("{ability:X}"),
-            samples,
+            samples: row.samples,
+            occurrence: row.occurrence,
+            alignment: row.evidence,
         });
     }
     for activity in analysis.signals().difference(&seen) {
@@ -102,12 +107,12 @@ fn anchors(analysis: &Analysis, mode: Mode) -> Result<(Vec<Anchor>, Vec<Value>)>
         } else if !include(activity) {
             "not a Boss actor"
         } else {
-            "not a unique common anchor"
+            "no forced common occurrence"
         };
         excluded.push(json!({"activity":activity,"reason":reason}));
     }
     ensure!(!anchors.is_empty(), "No unique common casts found");
-    Ok((anchors, excluded))
+    Ok((anchors, excluded, common.diagnostics))
 }
 
 fn prop(node: &mut KdlNode, name: &str, value: impl Into<KdlValue>) {
@@ -220,12 +225,15 @@ fn schedule(
         );
         let tick = (time + 50) / 100;
         let seconds = tick as f64 / 10.0;
-        let event_id = format!(
+        let mut event_id = format!(
             "{}-{}-{}",
             slug(&anchor.name),
             slug(&anchor.source),
             anchor.ability.to_lowercase()
         );
+        if let Some(occurrence) = anchor.occurrence {
+            event_id.push_str(&format!("-{occurrence:02}"));
+        }
         ensure!(
             used.insert(event_id.clone()),
             "Generated event ID collision: {event_id}"
@@ -251,11 +259,15 @@ fn schedule(
             .context("Missing sync samples")?;
         prop(&mut sync, "before", (tick - min_tick).max(25) as f64 / 10.0);
         prop(&mut sync, "after", (max_tick - tick).max(25) as f64 / 10.0);
-        event.ensure_children().nodes_mut().push(sync);
+        // Repeated identities can match an earlier cast; only unique anchors adjust the clock.
+        if anchor.occurrence.is_none() {
+            event.ensure_children().nodes_mut().push(sync);
+        }
         events.push((tick, event_id.clone(), event));
         evidence.push(
             json!({"event":event_id,"activity":anchor.activity,"median_offset_ms":time,
-            "rounded_offset_ms":tick*100,"rounding_delta_ms":tick*100-time,"samples":samples}),
+            "rounded_offset_ms":tick*100,"rounding_delta_ms":tick*100-time,"samples":samples,
+            "alignment":anchor.alignment}),
         );
     }
     events.sort_by(|left, right| (left.0, &left.1).cmp(&(right.0, &right.1)));
@@ -350,7 +362,7 @@ fn compose(anchors: Vec<Anchor>, mode: Mode) -> Result<Rendered> {
 // Mode is the only domain input; reading, mining, runtime policy, validation and publication stay internal.
 pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Result<usize> {
     let analysis = super::mining::analyze(inputs)?;
-    let (anchors, mut excluded) = anchors(&analysis, mode)?;
+    let (anchors, mut excluded, alignment_diagnostics) = anchors(&analysis, mode)?;
     let represented: BTreeSet<_> = anchors.iter().map(|anchor| anchor.source.clone()).collect();
     if !matches!(mode, Mode::Raid) {
         for boss in analysis.boss_names.difference(&represented) {
@@ -383,7 +395,7 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
     let report = json!({"version":2,"mode":mode,"analysis":analysis.evidence(),
         "timeline_sha256":timeline_sha256,"policy_reference":"cactbot@e79ea7f16093be5b80cda0e2d5bc8eb899d6fb4b",
         "origins":rendered.origins,
-        "events":rendered.events,"excluded":excluded,
+        "events":rendered.events,"excluded":excluded,"alignment_diagnostics":alignment_diagnostics,
         "not_checked":["live ACT/runtime behavior","English name accuracy","missing-signal coverage","branches and loops","internal boss phases and helper assignment","completion signals and content-specific lifecycle exceptions"]});
     crate::output::write_new(&[
         (output, timeline.as_bytes()),

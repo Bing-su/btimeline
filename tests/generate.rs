@@ -6,6 +6,108 @@ use serde_json::{Value, json};
 
 const INPUT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/pull.json");
 
+#[rstest::rstest]
+#[case("equal", vec![0,1,1,2], vec![0,1,1,2], vec!["-01","-02"])]
+#[case("ambiguous", vec![0,1,1,2], vec![0,1,2], vec![])]
+#[case("context", vec![0,1,2,1,3], vec![0,2,1,3], vec!["-02"])]
+#[case("nearby", vec![0,1,1,2], vec![0,1,1,2], vec![])]
+#[case("phase", vec![0,1,1,2], vec![0,1,1,2], vec![])]
+#[case("simultaneous", vec![0,1,3,1,2], vec![0,1,3,1,2], vec![])]
+#[case("unbounded", vec![1,0,1,2,1], vec![1,0,1,2,1], vec!["-02"])]
+fn repeated_casts_require_unambiguous_bounded_alignment(
+    #[case] case: &str,
+    #[case] left: Vec<i64>,
+    #[case] right: Vec<i64>,
+    #[case] suffixes: Vec<&str>,
+) {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = inputs(dir.path());
+    for (path, sequence) in paths.iter().zip([left, right]) {
+        let mut data: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        data["report"]["masterData"]["abilities"] = (0..4)
+            .map(|id| json!({"gameID":46376+id,"name":format!("Spell{id}"),"type":"1"}))
+            .collect();
+        data["events"] = sequence.iter().enumerate().map(|(i,id)| {
+            let at = if case=="nearby" && i==2 {4050} else if case=="simultaneous" && i==2 {4000} else {2000+i*2000};
+            json!({"timestamp":at,"type":"cast","sourceID":10,"abilityGameID":46376+id,"fight":1})
+        }).collect();
+        if case == "phase" {
+            data["report"]["fights"][0]["phaseTransitions"] = json!([{"id":2,"startTime":5000}]);
+        }
+        data["collection"]["eventCount"] = sequence.len().into();
+        fs::write(path, serde_json::to_vec(&data).unwrap()).unwrap();
+    }
+    let mut outputs = Vec::new();
+    for (index, ordered) in [paths.clone(), paths.iter().rev().cloned().collect()]
+        .iter()
+        .enumerate()
+    {
+        let output = dir.path().join(format!("timeline{index}.kdl"));
+        cargo_bin_cmd!("btimeline")
+            .arg("generate")
+            .args(ordered)
+            .args(["--mode", "raid", "-o"])
+            .arg(&output)
+            .assert()
+            .success();
+        let timeline = fs::read_to_string(&output).unwrap();
+        let doc: kdl::KdlDocument = timeline.parse().unwrap();
+        let repeats: Vec<_> = doc.nodes()[0]
+            .children()
+            .unwrap()
+            .nodes()
+            .iter()
+            .filter(|node| node.get("name").and_then(kdl::KdlValue::as_string) == Some("Spell1"))
+            .collect();
+        assert_eq!(repeats.len(), suffixes.len(), "{case}");
+        for (event, suffix) in repeats.iter().zip(&suffixes) {
+            assert!(event.get(0).unwrap().as_string().unwrap().ends_with(suffix));
+            assert!(
+                event.children().is_none(),
+                "repeated identities must not resync"
+            );
+        }
+        let evidence: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap())
+                .unwrap();
+        assert!(
+            !evidence["alignment_diagnostics"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        let diagnostics = evidence["alignment_diagnostics"].as_array().unwrap();
+        if case == "ambiguous" {
+            assert!(diagnostics.iter().any(|row| {
+                row["ambiguous_reference"]
+                    .as_array()
+                    .is_some_and(|values| values.len() == 2)
+            }));
+        }
+        if case == "context" || case == "unbounded" {
+            assert!(diagnostics.iter().any(|row| {
+                row["unrepresented"]
+                    .as_array()
+                    .is_some_and(|values| !values.is_empty())
+            }));
+        }
+        for event in evidence["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|event| !event["alignment"].is_null())
+        {
+            assert_eq!(event["alignment"]["method"], "anchor-constrained-lcs-v1");
+            assert_eq!(event["alignment"]["batches"].as_object().unwrap().len(), 2);
+        }
+        outputs.push(timeline);
+    }
+    assert_eq!(
+        outputs[0], outputs[1],
+        "CLI order must not change occurrence labels"
+    );
+}
+
 fn inputs(directory: &Path) -> Vec<PathBuf> {
     let base: Value =
         serde_json::from_slice(&fs::read(INPUT).expect("read fixture")).expect("parse fixture");

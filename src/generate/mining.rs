@@ -9,8 +9,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::fflogs::model::CollectedLog;
 
+mod alignment;
 mod candidates;
 mod common;
+mod occurrences;
 mod repeats;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
@@ -71,6 +73,11 @@ fn timing_table(pull: &Pull) -> BTreeMap<Signal, Vec<i64>> {
 }
 
 impl Analysis {
+    pub(super) fn aligned(&self, include: impl Fn(&Signal) -> bool) -> Result<occurrences::Common> {
+        let common = self.common(&include)?;
+        occurrences::expand(&self.pulls, common, include)
+    }
+
     pub(super) fn signals(&self) -> std::collections::BTreeSet<Signal> {
         self.pulls
             .iter()
