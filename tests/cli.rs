@@ -268,6 +268,30 @@ fn compare_replays_branch_loop_and_phase_corrections_through_the_cli() {
 }
 
 #[test]
+fn compare_replays_option_loop_and_merge_through_the_cli() {
+    let timeline = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/timeline/option-loop.kdl"
+    );
+    let recording = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/timeline/option-loop.json"
+    );
+    let replay = cargo_bin_cmd!("btimeline")
+        .args(["compare", timeline, recording, "--json"])
+        .assert()
+        .success();
+    let output: Value = serde_json::from_slice(&replay.get_output().stdout).unwrap();
+    insta::assert_json_snapshot!(
+        "timeline_option_loop_cli_replay",
+        serde_json::json!({
+            "records": output["recordings"][recording],
+            "not_checked": output["not_checked"]
+        })
+    );
+}
+
+#[test]
 fn compare_fails_without_partial_output_when_a_recording_is_invalid() {
     let timeline = concat!(
         env!("CARGO_MANIFEST_DIR"),

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "end_ms": 5000,
+  "observations": [
+    { "at_ms": 0, "type": "InCombat", "fields": { "inGameCombat": "1" } },
+    { "at_ms": 1051, "type": "StartsUsing", "fields": { "id": "2001", "source": "The Boss" } },
+    { "at_ms": 2600, "type": "StartsUsing", "fields": { "id": "2002", "source": "The Boss" } },
+    { "at_ms": 4051, "type": "StartsUsing", "fields": { "id": "2004", "source": "The Boss" } }
+  ]
+}
