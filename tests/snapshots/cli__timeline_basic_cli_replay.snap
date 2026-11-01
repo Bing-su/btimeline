@@ -58,6 +58,12 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
       "run": 1
     },
     {
+      "action": "unobserved",
+      "at_ms": 10500,
+      "detail": "beyond-recording",
+      "run": 1
+    },
+    {
       "action": "wipe",
       "at_ms": 10500,
       "detail": "",

@@ -223,6 +223,9 @@ impl<'a> Replay<'a> {
 
     // Reset only lifecycle-owned state; boss completion preserves the fight clock and run.
     fn apply_lifecycle(&mut self, role: &str, at: i64) {
+        if role == "wipe" {
+            self.record_unobserved(at);
+        }
         match role {
             "start" => {
                 self.run += 1;
@@ -338,8 +341,8 @@ impl<'a> Replay<'a> {
         self.advance(at, true);
     }
 
-    fn finish(mut self, end_ms: i64) -> Vec<Record> {
-        self.advance(end_ms, true);
+    // A wipe censors the current attempt just like a recording ending before its future events.
+    fn record_unobserved(&mut self, end_ms: i64) {
         if let Some(clock) = self.fight.as_ref() {
             unobserved(
                 &self.timeline.events,
@@ -352,6 +355,11 @@ impl<'a> Replay<'a> {
         if let Some((phase, clock)) = self.phase.as_ref() {
             unobserved(&phase.events, clock, end_ms, self.run, &mut self.out);
         }
+    }
+
+    fn finish(mut self, end_ms: i64) -> Vec<Record> {
+        self.advance(end_ms, true);
+        self.record_unobserved(end_ms);
         // Stable ties retain transition order across independent fight and phase schedules.
         self.out.sort_by_key(|record| record.at_ms);
         self.out

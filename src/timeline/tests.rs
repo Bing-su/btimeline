@@ -95,6 +95,10 @@ fn lifecycle_cancels_same_time_events_and_restarts_fresh() {
             && r.at_ms == 9000)
     );
     assert!(output.iter().any(|r| r.action == "start" && r.run == 2));
+    assert!(output.iter().any(|r| r.action == "unobserved"
+        && r.detail == "beyond-recording"
+        && r.run == 1
+        && r.at_ms == 10500));
     assert!(
         output
             .iter()
@@ -414,4 +418,47 @@ fn matching_signals_with_mutually_exclusive_prior_choices_are_allowed() {
         }
     }"#;
     parse(source).unwrap();
+}
+
+#[rstest]
+#[case::early(500)]
+#[case::at_event(1000)]
+fn wipe_records_censored_events_for_each_attempt(#[case] wipe_at: i64) {
+    let model = parse(
+        r#"timeline 1 "Wipes" {
+        start "Start"
+        wipe "Wipe"
+        event "fight-hit" 1.0 name="Fight hit"
+        phase "p" {
+            enter "Start"
+            event "phase-hit" 1.0 name="Phase hit"
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        wipe_at * 2 + 1,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":wipe_at,"type":"Wipe","fields":{}},
+            {"at_ms":wipe_at+1,"type":"Start","fields":{}},
+            {"at_ms":wipe_at*2+1,"type":"Wipe","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let records = replay(&model, &input).unwrap();
+    for run in [1, 2] {
+        for id in ["fight-hit", "phase-hit"] {
+            assert!(
+                records
+                    .iter()
+                    .any(|r| r.run == run && r.action == "unobserved" && r.detail == id)
+            );
+            assert!(
+                !records
+                    .iter()
+                    .any(|r| r.run == run && r.action == "event" && r.detail.starts_with(id))
+            );
+        }
+    }
 }
