@@ -164,6 +164,9 @@ pub struct GenerateCommand {
     /// Content mode: raid, dungeon, or alliance.
     #[usage(long)]
     mode: String,
+    /// Collected FFLogs fights to check without using them for learning; repeat for multiple files.
+    #[usage(long)]
+    holdout: Vec<Utf8PathBuf>,
     #[usage(short = 'o', long)]
     output: Utf8PathBuf,
 }
@@ -172,10 +175,20 @@ impl Run for GenerateCommand {
     type Output = Result<()>;
 
     fn run(self) -> Self::Output {
-        let count =
-            crate::generate::generate(&self.inputs, self.mode.parse()?, self.output.as_std_path())?;
+        let count = crate::generate::generate(
+            &self.inputs,
+            self.mode.parse()?,
+            self.output.as_std_path(),
+            &self.holdout,
+        )?;
         println!("Generated {} ({} common cast events).", self.output, count);
         println!("Evidence: {}", self.output.with_extension("evidence.json"));
+        if !self.holdout.is_empty() {
+            println!(
+                "Holdout files checked: {} (analysis only; not a quality pass).",
+                self.holdout.len()
+            );
+        }
         println!("Review the generation evidence for unsupported paths and excluded observations.");
         Ok(())
     }

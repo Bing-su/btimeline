@@ -5,8 +5,19 @@ use serde_json::{Value, json};
 
 use super::{Event, Group, Pull, Signal, alignment, batches, interval, trace};
 
-fn censor_timing(row: &mut Value, event: &Event, origin: &Event, at: i64, end: i64) -> Result<()> {
-    if row.get("status").and_then(Value::as_str) != Some("unobserved") {
+fn censor_timing(
+    row: &mut Value,
+    event: &Event,
+    origin: &Event,
+    at: i64,
+    pull: &Pull,
+) -> Result<()> {
+    let status = row
+        .get("status")
+        .and_then(Value::as_str)
+        .context("Missing check status")?
+        .to_owned();
+    if status != "unobserved" && !(pull.kill && status == "mismatch") {
         return Ok(());
     }
     let earliest = event
@@ -18,12 +29,21 @@ fn censor_timing(row: &mut Value, event: &Event, origin: &Event, at: i64, end: i
         .min()
         .context("Missing timing samples")?;
     // A stopped sequence cannot excuse a missing cast nominally due before the recording ends.
-    if at + earliest <= end {
+    if status == "unobserved" && at + earliest <= pull.end_ms {
         let fields = row.as_object_mut().context("Invalid event check")?;
         fields.insert("status".into(), "unresolved".into());
         fields.insert(
             "reason".into(),
             "censored alignment but training timing overlaps observed duration".into(),
+        );
+    }
+    // A faster clear can end before a reference mechanic, e.g. C at 60s after a 45s kill.
+    if status == "mismatch" && at + earliest > pull.end_ms {
+        let fields = row.as_object_mut().context("Invalid event check")?;
+        fields.insert("status".into(), "unobserved".into());
+        fields.insert(
+            "reason".into(),
+            "fight ended before every training timing sample".into(),
         );
     }
     Ok(())
@@ -34,7 +54,7 @@ fn event_check(
     reference: &str,
     model: &[Group<'_>],
     observed: &[Group<'_>],
-    aligned: &alignment::PrefixAlignment,
+    aligned: &alignment::AttemptAlignment,
 ) -> Result<Value> {
     let at = *event
         .samples
@@ -85,6 +105,30 @@ fn event_check(
     )
 }
 
+fn align(
+    model: &[Group<'_>],
+    observed: &[Group<'_>],
+    complete: bool,
+) -> Result<alignment::AttemptAlignment> {
+    let left: Vec<_> = model.iter().map(|group| &group.key).collect();
+    let right: Vec<_> = observed.iter().map(|group| &group.key).collect();
+    if !complete {
+        return alignment::align_prefix(&left, &right);
+    }
+    // A clear is a closed trace: its missing final C must cost a deletion, never a free suffix.
+    let result = alignment::align(&left, &right)?;
+    Ok(alignment::AttemptAlignment {
+        cost: u32::try_from(left.len() + right.len())? - 2 * result.optimal_matches,
+        pairs: result.pairs,
+        ambiguous_left: result.ambiguous_left,
+        missing_left: result.reference_only,
+        peer_only: result.peer_only,
+        ambiguous_right: result.ambiguous_right,
+        ends: vec![left.len()],
+        censored_left: Vec::new(),
+    })
+}
+
 fn check(
     pull: &Pull,
     reference: &Pull,
@@ -129,10 +173,7 @@ fn check(
     if !alignment::within_limit(model.len(), observed.len()) {
         return Ok(json!({"status":"unresolved","reason":"resource-limit"}));
     }
-    let aligned = alignment::align_prefix(
-        &model.iter().map(|group| &group.key).collect::<Vec<_>>(),
-        &observed.iter().map(|group| &group.key).collect::<Vec<_>>(),
-    )?;
+    let aligned = align(&model, &observed, pull.kill)?;
     let mut checks = Vec::new();
     for event in events {
         let mut row = if event.signal == origin.signal {
@@ -141,7 +182,7 @@ fn check(
         } else {
             event_check(event, &reference_id, &model, &observed, &aligned)?
         };
-        censor_timing(&mut row, event, origin, at, pull.end_ms)?;
+        censor_timing(&mut row, event, origin, at, pull)?;
         checks.push(row);
     }
     Ok(
@@ -151,9 +192,9 @@ fn check(
     )
 }
 
-// Wipes never train the model; inspect their censored prefix separately from runtime signal replay.
-pub(super) fn checks(
-    pulls: &[Pull],
+// Check withheld observations separately from training and runtime signal replay.
+pub(super) fn checks<'a>(
+    pulls: impl Iterator<Item = &'a Pull>,
     reference: &Pull,
     events: &[Event],
     include: &impl Fn(&Signal) -> bool,
@@ -163,13 +204,18 @@ pub(super) fn checks(
         scopes.entry(&event.signal.source).or_default().push(event);
     }
     let mut result = Vec::new();
-    for pull in pulls.iter().filter(|pull| !pull.kill) {
+    for pull in pulls {
         let mut checks = Vec::new();
         for (source, events) in &scopes {
             checks.push(json!({"source":source,"result":check(pull,reference,events,include)?}));
         }
-        result.push(json!({"method":"censored-reference-prefix-v1","trace":trace(pull),"reference":trace(reference),
-            "training":false,"scopes":checks,"not_checked":["KDL schedule timing","ACT signal equivalence","independent completed holdout","game mechanic identity"]}));
+        let method = if pull.kill {
+            "complete-reference-alignment-v1"
+        } else {
+            "censored-reference-prefix-v1"
+        };
+        result.push(json!({"method":method,"trace":trace(pull),"reference":trace(reference),
+            "training":false,"scopes":checks,"not_checked":["KDL schedule timing","ACT signal equivalence","game mechanic identity"]}));
     }
     Ok(result)
 }

@@ -60,6 +60,8 @@ FFLogs 전투 로그를 수집하고 타임라인을 작성하기 위한 도구�
 
 `validate`는 구조와 작성 제약을 검사하고, `compare`는 lifecycle·phase·event·branch·loop를 재생합니다. 수집된 FFLogs 이벤트는 `FFLogs.*` 타입으로 표현하며 ACT 신호나 전투 시작을 추정하지 않습니다. 형식과 미검사 범위는 [오프라인 재생 안내](docs/OFFLINE_REPLAY.md)를 참고하세요.
 
+학습에 쓰지 않을 검증 로그는 `generate ... --holdout CHECK.json`으로 지정합니다. 여러 파일이면 옵션을 반복합니다. 완료 로그는 참조 열 전체, 미처치 로그는 접두부로 대응을 검사하고 결과·미해결 관측을 근거에 기록합니다. holdout은 생성 결과를 바꾸지 않으며, 이 분석은 실제 ACT 실행이나 일정 정확성 검증을 대체하지 않습니다.
+
 ## 개발
 
 ```sh

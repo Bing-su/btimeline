@@ -73,9 +73,37 @@ fn timing_table(pull: &Pull) -> BTreeMap<Signal, Vec<i64>> {
 }
 
 impl Analysis {
-    pub(super) fn aligned(&self, include: impl Fn(&Signal) -> bool) -> Result<occurrences::Common> {
+    pub(super) fn aligned(
+        &self,
+        include: impl Fn(&Signal) -> bool,
+        holdout: Option<&Self>,
+    ) -> Result<occurrences::Common> {
+        if let Some(holdout) = holdout {
+            ensure!(
+                self.group.key == holdout.group.key,
+                "Holdout encounter and difficulty must match training inputs"
+            );
+            for pull in &holdout.pulls {
+                ensure!(
+                    !self.pulls.iter().any(|training| training.hash == pull.hash
+                        || (training.report == pull.report && training.fight == pull.fight)),
+                    "Holdout {}/{} overlaps training inputs",
+                    pull.report,
+                    pull.fight
+                );
+            }
+        }
         let common = self.common(&include)?;
-        occurrences::expand(&self.pulls, common, include)
+        let mut result = occurrences::expand(&self.pulls, common, &include)?;
+        if let Some(holdout) = holdout {
+            result.diagnostics.extend(occurrences::holdout_checks(
+                &self.pulls,
+                &holdout.pulls,
+                &result.events,
+                &include,
+            )?);
+        }
+        Ok(result)
     }
 
     pub(super) fn signals(&self) -> std::collections::BTreeSet<Signal> {

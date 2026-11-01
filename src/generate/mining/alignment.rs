@@ -124,7 +124,7 @@ pub(super) fn align<T: Eq>(left: &[T], right: &[T]) -> Result<Alignment> {
 }
 
 #[derive(Debug, Default)]
-pub(super) struct PrefixAlignment {
+pub(super) struct AttemptAlignment {
     pub pairs: Vec<(usize, usize)>,
     pub ambiguous_left: Vec<usize>,
     pub missing_left: Vec<usize>,
@@ -176,12 +176,12 @@ fn prefix_costs<T: Eq>(left: &[T], right: &[T]) -> Result<(Scores, Scores)> {
 }
 
 // Compare a terminated observation trace with any reference prefix, retaining every optimal endpoint.
-pub(super) fn align_prefix<T: Eq>(left: &[T], right: &[T]) -> Result<PrefixAlignment> {
+pub(super) fn align_prefix<T: Eq>(left: &[T], right: &[T]) -> Result<AttemptAlignment> {
     let (before, after) = prefix_costs(left, right)?;
     let cost = after.get(0, 0)?;
-    let mut result = PrefixAlignment {
+    let mut result = AttemptAlignment {
         cost,
-        ..PrefixAlignment::default()
+        ..AttemptAlignment::default()
     };
     for i in 0..=left.len() {
         if before.get(i, right.len())? == cost {
