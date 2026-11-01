@@ -624,6 +624,7 @@ impl Validation {
         self.loops.insert(
             id.clone(),
             Loop {
+                order: node.span().offset(),
                 id,
                 start,
                 every,

@@ -84,6 +84,7 @@ struct BranchOption {
 
 #[derive(Debug)]
 struct Loop {
+    order: usize,
     id: String,
     start: Tick,
     every: Tick,

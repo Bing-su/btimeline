@@ -36,6 +36,7 @@ pub(crate) struct Record {
 struct Clock {
     base_ms: i64,
     not_before: i64,
+    zero_at: Option<i64>,
     processed: BTreeSet<usize>,
 }
 
@@ -93,11 +94,20 @@ struct PhaseState<'a> {
     definition: &'a Phase,
     clock: Clock,
     branches: Vec<BranchState>,
+    loops: Vec<LoopRef<'a>>,
     repeats: Vec<RepeatState>,
+}
+
+struct LoopRef<'a> {
+    definition: &'a Loop,
+    owner: Option<(usize, usize)>,
 }
 
 #[derive(Default)]
 struct RepeatState {
+    anchor: Option<Tick>,
+    not_before: i64,
+    zero_start: Option<i64>,
     current: Option<Clock>,
     exited: bool,
     exit: Option<ActivePath>,
@@ -131,9 +141,22 @@ fn active_path(base_ms: i64, at: i64) -> ActivePath {
         clock: Clock {
             base_ms: base_ms + anchor * 100,
             not_before: at,
+            zero_at: Some(at),
             ..Clock::default()
         },
     }
+}
+
+fn repeat_start(base_ms: i64, repeat: &Loop, state: &RepeatState) -> Option<i64> {
+    state.anchor.map(|anchor| {
+        let nominal = base_ms + (anchor + repeat.start) * 100;
+        if repeat.start == 0 {
+            state.zero_start.unwrap_or(nominal)
+        } else {
+            nominal
+        }
+        .max(state.not_before)
+    })
 }
 
 fn requirement_status(
@@ -187,6 +210,31 @@ fn option_actions(
 
 impl<'a> PhaseState<'a> {
     fn new(definition: &'a Phase, at: i64) -> Self {
+        let mut loops: Vec<_> = definition
+            .loops
+            .iter()
+            .map(|repeat| LoopRef {
+                definition: repeat,
+                owner: None,
+            })
+            .collect();
+        for (branch_index, branch) in definition.branches.iter().enumerate() {
+            for (option_index, option) in branch.options.iter().enumerate() {
+                loops.extend(option.loops.iter().map(|repeat| LoopRef {
+                    definition: repeat,
+                    owner: Some((branch_index, option_index)),
+                }));
+            }
+        }
+        loops.sort_by_key(|repeat| repeat.definition.order);
+        let repeats = loops
+            .iter()
+            .map(|repeat| RepeatState {
+                anchor: repeat.owner.is_none().then_some(0),
+                not_before: at,
+                ..RepeatState::default()
+            })
+            .collect();
         Self {
             definition,
             clock: Clock {
@@ -198,11 +246,29 @@ impl<'a> PhaseState<'a> {
                 .iter()
                 .map(|_| BranchState::default())
                 .collect(),
-            repeats: definition
-                .loops
-                .iter()
-                .map(|_| RepeatState::default())
-                .collect(),
+            loops,
+            repeats,
+        }
+    }
+
+    fn activate_option_loops(&mut self, branch: usize, option: usize, anchor: Tick, at: i64) {
+        for (entry, state) in self.loops.iter().zip(&mut self.repeats) {
+            if entry.owner == Some((branch, option)) {
+                *state = RepeatState {
+                    anchor: Some(anchor),
+                    not_before: at,
+                    zero_start: Some(at),
+                    ..RepeatState::default()
+                };
+            }
+        }
+    }
+
+    fn cancel_option_loops(&mut self, branch: usize) {
+        for (entry, state) in self.loops.iter().zip(&mut self.repeats) {
+            if entry.owner.is_some_and(|(owner, _)| owner == branch) {
+                *state = RepeatState::default();
+            }
         }
     }
 }
@@ -222,6 +288,16 @@ fn record(out: &mut Vec<Record>, at_ms: i64, action: &str, detail: impl Into<Str
     });
 }
 
+fn event_time(clock: &Clock, event: &Event) -> i64 {
+    let nominal = clock.base_ms + event.at * 100;
+    let at = if event.at == 0 {
+        clock.zero_at.unwrap_or(nominal)
+    } else {
+        nominal
+    };
+    at.max(clock.not_before)
+}
+
 fn emit(
     events: &[Event],
     clock: &mut Clock,
@@ -234,7 +310,7 @@ fn emit(
         .iter()
         .enumerate()
         .filter(|(i, e)| {
-            let at = (clock.base_ms + e.at * 100).max(clock.not_before);
+            let at = event_time(clock, e);
             !clock.processed.contains(i) && (at < until || (inclusive && at == until))
         })
         .collect();
@@ -243,7 +319,7 @@ fn emit(
         clock.processed.insert(i);
         record(
             out,
-            (clock.base_ms + event.at * 100).max(clock.not_before),
+            event_time(clock, event),
             "event",
             format!(
                 "{}: {} (visible={}, duration={:.1}s)",
@@ -278,6 +354,7 @@ fn correct(
         }
     }
     clock.base_ms = at_ms - target * 100;
+    clock.zero_at = None;
 }
 
 // Validate raw order before any state transition, e.g. never sort malformed recordings silently.
@@ -373,28 +450,26 @@ fn repeat_sync_targets<'a>(
     let eligible_start = (!running)
         .then(|| {
             phase
-                .definition
                 .loops
                 .iter()
                 .zip(&phase.repeats)
-                .position(|(repeat, state)| {
+                .position(|(entry, state)| {
                     !state.exited
                         && !state.blocked
                         && state.current.is_none()
-                        && phase.clock.base_ms + repeat.start * 100 == at
+                        && repeat_start(phase.clock.base_ms, entry.definition, state) == Some(at)
                 })
         })
         .flatten();
     phase
-        .definition
         .loops
         .iter()
         .zip(&phase.repeats)
         .enumerate()
-        .flat_map(|(index, (repeat, state))| {
+        .flat_map(|(index, (entry, state))| {
             repeat_sync_targets_one(
                 phase,
-                repeat,
+                entry.definition,
                 state,
                 observation,
                 eligible_start == Some(index),
@@ -410,6 +485,9 @@ fn repeat_sync_targets_one<'a>(
     observation: &Observation,
     eligible_start: bool,
 ) -> Vec<(SyncOwner<'a>, Tick)> {
+    if state.anchor.is_none() {
+        return Vec::new();
+    }
     let mut targets = Vec::new();
     if let Some(path) = &state.exit {
         targets.extend(
@@ -452,15 +530,14 @@ fn repeat_sync_targets_one<'a>(
 // At a boundary the observation can synchronize the new iteration before its zero-time event.
 fn prepare_repeat_boundary(phase: &mut PhaseState<'_>, id: &str, at: i64) {
     let Some(index) = phase
-        .definition
         .loops
         .iter()
-        .position(|repeat| repeat.id == id)
+        .position(|repeat| repeat.definition.id == id)
     else {
         return;
     };
     let (Some(definition), Some(state)) = (
-        phase.definition.loops.get(index),
+        phase.loops.get(index).map(|entry| entry.definition),
         phase.repeats.get_mut(index),
     ) else {
         return;
@@ -468,8 +545,7 @@ fn prepare_repeat_boundary(phase: &mut PhaseState<'_>, id: &str, at: i64) {
     if state.exited || state.blocked {
         return;
     }
-    let start = phase.clock.base_ms + definition.start * 100;
-    if state.current.is_none() && start == at {
+    if state.current.is_none() && repeat_start(phase.clock.base_ms, definition, state) == Some(at) {
         state.current = Some(Clock {
             base_ms: at,
             ..Clock::default()
@@ -481,6 +557,7 @@ fn prepare_repeat_boundary(phase: &mut PhaseState<'_>, id: &str, at: i64) {
     };
     if clock.base_ms + definition.every * 100 == at {
         clock.base_ms = at;
+        clock.zero_at = None;
         clock.processed.clear();
     }
 }
@@ -508,21 +585,25 @@ fn enter_repeat_after_jump(
     run: usize,
 ) -> Result<()> {
     let mut pending: Vec<_> = phase
-        .definition
         .loops
         .iter()
         .zip(&phase.repeats)
         .enumerate()
-        .filter(|(_, (repeat, state))| {
-            !state.exited && !state.blocked && state.current.is_none() && target > repeat.start
+        .filter(|(_, (entry, state))| {
+            !state.exited
+                && !state.blocked
+                && state.current.is_none()
+                && state
+                    .anchor
+                    .is_some_and(|anchor| target > anchor + entry.definition.start)
         })
-        .map(|(index, (repeat, _))| (repeat.start, index))
+        .map(|(index, (entry, state))| (state.anchor.unwrap_or(0) + entry.definition.start, index))
         .collect();
     pending.sort_unstable();
     let mut running = phase.repeats.iter().any(|state| state.current.is_some());
     for (_, index) in pending {
         let (Some(repeat), Some(state)) = (
-            phase.definition.loops.get(index),
+            phase.loops.get(index).map(|entry| entry.definition),
             phase.repeats.get_mut(index),
         ) else {
             continue;
@@ -538,7 +619,14 @@ fn enter_repeat_after_jump(
             );
             continue;
         }
-        enter_repeat_after_jump_one(repeat, state, at, target, out, run)?;
+        enter_repeat_after_jump_one(
+            repeat,
+            state,
+            at,
+            target - state.anchor.unwrap_or(0),
+            out,
+            run,
+        )?;
         running = true;
     }
     Ok(())
@@ -604,6 +692,11 @@ fn correct_phase(
     run: usize,
 ) -> Result<()> {
     enter_repeat_after_jump(phase, at, target, out, run)?;
+    for state in &mut phase.repeats {
+        if state.current.is_none() {
+            state.zero_start = None;
+        }
+    }
     correct(
         &phase.definition.events,
         &mut phase.clock,
@@ -613,10 +706,10 @@ fn correct_phase(
         run,
     );
     correct_paths(phase, at, target, out, run);
-    for (repeat, state) in phase.definition.loops.iter().zip(&mut phase.repeats) {
+    for (entry, state) in phase.loops.iter().zip(&mut phase.repeats) {
         if let Some(path) = &mut state.exit {
             correct(
-                &repeat.on_exit,
+                &entry.definition.on_exit,
                 &mut path.clock,
                 at,
                 target - path.anchor,
@@ -648,29 +741,30 @@ fn start_repeats(
     run: usize,
 ) {
     let mut pending: Vec<_> = phase
-        .definition
         .loops
         .iter()
         .zip(&phase.repeats)
         .enumerate()
-        .filter(|(_, (definition, state))| {
+        .filter(|(_, (entry, state))| {
             !state.exited
                 && !state.blocked
                 && state.current.is_none()
-                && due(phase.clock.base_ms + definition.start * 100, at, inclusive)
+                && repeat_start(phase.clock.base_ms, entry.definition, state)
+                    .is_some_and(|start| due(start, at, inclusive))
         })
-        .map(|(index, (definition, _))| (definition.start, index))
+        .filter_map(|(index, (entry, state))| {
+            repeat_start(phase.clock.base_ms, entry.definition, state).map(|start| (start, index))
+        })
         .collect();
     pending.sort_unstable();
     let mut running = phase.repeats.iter().any(|state| state.current.is_some());
-    for (start, index) in pending {
+    for (start_ms, index) in pending {
         let (Some(definition), Some(state)) = (
-            phase.definition.loops.get(index),
+            phase.loops.get(index).map(|entry| entry.definition),
             phase.repeats.get_mut(index),
         ) else {
             continue;
         };
-        let start_ms = phase.clock.base_ms + start * 100;
         if running {
             state.blocked = true;
             record(
@@ -682,8 +776,17 @@ fn start_repeats(
             );
             continue;
         }
+        let Some(anchor) = state.anchor else {
+            continue;
+        };
         state.current = Some(Clock {
-            base_ms: start_ms,
+            base_ms: phase.clock.base_ms + (anchor + definition.start) * 100,
+            not_before: state.not_before,
+            zero_at: if definition.start == 0 {
+                state.zero_start
+            } else {
+                None
+            },
             ..Clock::default()
         });
         running = true;
@@ -726,6 +829,7 @@ fn advance_repeat(
             run,
         );
         clock.base_ms += period;
+        clock.zero_at = None;
         clock.processed.clear();
     }
     emit(&definition.events, clock, at, inclusive, out, run);
@@ -739,8 +843,8 @@ fn advance_repeats(
     run: usize,
 ) {
     start_repeats(phase, at, inclusive, out, run);
-    for (definition, state) in phase.definition.loops.iter().zip(&mut phase.repeats) {
-        advance_repeat(definition, state, at, inclusive, out, run);
+    for (entry, state) in phase.loops.iter().zip(&mut phase.repeats) {
+        advance_repeat(entry.definition, state, at, inclusive, out, run);
     }
 }
 
@@ -786,11 +890,14 @@ fn repeat_unresolved(
     out: &mut Vec<Record>,
     run: usize,
 ) {
-    for (definition, state) in phase.definition.loops.iter().zip(&mut phase.repeats) {
+    for (entry, state) in phase.loops.iter().zip(&mut phase.repeats) {
+        let Some(anchor) = state.anchor else {
+            continue;
+        };
         repeat_unresolved_one(
-            definition,
+            entry.definition,
             state,
-            phase.clock.base_ms,
+            phase.clock.base_ms + anchor * 100,
             at,
             corrected,
             out,
@@ -800,8 +907,8 @@ fn repeat_unresolved(
 }
 
 fn unobserved_repeat(phase: &PhaseState<'_>, at: i64, out: &mut Vec<Record>, run: usize) {
-    for (definition, state) in phase.definition.loops.iter().zip(&phase.repeats) {
-        unobserved_repeat_one(definition, state, at, out, run);
+    for (entry, state) in phase.loops.iter().zip(&phase.repeats) {
+        unobserved_repeat_one(entry.definition, state, at, out, run);
     }
 }
 
@@ -862,13 +969,16 @@ impl<'a> Replay<'a> {
         };
         let time = elapsed(phase.clock.base_ms, observation.at_ms);
         phase
-            .definition
             .loops
             .iter()
             .zip(&phase.repeats)
             .enumerate()
-            .filter(|(_, (definition, state))| {
-                !state.exited && matches_any(&definition.untils, observation, time)
+            .filter(|(_, (entry, state))| {
+                !state.exited
+                    && state.anchor.is_some_and(|anchor| {
+                        time >= anchor
+                            && matches_any(&entry.definition.untils, observation, time - anchor)
+                    })
             })
             .map(|(index, _)| index)
             .collect()
@@ -879,13 +989,16 @@ impl<'a> Replay<'a> {
             return false;
         };
         let (Some(definition), Some(state)) = (
-            phase.definition.loops.get(index),
+            phase.loops.get(index).map(|entry| entry.definition),
             phase.repeats.get_mut(index),
         ) else {
             return false;
         };
-        let time = elapsed(phase.clock.base_ms, observation.at_ms);
-        if state.exited || !matches_any(&definition.untils, observation, time) {
+        let Some(anchor) = state.anchor else {
+            return false;
+        };
+        let time = elapsed(phase.clock.base_ms, observation.at_ms) - anchor;
+        if state.exited || time < 0 || !matches_any(&definition.untils, observation, time) {
             return false;
         }
         state.exited = true;
@@ -1038,7 +1151,9 @@ impl<'a> Replay<'a> {
                     return true;
                 };
                 state.selected = Some(option_index);
-                state.option = Some(active_path(phase.clock.base_ms, observation.at_ms));
+                let path = active_path(phase.clock.base_ms, observation.at_ms);
+                let anchor = path.anchor;
+                state.option = Some(path);
                 self.history
                     .insert(branch.id.clone(), Some(choice.id.clone()));
                 record(
@@ -1048,6 +1163,7 @@ impl<'a> Replay<'a> {
                     format!("{}/{}", branch.id, choice.id),
                     self.run,
                 );
+                phase.activate_option_loops(index, option_index, anchor, observation.at_ms);
             }
             BranchAction::Merge(_) => {
                 if state.selected.is_none() && !state.closed {
@@ -1069,6 +1185,7 @@ impl<'a> Replay<'a> {
                     branch.id.clone(),
                     self.run,
                 );
+                phase.cancel_option_loops(index);
             }
             BranchAction::Conflict(_) => record(
                 &mut self.out,
@@ -1210,12 +1327,11 @@ impl<'a> Replay<'a> {
             (SyncOwner::Repeat(id), Some(phase), _) => {
                 prepare_repeat_boundary(phase, id, at);
                 let index = phase
-                    .definition
                     .loops
                     .iter()
-                    .position(|repeat| repeat.id == *id);
+                    .position(|repeat| repeat.definition.id == *id);
                 if let Some((repeat, clock)) = index.and_then(|i| {
-                    phase.definition.loops.get(i).zip(
+                    phase.loops.get(i).map(|entry| entry.definition).zip(
                         phase
                             .repeats
                             .get_mut(i)
@@ -1321,19 +1437,13 @@ impl<'a> Replay<'a> {
 
 fn validate_repeat_support(timeline: &Timeline, input: &Recording) -> Result<()> {
     for phase in &timeline.phases {
-        if let Some(repeat) = phase
-            .branches
-            .iter()
-            .flat_map(|branch| &branch.options)
-            .flat_map(|option| &option.loops)
-            .next()
-        {
-            anyhow::bail!(
-                "Replay does not yet support loop {} inside an option",
-                repeat.id
-            );
-        }
-        for repeat in &phase.loops {
+        let repeats = phase.loops.iter().chain(
+            phase
+                .branches
+                .iter()
+                .flat_map(|branch| branch.options.iter().flat_map(|option| &option.loops)),
+        );
+        for repeat in repeats {
             ensure!(
                 repeat.branches.is_empty(),
                 "Replay does not yet support branches inside a loop"

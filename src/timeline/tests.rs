@@ -104,10 +104,466 @@ fn option_loop_preserves_exit_and_body() {
     assert_eq!(hold.untils.len(), 1);
     assert_eq!(hold.events.first().unwrap().id, "pulse");
     assert_eq!(hold.on_exit.first().unwrap().id, "end");
-    let error = replay(&model, &recording(0, serde_json::json!([])).unwrap())
-        .unwrap_err()
-        .to_string();
-    assert!(error.contains("loop hold"));
+    replay(&model, &recording(0, serde_json::json!([])).unwrap()).unwrap();
+}
+
+#[test]
+fn selected_option_loop_uses_phase_anchor_and_merge_cancels_it() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            branch "choice" open=0.0 close=3.0 {
+                option "left" {
+                    when "Left"
+                    loop "left-loop" start=0.0 every=1.0 {
+                        until "End" at=2.0 before=0.0
+                        event "left-pulse" 0.0 name="Left"
+                        on-exit { event "left-exit" 0.0 name="Exit"; }
+                    }
+                }
+                option "right" {
+                    when "Right"
+                    loop "right-loop" start=0.0 every=1.0 { event "right-pulse" 0.0 name="Right"; }
+                }
+                merge { when "Merge"; event "shared" 0.0 name="Shared"; }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        5000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1049,"type":"Left","fields":{}},
+            {"at_ms":3000,"type":"Merge","fields":{}},
+            {"at_ms":3100,"type":"End","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    let pulses: Vec<_> = output
+        .iter()
+        .filter(|r| r.action == "event" && r.detail.starts_with("left-pulse:"))
+        .map(|r| r.at_ms)
+        .collect();
+    assert_eq!(pulses, [1049, 2000]);
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("shared:") && r.at_ms == 3000)
+    );
+    assert!(!output.iter().any(|r| r.detail.starts_with("right-pulse")
+        || r.detail.starts_with("left-exit")
+        || r.action == "until"));
+}
+
+#[test]
+fn rounded_up_selection_fires_zero_events_at_the_observation() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            branch "choice" open=0.0 close=3.0 {
+                option "left" {
+                    when "Left"
+                    event "zero" 0.0 name="Zero"
+                    loop "hold" start=0.0 every=1.0 { event "pulse" 0.0 name="Pulse"; }
+                }
+                option "right" { when "Right"; }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        2200,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1051,"type":"Left","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("zero:") && r.at_ms == 1051)
+    );
+    let pulses: Vec<_> = output
+        .iter()
+        .filter(|r| r.action == "event" && r.detail.starts_with("pulse:"))
+        .map(|r| r.at_ms)
+        .collect();
+    assert_eq!(pulses, [1051, 2100]);
+}
+
+#[test]
+fn same_timestamp_sync_can_delay_new_option_zero_events() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            event "anchor" 0.0 name="Anchor" { sync 0.0 "Sync" before=0.0 after=3.0; }
+            branch "choice" open=0.0 close=3.0 {
+                option "left" {
+                    when "Left"
+                    event "zero" 0.0 name="Zero"
+                    loop "hold" start=0.0 every=1.0 { event "pulse" 0.0 name="Pulse"; }
+                }
+                option "right" { when "Right"; }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        2200,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1051,"type":"Left","fields":{}},
+            {"at_ms":1051,"type":"Sync","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    for id in ["zero:", "pulse:"] {
+        assert!(
+            output
+                .iter()
+                .any(|r| r.action == "event" && r.detail.starts_with(id) && r.at_ms == 2151)
+        );
+        assert!(
+            !output
+                .iter()
+                .any(|r| r.action == "event" && r.detail.starts_with(id) && r.at_ms == 1051)
+        );
+    }
+}
+
+#[test]
+fn rounded_up_exit_and_merge_fire_zero_events_at_their_signals() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            branch "choice" open=0.0 close=3.0 {
+                option "left" {
+                    when "Left"
+                    loop "hold" start=2.0 every=1.0 {
+                        until "End" at=0.0 before=0.0
+                        on-exit { event "exit-zero" 0.0 name="Exit"; }
+                    }
+                }
+                option "right" { when "Right"; }
+                merge { when "Merge"; event "merge-zero" 0.0 name="Merge"; }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        2200,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Left","fields":{}},
+            {"at_ms":1051,"type":"End","fields":{}},
+            {"at_ms":2051,"type":"Merge","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("exit-zero:") && r.at_ms == 1051)
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("merge-zero:") && r.at_ms == 2051)
+    );
+}
+
+#[test]
+fn option_loop_can_exit_before_start_and_sync_its_exit_path() {
+    let model = parse(r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            event "phase-hit" 4.0 name="Phase"
+            branch "choice" open=0.0 close=3.0 {
+                option "left" {
+                    when "Left"
+                    loop "hold" start=4.0 every=2.0 {
+                        until "End" at=1.0 before=0.0
+                        event "pulse" 0.0 name="Pulse"
+                        on-exit { event "exit-hit" 1.0 name="Exit" { sync 1.0 "Sync" before=1.0 after=1.0; }; }
+                    }
+                }
+                option "right" { when "Right"; }
+            }
+        }
+    }"#).unwrap();
+    let input = recording(
+        5000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Left","fields":{}},
+            {"at_ms":2000,"type":"End","fields":{}},
+            {"at_ms":2500,"type":"Sync","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "until" && r.detail == "hold" && r.at_ms == 2000)
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("exit-hit:") && r.at_ms == 2500)
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("phase-hit:") && r.at_ms == 3500)
+    );
+    assert!(
+        !output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("pulse:"))
+    );
+}
+
+#[test]
+fn option_loop_starts_when_phase_loop_exits_at_the_same_boundary() {
+    let model = parse(r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            loop "first" start=0.0 every=1.0 { until "EndFirst" at=2.0 before=0.0; }
+            branch "choice" open=0.0 close=2.0 {
+                option "left" { when "Left"; loop "second" start=1.0 every=1.0 { event "pulse" 0.0 name="Pulse"; }; }
+                option "right" { when "Right"; }
+            }
+        }
+    }"#).unwrap();
+    let input = recording(
+        3000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Left","fields":{}},
+            {"at_ms":2000,"type":"EndFirst","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("pulse:") && r.at_ms == 2000)
+    );
+    assert!(!output.iter().any(|r| r.action == "violation"));
+}
+
+#[test]
+fn simultaneous_option_and_phase_loop_starts_follow_document_order() {
+    let model = parse(r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            branch "choice" open=0.0 close=2.0 {
+                option "left" { when "Left"; loop "option-loop" start=0.0 every=1.0 { event "a" 0.0 name="A"; }; }
+                option "right" { when "Right"; }
+            }
+            loop "phase-loop" start=1.0 every=1.0 { event "b" 0.0 name="B"; }
+        }
+    }"#).unwrap();
+    let input = recording(
+        1500,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Left","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("a:") && r.at_ms == 1000)
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "violation" && r.detail.contains("phase-loop") && r.at_ms == 1000)
+    );
+    assert!(
+        !output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("b:"))
+    );
+}
+
+#[test]
+fn unselected_option_loop_does_not_block_a_phase_loop() {
+    let model = parse(r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            branch "choice" open=0.0 close=2.0 {
+                option "left" { when "Left"; loop "option-loop" start=0.0 every=1.0 { event "a" 0.0 name="A"; }; }
+                option "right" { when "Right"; }
+            }
+            loop "phase-loop" start=1.0 every=1.0 { event "b" 0.0 name="B"; }
+        }
+    }"#).unwrap();
+    let input = recording(
+        1500,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":500,"type":"Right","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("b:") && r.at_ms == 1000)
+    );
+    assert!(
+        !output
+            .iter()
+            .any(|r| r.action == "violation" || r.detail.starts_with("a:"))
+    );
+}
+
+#[test]
+fn merge_and_option_loop_exit_on_one_observation_are_ambiguous() {
+    let model = parse(r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            branch "choice" open=0.0 close=3.0 {
+                option "left" { when "Left"; loop "hold" start=0.0 every=1.0 { until "X" at=1.0 before=0.0; }; }
+                option "right" { when "Right"; }
+                merge { when "X"; }
+            }
+        }
+    }"#).unwrap();
+    let input = recording(
+        2500,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Left","fields":{}},
+            {"at_ms":2000,"type":"X","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "ambiguous" && r.at_ms == 2000)
+    );
+    assert!(
+        !output
+            .iter()
+            .any(|r| r.action == "until" || r.action == "merge")
+    );
+}
+
+#[test]
+fn phase_sync_can_skip_an_option_loop_start_without_losing_its_anchor() {
+    let model = parse(r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            event "anchor" 5.0 name="Anchor" { sync 5.0 "Forward" before=5.0 after=5.0; }
+            branch "choice" open=0.0 close=3.0 {
+                option "left" { when "Left"; loop "hold" start=2.0 every=2.0 { event "pulse" 0.0 name="Pulse"; }; }
+                option "right" { when "Right"; }
+            }
+        }
+    }"#).unwrap();
+    let input = recording(
+        4000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Left","fields":{}},
+            {"at_ms":1500,"type":"Forward","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert_eq!(
+        output
+            .iter()
+            .filter(|r| r.action == "skipped" && r.detail == "pulse")
+            .count(),
+        1
+    );
+    let pulses: Vec<_> = output
+        .iter()
+        .filter(|r| r.action == "event" && r.detail.starts_with("pulse:"))
+        .map(|r| r.at_ms)
+        .collect();
+    assert_eq!(pulses, [1500, 3500]);
+}
+
+#[test]
+fn merge_cancels_option_loop_exit_events() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            branch "choice" open=0.0 close=3.0 {
+                option "left" {
+                    when "Left"
+                    loop "hold" start=0.0 every=2.0 {
+                        until "End" at=1.0 before=0.0
+                        on-exit { event "later" 3.0 name="Later"; }
+                    }
+                }
+                option "right" { when "Right"; }
+                merge { when "Merge"; }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        6000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"Left","fields":{}},
+            {"at_ms":2000,"type":"End","fields":{}},
+            {"at_ms":3000,"type":"Merge","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "until" && r.detail == "hold")
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "merge" && r.detail == "choice")
+    );
+    assert!(!output.iter().any(|r| r.detail.starts_with("later")));
 }
 
 #[rstest]
