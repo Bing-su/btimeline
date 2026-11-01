@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
 
-use super::{Event, MAX_MS, Phase, Tick, Timeline};
+use super::{Branch, BranchOption, Event, MAX_MS, Phase, Tick, Timeline};
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -33,7 +33,154 @@ pub(crate) struct Record {
 #[derive(Default)]
 struct Clock {
     base_ms: i64,
+    not_before: i64,
     processed: BTreeSet<usize>,
+}
+
+struct ActivePath {
+    anchor: Tick,
+    clock: Clock,
+}
+
+#[derive(Default)]
+struct BranchState {
+    opened: bool,
+    closed: bool,
+    selected: Option<usize>,
+    option: Option<ActivePath>,
+    merge: Option<ActivePath>,
+}
+
+impl BranchState {
+    fn paths<'a>(
+        &'a self,
+        branch: &'a Branch,
+    ) -> impl Iterator<Item = (&'a [Event], &'a ActivePath)> {
+        let option = self
+            .selected
+            .and_then(|index| branch.options.get(index))
+            .zip(self.option.as_ref())
+            .map(|(option, path)| (option.events.as_slice(), path));
+        let merge = branch
+            .merge
+            .as_ref()
+            .zip(self.merge.as_ref())
+            .map(|(merge, path)| (merge.events.as_slice(), path));
+        option.into_iter().chain(merge)
+    }
+
+    fn paths_mut<'a>(
+        &'a mut self,
+        branch: &'a Branch,
+    ) -> impl Iterator<Item = (&'a [Event], &'a mut ActivePath)> {
+        let option = self
+            .selected
+            .and_then(|index| branch.options.get(index))
+            .zip(self.option.as_mut())
+            .map(|(option, path)| (option.events.as_slice(), path));
+        let merge = branch
+            .merge
+            .as_ref()
+            .zip(self.merge.as_mut())
+            .map(|(merge, path)| (merge.events.as_slice(), path));
+        option.into_iter().chain(merge)
+    }
+}
+
+struct PhaseState<'a> {
+    definition: &'a Phase,
+    clock: Clock,
+    branches: Vec<BranchState>,
+}
+
+enum BranchAction {
+    Select(usize, usize),
+    Merge(usize),
+    Conflict(usize),
+}
+
+fn matches_any(signals: &[super::Signal], observation: &Observation, time: Tick) -> bool {
+    signals
+        .iter()
+        .any(|signal| signal.matches(&observation.kind, &observation.fields, time))
+}
+
+fn active_path(base_ms: i64, at: i64) -> ActivePath {
+    let anchor = elapsed(base_ms, at);
+    ActivePath {
+        anchor,
+        clock: Clock {
+            base_ms: base_ms + anchor * 100,
+            not_before: at,
+            ..Clock::default()
+        },
+    }
+}
+
+fn requirement_status(
+    option: &BranchOption,
+    history: &BTreeMap<String, Option<String>>,
+) -> (bool, bool) {
+    let mut missing = false;
+    let mut mismatch = false;
+    for (branch, required) in &option.requires {
+        match history.get(branch) {
+            Some(Some(selected)) if selected == required => {}
+            Some(Some(_)) => mismatch = true,
+            _ => missing = true,
+        }
+    }
+    (missing, mismatch)
+}
+
+fn option_actions(
+    branch: &Branch,
+    state: &BranchState,
+    index: usize,
+    time: Tick,
+    observation: &Observation,
+    history: &BTreeMap<String, Option<String>>,
+) -> (Vec<BranchAction>, Vec<String>) {
+    let mut actions = Vec::new();
+    let mut unresolved = Vec::new();
+    for (option_index, option) in branch.options.iter().enumerate() {
+        if !matches_any(&option.whens, observation, time) {
+            continue;
+        }
+        let (missing, mismatch) = requirement_status(option, history);
+        if mismatch {
+            continue;
+        }
+        if missing {
+            unresolved.push(branch.id.clone());
+            continue;
+        }
+        match state.selected {
+            None => actions.push(BranchAction::Select(index, option_index)),
+            Some(selected) if selected != option_index => {
+                actions.push(BranchAction::Conflict(index))
+            }
+            _ => {}
+        }
+    }
+    (actions, unresolved)
+}
+
+impl<'a> PhaseState<'a> {
+    fn new(definition: &'a Phase, at: i64) -> Self {
+        Self {
+            definition,
+            clock: Clock {
+                base_ms: at,
+                ..Clock::default()
+            },
+            branches: definition
+                .branches
+                .iter()
+                .map(|_| BranchState::default())
+                .collect(),
+        }
+    }
 }
 
 // Round relative observations without changing raw input order, e.g. 1049ms -> 1.0s.
@@ -62,7 +209,7 @@ fn emit(
         .iter()
         .enumerate()
         .filter(|(i, e)| {
-            let at = clock.base_ms + e.at * 100;
+            let at = (clock.base_ms + e.at * 100).max(clock.not_before);
             !clock.processed.contains(i) && (at < until || (inclusive && at == until))
         })
         .collect();
@@ -71,7 +218,7 @@ fn emit(
         clock.processed.insert(i);
         record(
             out,
-            clock.base_ms + event.at * 100,
+            (clock.base_ms + event.at * 100).max(clock.not_before),
             "event",
             format!(
                 "{}: {} (visible={}, duration={:.1}s)",
@@ -152,10 +299,65 @@ fn unobserved(events: &[Event], clock: &Clock, end_ms: i64, run: usize, out: &mu
     }
 }
 
+fn advance_paths(
+    phase: &mut PhaseState<'_>,
+    at: i64,
+    inclusive: bool,
+    out: &mut Vec<Record>,
+    run: usize,
+) {
+    for (branch, state) in phase.definition.branches.iter().zip(&mut phase.branches) {
+        for (events, path) in state.paths_mut(branch) {
+            emit(events, &mut path.clock, at, inclusive, out, run);
+        }
+    }
+}
+
+fn branch_sync_targets<'a>(
+    phase: &PhaseState<'a>,
+    observation: &Observation,
+) -> Vec<(Option<&'a str>, Tick)> {
+    phase
+        .definition
+        .branches
+        .iter()
+        .zip(&phase.branches)
+        .flat_map(|(branch, state)| state.paths(branch))
+        .flat_map(|(events, path)| {
+            sync_targets(events, &path.clock, observation)
+                .into_iter()
+                .map(move |target| (Some(phase.definition.id.as_str()), path.anchor + target))
+        })
+        .collect()
+}
+
+fn correct_paths(
+    phase: &mut PhaseState<'_>,
+    at: i64,
+    target: Tick,
+    out: &mut Vec<Record>,
+    run: usize,
+) {
+    for (branch, state) in phase.definition.branches.iter().zip(&mut phase.branches) {
+        for (events, path) in state.paths_mut(branch) {
+            correct(events, &mut path.clock, at, target - path.anchor, out, run);
+        }
+    }
+}
+
+fn unobserved_paths(phase: &PhaseState<'_>, at: i64, run: usize, out: &mut Vec<Record>) {
+    for (branch, state) in phase.definition.branches.iter().zip(&phase.branches) {
+        for (events, path) in state.paths(branch) {
+            unobserved(events, &path.clock, at, run, out);
+        }
+    }
+}
+
 struct Replay<'a> {
     timeline: &'a Timeline,
     fight: Option<Clock>,
-    phase: Option<(&'a Phase, Clock)>,
+    phase: Option<PhaseState<'a>>,
+    history: BTreeMap<String, Option<String>>,
     run: usize,
     out: Vec<Record>,
 }
@@ -173,9 +375,167 @@ impl<'a> Replay<'a> {
                 self.run,
             );
         }
-        if let Some((phase, clock)) = self.phase.as_mut() {
-            emit(&phase.events, clock, at, inclusive, &mut self.out, self.run);
+        if let Some(phase) = self.phase.as_mut() {
+            emit(
+                &phase.definition.events,
+                &mut phase.clock,
+                at,
+                inclusive,
+                &mut self.out,
+                self.run,
+            );
+            advance_paths(phase, at, inclusive, &mut self.out, self.run);
         }
+    }
+
+    // Window comparisons use rounded phase time, including at the observation boundary.
+    fn advance_branches(&mut self, at: i64, corrected: bool) {
+        let Some(phase) = &mut self.phase else {
+            return;
+        };
+        let time = elapsed(phase.clock.base_ms, at);
+        for (branch, state) in phase.definition.branches.iter().zip(&mut phase.branches) {
+            if !state.opened && time >= branch.open {
+                state.opened = true;
+                self.history.insert(branch.id.clone(), None);
+            }
+            if !state.opened || state.closed || time < branch.close {
+                continue;
+            }
+            state.closed = true;
+            if state.selected.is_some() {
+                continue;
+            }
+            let close_at = (phase.clock.base_ms + branch.close * 100 - 50).max(0);
+            let record_at = if corrected { at } else { close_at };
+            record(
+                &mut self.out,
+                record_at,
+                "unresolved",
+                branch.id.clone(),
+                self.run,
+            );
+        }
+    }
+
+    fn branch_actions(&self, observation: &Observation) -> (Vec<BranchAction>, Vec<String>) {
+        let Some(phase) = &self.phase else {
+            return (Vec::new(), Vec::new());
+        };
+        let time = elapsed(phase.clock.base_ms, observation.at_ms);
+        let mut actions = Vec::new();
+        let mut unresolved = Vec::new();
+        for (index, (branch, state)) in phase
+            .definition
+            .branches
+            .iter()
+            .zip(&phase.branches)
+            .enumerate()
+        {
+            if !state.opened || state.merge.is_some() {
+                continue;
+            }
+            if branch
+                .merge
+                .as_ref()
+                .is_some_and(|merge| matches_any(&merge.whens, observation, time))
+            {
+                actions.push(BranchAction::Merge(index));
+            }
+            if state.closed {
+                continue;
+            }
+            let (candidates, missing) =
+                option_actions(branch, state, index, time, observation, &self.history);
+            actions.extend(candidates);
+            unresolved.extend(missing);
+        }
+        (actions, unresolved)
+    }
+
+    fn branch_observation(&mut self, observation: &Observation) -> bool {
+        let (actions, unresolved) = self.branch_actions(observation);
+        for id in &unresolved {
+            record(
+                &mut self.out,
+                observation.at_ms,
+                "unresolved",
+                format!("{id}: missing prior choice"),
+                self.run,
+            );
+        }
+        if actions.len() > 1 {
+            record(
+                &mut self.out,
+                observation.at_ms,
+                "ambiguous",
+                "Multiple branch actions",
+                self.run,
+            );
+            return true;
+        }
+        let Some(action) = actions.first() else {
+            return !unresolved.is_empty();
+        };
+        let phase = self.phase.as_mut().expect("branch actions require a phase");
+        let (index, option) = match action {
+            BranchAction::Select(index, option) => (*index, Some(*option)),
+            BranchAction::Merge(index) | BranchAction::Conflict(index) => (*index, None),
+        };
+        let (Some(branch), Some(state)) = (
+            phase.definition.branches.get(index),
+            phase.branches.get_mut(index),
+        ) else {
+            return true;
+        };
+        match action {
+            BranchAction::Select(_, _) => {
+                let option_index = option.expect("selection has an option");
+                let Some(choice) = branch.options.get(option_index) else {
+                    return true;
+                };
+                state.selected = Some(option_index);
+                state.option = Some(active_path(phase.clock.base_ms, observation.at_ms));
+                self.history
+                    .insert(branch.id.clone(), Some(choice.id.clone()));
+                record(
+                    &mut self.out,
+                    observation.at_ms,
+                    "option",
+                    format!("{}/{}", branch.id, choice.id),
+                    self.run,
+                );
+            }
+            BranchAction::Merge(_) => {
+                if state.selected.is_none() && !state.closed {
+                    record(
+                        &mut self.out,
+                        observation.at_ms,
+                        "unresolved",
+                        branch.id.clone(),
+                        self.run,
+                    );
+                }
+                state.closed = true;
+                state.option = None;
+                state.merge = Some(active_path(phase.clock.base_ms, observation.at_ms));
+                record(
+                    &mut self.out,
+                    observation.at_ms,
+                    "merge",
+                    branch.id.clone(),
+                    self.run,
+                );
+            }
+            BranchAction::Conflict(_) => record(
+                &mut self.out,
+                observation.at_ms,
+                "ambiguous",
+                format!("Conflicting option for {}", branch.id),
+                self.run,
+            ),
+        }
+        true
     }
 
     fn matches_lifecycle(&self, role: &str, observation: &Observation) -> bool {
@@ -191,11 +551,11 @@ impl<'a> Replay<'a> {
         if self.fight.is_none() && !self.matches_lifecycle("start", observation) {
             return Vec::new();
         }
-        let old_phase = self.phase.as_ref().map(|(p, _)| p.id.as_str());
+        let old_phase = self.phase.as_ref().map(|p| p.definition.id.as_str());
         let time = self
             .phase
             .as_ref()
-            .map_or(0, |(_, c)| elapsed(c.base_ms, observation.at_ms));
+            .map_or(0, |p| elapsed(p.clock.base_ms, observation.at_ms));
         self.timeline
             .phases
             .iter()
@@ -228,6 +588,7 @@ impl<'a> Replay<'a> {
         }
         match role {
             "start" => {
+                self.history.clear();
                 self.run += 1;
                 self.fight = Some(Clock {
                     base_ms: at,
@@ -238,6 +599,7 @@ impl<'a> Replay<'a> {
             _ => {
                 self.fight = None;
                 self.phase = None;
+                self.history.clear();
             }
         }
         record(&mut self.out, at, role, "", self.run);
@@ -245,13 +607,7 @@ impl<'a> Replay<'a> {
 
     fn enter_phase(&mut self, candidates: &[&'a Phase], at: i64) {
         if let [phase] = candidates {
-            self.phase = Some((
-                *phase,
-                Clock {
-                    base_ms: at,
-                    ..Clock::default()
-                },
-            ));
+            self.phase = Some(PhaseState::new(phase, at));
             record(&mut self.out, at, "phase", phase.id.clone(), self.run);
         } else {
             record(
@@ -274,12 +630,13 @@ impl<'a> Replay<'a> {
                     .map(|t| (None, t)),
             );
         }
-        if let Some((phase, clock)) = self.phase.as_ref() {
+        if let Some(phase) = self.phase.as_ref() {
             targets.extend(
-                sync_targets(&phase.events, clock, observation)
+                sync_targets(&phase.definition.events, &phase.clock, observation)
                     .into_iter()
-                    .map(|t| (Some(phase.id.as_str()), t)),
+                    .map(|t| (Some(phase.definition.id.as_str()), t)),
             );
+            targets.extend(branch_sync_targets(phase, observation));
         }
         if targets.len() > 1 {
             record(
@@ -295,8 +652,16 @@ impl<'a> Replay<'a> {
             return;
         };
         match (owner, self.phase.as_mut(), self.fight.as_mut()) {
-            (Some(_), Some((phase, clock)), _) => {
-                correct(&phase.events, clock, at, *target, &mut self.out, self.run)
+            (Some(_), Some(phase), _) => {
+                correct(
+                    &phase.definition.events,
+                    &mut phase.clock,
+                    at,
+                    *target,
+                    &mut self.out,
+                    self.run,
+                );
+                correct_paths(phase, at, *target, &mut self.out, self.run);
             }
             (None, _, Some(clock)) => correct(
                 &self.timeline.events,
@@ -325,6 +690,7 @@ impl<'a> Replay<'a> {
     fn observe(&mut self, observation: &Observation) {
         let at = observation.at_ms;
         self.advance(at, false);
+        self.advance_branches(at, false);
         let candidates = self.enter_candidates(observation);
         let lifecycle = self.lifecycle(observation);
         if let Some(role) = lifecycle {
@@ -335,8 +701,13 @@ impl<'a> Replay<'a> {
         if enter {
             self.enter_phase(&candidates, at);
         }
-        if lifecycle.is_none() && !enter && self.fight.is_some() {
+        if lifecycle.is_none()
+            && !enter
+            && self.fight.is_some()
+            && !self.branch_observation(observation)
+        {
             self.synchronize(observation);
+            self.advance_branches(at, true);
         }
     }
 
@@ -351,13 +722,21 @@ impl<'a> Replay<'a> {
                 &mut self.out,
             );
         }
-        if let Some((phase, clock)) = self.phase.as_ref() {
-            unobserved(&phase.events, clock, end_ms, self.run, &mut self.out);
+        if let Some(phase) = self.phase.as_ref() {
+            unobserved(
+                &phase.definition.events,
+                &phase.clock,
+                end_ms,
+                self.run,
+                &mut self.out,
+            );
+            unobserved_paths(phase, end_ms, self.run, &mut self.out);
         }
     }
 
     fn finish(mut self, end_ms: i64) -> Vec<Record> {
         self.advance(end_ms, true);
+        self.advance_branches(end_ms, false);
         self.record_unobserved(end_ms);
         // Stable ties retain transition order across independent fight and phase schedules.
         self.out.sort_by_key(|record| record.at_ms);
@@ -366,48 +745,17 @@ impl<'a> Replay<'a> {
 }
 
 pub(crate) fn replay(timeline: &Timeline, input: &Recording) -> Result<Vec<Record>> {
-    let mut unsupported = timeline.controls.clone();
-    for branch in timeline.phases.iter().flat_map(|phase| &phase.branches) {
-        let options = branch
-            .options
-            .iter()
-            .map(|option| {
-                format!(
-                    "{}: {} signals, {} requirements, {} events",
-                    option.id,
-                    option.whens.len(),
-                    option.requires.len(),
-                    option.events.len()
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("; ");
-        let merge = branch.merge.as_ref().map_or_else(String::new, |merge| {
-            format!(
-                ", merge: {} signals, {} events",
-                merge.whens.len(),
-                merge.events.len()
-            )
-        });
-        unsupported.push(format!(
-            "branch {} ({:.1}..{:.1}s; {}{})",
-            branch.id,
-            branch.open as f64 / 10.0,
-            branch.close as f64 / 10.0,
-            options,
-            merge
-        ));
-    }
     ensure!(
-        unsupported.is_empty(),
-        "Replay currently supports lifecycle, phase, event and sync only; unsupported: {}",
-        unsupported.join(", ")
+        timeline.controls.is_empty(),
+        "Replay does not yet support: {}",
+        timeline.controls.join(", ")
     );
     validate_recording(input)?;
     let mut state = Replay {
         timeline,
         fight: None,
         phase: None,
+        history: BTreeMap::new(),
         run: 0,
         out: Vec::new(),
     };

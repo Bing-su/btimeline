@@ -101,11 +101,231 @@ fn phase_branch_preserves_conditions_and_schedules_for_replay() {
         branches[1].options[0].requires,
         [("first".into(), "left".into())]
     );
-    let error = replay(&model, &recording(0, serde_json::json!([])).unwrap())
-        .unwrap_err()
-        .to_string();
-    assert!(error.contains("branch first"));
-    assert!(error.contains("branch second"));
+}
+
+#[test]
+fn branch_select_sync_merge_and_shared_clock() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            event "phase-hit" 5.0 name="Phase"
+            branch "b" open=0.0 close=4.0 {
+                option "left" {
+                    when "Left"
+                    event "left-zero" 0.0 name="Zero"
+                    event "left-hit" 2.0 name="Left" { sync 2.0 "Sync" before=3.0 after=3.0; }
+                    event "cancelled" 5.0 name="Cancelled"
+                }
+                option "right" { when "Right"; }
+                merge { when "Merge"; event "shared" 1.0 name="Shared"; }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        6000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1049,"type":"Left","fields":{}},
+            {"at_ms":2000,"type":"Sync","fields":{}},
+            {"at_ms":3000,"type":"Merge","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "option" && r.detail == "b/left")
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("left-zero:") && r.at_ms == 1049)
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("left-hit:") && r.at_ms == 2000)
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("phase-hit:") && r.at_ms == 4000)
+    );
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("shared:") && r.at_ms == 4000)
+    );
+    assert!(
+        !output
+            .iter()
+            .any(|r| r.action == "event" && r.detail.starts_with("cancelled:"))
+    );
+}
+
+#[test]
+fn prior_choices_survive_phase_transition_but_not_wipe() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        wipe "Wipe"
+        phase "first" {
+            enter "Start"
+            branch "first-choice" open=0.0 close=2.0 {
+                option "a" { when "A"; }
+                option "b" { when "B"; }
+            }
+        }
+        phase "second" {
+            enter "Next"
+            branch "second-choice" open=0.0 close=2.0 {
+                option "a" { when "A"; requires "first-choice" "a"; }
+                option "b" { when "B"; requires "first-choice" "b"; }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        8000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"A","fields":{}},
+            {"at_ms":2000,"type":"Next","fields":{}},
+            {"at_ms":2500,"type":"A","fields":{}},
+            {"at_ms":3000,"type":"Wipe","fields":{}},
+            {"at_ms":4000,"type":"Start","fields":{}},
+            {"at_ms":4500,"type":"Next","fields":{}},
+            {"at_ms":5000,"type":"A","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.run == 1 && r.action == "option" && r.detail == "second-choice/a")
+    );
+    assert!(output.iter().any(|r| r.run == 2
+        && r.action == "unresolved"
+        && r.detail.contains("missing prior choice")));
+    assert!(
+        !output
+            .iter()
+            .any(|r| r.run == 2 && r.action == "option" && r.detail == "second-choice/a")
+    );
+}
+
+#[test]
+fn closed_branch_does_not_reopen_after_backward_sync() {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            event "sync" 8.0 name="Sync" { sync 1.0 "Back" before=9.0 after=9.0; }
+            branch "b" open=0.0 close=2.0 {
+                option "a" { when "A"; }
+                option "b" { when "B"; }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        4000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":2000,"type":"Back","fields":{}},
+            {"at_ms":2100,"type":"A","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "unresolved" && r.detail == "b")
+    );
+    assert!(!output.iter().any(|r| r.action == "option"));
+}
+
+#[test]
+fn competing_branch_actions_do_not_choose_or_merge() {
+    let model = parse(
+        r##"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            branch "choice" open=0.0 close=3.0 {
+                option "a" { when "X" { regex "id" "A.*"; }; }
+                option "b" { when "X" id="ABC"; }
+                merge { when "X" id="ABC"; }
+            }
+        }
+    }"##,
+    )
+    .unwrap();
+    let input = recording(
+        4000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"X","fields":{"id":"ABC"}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert!(output.iter().any(|r| r.action == "ambiguous"));
+    assert!(
+        output
+            .iter()
+            .any(|r| r.action == "unresolved" && r.detail == "choice")
+    );
+    assert!(
+        !output
+            .iter()
+            .any(|r| r.action == "option" || r.action == "merge")
+    );
+}
+
+#[rstest]
+#[case(1949, true)]
+#[case(1950, false)]
+fn selection_close_uses_rounded_phase_time(#[case] at_ms: i64, #[case] selected: bool) {
+    let model = parse(
+        r#"timeline 1 "x" {
+        start "Start"
+        phase "p" {
+            enter "Start"
+            branch "b" open=0.0 close=2.0 {
+                option "a" { when "A"; }
+                option "b" { when "B"; }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        3000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":at_ms,"type":"A","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let output = replay(&model, &input).unwrap();
+    assert_eq!(output.iter().any(|r| r.action == "option"), selected);
+    assert_eq!(
+        output
+            .iter()
+            .any(|r| r.action == "unresolved" && r.detail == "b"),
+        !selected
+    );
 }
 
 #[test]
