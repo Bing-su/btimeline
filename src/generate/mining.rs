@@ -11,6 +11,7 @@ use crate::fflogs::model::CollectedLog;
 
 mod candidates;
 mod common;
+mod repeats;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 enum Identifier {
@@ -209,6 +210,10 @@ fn trace_node(pull: &Pull, ids: &BTreeMap<String, String>) -> Result<KdlNode> {
         }
         trace.ensure_children().nodes_mut().push(observation);
     }
+    trace
+        .ensure_children()
+        .nodes_mut()
+        .extend(repeats::nodes(&pull.batches, &pull.phase_transitions)?);
     // Keep all packets independently of cast selection, e.g. target-only markers and unknown fields.
     for (index, event) in pull.events.iter().enumerate() {
         let mut raw = KdlNode::new("raw-event");

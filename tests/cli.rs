@@ -256,6 +256,68 @@ fn mine_combines_translated_names_from_different_source_languages() {
 }
 
 #[rstest::rstest]
+#[case(&[], true, 3)]
+#[case(&[], false, 3)]
+#[case(&[8000], true, 2)]
+#[case(&[4000,8000], true, 0)]
+fn mine_reports_observed_repeat_iterations_with_phase_boundaries(
+    #[case] boundaries: &[i64],
+    #[case] kill: bool,
+    #[case] iterations: i128,
+) {
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("repeat.json");
+    let output = dir.path().join("process.kdl");
+    let mut data: Value = serde_json::from_slice(&fs::read(INPUT).unwrap()).unwrap();
+    data["events"][1]["timestamp"] = 6001.into();
+    data["report"]["fights"][0]["kill"] = kill.into();
+    data["report"]["fights"][0]["phaseTransitions"] = boundaries
+        .iter()
+        .enumerate()
+        .map(|(index, at)| serde_json::json!({"id":index + 1,"startTime":at}))
+        .collect();
+    fs::write(&input, serde_json::to_vec(&data).unwrap()).unwrap();
+    cargo_bin_cmd!("btimeline")
+        .arg("mine")
+        .arg(&input)
+        .arg("-o")
+        .arg(&output)
+        .assert()
+        .success();
+    let document: kdl::KdlDocument = fs::read_to_string(output).unwrap().parse().unwrap();
+    let trace = document.nodes()[0]
+        .children()
+        .unwrap()
+        .nodes()
+        .iter()
+        .find(|node| node.name().value() == "trace")
+        .unwrap();
+    let candidates: Vec<_> = trace
+        .children()
+        .unwrap()
+        .nodes()
+        .iter()
+        .filter(|node| node.name().value() == "repeat-candidate")
+        .collect();
+    if iterations == 0 {
+        assert!(candidates.is_empty());
+        return;
+    }
+    assert_eq!(candidates.len(), 1);
+    let repeat = candidates[0];
+    assert_eq!(repeat.get("first_batch").unwrap().as_integer(), Some(0));
+    assert_eq!(repeat.get("period_batches").unwrap().as_integer(), Some(1));
+    assert_eq!(
+        repeat.get("observed_iterations").unwrap().as_integer(),
+        Some(iterations)
+    );
+    let samples = repeat.children().unwrap().nodes();
+    assert_eq!(samples.len(), usize::try_from(iterations).unwrap());
+    assert_eq!(samples[1].get("at_ms").unwrap().as_integer(), Some(5001));
+    assert_eq!(samples[1].get("first_batch").unwrap().as_integer(), Some(1));
+}
+
+#[rstest::rstest]
 #[case(false, false)]
 #[case(true, false)]
 #[case(false, true)]
