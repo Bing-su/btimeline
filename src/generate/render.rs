@@ -228,6 +228,33 @@ fn slug(name: &str) -> String {
         .join("-")
 }
 
+fn event_id(anchor: &Anchor, context: Option<&str>, disambiguate: bool) -> String {
+    let mut id = format!(
+        "{}-{}-{}",
+        slug(&anchor.name),
+        slug(&anchor.source),
+        anchor.ability.to_lowercase()
+    );
+    if let Some(occurrence) = anchor.occurrence {
+        id.push_str(&format!("-{occurrence:02}"));
+    }
+    // Local references can reuse an ordinal, e.g. B-03 before C and another B-03 after C.
+    if disambiguate {
+        for (label, pointer) in [
+            ("after", "/bounds/left/identifier/Ability"),
+            ("before", "/bounds/right/identifier/Ability"),
+        ] {
+            if let Some(ability) = anchor.alignment.pointer(pointer).and_then(Value::as_i64) {
+                id.push_str(&format!("-{label}-{ability:x}"));
+            }
+        }
+    }
+    if let Some(context) = context {
+        id = format!("{context}-{id}");
+    }
+    id
+}
+
 fn schedule(
     anchors: &[Anchor],
     zeros: &BTreeMap<String, i64>,
@@ -238,6 +265,12 @@ fn schedule(
     let mut events = Vec::new();
     let mut evidence = Vec::new();
     let mut used = BTreeSet::new();
+    let mut label_counts = BTreeMap::<_, usize>::new();
+    for anchor in anchors {
+        *label_counts
+            .entry((&anchor.activity, anchor.occurrence))
+            .or_default() += 1;
+    }
     for anchor in anchors {
         let timing::Estimate {
             samples,
@@ -247,18 +280,13 @@ fn schedule(
             max_tick,
         } = timing::estimate(&progression.samples(&anchor.observations)?, zeros)?;
         let seconds = tick as f64 / 10.0;
-        let mut event_id = format!(
-            "{}-{}-{}",
-            slug(&anchor.name),
-            slug(&anchor.source),
-            anchor.ability.to_lowercase()
+        let event_id = event_id(
+            anchor,
+            context,
+            label_counts
+                .get(&(&anchor.activity, anchor.occurrence))
+                .is_some_and(|count| *count > 1),
         );
-        if let Some(occurrence) = anchor.occurrence {
-            event_id.push_str(&format!("-{occurrence:02}"));
-        }
-        if let Some(context) = context {
-            event_id = format!("{context}-{event_id}");
-        }
         ensure!(
             used.insert(event_id.clone()),
             "Generated event ID collision: {event_id}"

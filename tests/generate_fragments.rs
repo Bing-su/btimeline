@@ -5,6 +5,50 @@ use assert_cmd::cargo::cargo_bin_cmd;
 use proptest::prelude::*;
 use serde_json::{Value, json};
 
+#[test]
+fn local_reference_ordinals_do_not_collide_across_intervals() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths: Vec<_> = (0..3).map(|peer| {
+        let path = input(dir.path(),peer,"split",100,50);
+        let mut data:Value=serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        data["report"]["masterData"]["abilities"].as_array_mut().unwrap().push(json!({"gameID":104,"name":"Extra","type":"1"}));
+        let mut records=vec![(2000,100,1),(4000,101,1),(4000+if peer==1 {50} else {0},101,2),(6000,102,1),(8000,101,1),(10000,103,1),(12000,101,1)];
+        if peer==1 {records.extend([(3000,104,1),(3500,104,1)]);} else {records.push((14000,101,1));}
+        data["events"]=records.iter().map(|(at,id,instance)|json!({"timestamp":at,"type":"cast","sourceID":10,"sourceInstance":instance,"abilityGameID":id,"fight":1})).collect();
+        data["collection"]["eventCount"]=records.len().into();
+        fs::write(&path,serde_json::to_vec(&data).unwrap()).unwrap();
+        path
+    }).collect();
+    let output = dir.path().join("timeline.kdl");
+    let evidence = generate(&paths, &output);
+    let rows: Vec<_> = evidence["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|row| row["activity"]["identifier"]["Ability"] == 101)
+        .collect();
+    assert_eq!(rows.len(), 3);
+    let bounded = rows
+        .iter()
+        .find(|row| row["alignment"]["bounds"]["left"]["identifier"]["Ability"] == 102)
+        .unwrap();
+    let tail = rows
+        .iter()
+        .find(|row| row["alignment"]["method"] == "censored-tail-v1")
+        .unwrap();
+    assert_eq!(bounded["alignment"]["reference"], "fragments1/1");
+    assert_eq!(tail["alignment"]["reference"], "fragments0/1");
+    assert_ne!(bounded["event"], tail["event"]);
+    assert!(bounded["event"].as_str().unwrap().contains("after-66"));
+    assert!(tail["event"].as_str().unwrap().contains("after-67"));
+    let reverse = dir.path().join("reverse.kdl");
+    generate(&paths.into_iter().rev().collect::<Vec<_>>(), &reverse);
+    assert_eq!(
+        fs::read_to_string(output).unwrap(),
+        fs::read_to_string(reverse).unwrap()
+    );
+}
+
 fn input(dir: &Path, peer: usize, scenario: &str, base: i64, gap: i64) -> PathBuf {
     let mut data: Value =
         serde_json::from_str(include_str!("fixtures/pull.json")).expect("fixture");
