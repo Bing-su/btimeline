@@ -3,6 +3,7 @@ mod fflogs;
 mod generate;
 mod output;
 mod time;
+mod timeline;
 
 use anyhow::Result;
 use usage_rs::Run;

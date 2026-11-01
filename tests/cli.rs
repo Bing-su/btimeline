@@ -205,3 +205,40 @@ fn mine_preserves_wipes_simultaneous_events_and_existing_output() {
         .failure();
     assert_eq!(fs::read_to_string(output).unwrap(), text);
 }
+
+#[test]
+fn timeline_validation_and_replay_are_accessible_without_overwriting_inputs() {
+    let timeline = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/timeline/basic.kdl"
+    );
+    let recording = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/timeline/basic.json"
+    );
+    let validation = cargo_bin_cmd!("btimeline")
+        .args(["validate", timeline])
+        .assert()
+        .success();
+    assert!(String::from_utf8_lossy(&validation.get_output().stdout).contains("Not checked:"));
+    let replay = cargo_bin_cmd!("btimeline")
+        .args(["compare", timeline, recording, "--json"])
+        .assert()
+        .success();
+    let output: Value = serde_json::from_slice(&replay.get_output().stdout).unwrap();
+    let records = output["recordings"][recording].as_array().unwrap();
+    assert!(
+        records
+            .iter()
+            .any(|r| r["action"] == "sync" && r["at_ms"] == 4000)
+    );
+    assert!(
+        records
+            .iter()
+            .any(|r| r["action"] == "start" && r["run"] == 2)
+    );
+    cargo_bin_cmd!("btimeline")
+        .args(["compare", timeline])
+        .assert()
+        .failure();
+}

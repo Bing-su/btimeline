@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use camino::Utf8PathBuf;
 use usage_rs::{Args, Cli, Run, Subcommands};
 
@@ -17,6 +17,95 @@ pub enum MainCommands {
     Inspect(InspectCommand),
     /// Mine observed event sequences into a KDL process graph.
     Mine(MineCommand),
+    /// Check timeline structure and authored constraints.
+    Validate(ValidateCommand),
+    /// Replay normalized recorded signals against a timeline.
+    Compare(CompareCommand),
+}
+
+#[derive(Args)]
+pub struct ValidateCommand {
+    #[usage(arg)]
+    timeline: Utf8PathBuf,
+}
+
+impl Run for ValidateCommand {
+    type Output = Result<()>;
+
+    fn run(self) -> Self::Output {
+        let text = std::fs::read_to_string(&self.timeline)?;
+        let model = crate::timeline::parse(&text)
+            .with_context(|| format!("Validating {}", self.timeline))?;
+        println!(
+            "Valid structure: {} ({} events)",
+            model.name, model.event_count
+        );
+        println!(
+            "Not checked: log type/field catalog, conditional overlaps, dynamic execution constraints, game accuracy."
+        );
+        Ok(())
+    }
+}
+
+#[derive(Args)]
+pub struct CompareCommand {
+    #[usage(arg)]
+    timeline: Utf8PathBuf,
+    /// Normalized signal recordings; each file is an independent replay.
+    #[usage(arg)]
+    recordings: Vec<Utf8PathBuf>,
+    /// Print replay records as JSON, retaining raw millisecond timestamps.
+    #[usage(long)]
+    json: bool,
+}
+
+impl Run for CompareCommand {
+    type Output = Result<()>;
+
+    fn run(self) -> Self::Output {
+        anyhow::ensure!(
+            !self.recordings.is_empty(),
+            "Provide at least one normalized signal recording"
+        );
+        let model = crate::timeline::parse(&std::fs::read_to_string(&self.timeline)?)
+            .with_context(|| format!("Validating {}", self.timeline))?;
+        let mut results = std::collections::BTreeMap::new();
+        for path in &self.recordings {
+            let recording: crate::timeline::Recording =
+                serde_json::from_slice(&std::fs::read(path)?)
+                    .with_context(|| format!("Reading recording {path}"))?;
+            results.insert(
+                path.as_str(),
+                crate::timeline::replay(&model, &recording)
+                    .with_context(|| format!("Replaying {path}"))?,
+            );
+        }
+        if self.json {
+            serde_json::to_writer_pretty(
+                std::io::stdout().lock(),
+                &serde_json::json!({
+                    "recordings": results,
+                    "not_checked": ["missing-signal coverage", "game accuracy"]
+                }),
+            )?;
+            println!();
+        } else {
+            for (path, records) in results {
+                println!("{path}");
+                for record in records {
+                    println!(
+                        "  {:.1}s [run {}] {} {}",
+                        record.at_ms as f64 / 1000.0,
+                        record.run,
+                        record.action,
+                        record.detail
+                    );
+                }
+            }
+            println!("Replay only: missing-signal coverage and game accuracy are not checked.");
+        }
+        Ok(())
+    }
 }
 
 #[derive(Args)]

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "end_ms": 11000,
+  "observations": [
+    { "at_ms": 0, "type": "InCombat", "fields": { "inGameCombat": "1" } },
+    { "at_ms": 4000, "type": "Ability", "fields": { "id": "A001", "source": "Boss" } },
+    { "at_ms": 9000, "type": "StartsUsing", "fields": { "id": "A002" } },
+    { "at_ms": 10500, "type": "ActorControl", "fields": { "command": "4000000F" } },
+    { "at_ms": 10600, "type": "InCombat", "fields": { "inGameCombat": "1" } }
+  ]
+}

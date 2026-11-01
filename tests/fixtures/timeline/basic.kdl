@@ -1,0 +1,20 @@
+// Synthetic timing cases keep replay expectations independent of generated graphs.
+timeline 1 "Replay basics" {
+    start "InCombat" inGameCombat="1"
+    wipe "ActorControl" command="4000000F"
+    finish "Clear" result="win"
+    phase "opening" {
+        enter "InCombat" inGameCombat="1"
+        event "opening-hit" 1.0 name="Opening hit"
+        event "after-sync" 5.0 name="After sync" {
+            sync 3.0 "Ability" id="A001" source="Boss" before=2.0 after=2.0
+        }
+        event "cancelled-by-phase" 8.0 name="Cancelled"
+    }
+    phase "second" {
+        enter "StartsUsing" id="A002" from="opening"
+        event "second-start" 0.0 name="Second phase"
+        event "second-hit" 1.0 name="Second hit"
+        event "beyond-recording" 20.0 name="Later"
+    }
+}
