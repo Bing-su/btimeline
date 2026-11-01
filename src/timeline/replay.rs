@@ -685,6 +685,22 @@ impl<'a> Replay<'a> {
         }
     }
 
+    fn repeat_matches(&self, observation: &Observation) -> bool {
+        let Some(phase) = &self.phase else {
+            return false;
+        };
+        let (Some(definition), Some(state)) = (phase.definition.loops.first(), &phase.repeat)
+        else {
+            return false;
+        };
+        !state.exited
+            && matches_any(
+                &definition.untils,
+                observation,
+                elapsed(phase.clock.base_ms, observation.at_ms),
+            )
+    }
+
     fn repeat_observation(&mut self, observation: &Observation) -> bool {
         let Some(phase) = &mut self.phase else {
             return false;
@@ -709,6 +725,33 @@ impl<'a> Replay<'a> {
             self.run,
         );
         true
+    }
+
+    fn control_observation(&mut self, observation: &Observation) -> bool {
+        if !self.repeat_matches(observation) {
+            return self.branch_observation(observation);
+        }
+        let (actions, unresolved) = self.branch_actions(observation);
+        for id in unresolved {
+            record(
+                &mut self.out,
+                observation.at_ms,
+                "unresolved",
+                format!("{id}: missing prior choice"),
+                self.run,
+            );
+        }
+        if !actions.is_empty() {
+            record(
+                &mut self.out,
+                observation.at_ms,
+                "ambiguous",
+                "Branch action conflicts with loop exit",
+                self.run,
+            );
+            return true;
+        }
+        self.repeat_observation(observation)
     }
 
     // Window comparisons use rounded phase time, including at the observation boundary.
@@ -1039,8 +1082,7 @@ impl<'a> Replay<'a> {
         if lifecycle.is_none()
             && !enter
             && self.fight.is_some()
-            && !self.repeat_observation(observation)
-            && !self.branch_observation(observation)
+            && !self.control_observation(observation)
         {
             self.synchronize(observation)?;
             self.advance_branches(at, true);
@@ -1116,8 +1158,8 @@ fn validate_repeat_support(timeline: &Timeline, input: &Recording) -> Result<()>
             continue;
         };
         ensure!(
-            phase.branches.is_empty() && repeat.branches.is_empty(),
-            "Replay does not yet support branches and loops in the same phase"
+            repeat.branches.is_empty(),
+            "Replay does not yet support branches inside a loop"
         );
         ensure!(
             input.end_ms / (repeat.every * 100) <= 1_000_000,
