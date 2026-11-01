@@ -96,6 +96,11 @@ rc_mutex = "warn"
 allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
 
+# Etc
+cognitive_complexity = "warn"
+excessive_nesting = "warn"
+too_many_lines = "warn"
+
 [profile.release]
 strip = true
 lto = "thin"
