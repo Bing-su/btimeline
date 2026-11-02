@@ -98,10 +98,11 @@ fn draft_anchors(
     analysis: &Analysis,
     progression: &Progression,
     draft: &Draft,
+    mode: Mode,
 ) -> Result<Prepared> {
     let branches = analysis.draft_branches(draft, progression)?;
     let diagnostics = if draft.has_choices() {
-        vec![analysis.draft_choice_validation()?]
+        vec![analysis.draft_choice_validation(!matches!(mode, Mode::Raid))?]
     } else {
         Vec::new()
     };
@@ -426,10 +427,14 @@ fn compose(
     let mut bodies = Vec::new();
     let mut phase_ids = BTreeSet::new();
     for (name, anchors) in scopes {
+        let scope_choices: Vec<_> = choices
+            .iter()
+            .filter(|choice| name.as_ref().is_none_or(|name| &choice.source == name))
+            .collect();
         let (zeros, origins) = clocks(&anchors, progression, mode)?;
         result.nodes.extend(starts(mode, &origins));
         let (mut events, mut evidence) = schedule(&anchors, &zeros, mode, None, progression)?;
-        let branches = branches::render(analysis, progression, &choices, &zeros)?;
+        let branches = branches::render(analysis, progression, &scope_choices)?;
         let has_branches = !branches.nodes.is_empty();
         result.loops.extend(loops::apply(
             analysis,
@@ -441,7 +446,7 @@ fn compose(
             &name,
         ));
         // Place choices by their opening time so the generated schedule reads chronologically.
-        for (choice, node) in choices.iter().zip(branches.nodes) {
+        for (choice, node) in scope_choices.iter().zip(branches.nodes) {
             let position = events
                 .iter()
                 .position(|event| {
@@ -530,7 +535,7 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
             draft.supports_observed_routes(),
             "Representative routes differ; branch, internal-gap and ambiguous-prefix learning is not implemented for fewer than two clears"
         );
-        draft_anchors(&analysis, &progression, &draft)?
+        draft_anchors(&analysis, &progression, &draft, mode)?
     } else {
         anchors(&analysis, &progression, mode)?
     };

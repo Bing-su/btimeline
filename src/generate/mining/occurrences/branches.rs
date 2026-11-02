@@ -75,16 +75,17 @@ fn competing_window(
     trigger: &Signal,
     at: i64,
     triggers: &BTreeSet<&Signal>,
+    origin: i64,
 ) -> (Option<i64>, Option<i64>) {
     // Reused IDs compete too, e.g. an earlier copy must not select this option before its real occurrence.
     let frames = || {
-        pull.batches
-            .iter()
-            .filter(|batch| batch.signals.iter().any(|signal| triggers.contains(signal)))
+        pull.batches.iter().filter(|batch| {
+            batch.at_ms >= origin && batch.signals.iter().any(|signal| triggers.contains(signal))
+        })
     };
     let before = frames()
         .filter(|frame| frame.at_ms < at)
-        .map(|frame| (frame.at_ms + 50) / 100 + 1)
+        .map(|frame| (frame.at_ms - origin + 50) / 100 + 1)
         .max();
     let after = frames()
         .filter(|frame| {
@@ -95,7 +96,7 @@ fn competing_window(
                         .iter()
                         .any(|signal| triggers.contains(signal) && signal != trigger))
         })
-        .map(|frame| (frame.at_ms + 50) / 100)
+        .map(|frame| (frame.at_ms - origin + 50) / 100)
         .min();
     (before, after)
 }
@@ -105,13 +106,27 @@ pub(in crate::generate::mining) fn window(
     pulls: &[&Pull],
     ends: &Samples,
     opening: bool,
+    origins: Option<&Samples>,
 ) -> Result<(i64, i64)> {
+    let origin = |id: &str| -> Result<i64> {
+        match origins {
+            Some(origins) => origins
+                .get(id)
+                .copied()
+                .context("Missing choice scope origin"),
+            None => Ok(0),
+        }
+    };
     let triggers: BTreeSet<_> = options.iter().map(|option| &option.trigger).collect();
     let times: Vec<_> = options
         .iter()
-        .flat_map(|option| option.triggers.values())
-        .map(|at| (at + 50) / 100)
-        .collect();
+        .flat_map(|option| &option.triggers)
+        .map(|(id, at)| {
+            let zero = origin(id)?;
+            ensure!(*at >= zero, "Choice precedes scope origin");
+            Ok((at - zero + 50) / 100)
+        })
+        .collect::<Result<_>>()?;
     let earliest = *times.iter().min().context("Missing choice times")?;
     let latest = *times.iter().max().context("Missing choice times")?;
     let tolerance = if opening { 100 } else { 25 };
@@ -145,16 +160,18 @@ pub(in crate::generate::mining) fn window(
             .max()
             .unwrap_or(0);
         for (id, at) in &option.triggers {
+            let zero = origin(id)?;
             // Censored prefixes have no join sample; only observed joins constrain the continuation boundary.
             if let Some(end) = ends.get(id) {
-                close = close.min((end + 50) / 100 - last);
+                close = close.min((end - zero + 50) / 100 - last);
             }
             let pull = pulls
                 .iter()
                 .find(|pull| trace(pull) == *id)
                 .context("Missing choice trace")?;
             // Inspect the whole trace: a competing choice may precede this local interval.
-            let (before, after) = competing_window(pull, &option.trigger, *at, &triggers);
+            // Ignore earlier phases, e.g. a previous boss attempt must not constrain this boss's window.
+            let (before, after) = competing_window(pull, &option.trigger, *at, &triggers, zero);
             open = open.max(before.unwrap_or(open));
             close = close.min(after.unwrap_or(close));
         }
@@ -284,7 +301,7 @@ fn candidate(
     for (trigger, indices) in variants {
         options.push(option(&paths, pulls, trigger, &indices, join)?);
     }
-    let (open, close) = window(&options, pulls, ends, start.is_none())?;
+    let (open, close) = window(&options, pulls, ends, start.is_none(), None)?;
     let prefix_paths: Vec<_> = paths.iter().collect();
     let shared = events(&prefix_paths, pulls, 0, prefix)?;
     // Only the common leading groups live outside the branch; every remainder belongs to its option.
@@ -377,8 +394,8 @@ mod tests {
             triggers: BTreeMap::from([("prefix/1".into(), 1000)]),
             events: Vec::new(),
         };
-        let error =
-            window(&[option], &[], &BTreeMap::new(), false).expect_err("missing continuation");
+        let error = window(&[option], &[], &BTreeMap::new(), false, None)
+            .expect_err("missing continuation");
         assert!(error.to_string().contains("no observed continuation"));
     }
 }

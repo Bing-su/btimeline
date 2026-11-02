@@ -163,8 +163,8 @@ impl Analysis {
         draft.branches(&self.pulls, progression)
     }
 
-    pub(super) fn draft_choice_validation(&self) -> Result<serde_json::Value> {
-        Draft::validate_choices(&self.pulls)
+    pub(super) fn draft_choice_validation(&self, boss_only: bool) -> Result<serde_json::Value> {
+        Draft::validate_choices(&self.pulls, boss_only)
     }
 
     pub(super) fn loop_models(&self, boss_only: bool) -> Result<LoopDiscovery> {

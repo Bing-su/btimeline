@@ -104,10 +104,9 @@ pub(super) fn discover(
     candidates: &[Candidate],
     progression: &Progression,
 ) -> Result<Option<(Route, Vec<Value>)>> {
-    if source.is_some()
-        || candidates
-            .iter()
-            .any(|peer| peer.nodes.len() > reference.nodes.len())
+    if candidates
+        .iter()
+        .any(|peer| peer.nodes.len() > reference.nodes.len())
     {
         return Ok(None);
     }
@@ -137,9 +136,8 @@ fn discover_complete(
     candidates: &[Candidate],
     progression: &Progression,
 ) -> Result<Option<(Route, Vec<Value>)>> {
-    // shortcut: learn raid permutations first; add boss origins and unequal full routes with their own tests.
-    if source.is_some()
-        || candidates.len() < 2
+    // shortcut: learn equal-length permutations; add unequal full routes with their own tests.
+    if candidates.len() < 2
         || candidates
             .iter()
             .any(|peer| peer.nodes.len() != reference.nodes.len())
@@ -157,6 +155,10 @@ fn discover_complete(
         .take_while(|(index, signal)| paths.iter().all(|path| path.get(*index) == Some(*signal)))
         .count();
     if prefix == base.len() {
+        return Ok(None);
+    }
+    // A boss needs a shared entry before its choice; entry and selection cannot consume one signal twice.
+    if source.is_some() && prefix == 0 {
         return Ok(None);
     }
     let suffix = base
@@ -197,7 +199,7 @@ fn discover_complete(
             })
             .collect::<Result<Vec<_>>>()?;
         let seed = selected.first().context("Missing option reference")?;
-        let (route, checks) = Route::learn(None, seed, &selected, progression)?;
+        let (route, checks) = Route::learn(source.clone(), seed, &selected, progression)?;
         options.push(route);
         diagnostics.extend(checks);
     }
@@ -219,7 +221,7 @@ fn discover_complete(
         .iter()
         .find(|peer| peer.reference == reference.reference)
         .context("Missing backbone reference")?;
-    let (mut route, checks) = Route::learn(None, seed, &backbone, progression)?;
+    let (mut route, checks) = Route::learn(source.clone(), seed, &backbone, progression)?;
     diagnostics.extend(checks);
     diagnostics.push(json!({"method":"representative-order-choice-v1","reference":reference.reference,"source":caster,
         "status":"learned","prefix_nodes":prefix,"suffix_nodes":suffix,"options":options.len()}));
@@ -239,6 +241,20 @@ pub(super) fn lower(
 ) -> Result<Vec<Branch>> {
     let mut result = Vec::new();
     for route in &draft.routes {
+        let origins = if route.source.is_some() {
+            Some(
+                progression.samples(
+                    &route
+                        .graph
+                        .node_weights()
+                        .next()
+                        .context("Missing boss entry")?
+                        .observations,
+                )?,
+            )
+        } else {
+            None
+        };
         for choice in &route.choices {
             let join = route
                 .graph
@@ -260,6 +276,7 @@ pub(super) fn lower(
                 &pulls.iter().collect::<Vec<_>>(),
                 &ends,
                 choice.after.is_none(),
+                origins.as_ref(),
             )?;
             result.push(Branch {
                 source: choice.source.clone(),

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -143,9 +144,24 @@ impl Candidate {
     }
 }
 
+fn learning_views(pulls: &[Pull], boss_only: bool) -> (Vec<Cow<'_, Pull>>, Vec<Value>) {
+    let mut views: Vec<_> = pulls.iter().map(Pull::learning_view).collect();
+    views.sort_by(|a, b| (&a.report, a.fight).cmp(&(&b.report, b.fight)));
+    if boss_only {
+        let selected: Vec<_> = views.iter().map(|pull| pull.as_ref()).collect();
+        let (projected, diagnostics) = bosses::project(&selected);
+        (projected.into_iter().map(Cow::Owned).collect(), diagnostics)
+    } else {
+        (views, Vec::new())
+    }
+}
+
 impl Draft {
-    pub(in crate::generate::mining) fn validate_choices(pulls: &[Pull]) -> Result<Value> {
-        validation::check(pulls)
+    pub(in crate::generate::mining) fn validate_choices(
+        pulls: &[Pull],
+        boss_only: bool,
+    ) -> Result<Value> {
+        validation::check(pulls, boss_only)
     }
 
     pub(in crate::generate::mining) fn branches(
@@ -162,20 +178,7 @@ impl Draft {
         progression: &Progression,
         boss_only: bool,
     ) -> Result<Self> {
-        let classified: Vec<_> = pulls.iter().map(Pull::learning_view).collect();
-        let mut selected: Vec<_> = classified.iter().map(|pull| pull.as_ref()).collect();
-        selected
-            .sort_by(|left, right| (&left.report, left.fight).cmp(&(&right.report, right.fight)));
-        let (views, mut diagnostics) = if boss_only {
-            bosses::project(&selected)
-        } else {
-            (Vec::new(), Vec::new())
-        };
-        let pulls: Vec<_> = if boss_only {
-            views.iter().collect()
-        } else {
-            selected
-        };
+        let (pulls, mut diagnostics) = learning_views(pulls, boss_only);
         let sources: BTreeSet<_> = if boss_only {
             pulls
                 .iter()

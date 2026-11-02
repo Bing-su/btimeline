@@ -3,7 +3,17 @@ use std::collections::BTreeSet;
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
 
-use super::{Candidate, Draft, Progression, Pull, Route, Signal, choices, prefixes};
+use super::{
+    Candidate,
+    Draft,
+    Progression,
+    Pull,
+    Route,
+    Signal,
+    choices,
+    learning_views,
+    prefixes,
+};
 
 fn paths(route: &Route) -> Result<Vec<Vec<Signal>>> {
     ensure!(
@@ -49,8 +59,8 @@ fn paths(route: &Route) -> Result<Vec<Vec<Signal>>> {
         .collect()
 }
 
-// shortcut: check raid paths and terminated prefixes; add KDL timing and general path validation with their own evidence.
-pub(super) fn check(pulls: &[Pull]) -> Result<Value> {
+// shortcut: check observed paths and terminated prefixes; add KDL timing validation with its own evidence.
+pub(super) fn check(pulls: &[Pull], boss_only: bool) -> Result<Value> {
     let reports: BTreeSet<_> = pulls.iter().map(|pull| &pull.report).collect();
     let not_checked = [
         "final KDL execution and timing",
@@ -74,42 +84,68 @@ pub(super) fn check(pulls: &[Pull]) -> Result<Value> {
     let trace = |pull: &Pull| format!("{}/{}", pull.report, pull.fight);
     let split = json!({"training":training.iter().map(trace).collect::<Vec<_>>(),"held_out":withheld.iter().map(trace).collect::<Vec<_>>()});
     let training_observations = Progression::new(&training);
-    let model = Draft::new(&training, &training_observations, false)?;
-    let model_paths = model
+    let model = Draft::new(&training, &training_observations, boss_only)?;
+    let (training_views, _) = learning_views(&training, boss_only);
+    let (withheld_views, _) = learning_views(&withheld, boss_only);
+    let observed = Progression::new(&withheld);
+    // Check unseen bosses explicitly, e.g. a holdout-only final boss must not disappear or train the model.
+    let sources: BTreeSet<_> = model
         .routes
         .iter()
-        .map(paths)
-        .collect::<Result<Vec<_>>>()?
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
-    let mut complete = Vec::new();
-    for pull in &training {
-        let view = pull.learning_view();
-        if let Some(candidate) = Candidate::new(view.as_ref(), &training_observations, &None)?
-            && model_paths.contains(&choices::activities(&candidate, &training_observations)?)
-        {
-            complete.push(candidate);
+        .map(|route| route.source.clone())
+        .chain(
+            withheld_views
+                .iter()
+                .flat_map(|pull| pull.boss_names.iter().cloned().map(Some))
+                .filter(|_| boss_only),
+        )
+        .chain((!boss_only).then_some(None))
+        .collect();
+    let mut checks = Vec::new();
+    for source in sources {
+        let route = model.routes.iter().find(|route| route.source == source);
+        let model_paths = route.map(paths).transpose()?.unwrap_or_default();
+        let mut complete = Vec::new();
+        for view in &training_views {
+            if let Some(candidate) = Candidate::new(view.as_ref(), &training_observations, &source)?
+                && model_paths.contains(&choices::activities(&candidate, &training_observations)?)
+            {
+                complete.push(candidate);
+            }
+        }
+        for view in &withheld_views {
+            let candidate = Candidate::new(view.as_ref(), &observed, &source)?;
+            let sequence = candidate
+                .as_ref()
+                .map(|candidate| choices::activities(candidate, &observed))
+                .transpose()?;
+            let complete_sequence = sequence
+                .as_ref()
+                .is_some_and(|sequence| model_paths.contains(sequence));
+            let (supporting_traces, next_expected_ms) = if let Some(candidate) = &candidate {
+                prefixes::support(
+                    candidate,
+                    &observed,
+                    &complete,
+                    &training_observations,
+                    route.and_then(|route| route.choices.first()),
+                )?
+            } else {
+                (0, None)
+            };
+            let end_ms = candidate.as_ref().map(|candidate| candidate.end_ms);
+            let supported = route.is_some_and(|route| route.peers_complete);
+            let matched = supported && complete_sequence && supporting_traces > 0;
+            let censored = supported
+                && supporting_traces > 0
+                && end_ms
+                    .zip(next_expected_ms)
+                    .is_some_and(|(end, next)| end < next);
+            checks.push(json!({"trace":trace(view.as_ref()),"source":source,"training":false,"status":if matched {"matched"} else if censored {"censored"} else {"unresolved"},
+            "scope_end_ms":end_ms,"next_expected_ms":next_expected_ms,"supporting_traces":supporting_traces,
+            "reason":if matched {"complete observed sequence matches a training path"} else if censored {"observed prefix ended before the next occurrence on every matching training path"} else {"unseen occurrence order, missing scope, incomplete model or overdue occurrence"}}));
         }
     }
-    let observed = Progression::new(&withheld);
-    let checks = withheld.iter().map(|pull| {
-        let view = pull.learning_view();
-        let candidate = Candidate::new(view.as_ref(), &observed, &None)?;
-        let sequence = candidate.as_ref().map(|candidate| choices::activities(candidate, &observed)).transpose()?;
-        let complete_sequence = sequence.as_ref().is_some_and(|sequence| model_paths.contains(sequence));
-        let (supporting_traces, next_expected_ms) = if let Some(candidate) = &candidate {
-            prefixes::support(candidate, &observed, &complete, &training_observations,
-                model.routes.first().and_then(|route| route.choices.first()))?
-        } else { (0, None) };
-        let end_ms = candidate.as_ref().map(|candidate| candidate.end_ms);
-        let matched = model.supports_observed_routes() && complete_sequence && supporting_traces > 0;
-        let censored = model.supports_observed_routes() && supporting_traces > 0
-            && end_ms.zip(next_expected_ms).is_some_and(|(end,next)| end < next);
-        Ok(json!({"trace":trace(pull),"training":false,"status":if matched {"matched"} else if censored {"censored"} else {"unresolved"},
-            "scope_end_ms":end_ms,"next_expected_ms":next_expected_ms,"supporting_traces":supporting_traces,
-            "reason":if matched {"complete observed sequence matches a training path"} else if censored {"observed prefix ended before the next occurrence on every matching training path"} else {"unseen occurrence order, missing scope, incomplete model or overdue occurrence"}}))
-    }).collect::<Result<Vec<_>>>()?;
     Ok(
         json!({"method":"automatic-draft-validation-v1","status":"evaluated","selection":"greatest-report-v1",
         "split":split,"model":model.evidence(),"checks":checks,"not_checked":not_checked}),

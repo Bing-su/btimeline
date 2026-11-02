@@ -1,6 +1,4 @@
-use std::collections::BTreeMap;
-
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result};
 use kdl::KdlNode;
 
 use super::{
@@ -20,14 +18,9 @@ use super::{
 pub(super) fn render(
     analysis: &Analysis,
     progression: &Progression,
-    choices: &[Branch],
-    zeros: &BTreeMap<String, i64>,
+    choices: &[&Branch],
 ) -> Result<Rendered> {
     let mut result = Rendered::default();
-    ensure!(
-        choices.is_empty() || zeros.values().all(|at| *at == 0),
-        "Local order branches require a combat-origin scope"
-    );
     for choice in choices {
         let Identifier::Ability(join) = choice.join.identifier else {
             anyhow::bail!("Branch continuation requires an ability")
