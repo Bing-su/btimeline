@@ -1,6 +1,6 @@
 # 일반 던전 반복 검증
 
-**Chirurgeon General과 Thundergust Griffin의 본체 이름에 속하는 시전 반복을 자동 생성한다.** Griffin은 이름이 다른 helper가 빠져 전체 기믹 검증이 미완료이며, 나머지 7개 참조 보스의 반복도 생성하지 못한다. 유한 로그의 공통 시전 복원과 반복 모델링은 구분한다. cactbot에 타임라인이 없는 Clyteum 대신 Alexandria·Mistwake·Meso Terminal을 검사했다. 비교 기준은 고정 커밋과 [9개 보스 반복 조사](CACTBOT_DUNGEON_LOOP_REFERENCE.md)에 기록했다.
+**Chirurgeon General과 Thundergust Griffin의 본체 이름에 속하는 시전 반복을 자동 생성한다.** Griffin의 KDL에는 이름이 다른 helper가 빠져 전체 기믹 검증이 미완료이며, 나머지 7개 참조 보스의 반복도 생성하지 못한다. 유한 로그의 공통 시전 복원과 반복 모델링은 구분한다. cactbot에 타임라인이 없는 Clyteum 대신 Alexandria·Mistwake·Meso Terminal을 검사했다. 비교 기준은 고정 커밋과 [9개 보스 반복 조사](CACTBOT_DUNGEON_LOOP_REFERENCE.md)에 기록했다.
 
 ## 조사 시작 시점의 입력과 생성 결과
 
@@ -96,9 +96,30 @@ Meso 본문의 세 참조 일치 기록에서 원본 파동 대응은 각각 **4
 | Alexandria 기존 5개 | 49 / 0           | `out/alexandria-context-loops.{kdl,evidence.json}`; 기존 KDL과 동일 |
 | Clyteum 기존 3개    | 87 / 0           | `out/clyteum-context-loops.{kdl,evidence.json}`; 기존 KDL과 동일    |
 
-**Griffin의 전체 cactbot 본문 일치 판정은 여전히 0회다.** Storm Surge 뒤 `Shock Storm`의 Electrifying Flight `B0F4`는 원본 cast에 존재하지만 본체와 이름이 다르고 FFLogs의 `enemyNPCs`에도 없어 현재 활동 후보·진행 그래프부터 빠져 있다. 생성기에서 본체 이름의 모든 후반 관측에 대응했다는 사실로 이 helper 누락을 숨기지 않는다. 참조 본문에 필요한 나머지 관측 대응과 helper 소속 연결이 후속 작업이다. 시도별 분리 재생은 처치·리셋·다음 보스까지 이어지는 lifecycle 검증도 아니다.
+이 단계에서는 Griffin의 전체 cactbot 본문 일치 판정이 0회였다. Storm Surge 뒤 `Shock Storm`의 Electrifying Flight `B0F4`가 원본 cast에 있지만 본체와 이름이 다르고 FFLogs의 `enemyNPCs`에도 없어 활동 후보·진행 그래프부터 빠졌기 때문이다. 아래의 후보 보존 단계에서 원본을 복원하며 KDL의 helper 연결은 아직 미완료로 남긴다. 시도별 분리 재생은 처치·리셋·다음 보스까지 이어지는 lifecycle 검증도 아니다.
 
 새 입력을 단독 생성할 때는 별도의 기존 ID 버그도 재현됐다. 구간별 참조 로그가 달라 같은 능력의 서로 다른 발생에 `-03`이 중복됐다. 원본 대응을 바꾸지 않고 충돌하는 이름에만 `after-a941-before-af19` / `after-a947` 같은 기준점 문맥을 붙였다. 합성 자료에서도 서로 다른 두 발생의 보존과 입력 순서에 무관한 KDL을 검사한다.
+
+## 명단 밖 NPC 후보의 복원
+
+보스 소속을 판정하기 전에 명단 밖 NPC 관측을 보존한다. 양수 actor ID의 NPC이며 `petOwner`가 없거나 null인 비근접 cast·begincast를 미분류로 남겼다. Player·보고된 소유자가 있는 NPC·Environment를 새로 포함하지 않고, 이름이 비면 `source=null`로 보존한다. 명단 밖 소유 NPC와 시전 외 관측의 분류는 아직 남아 있다.
+
+미분류 후보는 원본 발생 그래프와 `mine`에 남고 기존 실행용 공통 정렬·loop 학습에는 자동으로 넣지 않는다. 학습 뷰를 만들 때 batch 위치와 원본 event 인덱스를 보존하므로 같은 생성 실행의 원본 그래프와 표본 대응이 어긋나지 않는다. 같은 이름·능력·시각의 기존 적대 관측과 미분류 관측이 섞여도 학습에는 기존 멤버만 사용한다. [후보와 실행 적격성 계약](GENERATION.md#명단-밖-npc의-관측과-실행-적격성)에 근거 필드를 정의했다.
+
+| 재검증 코퍼스      | 전부 미분류인 cast 파동 노드 | KDL                                     |
+| ------------------ | ---------------------------: | --------------------------------------- |
+| Mistwake 12개      | 1,900; 그중 Shock Storm 12개 | 95개 정의, 기존 출력과 바이트 단위 동일 |
+| Meso Terminal 15개 |                           60 | 39개 정의, 기존 출력과 동일             |
+| R9S 3개            |                          157 | 82개 정의, 기존 출력과 동일             |
+| R10S 3개           |                           24 | 155개 정의, 기존 출력과 동일            |
+| R11S 8개           |                            1 | 179개 정의, 기존 출력과 동일            |
+| Clyteum 3개        |                           54 | 87개 정의, 기존 출력과 동일             |
+
+Griffin은 원본 참조 본문·다음 경계 전체가 **0 → 8개 시도**에서 대응된다. 각 본문의 원본 파동 후보 17개 중 출력 대응은 **16/17**이며 빠진 하나가 Shock Storm이다. 경계 간격은 89.139–89.385초, 참조에 대한 본문·경계 최대 offset 차이는 495ms다. 원본 관측을 확인했다는 사실을 helper까지 출력했다는 뜻으로 해석하지 않는다.
+
+새 원본 그래프를 기존 8개 입력의 생성 KDL에 투영한 재생에는 보스 범위 내 미분류 시전 639개도 포함했다. 기존 loop 멤버의 최대 예측 차이 974ms, 예측 없음·5초 초과·ambiguous·unresolved·violation·skipped는 모두 0이었다. 새 4개 입력은 여전히 보류 자료다. 이 숫자는 미분류 후보의 미래 표시 커버리지나 모든 runtime 신호 경쟁의 증명이 아니다.
+
+새 산출물은 `out/{mistwake,meso,r9s,r10s,r11s,clyteum}-unclassified.{kdl,evidence.json}`이다. 후보 분류·Player/소유 NPC 제외·이름 누락·같은 이름의 혼합 파동·미분류 시전이 loop에 섞이지 않음·잘못된 능력 참조의 원자적 실패를 합성 회귀로 검사했다. 다음 단계는 반복 문맥으로 helper 소속을 검증하고, 미분류 시전이 기존 sync와 경쟁하는지 확인하는 것이다. 시간 근접도만으로 KDL에 넣지 않는다.
 
 ## 재현과 후속 구현
 
@@ -126,6 +147,13 @@ btimeline generate logs/mistwake-longer/*.json --mode dungeon -o out/mistwake-co
 btimeline generate logs/loop-mistwake/*.json logs/mistwake-longer/*.json --mode dungeon -o out/mistwake-context-expanded.kdl
 bun scripts/replay_dungeon_loops.ts out/mistwake-context-loops.evidence.json out/mistwake-context-expanded.evidence.json target/debug/btimeline out/mistwake-context-holdout-replay.json
 bun scripts/replay_dungeon_loops.ts out/mistwake-context-independent.evidence.json out/mistwake-context-expanded.evidence.json target/debug/btimeline out/mistwake-reverse-holdout-replay.json
+```
+
+```sh
+cargo test --test generate_unclassified
+btimeline generate logs/loop-mistwake/*.json logs/mistwake-longer/*.json --mode dungeon -o out/mistwake-unclassified.kdl
+bun scripts/audit_dungeon_loops.ts out/mistwake-unclassified.evidence.json /path/to/cactbot/ui/raidboss/data/07-dt/dungeon/mistwake.txt /path/to/cactbot -o out/mistwake-unclassified-reference.json
+bun scripts/replay_dungeon_loops.ts out/mistwake-context-loops.evidence.json out/mistwake-unclassified.evidence.json target/debug/btimeline out/mistwake-unclassified-holdout-replay.json
 ```
 
 조사 당시 산출물은 `out/{alexandria,mistwake,meso-terminal,meso-terminal-long}-loop-audit.{kdl,evidence.json}`이다. 첫 구현은 `out/meso-generated-loop-final.{kdl,evidence.json}`, 보고서 보류 생성은 `out/meso-generated-loop-holdout-final.{kdl,evidence.json}`과 각 replay 보고서다. 원본은 CLI의 일반 `generate --mode dungeon` 입력이며 cactbot은 검증 oracle에만 사용한다. 전체 입력은 `logs/loop-meso-terminal/*.json`과 추가 파일 `logs/dungeon-loop-long/3Cy9dQN21DKYLABg_14.json`이며 보류 학습에서는 `GrByCA3mZvDa2jLM_*.json` 두 개를 제외한다.
