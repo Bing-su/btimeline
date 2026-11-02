@@ -6,8 +6,21 @@ import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
 import { compareFiles } from "./compare_cactbot.ts";
 
-export type Pattern = { ids: string[]; sources: string[]; time: number; name: string };
-export type Observation = { id: string; source: string | null; at: number; node: number };
+export type Pattern = {
+  ids: string[];
+  sources: string[];
+  time: number;
+  name: string;
+  kind?: "cast" | "begincast";
+};
+export type Observation = {
+  id: string;
+  source: string | null;
+  at: number;
+  node: number;
+  kind?: "cast" | "begincast";
+  entities?: string[];
+};
 
 // Bind rendered definitions to raw nodes; repeated iterations are not additional finite definitions.
 export function representedNodes(evidence: any, trace: string): Set<number> {
@@ -27,6 +40,7 @@ export function representedNodes(evidence: any, trace: string): Set<number> {
 }
 
 const matches = (pattern: Pattern, sample: Observation) =>
+  (pattern.kind ?? "cast") === (sample.kind ?? "cast") &&
   pattern.ids.includes(sample.id) &&
   (!pattern.sources.length || (sample.source !== null && pattern.sources.includes(sample.source)));
 
@@ -50,7 +64,13 @@ export function completeCycles(samples: Observation[], body: Pattern[], closing:
     if (
       previous &&
       sample.at - previous[0].at <= 100 &&
-      (previous.length > 1 || previous.some((row) => row.id !== sample.id)) &&
+      (previous.some((row) => row.id !== sample.id) ||
+        (sample.entities?.length &&
+          previous.every(
+            (row) =>
+              row.entities?.length &&
+              row.entities.every((entity) => !sample.entities!.includes(entity)),
+          ))) &&
       patterns.some(
         (pattern) => matches(pattern, sample) && previous.every((row) => matches(pattern, row)),
       )
