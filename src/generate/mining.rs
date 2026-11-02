@@ -250,23 +250,28 @@ fn batches(pull: &super::Pull, log: &CollectedLog) -> Result<Vec<Batch>> {
         let source = names
             .get(&occurrence.actor_id)
             .context("Missing event source name")?;
-        ensure!(!source.is_empty(), "Empty event source name");
+        // Listed enemies can also be anonymous; preserve them without inventing a runtime name.
+        let unclassified = source.trim().is_empty();
         selected.push((
             occurrence.event_index,
             Signal {
                 kind: occurrence.kind.clone(),
                 identifier: Identifier::Ability(occurrence.ability_id),
-                source: Some((*source).to_owned()),
+                source: (!unclassified).then(|| (*source).to_owned()),
                 target: None,
             },
+            unclassified,
         ));
     }
-    selected.extend(candidates::select(log)?);
-    let known = selected.iter().map(|(index, _)| *index).collect();
+    selected.extend(
+        candidates::select(log)?
+            .into_iter()
+            .map(|(index, signal)| (index, signal, false)),
+    );
+    let known = selected.iter().map(|(index, _, _)| *index).collect();
     let extra = unclassified::casts(log, &known)?;
     for (index, signal, unclassified) in selected
         .into_iter()
-        .map(|(i, s)| (i, s, false))
         .chain(extra.into_iter().map(|(i, s)| (i, s, true)))
     {
         let event = log.events.get(index).context("Missing candidate event")?;

@@ -281,14 +281,22 @@ fn invalid_unclassified_casts_do_not_produce_partial_output(#[case] missing_id: 
     assert!(!output.with_extension("evidence.json").exists());
 }
 
-#[test]
-fn unnamed_npc_casts_remain_unclassified_without_fabricated_names() {
+#[rstest::rstest]
+#[case(false, false)]
+#[case(true, false)]
+#[case(true, true)]
+fn unnamed_npc_casts_remain_unclassified_without_fabricated_names(
+    #[case] listed: bool,
+    #[case] owned: bool,
+) {
     let dir = tempfile::tempdir().unwrap();
     let paths: Vec<_> = (0..2)
         .map(|peer| {
-            let path = input(dir.path(), peer, "NPC", false, false, false);
+            let path = input(dir.path(), peer, "NPC", owned, listed, false);
             let mut data: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
             data["report"]["masterData"]["actors"][1]["name"] = "".into();
+            data["events"].as_array_mut().unwrap().push(json!({"timestamp":5000,"type":"tether","sourceID":11,"targetID":10,"tetherID":123,"fight":1}));
+            data["collection"]["eventCount"]=data["events"].as_array().unwrap().len().into();
             fs::write(&path, serde_json::to_vec(&data).unwrap()).unwrap();
             path
         })
@@ -314,4 +322,14 @@ fn unnamed_npc_casts_remain_unclassified_without_fabricated_names() {
         assert!(candidate["activity"]["source"].is_null());
     }
     assert_eq!(evidence["events"].as_array().unwrap().len(), 3);
+    assert!(
+        evidence["analysis"]["inputs"][0]["observations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|batch| batch["signals"].as_array().unwrap())
+            .any(|signal| signal["kind"] == "tether"
+                && signal["source"].is_null()
+                && signal["target"] == "Synthetic Boss")
+    );
 }

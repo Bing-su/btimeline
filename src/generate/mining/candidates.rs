@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result};
 
 use super::{Identifier, Signal};
 use crate::fflogs::model::{CollectedLog, Event};
@@ -50,8 +50,8 @@ pub(super) fn select(log: &CollectedLog) -> Result<Vec<(usize, Signal)>> {
             return Ok(None);
         };
         let name = names.get(&id).context("Missing candidate actor name")?;
-        ensure!(!name.is_empty(), "Empty candidate actor name");
-        Ok(Some((*name).to_owned()))
+        // Missing endpoint names stay absent, e.g. a tether from an anonymous enemy to the boss.
+        Ok((!name.trim().is_empty()).then(|| (*name).to_owned()))
     };
     let mut selected = Vec::new();
     for (index, event) in log.events.iter().enumerate() {
