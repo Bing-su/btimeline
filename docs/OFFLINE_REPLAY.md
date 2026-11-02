@@ -20,6 +20,31 @@ cargo run -- compare tests/fixtures/timeline/basic.kdl tests/fixtures/timeline/b
 cargo run -- compare tests/fixtures/timeline/fflogs-native.kdl tests/fixtures/pull.json --json
 ```
 
+## 미래 일정 조회
+
+```sh
+btimeline forecast timeline.kdl recording.json --at-ms 10000 --horizon-ms 30000
+```
+
+항상 JSON을 출력한다. 입력은 아래의 정규화 관측 JSON이며 FFLogs 원본을 직접 받지 않는다. 현재 기록을 10초까지 재생한 상태에서, 추가 신호가 없다는 가정으로 이후 30초의 예정된 표시를 조회한다. 기존 `compare`와 같은 실행 코드를 사용하며 KDL 문법·실행 의미는 변경하지 않는다.
+
+| 필드·규칙                    | 의미                                                                                                                           |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `at_ms`, `until_ms`          | 실제 밀리초 기준 조회 시각과 끝. 반환 범위는 `(at_ms, until_ms]`                                                               |
+| `status`, `phase`, `run`     | 조회 시점의 활성/유휴 상태(`active`/`idle`), 활성 phase 또는 null, 전투 시도 번호. 품질 통과 상태가 아님                       |
+| `observations_used`          | 조회 시점 이하의 관측 수. 같은 밀리초의 모든 관측·제어를 적용한 뒤 조회                                                        |
+| `events`                     | 예정된 visible 이벤트의 `id`, `name`, `at_ms`, `lead_ms`, `duration_ms`, `run`. 반복은 같은 ID의 여러 예정 시각을 반환         |
+| 완료·hidden 이벤트           | 이미 처리했거나 조회 시각에 처리한 이벤트, `visible=#false` 이벤트는 제외. 과거 이벤트의 지속 중인 표시 조회는 범위 밖         |
+| 분기·합류·탈출               | 이미 관측한 선택·합류·탈출은 반영. 미선택 option이나 미래 신호로만 정해지는 phase·merge·until 동작은 추측하지 않음             |
+| `diagnostics`                | 조회 시점까지 발생한 ambiguous·violation·unresolved. 가상 미래에서 선택 창이 닫히는 진단을 현재 사실로 섞지 않음               |
+| `assumptions`, `not_checked` | 미래 신호 없음이라는 조건과 ACT·게임·UI 미검증 범위                                                                            |
+| 입력 범위                    | `0 <= at_ms <= recording.end_ms`, `horizon_ms > 0`. 전체 정규화 기록의 무결성·정렬은 검사하되 미래 관측은 실행에 사용하지 않음 |
+| 조회 범위                    | 관측 종료 이후까지도 예측 가능. 끝은 10조 ms 이하이며 기존의 반복·분기 처리량 제한 적용                                        |
+
+조회 결과는 현재 알려진 경로를 그대로 진행했을 때의 조건부 일정이다. 이후 sync·종료·전환이 오면 바뀌거나 취소될 수 있다. 이 API에서 5초 전 일정이 나온다는 사실은 실제 UI에서 그 표시를 5초 전에 보였다는 증거가 아니다.
+
+`projection_diagnostics`는 추가 신호 없이 가상 미래를 진행하며 생긴 진단이다. 예를 들어 아직 미선택인 분기의 close 도달은 이 배열의 `unresolved`이며 현재 사실인 `diagnostics`와 구분한다. 예측 구간의 제어 충돌·실행 제약 위반도 이 배열에서 확인한다.
+
 ## 입력 관측
 
 ```json

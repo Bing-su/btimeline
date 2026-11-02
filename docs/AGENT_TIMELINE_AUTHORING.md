@@ -19,19 +19,20 @@
 
 아래는 저장소 루트에서 빌드한 `btimeline` 실행 파일의 현행 명령 형태다. `TRAIN.json`·`draft.kdl` 등은 실제 경로로 바꾸며 생성·mine 출력에는 새 경로를 사용한다.
 
-| 작업        | 명령                                                        | 해석                                                                            |
-| ----------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| 관측 확인   | `btimeline inspect TRAIN.json --json`                       | 원본 관측·보스·시도 범위 확인. 큰 로그는 대상 구간을 골라 읽음                  |
-| 발생 그래프 | `btimeline mine TRAIN.json -o observations.kdl`             | 검토용 `process 1`. 실행용 `timeline 1`과 구분                                  |
-| 선택적 초안 | `btimeline generate TRAIN.json --mode dungeon -o draft.kdl` | 지원하는 경로의 초안·evidence. 경로 학습 실패는 원본 해석을 계속할 수 있는 진단 |
-| 구조 검사   | `btimeline validate authored.kdl`                           | 문법·작성 제약 검사. 실제 전투 정확성 판정과 구분                               |
-| 실행 확인   | `btimeline compare authored.kdl recording.json --json`      | 정규화된 관측으로 실행 기록 확인. 성공 종료만으로 품질 통과를 주장하지 않음     |
+| 작업        | 명령                                                                              | 해석                                                                            |
+| ----------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| 관측 확인   | `btimeline inspect TRAIN.json --json`                                             | 원본 관측·보스·시도 범위 확인. 큰 로그는 대상 구간을 골라 읽음                  |
+| 발생 그래프 | `btimeline mine TRAIN.json -o observations.kdl`                                   | 검토용 `process 1`. 실행용 `timeline 1`과 구분                                  |
+| 선택적 초안 | `btimeline generate TRAIN.json --mode dungeon -o draft.kdl`                       | 지원하는 경로의 초안·evidence. 경로 학습 실패는 원본 해석을 계속할 수 있는 진단 |
+| 구조 검사   | `btimeline validate authored.kdl`                                                 | 문법·작성 제약 검사. 실제 전투 정확성 판정과 구분                               |
+| 실행 확인   | `btimeline compare authored.kdl recording.json --json`                            | 정규화된 관측으로 실행 기록 확인. 성공 종료만으로 품질 통과를 주장하지 않음     |
+| 미래 조회   | `btimeline forecast authored.kdl recording.json --at-ms 10000 --horizon-ms 30000` | 조회 시점 이하의 관측만 반영한 조건부 미래 표시와 lead_ms 확인                  |
 
 `inspect`·`mine`·`generate`는 여러 학습 파일도 받을 수 있다. 보류 파일은 이 작성 단계의 입력에 넣지 않는다. 현재 `generate`에는 `--verify`가 없으며 계획 문서에 있는 해당 옵션을 실행 가능한 기능으로 안내하지 않는다.
 
 `compare`에 FFLogs JSON을 직접 넣으면 `FFLogs.cast` 등으로 재생하며 자동으로 ACT의 `Ability`가 되지 않는다. 생성 KDL의 제어 신호를 시험하려면 [재생 입력 계약](OFFLINE_REPLAY.md#입력-관측)에 맞는 정규화 기록을 만들고 변환·시작·종료 신호 가정을 명시한다. KDL의 실행 신호를 FFLogs 전용 신호로 바꿔 통과시키지 않는다.
 
-현재 도구는 예상 일정의 일반적인 미래 조회나 실용성 종합 판정을 제공하지 않는다. 제한된 관측만 공급한 재생의 예정 이벤트로 예측 동작을 확인할 수 있으나, UI에서 실제로 몇 초 전에 보였는지 검증한 것과 구분한다. 미래 조회·오류 구간 피드백 등 부족한 도구 기능은 별도 구현 과제로 기록한다.
+`forecast`는 현재 경로에서 추가 신호가 없을 때의 미래 일정을 조회한다. [미래 조회 계약](OFFLINE_REPLAY.md#미래-일정-조회)에 따라 관측 cutoff·보정된 시각·예고 간격을 확인하고 미래의 미선택 분기나 전환은 추측하지 않는다. 실제 UI에서 몇 초 전에 보였는지 검증한 것과 구분하며, 실용성 종합 판정·일반 오류 구간 피드백은 후속 도구 과제다.
 
 ## 산출물과 근거
 

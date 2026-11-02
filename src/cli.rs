@@ -24,6 +24,8 @@ pub enum MainCommands {
     Validate(ValidateCommand),
     /// Replay normalized recorded signals against a timeline.
     Compare(CompareCommand),
+    /// Query upcoming visible events using observations only through a cutoff.
+    Forecast(ForecastCommand),
 }
 
 #[derive(Args)]
@@ -127,6 +129,36 @@ impl Run for CompareCommand {
             }
         }
         println!("Replay only: {} not checked.", not_checked.join(", "));
+        Ok(())
+    }
+}
+
+#[derive(Args)]
+pub struct ForecastCommand {
+    #[usage(arg)]
+    timeline: Utf8PathBuf,
+    /// Normalized signal recording; future observations are ignored by the forecast.
+    #[usage(arg)]
+    recording: Utf8PathBuf,
+    /// Query cutoff in raw milliseconds, including observations at that time.
+    #[usage(long)]
+    at_ms: i64,
+    /// Positive lookahead duration in milliseconds.
+    #[usage(long)]
+    horizon_ms: i64,
+}
+
+impl Run for ForecastCommand {
+    type Output = Result<()>;
+
+    fn run(self) -> Self::Output {
+        let model = crate::timeline::parse(&std::fs::read_to_string(&self.timeline)?)
+            .with_context(|| format!("Validating {}", self.timeline))?;
+        let input = serde_json::from_slice(&std::fs::read(&self.recording)?)
+            .with_context(|| format!("Reading normalized recording {}", self.recording))?;
+        let forecast = crate::timeline::forecast(&model, &input, self.at_ms, self.horizon_ms)?;
+        serde_json::to_writer_pretty(std::io::stdout().lock(), &forecast)?;
+        println!();
         Ok(())
     }
 }

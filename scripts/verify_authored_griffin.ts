@@ -44,6 +44,27 @@ function replay(file: string, observations: Observation[], end_ms: number): Row[
   assert.equal(result.summaries[recording].status, "replayed", file);
   return result.recordings[recording];
 }
+function query(
+  file: string,
+  observations: Observation[],
+  end_ms: number,
+  at_ms: number,
+): {
+  events: { name: string; at_ms: number; lead_ms: number }[];
+  diagnostics: Row[];
+  projection_diagnostics: Row[];
+} {
+  fs.writeFileSync(recording, JSON.stringify({ version: 1, observations, end_ms }));
+  const result = JSON.parse(
+    execFileSync(
+      binary,
+      ["forecast", file, recording, "--at-ms", String(at_ms), "--horizon-ms", "6500"],
+      { encoding: "utf8" },
+    ),
+  );
+  assert.equal(result.status, "active", file);
+  return result;
+}
 const clean = (rows: Row[]) =>
   rows.filter((row) => ["ambiguous", "violation", "unresolved"].includes(row.action));
 const event = (row: Row, name: string) =>
@@ -80,18 +101,16 @@ try {
   ]) {
     for (const trace of corpus.traces) {
       const samples: Sample[] = trace.samples;
-      for (const mode of ["start-only", "all-major", "five-second-forecast"]) {
-        // Each forecast excludes the target and the preceding five seconds; matching the target's own sync proves nothing.
+      for (const mode of ["start-only", "all-major", "five-second-query"]) {
+        // Supply the whole recording to test the cutoff: the query must ignore the target and all subsequent signals.
         const runs =
-          mode === "five-second-forecast"
+          mode === "five-second-query"
             ? samples
                 .filter((sample) => sample[0] >= 5000)
                 .map((sample) => ({
                   targets: [sample],
-                  observations: samples
-                    .filter((row) => row[0] <= sample[0] - 5000)
-                    .map(observation),
-                  end: Math.min(trace.end_ms, sample[0] + 1500),
+                  observations: samples.map(observation),
+                  end: trace.end_ms,
                 }))
             : [
                 {
@@ -105,10 +124,17 @@ try {
           total = 0,
           maxError = 0,
           bad = 0;
+        const leads: number[] = [];
         for (const run of runs) {
-          const rows = replay(file, run.observations, run.end);
-          bad += clean(rows).length;
-          if (label === "authored" && mode !== "five-second-forecast") {
+          const queried =
+            mode === "five-second-query"
+              ? query(file, run.observations, run.end, run.targets[0][0] - 5000)
+              : null;
+          const rows = queried ? [] : replay(file, run.observations, run.end);
+          bad += queried
+            ? queried.diagnostics.length + queried.projection_diagnostics.length
+            : clean(rows).length;
+          if (label === "authored" && mode !== "five-second-query") {
             // The authored displays correspond only to the selected targets; count extra forecasts as failures too.
             assert.equal(
               rows.filter((row) => row.action === "event").length,
@@ -117,12 +143,23 @@ try {
             );
           }
           for (const sample of run.targets) {
-            const candidates = rows.filter((row) => event(row, names[sample[1]]));
+            const candidates = queried
+              ? queried.events.filter((row) => row.name === names[sample[1]])
+              : rows.filter((row) => event(row, names[sample[1]]));
             const error = Math.min(...candidates.map((row) => Math.abs(row.at_ms - sample[0])));
             total++;
             if (error <= 1500) {
               matched++;
               maxError = Math.max(maxError, error);
+              if (queried)
+                leads.push(
+                  ...queried.events
+                    .filter(
+                      (row) =>
+                        row.name === names[sample[1]] && Math.abs(row.at_ms - sample[0]) <= 1500,
+                    )
+                    .map((row) => row.lead_ms),
+                );
             } else
               misses.push({
                 at_ms: sample[0],
@@ -138,6 +175,9 @@ try {
           matched,
           total,
           max_error_ms: matched ? maxError : null,
+          ...(leads.length
+            ? { min_lead_ms: Math.min(...leads), max_lead_ms: Math.max(...leads) }
+            : {}),
           bad,
           misses,
         });

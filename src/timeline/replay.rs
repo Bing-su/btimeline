@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{Branch, BranchOption, Event, Loop, MAX_MS, Phase, Tick, Timeline};
 
+pub(super) mod forecast;
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Observation {
@@ -63,7 +65,7 @@ impl std::fmt::Display for ReplaySummary {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub(crate) struct Record {
     pub(crate) at_ms: i64,
     pub(crate) action: String,
@@ -1939,12 +1941,16 @@ impl<'a> Replay<'a> {
         }
     }
 
-    fn finish(mut self, end_ms: i64) -> Vec<Record> {
+    fn settle(&mut self, end_ms: i64) {
         self.advance(end_ms, true);
         self.advance_branches(end_ms, false);
         if let Some(phase) = &mut self.phase {
             repeat_unresolved(phase, end_ms, false, &mut self.out, self.run);
         }
+    }
+
+    fn finish(mut self, end_ms: i64) -> Vec<Record> {
+        self.settle(end_ms);
         self.record_unobserved(end_ms);
         // Controls precede same-time events; authored events keep document order across paths.
         self.out.sort_by_key(|record| {
@@ -1958,7 +1964,7 @@ impl<'a> Replay<'a> {
     }
 }
 
-fn validate_repeat_support(timeline: &Timeline, input: &Recording) -> Result<()> {
+fn validate_repeat_support(timeline: &Timeline, end_ms: i64) -> Result<()> {
     for phase in &timeline.phases {
         let repeats = phase.loops.iter().chain(
             phase
@@ -1968,10 +1974,10 @@ fn validate_repeat_support(timeline: &Timeline, input: &Recording) -> Result<()>
         );
         for repeat in repeats {
             if !repeat.branches.is_empty() {
-                validate_nested_repeat(repeat, input)?;
+                validate_nested_repeat(repeat, end_ms)?;
             }
             ensure!(
-                input.end_ms / (repeat.every * 100) <= 1_000_000,
+                end_ms / (repeat.every * 100) <= 1_000_000,
                 "Recording spans more than one million possible loop iterations; shorten the recording"
             );
         }
@@ -1979,8 +1985,8 @@ fn validate_repeat_support(timeline: &Timeline, input: &Recording) -> Result<()>
     Ok(())
 }
 
-fn validate_nested_repeat(repeat: &Loop, input: &Recording) -> Result<()> {
-    let cycles = input.end_ms / (repeat.every * 100);
+fn validate_nested_repeat(repeat: &Loop, end_ms: i64) -> Result<()> {
+    let cycles = end_ms / (repeat.every * 100);
     let branch_count = i64::try_from(repeat.branches.len()).unwrap_or(i64::MAX);
     ensure!(
         cycles.saturating_mul(branch_count) <= 1_000_000,
@@ -1989,9 +1995,9 @@ fn validate_nested_repeat(repeat: &Loop, input: &Recording) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn replay(timeline: &Timeline, input: &Recording) -> Result<Vec<Record>> {
+fn replay_until<'a>(timeline: &'a Timeline, input: &Recording, at_ms: i64) -> Result<Replay<'a>> {
     validate_recording(input)?;
-    validate_repeat_support(timeline, input)?;
+    validate_repeat_support(timeline, at_ms)?;
     let mut state = Replay {
         timeline,
         fight: None,
@@ -2000,7 +2006,11 @@ pub(crate) fn replay(timeline: &Timeline, input: &Recording) -> Result<Vec<Recor
         run: 0,
         out: Vec::new(),
     };
-    let mut observations = input.observations.iter().peekable();
+    let mut observations = input
+        .observations
+        .iter()
+        .take_while(|observation| observation.at_ms <= at_ms)
+        .peekable();
     while let Some(observation) = observations.next() {
         state.observe(observation)?;
         if observations
@@ -2010,5 +2020,9 @@ pub(crate) fn replay(timeline: &Timeline, input: &Recording) -> Result<Vec<Recor
             state.advance(observation.at_ms, true);
         }
     }
-    Ok(state.finish(input.end_ms))
+    Ok(state)
+}
+
+pub(crate) fn replay(timeline: &Timeline, input: &Recording) -> Result<Vec<Record>> {
+    Ok(replay_until(timeline, input, input.end_ms)?.finish(input.end_ms))
 }

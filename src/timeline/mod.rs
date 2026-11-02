@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 pub(crate) use fflogs::from_fflogs;
 pub(crate) use parse::parse;
 use regress::Regex;
+pub(crate) use replay::forecast::forecast;
 pub(crate) use replay::{Recording, replay};
 
 // Keep authored time in integer tenths; raw observations retain milliseconds.
