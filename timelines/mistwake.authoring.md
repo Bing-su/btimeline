@@ -60,8 +60,8 @@
 ```sh
 cargo build
 target/debug/btimeline validate timelines/mistwake.kdl
-bun scripts/verify_authored_mistwake.ts target/debug/btimeline tests/fixtures/authored/mistwake-development-plan.json out/mistwake-authoring/development-new.json
-bun scripts/verify_authored_mistwake.ts target/debug/btimeline tests/fixtures/authored/mistwake-holdout-plan.json out/mistwake-authoring/holdout-new.json
+target/debug/btimeline evaluate --profile timelines/mistwake.evaluation.json tests/fixtures/authored/mistwake-development-plan.json -o out/mistwake-authoring/development-new.json
+target/debug/btimeline evaluate --profile timelines/mistwake.evaluation.json tests/fixtures/authored/mistwake-holdout-plan.json -o out/mistwake-authoring/holdout-new.json
 bun run --cwd scripts test
 cargo test --test authored_mistwake
 ```

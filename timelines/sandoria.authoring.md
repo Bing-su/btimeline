@@ -49,7 +49,7 @@
 
 모든 구간은 FFLogs fight end에서도 끝난다. 완료·전멸 모두 기록된 범위까지만 평가하고 긴 입력의 미관측 후반을 통과로 계산하지 않는다. 첫 보류에서 공동 구간 이후의 Mana Screen·새 Shijin·이른 Kam 진행이 실패한 사실을 보존한다. 새 후보의 공동 구간 제한과 추가 대상은 **새 보류의 이벤트 확인 전에** 고정한다.
 
-예상 이름별 main Boss actor 하나를 요구하고, Omega·Ultima는 같은 시도 안의 두 actor로 다룬다. HP가 75% 미만에서 90% 초과로 회복하면 재도전/큰 회복 가능성으로 제외한다. 범위 안 모든 cast·begincast를 Ability·StartsUsing으로 투영하고 이름 없는 시전자는 제외 근거다. 명시적 주요 ID 목록과 100ms 같은 이름 패킷 요약은 `sandoria_recording.ts`에 있다. 모든 공격이나 선택 목록 밖의 새 기믹까지 평가했다는 뜻은 아니다.
+예상 이름별 main Boss actor 하나를 요구하고, Omega·Ultima는 같은 시도 안의 두 actor로 다룬다. HP가 75% 미만에서 90% 초과로 회복하면 재도전/큰 회복 가능성으로 제외한다. 범위 안 모든 cast·begincast를 Ability·StartsUsing으로 투영하고 이름 없는 시전자는 제외 근거다. 명시적 주요 ID 목록과 100ms 같은 이름 패킷 요약은 현재 `sandoria.evaluation.json`에 있다. 초기 평가의 TypeScript 투영은 당시 커밋에 보존한다. 모든 공격이나 선택 목록 밖의 새 기믹까지 평가했다는 뜻은 아니다.
 
 FFLogs HP=0은 구간 경계만 정하며 WasDefeated를 합성하지 않는다. WasDefeated의 취소는 별도 합성 입력으로 검사하므로 실제 ACT 검증으로 세지 않는다. 첫 처치 뒤 단독 생존 보스의 예고는 범위 밖이다. KDL은 작성한 유한 경로 뒤 새 일정을 만들지 않는다.
 
@@ -86,8 +86,8 @@ FFLogs HP=0은 구간 경계만 정하며 WasDefeated를 합성하지 않는다.
 ```sh
 cargo build
 target/debug/btimeline validate timelines/sandoria.kdl
-bun scripts/verify_authored_sandoria.ts target/debug/btimeline tests/fixtures/authored/sandoria-expanded-development-plan.json out/sandoria-authoring/development-new.json
-bun scripts/verify_authored_sandoria.ts target/debug/btimeline tests/fixtures/authored/sandoria-fresh-holdout-plan.json out/sandoria-authoring/holdout-new.json
+target/debug/btimeline evaluate --profile timelines/sandoria.evaluation.json tests/fixtures/authored/sandoria-expanded-development-plan.json -o out/sandoria-authoring/development-new.json
+target/debug/btimeline evaluate --profile timelines/sandoria.evaluation.json tests/fixtures/authored/sandoria-fresh-holdout-plan.json -o out/sandoria-authoring/holdout-new.json
 bun run --cwd scripts test
 cargo test --test authored_sandoria
 ```

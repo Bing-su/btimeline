@@ -18,8 +18,8 @@ use super::{
 #[derive(Serialize)]
 pub(crate) struct Upcoming {
     id: String,
-    name: String,
-    at_ms: i64,
+    pub(crate) name: String,
+    pub(crate) at_ms: i64,
     lead_ms: i64,
     duration_ms: i64,
     run: usize,
@@ -29,13 +29,13 @@ pub(crate) struct Upcoming {
 pub(crate) struct Forecast {
     at_ms: i64,
     until_ms: i64,
-    status: &'static str,
-    phase: Option<String>,
+    pub(crate) status: &'static str,
+    pub(crate) phase: Option<String>,
     run: usize,
     observations_used: usize,
-    events: Vec<Upcoming>,
-    diagnostics: Vec<Record>,
-    projection_diagnostics: Vec<Record>,
+    pub(crate) events: Vec<Upcoming>,
+    pub(crate) diagnostics: Vec<Record>,
+    pub(crate) projection_diagnostics: Vec<Record>,
     assumptions: [&'static str; 2],
     not_checked: [&'static str; 3],
 }

@@ -10,20 +10,20 @@ pub(super) mod forecast;
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Observation {
-    pub(super) at_ms: i64,
+    pub(crate) at_ms: i64,
     #[serde(rename = "type")]
-    pub(super) kind: String,
-    pub(super) fields: BTreeMap<String, String>,
+    pub(crate) kind: String,
+    pub(crate) fields: BTreeMap<String, String>,
     #[serde(skip)]
-    pub(super) source_event_index: Option<usize>,
+    pub(crate) source_event_index: Option<usize>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Recording {
-    pub(super) version: u32,
-    pub(super) end_ms: i64,
-    pub(super) observations: Vec<Observation>,
+    pub(crate) version: u32,
+    pub(crate) end_ms: i64,
+    pub(crate) observations: Vec<Observation>,
 }
 
 #[derive(Debug, Serialize)]

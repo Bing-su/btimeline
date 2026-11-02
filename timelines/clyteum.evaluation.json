@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "observations": "scoped_casts",
+  "segments": [
+    {
+      "phase": "eye",
+      "source": "Eye of the Scorpion",
+      "entry": ["BF00"],
+      "completion": "defeat",
+      "require_main_actor": true,
+      "reject_health_reset": true,
+      "targets": {
+        "BF00": {
+          "name": "Eyes on Me"
+        },
+        "C3FF": {
+          "name": "Petrifying Beam",
+          "group": "beam"
+        },
+        "C400": {
+          "name": "Petrifying Beam",
+          "group": "beam"
+        },
+        "BEFD": {
+          "name": "Motion Scanner"
+        },
+        "BF01": {
+          "name": "Ballistic Missile"
+        },
+        "BF05": {
+          "name": "Penetrator Missile"
+        },
+        "BF02": {
+          "name": "Surface Missile"
+        },
+        "BF03": {
+          "name": "Anti-Personnel Missile"
+        }
+      }
+    },
+    {
+      "phase": "chort",
+      "source": "Chort",
+      "entry": ["BEF4"],
+      "completion": "defeat",
+      "require_main_actor": true,
+      "reject_health_reset": true,
+      "targets": {
+        "BEF4": {
+          "name": "Ripples of Gloom"
+        },
+        "BEE4": {
+          "name": "Mortifying Flesh",
+          "group": "mortifying"
+        },
+        "BEE5": {
+          "name": "Mortifying Flesh",
+          "group": "mortifying"
+        },
+        "BEE6": {
+          "name": "Mortifying Flesh",
+          "group": "mortifying"
+        },
+        "BEE7": {
+          "name": "Mortifying Flesh",
+          "group": "mortifying"
+        },
+        "BEEC": {
+          "name": "Mortifying Flesh"
+        },
+        "BEEE": {
+          "name": "Bodyweight Exorcism"
+        },
+        "C4B9": {
+          "name": "Basic Vomit"
+        },
+        "BEEF": {
+          "name": "Bodyweight Exorcism"
+        },
+        "C4F1": {
+          "name": "Evil Emission"
+        },
+        "BEF6": {
+          "name": "Profane Pressure"
+        }
+      }
+    },
+    {
+      "phase": "malphas",
+      "source": "Malphas",
+      "entry": ["BF18"],
+      "completion": "defeat",
+      "require_main_actor": true,
+      "reject_health_reset": true,
+      "targets": {
+        "BF18": {
+          "name": "Rubbish Disposal"
+        },
+        "C489": {
+          "name": "Void Dark"
+        },
+        "BF19": {
+          "name": "Scrap Meddle"
+        },
+        "BF1A": {
+          "name": "Puppet Strings"
+        },
+        "BF21": {
+          "name": "Gluttonous Wire"
+        },
+        "BF1B": {
+          "name": "Puppet Pair"
+        },
+        "BF23": {
+          "name": "String Up"
+        },
+        "C48B": {
+          "name": "Shadow Play"
+        },
+        "BF1D": {
+          "name": "Puppet Mastery"
+        }
+      }
+    }
+  ],
+  "not_checked": ["unobserved Chort late cycles", "mechanic positioning and helper ownership"]
+}

@@ -1,0 +1,396 @@
+//! Explicit authoring assumptions; encounter IDs, names and display summaries stay in data files.
+use std::collections::BTreeMap;
+
+use anyhow::{Context, Result, ensure};
+use serde::Deserialize;
+use serde_json::{Value, json};
+
+use crate::fflogs::model::{Actor, CollectedLog, Event};
+use crate::timeline::{MAX_MS, Observation, Recording};
+
+#[derive(Debug)]
+pub(super) struct InputExclusion {
+    pub message: &'static str,
+    pub evidence: Value,
+}
+impl std::fmt::Display for InputExclusion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.message)
+    }
+}
+impl std::error::Error for InputExclusion {}
+pub(super) fn exclude(message: &'static str, evidence: Value) -> anyhow::Error {
+    InputExclusion { message, evidence }.into()
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct Profile {
+    version: u32,
+    observations: ObservationScope,
+    segments: Vec<SegmentRule>,
+    pub not_checked: Vec<String>,
+}
+#[derive(Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+enum ObservationScope {
+    AllCasts,
+    ScopedCasts,
+    ScopedCastsAndStarts,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum Completion {
+    Defeat,
+    FightEnd,
+    FirstDefeat,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SegmentRule {
+    phase: String,
+    encounter: Option<i64>,
+    source: String,
+    #[serde(default)]
+    other_sources: Vec<String>,
+    entry: Vec<String>,
+    completion: Completion,
+    max_duration_ms: Option<i64>,
+    #[serde(default)]
+    require_main_actor: bool,
+    #[serde(default)]
+    reject_health_reset: bool,
+    targets: BTreeMap<String, TargetRule>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TargetRule {
+    name: String,
+    source: Option<String>,
+    group: Option<String>,
+    lead_ms: Option<i64>,
+}
+pub(super) struct Target {
+    pub raw_index: usize,
+    pub at_ms: i64,
+    pub id: String,
+    pub name: String,
+    pub lead_ms: Option<i64>,
+}
+pub(super) struct Segment {
+    pub phase: String,
+    pub entry_ms: i64,
+    pub end_ms: i64,
+    pub entry_event: usize,
+    pub completion_event: usize,
+    pub targets: Vec<Target>,
+}
+pub(super) struct Projection {
+    pub origin_timestamp_ms: i64,
+    pub recording: Recording,
+    pub bosses: Vec<Segment>,
+}
+
+impl Profile {
+    pub fn validate(&self) -> Result<()> {
+        ensure!(
+            self.version == 1 && !self.segments.is_empty(),
+            "Unsupported or empty projection profile"
+        );
+        let mut phases = std::collections::BTreeSet::new();
+        for segment in &self.segments {
+            ensure!(
+                !segment.phase.is_empty() && phases.insert(&segment.phase),
+                "Empty or duplicate segment phase"
+            );
+            ensure!(
+                !segment.source.is_empty()
+                    && !segment.entry.is_empty()
+                    && !segment.targets.is_empty(),
+                "Segment requires source, entry IDs and targets"
+            );
+            ensure!(
+                segment
+                    .max_duration_ms
+                    .is_none_or(|v| (1..=MAX_MS).contains(&v)),
+                "Invalid segment duration"
+            );
+            ensure!(
+                !segment.reject_health_reset || segment.require_main_actor,
+                "Health-reset checks require an unambiguous main actor"
+            );
+            for id in segment.entry.iter().chain(segment.targets.keys()) {
+                ensure!(
+                    !id.is_empty()
+                        && id
+                            .bytes()
+                            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_lowercase()),
+                    "Ability IDs must be uppercase hexadecimal"
+                );
+            }
+            for target in segment.targets.values() {
+                ensure!(
+                    !target.name.is_empty()
+                        && target.lead_ms.is_none_or(|v| (1..=MAX_MS).contains(&v)),
+                    "Invalid target name or forecast lead"
+                );
+            }
+        }
+        Ok(())
+    }
+}
+fn ability(event: &Event) -> Result<String> {
+    let id = event
+        .ability_game_id
+        .filter(|id| *id >= 0)
+        .context("Cast missing nonnegative abilityGameID")?;
+    Ok(format!("{id:X}"))
+}
+fn hp(event: &Event, field: &str) -> Option<f64> {
+    event.extra.get("targetResources")?.get(field)?.as_f64()
+}
+fn is_defeat(event: &Event) -> bool {
+    event.kind == "damage" && hp(event, "hitPoints") == Some(0.0)
+}
+
+fn main_actors<'a>(log: &'a CollectedLog, rule: &SegmentRule) -> Result<Vec<&'a Actor>> {
+    if !rule.require_main_actor {
+        return Ok(Vec::new());
+    }
+    std::iter::once(&rule.source)
+        .chain(&rule.other_sources)
+        .map(|name| {
+            let mut actors = log
+                .report
+                .master_data
+                .actors
+                .iter()
+                .filter(|a| a.name == *name && a.sub_type == "Boss");
+            let actor = actors
+                .next()
+                .filter(|_| actors.next().is_none())
+                .ok_or_else(|| exclude("Unclear main boss actor", json!({"source":name})))?;
+            Ok(actor)
+        })
+        .collect()
+}
+fn check_health(log: &CollectedLog, actors: &[&Actor], start: i64, end: i64) -> Result<()> {
+    for actor in actors {
+        let mut lowest = 1.0_f64;
+        for (raw_index, event) in log.events.iter().enumerate().filter(|(_, e)| {
+            e.timestamp >= start
+                && e.timestamp <= end
+                && e.kind == "damage"
+                && e.target_id == Some(actor.id)
+        }) {
+            let Some((current, max)) = hp(event, "hitPoints")
+                .zip(hp(event, "maxHitPoints"))
+                .filter(|(_, max)| *max > 0.0)
+            else {
+                continue;
+            };
+            let ratio = current / max;
+            if lowest < 0.75 && ratio > 0.9 {
+                return Err(exclude(
+                    "Possible attempt reset or large boss heal",
+                    json!({"source":actor.name,"raw_index":raw_index}),
+                ));
+            }
+            lowest = lowest.min(ratio);
+        }
+    }
+    Ok(())
+}
+fn project_segment(
+    log: &CollectedLog,
+    rule: &SegmentRule,
+    actors: &BTreeMap<i64, &Actor>,
+    origin: i64,
+) -> Result<Segment> {
+    let main = main_actors(log, rule)?;
+    let source = |id: Option<i64>| id.and_then(|id| actors.get(&id)).map(|a| a.name.as_str());
+    let entry = log
+        .events
+        .iter()
+        .enumerate()
+        .find(|(_, e)| {
+            e.kind == "cast"
+                && source(e.source_id) == Some(&rule.source)
+                && e.ability_game_id
+                    .is_some_and(|id| rule.entry.contains(&format!("{id:X}")))
+        })
+        .ok_or_else(|| exclude("Missing boss entry", json!({"source":rule.source})))?;
+    let (entry_event, start) = (entry.0, entry.1.timestamp);
+    let defeat = log.events.iter().enumerate().find(|(_, e)| {
+        e.timestamp >= start
+            && is_defeat(e)
+            && if rule.require_main_actor {
+                main.iter().any(|a| Some(a.id) == e.target_id)
+            } else {
+                source(e.target_id) == Some(&rule.source)
+            }
+    });
+    let fight = log.report.fights.first().context("Missing fight")?;
+    let end = match rule.completion {
+        Completion::Defeat => defeat.map(|(_, e)| e.timestamp).ok_or_else(|| {
+            exclude(
+                "Missing observed boss completion",
+                json!({"source":rule.source,"entry_event":entry_event}),
+            )
+        })?,
+        Completion::FightEnd => fight.end_time,
+        Completion::FirstDefeat => defeat.map_or(fight.end_time, |(_, e)| e.timestamp),
+    };
+    let end = rule
+        .max_duration_ms
+        .map(|limit| start.checked_add(limit).context("Scope end overflow"))
+        .transpose()?
+        .map_or(end, |limit| end.min(limit));
+    ensure!(end >= start, "Invalid scope end");
+    if rule.reject_health_reset {
+        check_health(log, &main, start, end)?;
+    }
+    let completion_event = if matches!(rule.completion, Completion::Defeat) {
+        defeat.context("Missing defeat")?.0
+    } else {
+        log.events
+            .iter()
+            .rposition(|e| e.timestamp <= end)
+            .context("Empty scope")?
+    };
+    let mut last = BTreeMap::<&str, i64>::new();
+    let mut targets = Vec::new();
+    for (raw_index, event) in log
+        .events
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| e.kind == "cast" && e.timestamp >= start && e.timestamp <= end)
+    {
+        let id = ability(event)?;
+        let Some((id_key, target)) = rule.targets.get_key_value(&id) else {
+            continue;
+        };
+        let expected = target.source.as_deref().unwrap_or(&rule.source);
+        if source(event.source_id) != Some(expected) {
+            continue;
+        }
+        // Alias packets share only explicitly declared groups, e.g. C3FF and C400 form one Beam wave.
+        let group = target.group.as_deref().unwrap_or(id_key);
+        if last
+            .get(group)
+            .is_some_and(|before| event.timestamp - before <= 100)
+        {
+            continue;
+        }
+        last.insert(group, event.timestamp);
+        targets.push(Target {
+            raw_index,
+            at_ms: event.timestamp - origin,
+            id,
+            name: target.name.clone(),
+            lead_ms: target.lead_ms,
+        });
+    }
+    ensure!(
+        !targets.is_empty(),
+        "No evaluation targets in declared scope"
+    );
+    Ok(Segment {
+        phase: rule.phase.clone(),
+        entry_ms: start - origin,
+        end_ms: end - origin,
+        entry_event,
+        completion_event,
+        targets,
+    })
+}
+
+pub(super) fn project(log: &CollectedLog, profile: &Profile) -> Result<Projection> {
+    let origin = log.events.first().context("Empty events")?.timestamp;
+    let actors = log
+        .report
+        .master_data
+        .actors
+        .iter()
+        .map(|a| (a.id, a))
+        .collect::<BTreeMap<_, _>>();
+    let encounter = log
+        .report
+        .fights
+        .first()
+        .context("Missing fight")?
+        .encounter_id;
+    let bosses = profile
+        .segments
+        .iter()
+        .filter(|r| r.encounter.is_none_or(|id| id == encounter))
+        .map(|rule| project_segment(log, rule, &actors, origin))
+        .collect::<Result<Vec<_>>>()?;
+    if bosses.is_empty() {
+        return Err(exclude(
+            "Unsupported encounter",
+            json!({"encounter":encounter}),
+        ));
+    }
+    if bosses.windows(2).any(|pair| {
+        pair.first()
+            .zip(pair.get(1))
+            .is_some_and(|(a, b)| b.entry_ms <= a.end_ms)
+    }) {
+        return Err(exclude("Overlapping boss attempts", json!({})));
+    }
+    let end_ms = bosses.last().context("Missing scope")?.end_ms;
+    let mut observations = Vec::new();
+    for (raw_index, event) in log.events.iter().enumerate() {
+        let at_ms = event.timestamp - origin;
+        if event.kind != "cast"
+            && !(event.kind == "begincast"
+                && profile.observations == ObservationScope::ScopedCastsAndStarts)
+        {
+            continue;
+        }
+        if profile.observations != ObservationScope::AllCasts
+            && !bosses
+                .iter()
+                .any(|b| at_ms >= b.entry_ms && at_ms <= b.end_ms)
+        {
+            continue;
+        }
+        let source = event
+            .source_id
+            .and_then(|id| actors.get(&id))
+            .map(|a| a.name.as_str())
+            .filter(|name| !name.is_empty())
+            .ok_or_else(|| {
+                exclude(
+                    "Unknown cast source",
+                    json!({"raw_index":raw_index,"source_id":event.source_id}),
+                )
+            })?;
+        if at_ms <= end_ms {
+            observations.push(Observation {
+                at_ms,
+                kind: if event.kind == "cast" {
+                    "Ability"
+                } else {
+                    "StartsUsing"
+                }
+                .into(),
+                fields: BTreeMap::from([
+                    ("id".into(), ability(event)?),
+                    ("source".into(), source.into()),
+                ]),
+                source_event_index: None,
+            });
+        }
+    }
+    Ok(Projection {
+        origin_timestamp_ms: origin,
+        recording: Recording {
+            version: 1,
+            end_ms,
+            observations,
+        },
+        bosses,
+    })
+}

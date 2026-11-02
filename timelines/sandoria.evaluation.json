@@ -1,0 +1,414 @@
+{
+  "version": 1,
+  "observations": "scoped_casts_and_starts",
+  "segments": [
+    {
+      "phase": "kirin",
+      "encounter": 2067,
+      "source": "Faithbound Kirin",
+      "other_sources": [],
+      "entry": ["ADCA"],
+      "completion": "fight_end",
+      "max_duration_ms": 230000,
+      "require_main_actor": true,
+      "reject_health_reset": true,
+      "targets": {
+        "ADCA": {
+          "name": "Stonega IV",
+          "group": "Stonega IV"
+        },
+        "AD91": {
+          "name": "Wrought Arms",
+          "group": "Wrought Arms"
+        },
+        "AD95": {
+          "name": "Synchronized Strike",
+          "group": "Synchronized Strike"
+        },
+        "AFF4": {
+          "name": "Crimson Riddle",
+          "group": "Crimson Riddle"
+        },
+        "AFF5": {
+          "name": "Crimson Riddle",
+          "group": "Crimson Riddle"
+        },
+        "AD7E": {
+          "name": "Summon Shijin",
+          "group": "Summon Shijin"
+        },
+        "B07B": {
+          "name": "Quake",
+          "group": "Quake",
+          "lead_ms": 2000
+        },
+        "B07C": {
+          "name": "Quake",
+          "group": "Quake"
+        },
+        "AD92": {
+          "name": "Wringer",
+          "group": "Wringer"
+        },
+        "AD94": {
+          "name": "Striking Right / Striking Left",
+          "group": "Striking Right / Striking Left"
+        },
+        "ADAD": {
+          "name": "Wringer / Synchronized Strike",
+          "group": "Wringer / Synchronized Strike"
+        },
+        "ADB0": {
+          "name": "Wringer / Synchronized Strike",
+          "group": "Wringer / Synchronized Strike"
+        },
+        "AD9D": {
+          "name": "Synchronized Sequence / Double Wringer",
+          "group": "Synchronized Sequence / Double Wringer"
+        },
+        "ADA5": {
+          "name": "Wringer / Synchronized Strike",
+          "group": "Wringer / Synchronized Strike"
+        },
+        "ADB1": {
+          "name": "Mighty Grip",
+          "group": "Mighty Grip"
+        },
+        "ADB2": {
+          "name": "Deadly Hold",
+          "group": "Deadly Hold"
+        },
+        "ADBF": {
+          "name": "Bury",
+          "group": "Bury"
+        },
+        "B079": {
+          "name": "Stonega III",
+          "group": "Stonega III",
+          "lead_ms": 2000
+        },
+        "B07A": {
+          "name": "Stonega III",
+          "group": "Stonega III"
+        },
+        "AD93": {
+          "name": "Striking Right / Striking Left",
+          "group": "Striking Right / Striking Left"
+        },
+        "ADA0": {
+          "name": "Synchronized Sequence / Double Wringer",
+          "group": "Synchronized Sequence / Double Wringer"
+        },
+        "ADA2": {
+          "name": "Wringer / Synchronized Strike",
+          "group": "Wringer / Synchronized Strike"
+        },
+        "A916": {
+          "name": "Double Cast",
+          "group": "Double Cast"
+        },
+        "A917": {
+          "name": "Stonega III",
+          "group": "Stonega III"
+        },
+        "A918": {
+          "name": "Quake",
+          "group": "Quake"
+        }
+      }
+    },
+    {
+      "phase": "duo",
+      "encounter": 2068,
+      "source": "Omega, the One",
+      "other_sources": ["Ultima, the Feared"],
+      "entry": ["AD2B"],
+      "completion": "first_defeat",
+      "max_duration_ms": 238000,
+      "require_main_actor": true,
+      "reject_health_reset": true,
+      "targets": {
+        "AD2B": {
+          "name": "Omega: Ion Efflux",
+          "group": "Omega: Ion Efflux"
+        },
+        "AD27": {
+          "name": "Omega: Fore-to-Aft Fire / Aft-to-Fore Fire",
+          "group": "Omega: Fore-to-Aft Fire / Aft-to-Fore Fire"
+        },
+        "B087": {
+          "name": "Omega: Anti-Personnel Missile",
+          "group": "Omega: Anti-Personnel Missile"
+        },
+        "B075": {
+          "name": "Omega: Surface Missile",
+          "group": "Omega: Surface Missile"
+        },
+        "AD23": {
+          "name": "Omega: Trajectory Projection",
+          "group": "Omega: Trajectory Projection"
+        },
+        "AD24": {
+          "name": "Omega: Guided Missile",
+          "group": "Omega: Guided Missile"
+        },
+        "AFEB": {
+          "name": "Omega: Multi-Missile",
+          "group": "Omega: Multi-Missile"
+        },
+        "AD2F": {
+          "name": "Omega: Hyper Pulse",
+          "group": "Omega: Hyper Pulse"
+        },
+        "AD25": {
+          "name": "Omega: Fore-to-Aft Fire / Aft-to-Fore Fire",
+          "group": "Omega: Fore-to-Aft Fire / Aft-to-Fore Fire"
+        },
+        "AD10": {
+          "name": "Ultima: Antimatter",
+          "group": "Ultima: Antimatter",
+          "source": "Ultima, the Feared"
+        },
+        "AD08": {
+          "name": "Ultima: Energy Orb",
+          "group": "Ultima: Energy Orb",
+          "source": "Ultima, the Feared"
+        },
+        "AD06": {
+          "name": "Ultima: Tractor Beam",
+          "group": "Ultima: Tractor Beam",
+          "source": "Ultima, the Feared"
+        },
+        "AD09": {
+          "name": "Ultima: Mana Screen",
+          "group": "Ultima: Mana Screen",
+          "source": "Ultima, the Feared"
+        },
+        "AD0D": {
+          "name": "Ultima: Energy Ray",
+          "group": "Ultima: Energy Ray",
+          "source": "Ultima, the Feared"
+        },
+        "AD12": {
+          "name": "Ultima: Tractor Field",
+          "group": "Ultima: Tractor Field",
+          "source": "Ultima, the Feared"
+        },
+        "AD14": {
+          "name": "Ultima: Citadel Siege",
+          "group": "Ultima: Citadel Siege",
+          "source": "Ultima, the Feared"
+        },
+        "AD1B": {
+          "name": "Ultima: Citadel Buster",
+          "group": "Ultima: Citadel Buster",
+          "source": "Ultima, the Feared"
+        },
+        "AD0C": {
+          "name": "Ultima: Energy Ray",
+          "group": "Ultima: Energy Ray",
+          "source": "Ultima, the Feared"
+        },
+        "AD0E": {
+          "name": "Ultima: Chemical Bomb",
+          "group": "Ultima: Chemical Bomb",
+          "source": "Ultima, the Feared"
+        }
+      }
+    },
+    {
+      "phase": "kam",
+      "encounter": 2069,
+      "source": "Kam'lanaut",
+      "other_sources": [],
+      "entry": ["ACBD"],
+      "completion": "fight_end",
+      "max_duration_ms": 325000,
+      "require_main_actor": true,
+      "reject_health_reset": true,
+      "targets": {
+        "ACBD": {
+          "name": "Enspirited Swordplay",
+          "group": "Enspirited Swordplay"
+        },
+        "B009": {
+          "name": "Proving Ground",
+          "group": "Proving Ground"
+        },
+        "AC91": {
+          "name": "Elemental Blade",
+          "group": "Elemental Blade"
+        },
+        "B00A": {
+          "name": "Sublime Elements",
+          "group": "Sublime Elements"
+        },
+        "ACBB": {
+          "name": "Princely Blow",
+          "group": "Princely Blow"
+        },
+        "ACAB": {
+          "name": "Light Blade",
+          "group": "Light Blade"
+        },
+        "ACAF": {
+          "name": "Great Wheel",
+          "group": "Great Wheel"
+        },
+        "ACB1": {
+          "name": "Great Wheel",
+          "group": "Great Wheel"
+        },
+        "ACB2": {
+          "name": "Esoteric Scrivening",
+          "group": "Esoteric Scrivening"
+        },
+        "ACB3": {
+          "name": "Shockwave",
+          "group": "Shockwave"
+        },
+        "ACB4": {
+          "name": "Transcendent Union",
+          "group": "Transcendent Union"
+        },
+        "ACB5": {
+          "name": "Transcendent Union",
+          "group": "Transcendent Union"
+        },
+        "ACB6": {
+          "name": "Esoteric Palisade",
+          "group": "Esoteric Palisade"
+        },
+        "ACB7": {
+          "name": "Crystalline Resonance",
+          "group": "Crystalline Resonance"
+        },
+        "ACB8": {
+          "name": "Elemental Resonance",
+          "group": "Elemental Resonance"
+        },
+        "ACB9": {
+          "name": "Illumed Facet",
+          "group": "Illumed Facet"
+        },
+        "ACBF": {
+          "name": "Empyreal Banish III",
+          "group": "Empyreal Banish III"
+        },
+        "ACBA": {
+          "name": "Illumed Estoc",
+          "group": "Illumed Estoc"
+        },
+        "ACBE": {
+          "name": "Shield Bash",
+          "group": "Shield Bash"
+        },
+        "AF6B": {
+          "name": "Empyreal Banish IV",
+          "group": "Empyreal Banish IV"
+        },
+        "AC92": {
+          "name": "Elemental Blade",
+          "group": "Elemental Blade"
+        },
+        "ACAE": {
+          "name": "Great Wheel",
+          "group": "Great Wheel"
+        },
+        "ACB0": {
+          "name": "Great Wheel",
+          "group": "Great Wheel"
+        },
+        "ACAD": {
+          "name": "Great Wheel",
+          "group": "Great Wheel"
+        }
+      }
+    },
+    {
+      "phase": "eald",
+      "encounter": 2070,
+      "source": "Eald'narche",
+      "other_sources": [],
+      "entry": ["AD51"],
+      "completion": "fight_end",
+      "max_duration_ms": 357000,
+      "require_main_actor": true,
+      "reject_health_reset": true,
+      "targets": {
+        "AD51": {
+          "name": "Uranos Cascade",
+          "group": "Uranos Cascade"
+        },
+        "AD49": {
+          "name": "Cronos Sling",
+          "group": "Cronos Sling"
+        },
+        "AD6D": {
+          "name": "Empyreal Vortex",
+          "group": "Empyreal Vortex"
+        },
+        "AD4B": {
+          "name": "Cronos Sling",
+          "group": "Cronos Sling"
+        },
+        "AD56": {
+          "name": "Warp",
+          "group": "Warp"
+        },
+        "AD58": {
+          "name": "Sleepga",
+          "group": "Sleepga"
+        },
+        "AD53": {
+          "name": "Gaea Stream",
+          "group": "Gaea Stream"
+        },
+        "AD5C": {
+          "name": "Omega Javelin",
+          "group": "Omega Javelin"
+        },
+        "AD77": {
+          "name": "Duplicate",
+          "group": "Duplicate"
+        },
+        "B040": {
+          "name": "Excelsior",
+          "group": "Excelsior"
+        },
+        "AD59": {
+          "name": "Phase Shift",
+          "group": "Phase Shift"
+        },
+        "AD5A": {
+          "name": "Phase Shift",
+          "group": "Phase Shift"
+        },
+        "AD75": {
+          "name": "Visions of Paradise",
+          "group": "Visions of Paradise"
+        },
+        "AD76": {
+          "name": "Duplicate",
+          "group": "Duplicate"
+        },
+        "AD72": {
+          "name": "Stellar Burst",
+          "group": "Stellar Burst"
+        },
+        "AD5F": {
+          "name": "Ancient Triad",
+          "group": "Ancient Triad"
+        },
+        "AD4A": {
+          "name": "Cronos Sling",
+          "group": "Cronos Sling"
+        }
+      }
+    }
+  ],
+  "not_checked": [
+    "post-second-Fire duo tail, helper attacks and reactive buffs",
+    "unobserved later cycles and mechanic positioning"
+  ]
+}

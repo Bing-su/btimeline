@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "observations": "all_casts",
+  "segments": [
+    {
+      "phase": "treno",
+      "source": "Treno Catoblepas",
+      "entry": ["A93F"],
+      "completion": "defeat",
+      "targets": {
+        "A93F": {
+          "name": "Earthquake"
+        },
+        "A943": {
+          "name": "Thunder II"
+        },
+        "A942": {
+          "name": "Bedeviling Light"
+        },
+        "A941": {
+          "name": "Thunder III"
+        },
+        "AF19": {
+          "name": "Ray of Lightning"
+        },
+        "A947": {
+          "name": "Petribreath"
+        }
+      }
+    },
+    {
+      "phase": "amdusias",
+      "source": "Amdusias",
+      "entry": ["B118", "B11D"],
+      "completion": "defeat",
+      "targets": {
+        "B118": {
+          "name": "Thunderclap Concerto"
+        },
+        "B11D": {
+          "name": "Thunderclap Concerto"
+        },
+        "B120": {
+          "name": "Bio II"
+        },
+        "B122": {
+          "name": "Galloping Thunder"
+        },
+        "B126": {
+          "name": "Thunder IV"
+        },
+        "B12B": {
+          "name": "Shockbolt"
+        },
+        "B11F": {
+          "name": "Thunder"
+        },
+        "B129": {
+          "name": "Thunder III"
+        }
+      }
+    },
+    {
+      "phase": "griffin",
+      "source": "Thundergust Griffin",
+      "entry": ["B0EB"],
+      "completion": "defeat",
+      "targets": {
+        "B0EB": {
+          "name": "Thunderspark"
+        },
+        "B0EC": {
+          "name": "High Volts"
+        },
+        "B0EF": {
+          "name": "Thundering Roar"
+        },
+        "B0F3": {
+          "name": "Storm Surge"
+        },
+        "B0F4": {
+          "name": "Electrifying Flight",
+          "source": "Shock Storm"
+        },
+        "B0F5": {
+          "name": "Fulgurous Fall"
+        },
+        "B0F8": {
+          "name": "Electrogenetic Force"
+        },
+        "B0F9": {
+          "name": "Golden Talons"
+        }
+      }
+    }
+  ],
+  "not_checked": ["complete Treno repeat recurrence", "later complete Amdusias cycles"]
+}

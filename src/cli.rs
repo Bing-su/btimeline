@@ -26,6 +26,8 @@ pub enum MainCommands {
     Compare(CompareCommand),
     /// Query upcoming visible events using observations only through a cutoff.
     Forecast(ForecastCommand),
+    /// Evaluate an authored timeline against FFLogs inputs and an explicit projection profile.
+    Evaluate(crate::evaluate::EvaluateCommand),
 }
 
 #[derive(Args)]

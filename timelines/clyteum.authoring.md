@@ -70,8 +70,8 @@
 ```sh
 cargo build
 target/debug/btimeline validate timelines/clyteum.kdl
-bun scripts/verify_authored_clyteum.ts target/debug/btimeline tests/fixtures/authored/clyteum-development-plan.json out/clyteum-authoring/development-new.json
-bun scripts/verify_authored_clyteum.ts target/debug/btimeline tests/fixtures/authored/clyteum-holdout-plan.json out/clyteum-authoring/holdout-new.json
+target/debug/btimeline evaluate --profile timelines/clyteum.evaluation.json tests/fixtures/authored/clyteum-development-plan.json -o out/clyteum-authoring/development-new.json
+target/debug/btimeline evaluate --profile timelines/clyteum.evaluation.json tests/fixtures/authored/clyteum-holdout-plan.json -o out/clyteum-authoring/holdout-new.json
 bun run --cwd scripts test
 cargo test --test authored_clyteum
 ```

@@ -45,6 +45,12 @@ btimeline forecast timeline.kdl recording.json --at-ms 10000 --horizon-ms 30000
 
 `projection_diagnostics`는 추가 신호 없이 가상 미래를 진행하며 생긴 진단이다. 예를 들어 아직 미선택인 분기의 close 도달은 이 배열의 `unresolved`이며 현재 사실인 `diagnostics`와 구분한다. 예측 구간의 제어 충돌·실행 제약 위반도 이 배열에서 확인한다.
 
+## 작성 타임라인의 평가
+
+`btimeline evaluate MANIFEST --profile PROFILE -o REPORT`는 명시한 profile의 FFLogs 투영 가정으로 기존 재생·forecast를 실행한다. Mistwake·Clyteum·산도리아의 공통 TypeScript 평가기를 대체한다. 입력 누락/품질 제외와 실행 오류/예고 실패를 구분하고, 적격 입력이 없으면 통과하지 않는다. KDL·profile·manifest 해시와 원본 위치를 보고서에 연결한다.
+
+전체 판정·profile 필드·기존 결과와의 대조는 [작성 평가 계약](AUTHORED_EVALUATION.md)을 따른다. profile은 검증용 자료이고 KDL의 외부 실행 의존성이 아니다. FFLogs를 직접 넣은 `compare`의 신호 의미와 ACT/UI 미검증 경계는 유지한다.
+
 ## 입력 관측
 
 ```json

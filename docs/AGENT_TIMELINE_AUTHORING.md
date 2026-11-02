@@ -30,6 +30,8 @@
 
 `inspect`·`mine`·`generate`는 여러 학습 파일도 받을 수 있다. 보류 파일은 이 작성 단계의 입력에 넣지 않는다. 현재 `generate`에는 `--verify`가 없으며 계획 문서에 있는 해당 옵션을 실행 가능한 기능으로 안내하지 않는다.
 
+Mistwake·Clyteum·산도리아의 투영·재생·사전 조회는 Rust `btimeline evaluate MANIFEST --profile PROFILE -o REPORT`를 사용한다. 전투별 평가 실행 스크립트를 만들지 않고 ID·이름·범위는 profile에 기록한다. 입력·출력 계약과 토큰 절감을 위한 상세 조회 조건은 [공통 작성 평가](AUTHORED_EVALUATION.md)를 따른다.
+
 `compare`에 FFLogs JSON을 직접 넣으면 `FFLogs.cast` 등으로 재생하며 자동으로 ACT의 `Ability`가 되지 않는다. 생성 KDL의 제어 신호를 시험하려면 [재생 입력 계약](OFFLINE_REPLAY.md#입력-관측)에 맞는 정규화 기록을 만들고 변환·시작·종료 신호 가정을 명시한다. KDL의 실행 신호를 FFLogs 전용 신호로 바꿔 통과시키지 않는다.
 
 `forecast`는 현재 경로에서 추가 신호가 없을 때의 미래 일정을 조회한다. [미래 조회 계약](OFFLINE_REPLAY.md#미래-일정-조회)에 따라 관측 cutoff·보정된 시각·예고 간격을 확인하고 미래의 미선택 분기나 전환은 추측하지 않는다. 실제 UI에서 몇 초 전에 보였는지 검증한 것과 구분하며, 실용성 종합 판정·일반 오류 구간 피드백은 후속 도구 과제다.

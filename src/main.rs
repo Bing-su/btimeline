@@ -1,4 +1,5 @@
 mod cli;
+mod evaluate;
 mod fflogs;
 mod generate;
 mod output;
