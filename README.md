@@ -4,6 +4,8 @@ FFLogs 전투 로그를 수집하고 타임라인을 작성하기 위한 도구�
 
 새 계약과 구현 순서는 [타임라인 스키마 초안](docs/TIMELINE_SCHEMA.md)과 [재설계 계획](docs/PLAN.md)을 참고하세요. cactbot 시작·리셋과 구간 전환의 근거는 [생명주기 조사](docs/CACTBOT_LIFECYCLE_RESEARCH.md)에 정리했습니다.
 
+[FFLogs 수집 안내](docs/FFLOGS_COLLECTION.md)는 게임 zone 탐색, 보고서·처치·전멸·길이를 고려한 후보 선택과 다운로드 계획 v2를 설명합니다. 이전 v1 계획은 다시 생성해야 하며 기존 원본 로그는 계속 사용할 수 있습니다.
+
 ## 현재 사용 가능한 명령
 
 | 명령                                                         | 용도                                             |
