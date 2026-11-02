@@ -63,6 +63,8 @@
 
 반복·탈출 사례로 [Queen Eternal 대기 KDL](../timelines/queen-eternal-hold.kdl)과 [작성 기록](../timelines/queen-eternal-hold.authoring.md)을 추가했다. 시작 전/본문 실행 후의 실제 탈출과 후속 예고는 새 보류 적격 6개에서 통과했다. 완전한 본문과 다음 회차 관측 수를 분리하며 실제 재반복 경계는 아직 없어 다회차 검증은 합성 범위다.
 
-참조 시간표 없는 적용은 [Clyteum KDL](../timelines/clyteum.kdl)·[작성 기록](../timelines/clyteum.authoring.md)에 있다. 로그에서 세 보스의 일정과 반복을 작성해 새 보류 적격 5개를 검증했고, Malphas의 실제 다음 회차도 확인했다. [산도리아 후보](NO_REFERENCE_TIMELINES.md)는 메타데이터를 확보했으며 KDL 작성은 남아 있다.
+참조 시간표 없는 적용은 [Clyteum KDL](../timelines/clyteum.kdl)·[작성 기록](../timelines/clyteum.authoring.md)에 있다. 로그에서 세 보스의 일정과 반복을 작성해 새 보류 적격 5개를 검증했고, Malphas의 실제 다음 회차도 확인했다.
+
+이어 [산도리아 KDL](../timelines/sandoria.kdl)·[작성 기록](../timelines/sandoria.authoring.md)에 네 전투를 작성했다. 첫 보류 16개 중 7개 실패를 보존하고 개발 자료로 전환해 Shijin 네 선택·동시 두 보스·이른 진행 복구를 보완했다. 확장 개발 적격 26개와 고정 수정 후보의 새 보류 16개가 통과했다. 새 보류에는 Genbu·Eastwind가 없어 해당 선택은 개발·합성 범위이며, 생존 보스의 단독 후반과 미관측 반복은 범위 밖이다.
 
 추가 시 skill frontmatter·참조 링크를 검사하고 `tests/fixtures/pull.json`으로 위 `inspect`·`mine`·`generate`·`validate`·`compare` 명령을 확인했다. 합성 `Ability B528` 시작 관측 하나를 공급한 dungeon 초안 재생에서 0·4·8초의 세 이벤트가 실행됐으며 후속 시전 관측은 공급하지 않았다. 이는 CLI 연결과 추가 신호 없는 예측 동작의 확인이며 실제 에이전트 해석·UI 예고 시간·ACT 동등성 검증은 아니다.
