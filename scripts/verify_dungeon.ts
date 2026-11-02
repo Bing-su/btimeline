@@ -6,7 +6,13 @@ import os from "node:os";
 import path from "node:path";
 import { holdoutSummary, InputExclusion } from "./verify_griffin_holdout.ts";
 
-type Target = { raw_index: number; at_ms: number; fields: { id: string }; name: string };
+type Target = {
+  raw_index: number;
+  at_ms: number;
+  fields: { id: string };
+  name: string;
+  lead_ms?: number;
+};
 type Boss = {
   phase: string;
   entry_ms: number;
@@ -92,7 +98,8 @@ export function verifyDungeon(project: (raw: any) => Dungeon, notChecked: string
               ...executed.map((row: any) => Math.abs(row.at_ms - target.at_ms)),
             );
             let forecast = null;
-            if (target.at_ms - boss.entry_ms >= manifest.forecast_lead_ms) {
+            const lead = target.lead_ms ?? manifest.forecast_lead_ms;
+            if (target.at_ms - boss.entry_ms >= lead) {
               const result = JSON.parse(
                 execFileSync(
                   binary,
@@ -101,7 +108,7 @@ export function verifyDungeon(project: (raw: any) => Dungeon, notChecked: string
                     manifest.timeline,
                     recording,
                     "--at-ms",
-                    String(target.at_ms - manifest.forecast_lead_ms),
+                    String(target.at_ms - lead),
                     "--horizon-ms",
                     String(manifest.horizon_ms),
                   ],
@@ -114,6 +121,7 @@ export function verifyDungeon(project: (raw: any) => Dungeon, notChecked: string
                   .map((row: any) => Math.abs(row.at_ms - target.at_ms)),
               );
               forecast = {
+                ...(target.lead_ms === undefined ? {} : { lead_ms: lead }),
                 error_ms: Number.isFinite(queryError) ? queryError : null,
                 passed:
                   result.phase === boss.phase &&

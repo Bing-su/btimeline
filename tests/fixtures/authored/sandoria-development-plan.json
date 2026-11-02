@@ -1,0 +1,84 @@
+{
+  "role": "development; all twelve inputs inspected before authoring; source metadata in training-discovery.json",
+  "timeline": "timelines/sandoria.kdl",
+  "timeline_sha256": "71515ca84e56a05841ac4930c522369448e889807237510d43e316cd48345d6b",
+  "forecast_lead_ms": 5000,
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "eligibility": "Exactly one Boss actor per expected name; one FFLogs encounter; reject 75%-to-90% HP recovery and missing cast sources. End at recorded fight end capped from entry: kirin 230s, duo 238s, kam 325s, eald 357s; only these finite routes are evaluated. Wipes remain eligible. Deduplicate relative selected ID/time sequences.",
+  "target_policy": "Explicit selected primary IDs in sandoria_recording.ts; first Quake/Stonega III lead 2000ms because choices are visible only ~3s before resolution; other targets lead 5000ms.",
+  "inputs": [
+    {
+      "input": "logs/sandoria-authoring-development/MFCVjw7RNch6mxtZ_208.json",
+      "sha256": "37147f9ce99c3fc9619d53a58836f3d241e09fc39ed7161452b9708262671788",
+      "report": "MFCVjw7RNch6mxtZ",
+      "fight": 208
+    },
+    {
+      "input": "logs/sandoria-authoring-development/vxCKdkn9y4D8FRBQ_57.json",
+      "sha256": "6e4ca6a56b81f64db7a46359ecee50858d2940ca8cfc4bcb1cce133d08431dd5",
+      "report": "vxCKdkn9y4D8FRBQ",
+      "fight": 57
+    },
+    {
+      "input": "logs/sandoria-authoring-development/PAq8bNtxvXWG16QZ_70.json",
+      "sha256": "cf66300f9b203169afd391218e9e4a5cc1b812cf8040686889a1a00c01b73f75",
+      "report": "PAq8bNtxvXWG16QZ",
+      "fight": 70
+    },
+    {
+      "input": "logs/sandoria-authoring-development/vxCKdkn9y4D8FRBQ_59.json",
+      "sha256": "59c3b2d71fb792455c8318b9227801e05d284bec6ca28e4a01570be09b20d64e",
+      "report": "vxCKdkn9y4D8FRBQ",
+      "fight": 59
+    },
+    {
+      "input": "logs/sandoria-authoring-development/PAq8bNtxvXWG16QZ_72.json",
+      "sha256": "05249ea09596343ac8b5a9ad4ac6b920d5074f37ab08b786649f9ea2bd956b5a",
+      "report": "PAq8bNtxvXWG16QZ",
+      "fight": 72
+    },
+    {
+      "input": "logs/sandoria-authoring-development/MFCVjw7RNch6mxtZ_211.json",
+      "sha256": "45f0ce714577d035efbcd41dc713a9ba41b00bd63940107c0e96ca102f9cc98d",
+      "report": "MFCVjw7RNch6mxtZ",
+      "fight": 211
+    },
+    {
+      "input": "logs/sandoria-authoring-development/MFCVjw7RNch6mxtZ_206.json",
+      "sha256": "406e28d667b7dc8068dc55476465b1f4f1a37b52bfc6de44b7026e1d94b91e97",
+      "report": "MFCVjw7RNch6mxtZ",
+      "fight": 206
+    },
+    {
+      "input": "logs/sandoria-authoring-development/waxKy7T83zctVNGB_211.json",
+      "sha256": "cd6e1dd180555e1d32fcdf40ecbe7e31532b68011c00778e99f3a9cfbcaefa45",
+      "report": "waxKy7T83zctVNGB",
+      "fight": 211
+    },
+    {
+      "input": "logs/sandoria-authoring-development/PAq8bNtxvXWG16QZ_73.json",
+      "sha256": "a86379d51c6aaae784efaba356eb32c48fe96788209a55f06b33c5c960bc4712",
+      "report": "PAq8bNtxvXWG16QZ",
+      "fight": 73
+    },
+    {
+      "input": "logs/sandoria-authoring-development/vXgwtAWNJ3TBhHmy_7.json",
+      "sha256": "0d9c702ca9483386b2c0cff040958cd4b2bc9024218868a78d1822e48c195ea7",
+      "report": "vXgwtAWNJ3TBhHmy",
+      "fight": 7
+    },
+    {
+      "input": "logs/sandoria-authoring-development/waxKy7T83zctVNGB_206.json",
+      "sha256": "d90acb4866bb701faaaa0b38dca5ea87b4719569d8c6e6be38e217f06702c5a8",
+      "report": "waxKy7T83zctVNGB",
+      "fight": 206
+    },
+    {
+      "input": "logs/sandoria-authoring-development/PAq8bNtxvXWG16QZ_68.json",
+      "sha256": "c2aff20ed87e6ef8f56e4039dc138b90af3b99e2227e20451e28647e668b084b",
+      "report": "PAq8bNtxvXWG16QZ",
+      "fight": 68
+    }
+  ]
+}

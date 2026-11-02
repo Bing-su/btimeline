@@ -1,0 +1,146 @@
+{
+  "role": "held-out; fresh report metadata selected before content inspection, candidate and criteria frozen before evaluation",
+  "timeline": "timelines/sandoria.kdl",
+  "timeline_sha256": "71515ca84e56a05841ac4930c522369448e889807237510d43e316cd48345d6b",
+  "forecast_lead_ms": 5000,
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "eligibility": "Exactly one Boss actor per expected name; one FFLogs encounter; reject 75%-to-90% HP recovery and missing cast sources. End at recorded fight end capped from entry: kirin 230s, duo 238s, kam 325s, eald 357s; only these finite routes are evaluated. Wipes remain eligible. Deduplicate relative selected ID/time sequences.",
+  "target_policy": "Explicit selected primary IDs in sandoria_recording.ts; first Quake/Stonega III lead 2000ms because choices are visible only ~3s before resolution; other targets lead 5000ms.",
+  "inputs": [
+    {
+      "input": "logs/sandoria-authoring-holdout/HnxFmz3CVZkNW1Xp_50.json",
+      "sha256": "8af65dd17317718aeb31bf521bd72aa269b454b208de2af06efb0696104a4f6b",
+      "report": "HnxFmz3CVZkNW1Xp",
+      "fight": 50,
+      "encounter": 2070
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/aPVdHQmZJ9AbgwM6_24.json",
+      "sha256": "ae3666aae7da5c1496f0b9a70f0f063a32d0cd589e11cef29358626d124f93f3",
+      "report": "aPVdHQmZJ9AbgwM6",
+      "fight": 24,
+      "encounter": 2069
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/HnxFmz3CVZkNW1Xp_45.json",
+      "sha256": "1dd19123f19251bb6ca13fc890d0ee3b558de57e9c5f47ebbe0adb05424009ee",
+      "report": "HnxFmz3CVZkNW1Xp",
+      "fight": 45,
+      "encounter": 2067
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/HnxFmz3CVZkNW1Xp_47.json",
+      "sha256": "dc9fb561b04023f4c418b23616a5850990b62520c0ca8cc2912d21f847408ede",
+      "report": "HnxFmz3CVZkNW1Xp",
+      "fight": 47,
+      "encounter": 2068
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/Y3v4JFghpTjbnWwL_11.json",
+      "sha256": "762c84e9a869dd75289d2bdfc572fd19f2adcf3e1c54fc21ed056dc31fe7e6d8",
+      "report": "Y3v4JFghpTjbnWwL",
+      "fight": 11,
+      "encounter": 2070
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/HnxFmz3CVZkNW1Xp_49.json",
+      "sha256": "e0ea75695dc165cc75ab093009a9db7aec2da1b882e4300ceacbccd05d57bc45",
+      "report": "HnxFmz3CVZkNW1Xp",
+      "fight": 49,
+      "encounter": 2069
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/aPVdHQmZJ9AbgwM6_22.json",
+      "sha256": "2e56638c0426f6038382d53c2114476c97b78534577d3fa317fabfb349d95021",
+      "report": "aPVdHQmZJ9AbgwM6",
+      "fight": 22,
+      "encounter": 2068
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/Y3v4JFghpTjbnWwL_6.json",
+      "sha256": "e6ee85bdb40dcbeab8e061f01ea8f54c2d3c7aeba8bcd7fc11dee64b682b558a",
+      "report": "Y3v4JFghpTjbnWwL",
+      "fight": 6,
+      "encounter": 2067
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/Zdxv3yCMtJq6QVcP_36.json",
+      "sha256": "803d67b5be9d32837b80d9ecfd40d9bc29ed15492b54409048fadd87e1463110",
+      "report": "Zdxv3yCMtJq6QVcP",
+      "fight": 36,
+      "encounter": 2070
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/Mf29DAWxyrg1Tnpv_8.json",
+      "sha256": "d3c0256d1efe4466b27d3eae3861c83460e3d8210e2f9f8d2ab0aa8bee5bd56a",
+      "report": "Mf29DAWxyrg1Tnpv",
+      "fight": 8,
+      "encounter": 2069
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/Y3v4JFghpTjbnWwL_8.json",
+      "sha256": "e7f7093c6a072c9177b434b7f9f2a979cb3186179b8a5728dcfc4250aa40f1b3",
+      "report": "Y3v4JFghpTjbnWwL",
+      "fight": 8,
+      "encounter": 2068
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/Zdxv3yCMtJq6QVcP_31.json",
+      "sha256": "b03e674e06e56470dbda64b48ba7efa6d9588eb80112fd2789b40d1202382766",
+      "report": "Zdxv3yCMtJq6QVcP",
+      "fight": 31,
+      "encounter": 2067
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/aPVdHQmZJ9AbgwM6_25.json",
+      "sha256": "90b35e99a8576dcb7317a1e89753066b651abdd27a7b74a6142b14512dc1aa9c",
+      "report": "aPVdHQmZJ9AbgwM6",
+      "fight": 25,
+      "encounter": 2070
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/Y3v4JFghpTjbnWwL_10.json",
+      "sha256": "0346d6ef103eb68170daec8c5e3ee448724a4e088e1ae505afa18cb994c3ae52",
+      "report": "Y3v4JFghpTjbnWwL",
+      "fight": 10,
+      "encounter": 2069
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/Zdxv3yCMtJq6QVcP_33.json",
+      "sha256": "9315e7036aedd2757adb9f4de34fb5bdf47ff4968df9fce406ed4f17467dc5ee",
+      "report": "Zdxv3yCMtJq6QVcP",
+      "fight": 33,
+      "encounter": 2068
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/FqmhgXHZRdc6D7AK_14.json",
+      "sha256": "502b92dc3f48295f9ffae50b7d77fa08ef144804b7f80ee525efd10510112d50",
+      "report": "FqmhgXHZRdc6D7AK",
+      "fight": 14,
+      "encounter": 2067
+    }
+  ],
+  "discovery": {
+    "reports": [],
+    "encounter": null,
+    "difficulty": null,
+    "gameZone": 1304,
+    "partition": null,
+    "region": null,
+    "firstPage": 6,
+    "pages": 1
+  },
+  "excluded_fingerprints": [
+    "699fa921fa6680163e0ea59a257ec32099273867407aa28d6e0c44ada6b93d47",
+    "d43214180454924ae4700e26cd0d4a87f58149ba88f7690d0f7db559661a7cba",
+    "727d4a87a9864fa3bc5a30770fc71c716db03043bc713855a3139601e752970f",
+    "43dbc56f9a8c46787f0b53e478ee2454a69c715da536a0bd7b1a2906639c0bb1",
+    "5fd4ac0396422e12f45973a4147d5495cd5b4e498f1b3bd7997ddce551faf77b",
+    "6b4029aa8627f794f89c72470d5a5b3b15e296360b1db81d2e94dd7194008717",
+    "123bfb892d84b3b4ed7d6b0766ab3ef85e3ec238f8d93852d7f7b5cea55f1948",
+    "24f7cd24f6ffe659b7f638c9a780cec0252a2db5f8b55e41a99d9305ba297969",
+    "2760d7443a9a67285647b285c193cf73e4ff091e1ef90929354fd3cbe8150b7d",
+    "83ea5f9d969adc0a95171ca07f3aa39edce3a60d91a9dc6972051b0a91d49b4d"
+  ]
+}

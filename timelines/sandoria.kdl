@@ -1,0 +1,186 @@
+timeline 1 "San d'Oria: The Second Walk" {
+    // Authored from training casts; no encounter timetable or inferred positioning supplies these schedules.
+    start "Ability" id="ADCA" source="Faithbound Kirin"
+    start "Ability" id="AD2B" source="Omega, the One"
+    start "Ability" id="ACBD" source="Kam'lanaut"
+    start "Ability" id="AD51" source="Eald'narche"
+    wipe "ActorControl" command="4000000F"
+    wipe "ActorControl" command="40000010"
+    finish "InCombat" inGameCombat="0"
+    zone-exit "ChangeZone"
+
+    phase "kirin" {
+        enter "Ability" id="ADCA" source="Faithbound Kirin"
+        event "kirin-1" 0.0 name="Stonega IV"
+        event "kirin-2" 11.1 name="Wrought Arms"
+        event "kirin-3" 21.9 name="Synchronized Strike"
+        event "kirin-4" 33.9 name="Synchronized Strike"
+        event "kirin-5" 50.2 name="Crimson Riddle"
+        event "kirin-6" 57.4 name="Crimson Riddle"
+        event "kirin-7" 71.5 name="Summon Shijin"
+        // Shijin's two observed resolutions differ; the shared second Wrought Arms fixes the continuation origin.
+        event "kirin-arms-return" 122.4 name="Wrought Arms"
+        branch "shijin" open=85.0 close=115.0 {
+            option "quake" {
+                when "StartsUsing" id="B07B" source="Faithbound Kirin"
+                event "kirin-quake-first" 3.0 name="Quake"
+                event "kirin-quake-second" 8.1 name="Quake"
+                event "kirin-quake-third" 13.1 name="Quake"
+                event "kirin-quake-fourth" 18.1 name="Quake"
+            }
+            option "stonega" {
+                when "StartsUsing" id="B079" source="Faithbound Kirin"
+                event "kirin-stonega-first" 3.0 name="Stonega III"
+                event "kirin-stonega-second" 11.1 name="Stonega III"
+            }
+            merge {
+                when "Ability" id="AD91" source="Faithbound Kirin" at=122.4 before=8.0 after=8.0
+                event "kirin-8" 8.5 name="Wringer"
+                event "kirin-9" 23.1 name="Striking Right / Striking Left"
+                event "kirin-10" 33.4 name="Stonega IV"
+                event "kirin-11" 41.9 name="Wringer / Synchronized Strike"
+                event "kirin-12" 45.9 name="Wringer / Synchronized Strike"
+                event "kirin-13" 47.2 name="Synchronized Sequence / Double Wringer"
+                event "kirin-14" 52.3 name="Wringer / Synchronized Strike"
+                event "kirin-15" 70.2 name="Mighty Grip"
+                event "kirin-16" 90.9 name="Deadly Hold"
+                event "kirin-17" 98.9 name="Bury"
+            }
+        }
+    }
+
+    phase "duo" {
+        enter "Ability" id="AD2B" source="Omega, the One"
+        // Both bosses share the observed pull clock; one boss's signal must not shift the other's schedule.
+        // shortcut: stop after the second Fire; extend the variable post-Fire tail when supported by more observations.
+        event "duo-1" 0.0 name="Omega: Ion Efflux"
+        event "duo-2" 3.7 name="Ultima: Antimatter"
+        event "duo-3" 8.9 name="Ultima: Energy Orb"
+        event "duo-4" 20.0 name="Omega: Fore-to-Aft Fire / Aft-to-Fore Fire"
+        event "duo-5" 36.4 name="Ultima: Tractor Beam"
+        event "duo-6" 36.6 name="Omega: Anti-Personnel Missile"
+        event "duo-7" 53.9 name="Omega: Surface Missile"
+        event "duo-8" 56.0 name="Ultima: Energy Orb"
+        event "duo-9" 63.3 name="Omega: Anti-Personnel Missile"
+        event "duo-10" 71.4 name="Ultima: Mana Screen"
+        event "duo-11" 76.5 name="Ultima: Energy Orb"
+        event "duo-12" 85.5 name="Ultima: Energy Ray"
+        event "duo-13" 90.2 name="Omega: Trajectory Projection"
+        event "duo-14" 100.9 name="Omega: Guided Missile"
+        event "duo-15" 106.5 name="Ultima: Tractor Field"
+        event "duo-16" 111.8 name="Omega: Multi-Missile"
+        event "duo-17" 111.9 name="Ultima: Citadel Siege"
+        event "duo-18" 116.1 name="Omega: Multi-Missile"
+        event "duo-19" 120.3 name="Omega: Multi-Missile"
+        event "duo-20" 124.6 name="Omega: Multi-Missile"
+        event "duo-21" 141.2 name="Ultima: Citadel Buster"
+        event "duo-22" 147.0 name="Omega: Hyper Pulse"
+        event "duo-23" 164.3 name="Ultima: Tractor Beam"
+        event "duo-24" 165.0 name="Omega: Trajectory Projection"
+        event "duo-25" 175.6 name="Ultima: Mana Screen"
+        event "duo-26" 175.8 name="Omega: Guided Missile"
+        event "duo-27" 180.7 name="Ultima: Energy Orb"
+        event "duo-28" 189.7 name="Ultima: Energy Ray"
+        event "duo-29" 190.0 name="Omega: Anti-Personnel Missile"
+        event "duo-30" 203.7 name="Ultima: Chemical Bomb"
+        event "duo-31" 221.8 name="Omega: Surface Missile"
+        event "duo-32" 225.0 name="Ultima: Energy Orb"
+        event "duo-33" 233.0 name="Omega: Fore-to-Aft Fire / Aft-to-Fore Fire"
+    }
+
+    phase "kam" {
+        enter "Ability" id="ACBD" source="Kam'lanaut"
+        // Reused opening abilities stay in this active phase; they must not restart the encounter schedule.
+        event "kam-1" 0.0 name="Enspirited Swordplay"
+        event "kam-2" 8.6 name="Proving Ground"
+        event "kam-3" 21.7 name="Elemental Blade"
+        event "kam-4" 32.9 name="Sublime Elements"
+        event "kam-5" 44.0 name="Elemental Blade"
+        event "kam-6" 55.1 name="Sublime Elements"
+        event "kam-7" 65.5 name="Princely Blow"
+        event "kam-8" 71.7 name="Light Blade"
+        event "kam-9" 80.9 name="Great Wheel"
+        event "kam-10" 86.8 name="Great Wheel"
+        event "kam-11" 94.0 name="Enspirited Swordplay" {
+            sync 94.0 "Ability" id="ACBD" source="Kam'lanaut" before=3.0 after=8.0
+        }
+        event "kam-12" 114.5 name="Esoteric Scrivening" {
+            sync 114.5 "Ability" id="ACB2" source="Kam'lanaut" before=3.0 after=8.0
+        }
+        event "kam-13" 137.9 name="Shockwave"
+        event "kam-14" 146.5 name="Transcendent Union"
+        event "kam-15" 153.0 name="Transcendent Union"
+        event "kam-16" 169.0 name="Esoteric Palisade" {
+            sync 169.0 "Ability" id="ACB6" source="Kam'lanaut" before=3.0 after=8.0
+        }
+        event "kam-17" 175.2 name="Crystalline Resonance"
+        event "kam-18" 183.0 name="Elemental Resonance"
+        event "kam-19" 190.0 name="Elemental Resonance"
+        event "kam-20" 197.0 name="Elemental Resonance"
+        event "kam-21" 197.3 name="Illumed Facet"
+        event "kam-22" 197.3 name="Empyreal Banish III"
+        event "kam-23" 208.2 name="Illumed Estoc"
+        event "kam-24" 215.6 name="Shield Bash"
+        event "kam-25" 224.7 name="Empyreal Banish IV"
+        event "kam-26" 235.1 name="Princely Blow"
+        event "kam-27" 250.4 name="Proving Ground" {
+            sync 250.4 "Ability" id="B009" source="Kam'lanaut" before=3.0 after=8.0
+        }
+        event "kam-28" 264.5 name="Elemental Blade"
+        event "kam-29" 275.7 name="Sublime Elements"
+        event "kam-30" 282.9 name="Light Blade"
+        event "kam-31" 288.9 name="Empyreal Banish III"
+        event "kam-32" 292.1 name="Great Wheel"
+        event "kam-33" 297.9 name="Great Wheel"
+        event "kam-34" 305.2 name="Enspirited Swordplay" {
+            sync 305.2 "Ability" id="ACBD" source="Kam'lanaut" before=3.0 after=8.0
+        }
+        event "kam-35" 317.6 name="Esoteric Palisade" {
+            sync 317.6 "Ability" id="ACB6" source="Kam'lanaut" before=3.0 after=8.0
+        }
+    }
+
+    phase "eald" {
+        enter "Ability" id="AD51" source="Eald'narche"
+        // Reused opening abilities stay in this active phase; they must not restart the encounter schedule.
+        event "eald-1" 0.0 name="Uranos Cascade"
+        event "eald-2" 13.1 name="Cronos Sling"
+        event "eald-3" 29.8 name="Empyreal Vortex"
+        event "eald-4" 46.9 name="Cronos Sling"
+        event "eald-5" 60.6 name="Warp"
+        event "eald-6" 66.9 name="Sleepga"
+        event "eald-7" 74.4 name="Gaea Stream"
+        event "eald-8" 84.5 name="Omega Javelin"
+        event "eald-9" 95.7 name="Duplicate"
+        event "eald-10" 110.8 name="Duplicate"
+        event "eald-11" 140.4 name="Excelsior"
+        event "eald-12" 145.5 name="Phase Shift" {
+            sync 145.5 "Ability" id="AD59" source="Eald'narche" before=3.0 after=8.0
+        }
+        event "eald-13" 167.8 name="Phase Shift" {
+            sync 167.8 "Ability" id="AD5A" source="Eald'narche" before=3.0 after=8.0
+        }
+        event "eald-14" 180.0 name="Duplicate"
+        event "eald-15" 189.1 name="Visions of Paradise" {
+            sync 189.1 "Ability" id="AD75" source="Eald'narche" before=3.0 after=8.0
+        }
+        event "eald-16" 193.2 name="Duplicate"
+        event "eald-17" 198.2 name="Stellar Burst"
+        event "eald-18" 222.9 name="Ancient Triad"
+        event "eald-19" 238.5 name="Gaea Stream"
+        event "eald-20" 257.7 name="Uranos Cascade" {
+            sync 257.7 "Ability" id="AD51" source="Eald'narche" before=3.0 after=8.0
+        }
+        event "eald-21" 264.8 name="Duplicate"
+        event "eald-22" 274.0 name="Visions of Paradise" {
+            sync 274.0 "Ability" id="AD75" source="Eald'narche" before=3.0 after=8.0
+        }
+        event "eald-23" 278.1 name="Duplicate"
+        event "eald-24" 283.1 name="Omega Javelin"
+        event "eald-25" 291.6 name="Gaea Stream"
+        event "eald-26" 304.7 name="Cronos Sling"
+        event "eald-27" 318.9 name="Stellar Burst"
+        event "eald-28" 342.3 name="Ancient Triad"
+        event "eald-29" 350.9 name="Duplicate"
+    }
+}
