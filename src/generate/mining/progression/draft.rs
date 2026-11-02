@@ -33,6 +33,7 @@ struct Candidate {
     reference: String,
     nodes: Vec<(usize, i64)>,
     observed_span_ms: i64,
+    end_ms: i64,
 }
 
 impl Candidate {
@@ -92,7 +93,43 @@ impl Candidate {
             reference,
             nodes,
             observed_span_ms,
+            end_ms: pull.scope_end(source),
         }))
+    }
+
+    // Translate the next observed gap, e.g. A/B ending before C is a prefix, not evidence C is optional.
+    fn next_expected_at(&self, reference: &Self) -> Option<i64> {
+        let (_, next) = reference.nodes.get(self.nodes.len())?;
+        let ((_, previous), (_, at)) = reference.nodes.iter().zip(&self.nodes).next_back()?;
+        at.checked_add(next.checked_sub(*previous)?)
+    }
+
+    fn same_prefix(&self, reference: &Self, progression: &Progression) -> Result<bool> {
+        if self.nodes.len() > reference.nodes.len() {
+            return Ok(false);
+        }
+        let raw = progression
+            .traces
+            .get(self.trace)
+            .context("Invalid peer trace")?;
+        let original = progression
+            .traces
+            .get(reference.trace)
+            .context("Invalid representative trace")?;
+        for ((peer, _), (reference, _)) in self.nodes.iter().zip(&reference.nodes) {
+            let peer = raw
+                .graph
+                .node_weight(NodeIndex::new(*peer))
+                .context("Invalid peer node")?;
+            let reference = original
+                .graph
+                .node_weight(NodeIndex::new(*reference))
+                .context("Invalid representative node")?;
+            if peer.activity != reference.activity {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 }
 
@@ -207,23 +244,35 @@ impl Route {
         }
         let mut starts = vec![0; candidate.nodes.len()];
         let mut peers_complete = true;
-        for peer in candidates {
-            let raw = progression
-                .traces
-                .get(peer.trace)
-                .context("Invalid peer trace")?;
-            let matches = graph.node_count() == peer.nodes.len()
-                && graph
-                    .node_weights()
-                    .zip(&peer.nodes)
-                    .all(|(node, (observation, _))| {
-                        raw.graph
-                            .node_weight(NodeIndex::new(*observation))
-                            .is_some_and(|peer| peer.activity == node.activity)
-                    });
-            diagnostics.push(json!({"method":"exact-route-correspondence-v1","source":source,
-                    "reference":candidate.reference,"trace":peer.reference,"status":if matches {"matched"} else {"unresolved"},
-                    "reason":if matches {"same complete occurrence sequence"} else {"occurrence sequence differs; alternatives or censoring need analysis"}}));
+        let correspondence = candidates
+            .iter()
+            .map(|peer| Ok((peer, peer.same_prefix(candidate, progression)?)))
+            .collect::<Result<Vec<_>>>()?;
+        let complete: Vec<_> = correspondence
+            .iter()
+            .filter(|(peer, matches)| *matches && peer.nodes.len() == candidate.nodes.len())
+            .map(|(peer, _)| *peer)
+            .collect();
+        for (peer, same_prefix) in &correspondence {
+            let prefix = graph.node_count() > peer.nodes.len();
+            // A faster complete peer can expose a due omission that the slower representative would excuse.
+            let next_expected_ms = complete
+                .iter()
+                .filter_map(|reference| peer.next_expected_at(reference))
+                .min();
+            let censored = prefix && next_expected_ms.is_some_and(|at| peer.end_ms < at);
+            let matches = *same_prefix && (!prefix || censored);
+            let status = if matches && prefix {
+                "censored"
+            } else if matches {
+                "matched"
+            } else {
+                "unresolved"
+            };
+            diagnostics.push(json!({"method":"representative-route-correspondence-v2","source":source,
+                    "reference":candidate.reference,"trace":peer.reference,"status":status,
+                    "scope_end_ms":peer.end_ms,"next_expected_ms":next_expected_ms,
+                    "reason":if matches && prefix {"scope ended before the next representative occurrence"} else if matches {"same complete occurrence sequence"} else {"sequence differs or the next representative occurrence is due within the observed scope"}}));
             if !matches {
                 peers_complete = false;
                 continue;

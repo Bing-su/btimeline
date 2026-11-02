@@ -511,7 +511,7 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
     } = if analysis.needs_representative_route() {
         ensure!(
             draft.supports_observed_routes(),
-            "Representative routes differ; branch and censored-route learning is not implemented for fewer than two clears"
+            "Representative routes differ; branch, internal-gap and ambiguous-prefix learning is not implemented for fewer than two clears"
         );
         draft_anchors(&analysis, &progression, &draft)?
     } else {

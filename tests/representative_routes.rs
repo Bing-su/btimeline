@@ -373,3 +373,161 @@ fn divergent_wipe_routes_are_reported_instead_of_silently_picking_one() {
     assert!(!output.exists());
     assert!(!output.with_extension("evidence.json").exists());
 }
+
+#[rstest::rstest]
+#[case(false)]
+#[case(true)]
+fn short_wipes_and_clears_support_only_the_observed_prefix(#[case] kill: bool) {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let long = fixture(
+        dir.path(),
+        "long",
+        false,
+        &[(2000, 1), (4000, 2), (12000, 3)],
+    );
+    let short = fixture(dir.path(), "short", kill, &[(2000, 1), (3000, 2)]);
+    let mut data: Value =
+        serde_json::from_slice(&fs::read(&short).expect("fixture")).expect("fixture");
+    for pointer in [
+        "/report/endTime",
+        "/report/fights/0/endTime",
+        "/collection/endTime",
+    ] {
+        *data.pointer_mut(pointer).expect("end time") = 5000.into();
+    }
+    fs::write(&short, serde_json::to_vec(&data).expect("encode fixture")).expect("save fixture");
+    let evidence = generate(&[short, long], "raid", &dir.path().join("timeline.kdl"));
+    let route = &evidence["draft"]["routes"][0];
+    assert_eq!(route["reference"], "long/1");
+    assert_eq!(route["nodes"].as_array().expect("nodes").len(), 3);
+    assert_eq!(
+        route["nodes"][0]["observation_nodes"]
+            .as_object()
+            .expect("bindings")
+            .len(),
+        2
+    );
+    assert_eq!(route["nodes"][2]["observation_nodes"], json!({"long/1":2}));
+    let checks = evidence["draft"]["diagnostics"]
+        .as_array()
+        .expect("diagnostics");
+    let check = checks
+        .iter()
+        .find(|row| {
+            row["trace"] == "short/1" && row["method"] == "representative-route-correspondence-v2"
+        })
+        .expect("short check");
+    assert_eq!(check["status"], "censored");
+    assert_eq!(check["scope_end_ms"], 4000);
+    assert_eq!(check["next_expected_ms"], 10000);
+    assert_eq!(evidence["events"].as_array().expect("events").len(), 3);
+}
+
+#[rstest::rstest]
+#[case(11000)]
+#[case(21000)]
+fn a_long_silent_tail_cannot_excuse_a_due_missing_occurrence_in_the_draft(#[case] end_ms: i64) {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let paths = vec![
+        fixture(
+            dir.path(),
+            "long",
+            false,
+            &[(2000, 1), (4000, 2), (12000, 3)],
+        ),
+        fixture(dir.path(), "silent", false, &[(2000, 1), (3000, 2)]),
+    ];
+    let path = paths.get(1).expect("silent fixture");
+    let mut data: Value =
+        serde_json::from_slice(&fs::read(path).expect("fixture")).expect("fixture");
+    for pointer in [
+        "/report/endTime",
+        "/report/fights/0/endTime",
+        "/collection/endTime",
+    ] {
+        *data.pointer_mut(pointer).expect("end time") = end_ms.into();
+    }
+    fs::write(path, serde_json::to_vec(&data).expect("encode fixture")).expect("save fixture");
+    let output = dir.path().join("timeline.kdl");
+    let result = cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(paths)
+        .args(["--mode", "raid", "-o"])
+        .arg(&output)
+        .assert()
+        .failure();
+    assert!(
+        String::from_utf8_lossy(&result.get_output().stderr)
+            .contains("Representative routes differ")
+    );
+    assert!(!output.exists());
+}
+
+#[test]
+fn the_earliest_complete_peer_prevents_false_censoring() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let long = fixture(
+        dir.path(),
+        "long",
+        false,
+        &[(2000, 1), (4000, 2), (12000, 3)],
+    );
+    let fast = fixture(
+        dir.path(),
+        "fast",
+        false,
+        &[(2000, 1), (4000, 2), (5000, 3)],
+    );
+    let short = fixture(dir.path(), "short", false, &[(2000, 1), (4000, 2)]);
+    let mut data: Value =
+        serde_json::from_slice(&fs::read(&short).expect("fixture")).expect("fixture");
+    for pointer in [
+        "/report/endTime",
+        "/report/fights/0/endTime",
+        "/collection/endTime",
+    ] {
+        *data.pointer_mut(pointer).expect("end time") = 8000.into();
+    }
+    fs::write(&short, serde_json::to_vec(&data).expect("encode fixture")).expect("save fixture");
+    let output = dir.path().join("timeline.kdl");
+    cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args([long, fast, short])
+        .args(["--mode", "raid", "-o"])
+        .arg(&output)
+        .assert()
+        .failure();
+    assert!(!output.exists());
+}
+
+#[test]
+fn a_boss_completion_censors_its_route_while_the_dungeon_recording_continues() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let long = fixture(
+        dir.path(),
+        "long",
+        false,
+        &[(2000, 1), (4000, 2), (12000, 3)],
+    );
+    let short = fixture(dir.path(), "short", false, &[(2000, 1), (3000, 2)]);
+    let mut data: Value =
+        serde_json::from_slice(&fs::read(&short).expect("fixture")).expect("fixture");
+    data["events"]
+        .as_array_mut()
+        .expect("events")
+        .push(json!({"timestamp":5000,"type":"death","targetID":10,"fight":1}));
+    data["collection"]["eventCount"] = 3.into();
+    fs::write(&short, serde_json::to_vec(&data).expect("encode fixture")).expect("save fixture");
+    let evidence = generate(&[long, short], "dungeon", &dir.path().join("timeline.kdl"));
+    let check = evidence["draft"]["diagnostics"]
+        .as_array()
+        .expect("diagnostics")
+        .iter()
+        .find(|row| {
+            row["trace"] == "short/1" && row["method"] == "representative-route-correspondence-v2"
+        })
+        .expect("short check");
+    assert_eq!(check["status"], "censored");
+    assert_eq!(check["scope_end_ms"], 4000);
+    assert_eq!(evidence["events"].as_array().expect("events").len(), 3);
+}
