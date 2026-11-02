@@ -6,6 +6,8 @@ FFLogs 전투 로그를 수집하고 타임라인을 작성하기 위한 도구�
 
 로그 해석과 KDL 작성을 에이전트에 맡길 때는 저장소의 [timeline-author skill](.agents/skills/timeline-author/SKILL.md)을 사용합니다. 역할 분담·현행 CLI·작성 근거·독립 평가 절차는 [에이전트 작성 합의](docs/AGENT_TIMELINE_AUTHORING.md)에 정리했습니다. 예: `$timeline-author`와 함께 학습 로그, 대상 보스, mode와 출력 경로를 지정합니다. 이 skill은 기존 도구를 사용하는 작성 절차이며, `generate` 자체에 LLM 실행을 추가하지 않습니다.
 
+첫 작성 파일럿은 [Mistwake Griffin KDL](timelines/mistwake-griffin.kdl)입니다. [작성 기록](timelines/mistwake-griffin.authoring.md)에 기믹 요약·반복 해석·개발 재생 결과와 미검증 범위를 남겼습니다. 독립 로그·실제 ACT 검증을 마친 배포본은 아닙니다.
+
 새 계약과 구현 순서는 [타임라인 스키마 초안](docs/TIMELINE_SCHEMA.md)과 [재설계 계획](docs/PLAN.md)을 참고하세요. cactbot 시작·리셋과 구간 전환의 근거는 [생명주기 조사](docs/CACTBOT_LIFECYCLE_RESEARCH.md)에 정리했습니다.
 
 [FFLogs 수집 안내](docs/FFLOGS_COLLECTION.md)는 게임 zone 탐색과 다운로드 계획 v3를 설명합니다. 기본은 긴 진행 우선 학습 자료 수집이며 `--purpose verification`으로 짧은 종료 등을 포함한 대조 자료를 수집합니다. v1·v2 계획은 다시 생성해야 하며 기존 원본 로그는 계속 사용할 수 있습니다.

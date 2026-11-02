@@ -1,0 +1,49 @@
+timeline 1 "Mistwake - Thundergust Griffin" {
+    // Start on the first named mechanic; auto-attacks and unknown packet labels are not progression controls.
+    start "Ability" id="B0EB" source="Thundergust Griffin"
+    wipe "ActorControl" command="4000000F"
+    wipe "ActorControl" command="40000010"
+    finish "InCombat" inGameCombat="0"
+    zone-exit "ChangeZone"
+
+    phase "griffin" {
+        enter "Ability" id="B0EB" source="Thundergust Griffin"
+        event "opening-thunderspark" 0.0 name="Thunderspark"
+        event "opening-high-volts" 11.7 name="High Volts" {
+            sync 11.7 "Ability" id="B0EC" source="Thundergust Griffin" before=8.0 after=8.0
+        }
+        // Roar owns the display; its simultaneous target packets and Thunderbolt follow-through do not need separate bars.
+        event "opening-roar-first" 23.0 name="Thundering Roar"
+        event "opening-roar-second" 33.8 name="Thundering Roar"
+        event "opening-golden-talons" 45.6 name="Golden Talons" {
+            sync 45.6 "Ability" id="B0F9" source="Thundergust Griffin" before=8.0 after=8.0
+        }
+        event "opening-fulgurous-fall" 62.0 name="Fulgurous Fall"
+        event "opening-electrogenetic-force" 65.6 name="Electrogenetic Force"
+        event "opening-roar-last" 72.1 name="Thundering Roar"
+
+        // The opener lacks Storm Surge; the later rotation begins at the second Thunderspark, not the first Golden Talons.
+        loop "late-rotation" start=81.8 every=89.3 {
+            event "rotation-thunderspark" 0.0 name="Thunderspark" {
+                sync 0.0 "Ability" id="B0EB" source="Thundergust Griffin" before=8.0 after=8.0
+            }
+            event "rotation-storm-surge" 12.4 name="Storm Surge" {
+                // This late-only signal can recover a delayed entry without confusing a repeated Roar packet.
+                sync 12.4 "Ability" id="B0F3" source="Thundergust Griffin" before=10.0 after=25.0
+            }
+            // Shock Storm supplies B0F4 after Storm Surge in all development traces; keep its forecast display-only.
+            event "rotation-electrifying-flight" 13.0 name="Electrifying Flight"
+            event "rotation-high-volts" 19.6 name="High Volts" {
+                sync 19.6 "Ability" id="B0EC" source="Thundergust Griffin" before=8.0 after=8.0
+            }
+            event "rotation-roar-first" 31.0 name="Thundering Roar"
+            event "rotation-roar-second" 42.4 name="Thundering Roar"
+            event "rotation-golden-talons" 54.2 name="Golden Talons" {
+                sync 54.2 "Ability" id="B0F9" source="Thundergust Griffin" before=8.0 after=8.0
+            }
+            event "rotation-fulgurous-fall" 69.5 name="Fulgurous Fall"
+            event "rotation-electrogenetic-force" 73.1 name="Electrogenetic Force"
+            event "rotation-roar-last" 79.7 name="Thundering Roar"
+        }
+    }
+}
