@@ -17,7 +17,7 @@
 | P3 진입          | Bladesblood의 Ability 4CCF를 start와 ready 진입에 사용. 앞선 P1의 같은 Gunshield 시전은 시작 신호로 사용하지 않음                                                        |
 | 선택 관측        | Varis의 StartsUsing 4CD8/4CD9/4CD7이 L/R/E를 확정. 약 5초 뒤 Gunshield 해결과 이후 기믹을 예고                                                                           |
 | 선택 이력        | 첫 선택 3개·두 번째 접두부 6개·마지막 블록 3개를 phase로 표현. 사용한 블록을 다시 고르지 않으며 같은 마지막 블록의 완료 상태만 공유                                      |
-| 여섯 번째 순서   | 개발 자료의 LRE·LER·REL·ELR·ERL을 직접 관측. RLE는 세 블록을 한 번씩 사용한다는 전투 규칙에서 추론한 경로로 합성 검사하며 실제 관측과 구분                               |
+| 여섯 번째 순서   | 개발 자료의 LRE·LER·REL·ELR·ERL을 직접 관측. RLE는 처음에 전투 규칙에서 추론해 합성 검사했고, 후보 고정 후 새 보류 로그에서도 확인됨                                     |
 | 시간과 창        | 블록 상대 시각은 개발 관측의 하위 중앙값을 0.1초로 반올림. 다음 선택 창은 L 53.0초·R 55.0초·E 58.7초 각각 ±15초. 단일 전역 평균 창으로 합치지 않음                       |
 | 동기화           | L의 Magitek Burst, R의 Altius, E의 Magitek Shock를 대표 복구 신호로 사용. 원본 후속 패킷 모두를 sync로 만들지 않음                                                       |
 | 누락·잘못된 선택 | 중간 선택이 빠졌거나 사용한 블록이 반복되면 알려진 경로로 대체하지 않음. 고유한 Ability 4CE0이 오면 현재 상태와 관계없이 joined로 복구                                   |
@@ -39,10 +39,30 @@
 
 P3 시작과 공통 후속 4CE0이 관측되고 세 Gunshield가 각각 한 번씩 나타난 입력을 평가한다. 이미 합류 신호를 봤더라도 공통 후속 두 기술 전에 전투가 끝난 입력의 미관측 기술을 실패로 단정하지 않는다. FFLogs cast/begincast를 Ability/StartsUsing으로 투영한 검사이며 실제 ACT·UI·종료 신호는 미검증이다.
 
+## 고정 후보의 보류 평가
+
+후보·평가 기준·새 입력 목록과 원본 해시를 `cf9926e`로 커밋한 뒤 [보류 계획](../tests/fixtures/authored/varis-p3-holdout-plan.json)의 이벤트를 평가했다. Rankings page 1500에서는 후보가 없었고, 최근 zone page 1의 선정 로그는 177–238초로 짧았다. Game zone 913 page 10에서 두 개의 미사용 보고서에 속한 여섯 pull을 수집해 평가했다. 수집 목적 training은 긴 후보를 우선하는 탐색 정책으로 사용했으며 이 여섯 파일의 역할은 처음부터 보류다.
+
+| report/fight          | 순서 | 예고 대상 | 최대 조회 오차 |
+| --------------------- | ---- | --------- | -------------- |
+| `jAhxygNJG1ZT3MFD/14` | REL  | 20/20     | 604ms          |
+| `M8C19GNgABxPdJKZ/9`  | LER  | 20/20     | 586ms          |
+| `M8C19GNgABxPdJKZ/11` | LER  | 20/20     | 334ms          |
+| `jAhxygNJG1ZT3MFD/12` | ELR  | 20/20     | 350ms          |
+| `jAhxygNJG1ZT3MFD/13` | LRE  | 21/21     | 620ms          |
+| `M8C19GNgABxPdJKZ/5`  | RLE  | 20/20     | 428ms          |
+
+여섯 pull 모두 입력 적격이며 제외 0·선택 이력 진입 오류 0·실행 진단 0이다. P3 범위의 cast/begincast 관측 7,711건을 전달했고, Gunshield 18건의 3초 전 조회와 후속 103건의 5초 전 조회가 통과했다. 표의 대상 건수는 선택한 원본 관측 파동 수이며 서로 다른 게임 기믹의 종류 수가 아니다. 예를 들어 여러 근접 관측을 같은 대표 표시로 대응할 수 있다.
+
+후보 KDL을 변경하지 않고 미관측 RLE 순서가 실제 로그에서 통과했다. 개발·보류를 합쳐 여섯 순서를 관측했지만, 보류 자료만으로 여섯 순서를 모두 확인한 것은 아니다. 여섯 pull은 두 보고서에서 왔으며 여섯 독립 보고서로 세지 않는다. 보고서 ID와 주요 관측 상대 시각·ID 열의 fingerprint를 확인했고 모든 변형 중복 업로드의 독립성까지 증명하지는 않는다.
+
+[검증 기록](varis-ex-p3.validation.json)에 후보·계획·입력 해시, 선택·합류 원본 인덱스, 단계별 관측과 재생·조회 오차를 남겼다. `sample_columns`가 원본 표본 배열의 열을 설명한다. KDL의 여섯 번째 순서에 대한 주석은 후보 작성 시점의 가정을 보존한 것이며, 실제 보류 확인은 이 절의 결과다. 실제 ACT 이름·신호·UI와 P3 범위 밖의 전투 예고는 여전히 미검증이다.
+
 ```sh
 cargo build
 target/debug/btimeline validate timelines/varis-ex-p3.kdl
 bun scripts/verify_authored_varis_p3.ts target/debug/btimeline tests/fixtures/authored/varis-p3-development-plan.json out/varis-authoring/development-new.json
+bun scripts/verify_authored_varis_p3.ts target/debug/btimeline tests/fixtures/authored/varis-p3-holdout-plan.json out/varis-authoring/holdout-new.json
 bun run --cwd scripts test
 cargo test --test authored_varis_p3
 ```

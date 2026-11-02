@@ -59,4 +59,6 @@
 
 이어 [Mistwake 전체 보스 KDL](../timelines/mistwake.kdl)과 [작성 기록](../timelines/mistwake.authoring.md)을 추가했다. 50개 이벤트로 세 보스를 표현하며, 개발 적격 9개와 고정 후보의 새 보류 적격 5개를 평가했다. 보스 간 전환과 종료 신호를 받았을 때의 취소·재시작은 검사했지만 실제 ACT lifecycle 신호와 Treno·Amdusias의 미관측 반복 전체는 남아 있다.
 
+선택 이력의 적용 사례로 [Varis EX P3 KDL](../timelines/varis-ex-p3.kdl)과 [작성 기록](../timelines/varis-ex-p3.authoring.md)을 추가했다. 여섯 Gunshield 순서·중간 선택 누락·공통 후속 복구를 표현하며, 새 보고서 두 개의 보류 pull 6개가 통과했다. 개발에서 미관측이던 RLE도 후보 수정 없이 통과했으며 실제 ACT·UI와 전투 전체의 검증은 남아 있다.
+
 추가 시 skill frontmatter·참조 링크를 검사하고 `tests/fixtures/pull.json`으로 위 `inspect`·`mine`·`generate`·`validate`·`compare` 명령을 확인했다. 합성 `Ability B528` 시작 관측 하나를 공급한 dungeon 초안 재생에서 0·4·8초의 세 이벤트가 실행됐으며 후속 시전 관측은 공급하지 않았다. 이는 CLI 연결과 추가 신호 없는 예측 동작의 확인이며 실제 에이전트 해석·UI 예고 시간·ACT 동등성 검증은 아니다.
