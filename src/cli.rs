@@ -224,7 +224,9 @@ impl Run for InspectCommand {
                 );
             }
             if clears < 2 {
-                println!("  Common progress needs at least two clear logs.");
+                println!(
+                    "  A single log can generate a representative-route draft; multiple-log common progress still needs two clears."
+                );
             }
         }
         println!(

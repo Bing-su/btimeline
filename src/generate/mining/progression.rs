@@ -7,6 +7,9 @@ use serde::Serialize;
 
 use super::{Pull, Signal, common};
 
+mod draft;
+pub(in crate::generate) use draft::Draft;
+
 #[derive(Debug, PartialEq, Eq, Serialize)]
 struct Node {
     observation: usize,

@@ -349,7 +349,7 @@ fn logs_generate_and_replay_without_a_template_or_intermediate_file(
     assert!(!dir.path().join("process.kdl").exists());
     let report = output.with_extension("evidence.json");
     let evidence: Value = serde_json::from_slice(&fs::read(&report).unwrap()).unwrap();
-    assert_eq!(evidence["version"], 2);
+    assert_eq!(evidence["version"], 3);
     assert_eq!(evidence["mode"], mode);
     assert_eq!(evidence["analysis"]["inputs"].as_array().unwrap().len(), 2);
     assert_eq!(

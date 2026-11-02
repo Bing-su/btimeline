@@ -11,6 +11,7 @@ use super::mining::{
     Analysis,
     Branch,
     CommonEvent,
+    Draft,
     Identifier,
     LoopDiscovery,
     LoopModel,
@@ -90,6 +91,43 @@ fn anchor(analysis: &Analysis, progression: &Progression, row: &CommonEvent) -> 
         observations: progression.bind(&row.signal, &row.samples)?,
         occurrence: row.occurrence,
         alignment: row.evidence.clone(),
+    })
+}
+
+fn draft_anchors(
+    analysis: &Analysis,
+    progression: &Progression,
+    draft: &Draft,
+) -> Result<Prepared> {
+    let mut events = Vec::new();
+    for route in &draft.routes {
+        let mut counts = BTreeMap::<_, usize>::new();
+        for node in route.graph.node_weights() {
+            *counts.entry(&node.activity).or_default() += 1;
+        }
+        for node in route.graph.node_weights() {
+            let observations = BTreeMap::from([(route.reference.clone(), node.observation)]);
+            events.push(anchor(analysis, progression, &CommonEvent {
+                signal: node.activity.clone(),
+                samples: progression.samples(&observations)?,
+                occurrence: counts.get(&node.activity).filter(|count| **count > 1).map(|_| node.occurrence),
+                evidence: json!({"method":"representative-route-v1","reference":route.reference,"source":route.source,
+                    "coverage":"unconfirmed"}),
+            })?);
+        }
+    }
+    ensure!(
+        !events.is_empty(),
+        "No eligible casts in a supported representative scope"
+    );
+    let seen: BTreeSet<_> = events.iter().map(|event| &event.activity).collect();
+    let excluded = analysis.signals().iter().filter(|activity| !seen.contains(activity))
+        .map(|activity| json!({"activity":activity,"reason":"outside representative scope or not execution eligible"})).collect();
+    Ok(Prepared {
+        events,
+        branches: Vec::new(),
+        excluded,
+        diagnostics: Vec::new(),
     })
 }
 
@@ -461,6 +499,7 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
     let analysis = super::mining::analyze(inputs)?;
     // Build occurrence structure before choosing printable rows or estimating any schedule.
     let progression = analysis.progression();
+    let draft = analysis.draft(&progression, !matches!(mode, Mode::Raid))?;
     let LoopDiscovery {
         models,
         diagnostics: loop_diagnostics,
@@ -470,7 +509,11 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
         branches,
         mut excluded,
         diagnostics: alignment_diagnostics,
-    } = anchors(&analysis, &progression, mode)?;
+    } = if inputs.len() == 1 {
+        draft_anchors(&analysis, &progression, &draft)?
+    } else {
+        anchors(&analysis, &progression, mode)?
+    };
     let represented: BTreeSet<_> = anchors.iter().map(|anchor| anchor.source.clone()).collect();
     if !matches!(mode, Mode::Raid) {
         for boss in analysis.boss_names.difference(&represented) {
@@ -531,8 +574,9 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect();
-    let report = json!({"version":2,"mode":mode,"analysis":analysis.evidence(),
+    let report = json!({"version":3,"mode":mode,"analysis":analysis.evidence(),
         "progression":progression.evidence(),
+        "draft":draft.evidence(),
         "timeline_sha256":timeline_sha256,"policy_reference":"cactbot@e79ea7f16093be5b80cda0e2d5bc8eb899d6fb4b",
         "origins":rendered.origins,
         "events":rendered.events,"excluded":excluded,"alignment_diagnostics":alignment_diagnostics,

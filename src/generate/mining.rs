@@ -29,7 +29,7 @@ pub(super) use occurrences::{
     LoopDiscovery,
     LoopModel,
 };
-pub(super) use progression::Progression;
+pub(super) use progression::{Draft, Progression};
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub(super) enum Identifier {
@@ -145,6 +145,10 @@ impl Analysis {
 
     pub(super) fn progression(&self) -> Progression {
         Progression::new(&self.pulls)
+    }
+
+    pub(super) fn draft(&self, progression: &Progression, boss_only: bool) -> Result<Draft> {
+        Draft::new(&self.pulls, progression, boss_only)
     }
 
     pub(super) fn loop_models(&self, boss_only: bool) -> Result<LoopDiscovery> {
