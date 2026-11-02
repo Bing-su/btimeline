@@ -129,6 +129,8 @@ HP=0은 원본 damage의 대상이 Griffin이고 `targetResources.hitPoints=0`�
 
 [평가 결과](mistwake-griffin.holdout-result.json)에 계획·KDL·원본 해시, 원본 기믹 인덱스, 재생·조회 오차, 제외 사유와 집계를 보존했다. [평가 스크립트](../scripts/verify_griffin_holdout.ts)는 원본이 없으면 해당 입력을 제외했다고 보고하며, 새 결과를 보고 후보를 고치면 이 코퍼스를 개발 자료로 전환하고 새 보류 자료가 필요하다. 현재 검증 완료된 보류 자료를 다시 실행하는 것은 같은 평가의 재현이지 새로운 독립 평가가 아니다.
 
+후속 검사에서 입력 투영의 명시적인 `InputExclusion`만 제외하도록 제한했다. `inspect` 명령 실패·예상하지 못한 예외는 어느 단계에서 발생해도 도구 오류로 남아 전체 평가를 실패시킨다. 정상 재생 하나와 검사 명령 실패 하나를 함께 공급해, 실패한 검사를 제외하여 통과시키지 못하는 CLI 회귀 검사를 추가했다. 같은 원본으로 재현한 적격 네 로그의 결과·집계는 기존 기록과 동일하다. 제외 기록에는 `P9xGdw2Y3C7hMfH1/5`의 진입 `#17332`·마지막 대상 피해 `#21350`, `83DnJkLN7KTqWwPf/8`의 미상 sourceID=39 시전 `#10622`를 추가했다. 개발 fixture에 고정한 원본 해시 불일치는 제외로 완화하지 않는다.
+
 ```sh
 bun scripts/verify_griffin_holdout.ts target/debug/btimeline logs/griffin-holdout out/griffin-check/holdout-report.json
 ```

@@ -256,7 +256,11 @@
       "sha256": "8ba8d202a48e543209f58e086c64becf42493605b12365dbb35f43b2932749b5",
       "passed": null,
       "stage": "input-validation",
-      "error": "AssertionError [ERR_ASSERTION]: Missing observed Griffin completion"
+      "error": "InputExclusion: Missing observed Griffin completion",
+      "evidence": {
+        "entry_event": 17332,
+        "last_damage_event": 21350
+      }
     },
     {
       "status": "evaluated",
@@ -687,7 +691,12 @@
       "sha256": "7d3dd0b5cf175a108a96af523df3cbf5250ca0364c1f8a02eecc0fbd8031ae8c",
       "passed": null,
       "stage": "input-validation",
-      "error": "AssertionError [ERR_ASSERTION]: Unknown cast source 39"
+      "error": "InputExclusion: Unknown cast source 39",
+      "evidence": {
+        "raw_index": 10622,
+        "timestamp_ms": 17548305,
+        "source_id": 39
+      }
     },
     {
       "status": "evaluated",

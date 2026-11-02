@@ -8,6 +8,24 @@ import path from "node:path";
 const digest = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
 const read = (file: string) => JSON.parse(fs.readFileSync(file, "utf8"));
 
+export class InputExclusion extends Error {
+  constructor(
+    message: string,
+    readonly evidence: Record<string, unknown>,
+  ) {
+    super(message);
+    this.name = "InputExclusion";
+  }
+}
+
+function requireInput(
+  condition: unknown,
+  message: string,
+  evidence: Record<string, unknown>,
+): asserts condition {
+  if (!condition) throw new InputExclusion(message, evidence);
+}
+
 // Exclude unusable inputs from the score; execution errors and actual prediction failures still fail evaluation.
 export function holdoutSummary(traces: { status: string; passed: boolean | null }[]) {
   const eligible = traces.filter((trace) => trace.status !== "excluded");
@@ -29,7 +47,11 @@ export function griffinRecording(raw: any, names: Record<string, string>) {
   const observations = raw.events.flatMap((item: any, index: number) => {
     if (item.type !== "cast") return [];
     const source = actors.get(item.sourceID);
-    assert(source, `Unknown cast source ${item.sourceID}`);
+    requireInput(source, `Unknown cast source ${item.sourceID}`, {
+      raw_index: index,
+      timestamp_ms: item.timestamp,
+      source_id: item.sourceID,
+    });
     return [
       {
         at_ms: item.timestamp - origin,
@@ -42,7 +64,7 @@ export function griffinRecording(raw: any, names: Record<string, string>) {
   const entry = observations.find(
     (item: any) => item.fields.id === "B0EB" && item.fields.source === "Thundergust Griffin",
   );
-  assert(entry, "Missing Griffin entry");
+  requireInput(entry, "Missing Griffin entry", { events: raw.events.length });
   const completion = raw.events.findIndex(
     (item: any) =>
       item.timestamp >= origin + entry.at_ms &&
@@ -50,7 +72,12 @@ export function griffinRecording(raw: any, names: Record<string, string>) {
       actors.get(item.targetID) === "Thundergust Griffin" &&
       item.targetResources?.hitPoints === 0,
   );
-  assert(completion >= 0, "Missing observed Griffin completion");
+  requireInput(completion >= 0, "Missing observed Griffin completion", {
+    entry_event: entry.raw_index,
+    last_damage_event: raw.events.findLastIndex(
+      (item: any) => item.type === "damage" && actors.get(item.targetID) === "Thundergust Griffin",
+    ),
+  });
   const end_ms = raw.events[completion].timestamp - origin;
   const targets = observations.filter(
     (item: any) =>
@@ -111,18 +138,27 @@ function main() {
       const input = path.join(directory, `${fight.report}_${fight.fight}.json`);
       let stage = "input-validation";
       try {
-        // The Rust reader owns collection integrity checks; reject incomplete/paginated input before projection.
+        requireInput(fs.existsSync(input), "Missing input file", { input });
+        // A failed inspection command is a tool failure, not evidence that this log can safely be excluded.
+        stage = "input-inspection";
         execFileSync(binary, ["inspect", input, "--json"], { stdio: ["ignore", "ignore", "pipe"] });
+        stage = "input-validation";
         const raw = read(input);
-        assert.equal(raw.report.code, fight.report);
-        assert.equal(raw.report.fights[0].id, fight.fight);
-        assert.equal(raw.report.fights[0].startTime, fight.startTime);
-        assert.equal(raw.report.fights[0].endTime, fight.endTime);
+        requireInput(
+          raw.report.code === fight.report &&
+            raw.report.fights[0].id === fight.fight &&
+            raw.report.fights[0].startTime === fight.startTime &&
+            raw.report.fights[0].endTime === fight.endTime,
+          "Input differs from frozen fight",
+          { expected: fight, actual: raw.report.fights[0] },
+        );
         const projected = griffinRecording(raw, plan.targets);
         const fingerprint = digest(
           JSON.stringify(projected.samples.map(([at, id]: any) => [at, id])),
         );
-        assert(!fingerprints.has(fingerprint), `Duplicate major-cast sequence ${identity}`);
+        requireInput(!fingerprints.has(fingerprint), `Duplicate major-cast sequence ${identity}`, {
+          fingerprint,
+        });
         fingerprints.add(fingerprint);
         stage = "timeline-evaluation";
         const observations = projected.observations
@@ -221,13 +257,14 @@ function main() {
       } catch (error) {
         // Preserve exclusion reasons separately; a runtime failure must never become an input-quality exclusion.
         traces.push({
-          status: stage === "input-validation" ? "excluded" : "error",
+          status: error instanceof InputExclusion ? "excluded" : "error",
           input,
           trace: identity,
           sha256: fs.existsSync(input) ? digest(fs.readFileSync(input)) : null,
-          passed: stage === "input-validation" ? null : false,
+          passed: error instanceof InputExclusion ? null : false,
           stage,
           error: String(error),
+          ...(error instanceof InputExclusion ? { evidence: error.evidence } : {}),
         });
       }
     }

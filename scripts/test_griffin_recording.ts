@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { griffinRecording, holdoutSummary } from "./verify_griffin_holdout.ts";
+import { griffinRecording, holdoutSummary, InputExclusion } from "./verify_griffin_holdout.ts";
 
 const names = { B0EB: "Thunderspark", B0EC: "High Volts", B0F4: "Electrifying Flight" };
 const cast = (timestamp: number, sourceID: number, abilityGameID: number) => ({
@@ -44,7 +44,10 @@ assert.deepEqual(recording.samples, [
 // A kill flag cannot replace the frozen endpoint evidence, even when the remaining casts look complete.
 assert.throws(
   () => griffinRecording({ ...raw, events: raw.events.filter((_, index) => index !== 6) }, names),
-  /Missing observed Griffin completion/,
+  (error: any) =>
+    error instanceof InputExclusion &&
+    error.evidence.entry_event === 2 &&
+    error.evidence.last_damage_event === -1,
 );
 assert.throws(
   () => griffinRecording({ ...raw, events: raw.events.filter((_, index) => index !== 2) }, names),
@@ -52,7 +55,10 @@ assert.throws(
 );
 assert.throws(
   () => griffinRecording({ ...raw, events: [cast(100, 999, 1), ...raw.events] }, names),
-  /Unknown cast source/,
+  (error: any) =>
+    error instanceof InputExclusion &&
+    error.evidence.raw_index === 0 &&
+    error.evidence.source_id === 999,
 );
 assert.equal(JSON.stringify(raw), before);
 const valid = { status: "evaluated", passed: true };
