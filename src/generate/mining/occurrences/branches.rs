@@ -118,6 +118,10 @@ pub(in crate::generate::mining) fn window(
     let mut open = (earliest - tolerance).max(0);
     let mut close = latest + tolerance;
     for option in options {
+        ensure!(
+            option.triggers.keys().any(|id| ends.contains_key(id)),
+            "Choice has no observed continuation"
+        );
         let last = option
             .events
             .iter()
@@ -141,7 +145,10 @@ pub(in crate::generate::mining) fn window(
             .max()
             .unwrap_or(0);
         for (id, at) in &option.triggers {
-            close = close.min((ends.get(id).context("Missing join sample")? + 50) / 100 - last);
+            // Censored prefixes have no join sample; only observed joins constrain the continuation boundary.
+            if let Some(end) = ends.get(id) {
+                close = close.min((end + 50) / 100 - last);
+            }
             let pull = pulls
                 .iter()
                 .find(|pull| trace(pull) == *id)
@@ -351,4 +358,27 @@ pub(super) fn discover(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::generate::mining::Identifier;
+
+    #[test]
+    fn a_choice_window_requires_at_least_one_observed_continuation() {
+        let option = BranchOption {
+            trigger: Signal {
+                kind: "cast".into(),
+                identifier: Identifier::Ability(1),
+                source: Some("Boss".into()),
+                target: None,
+            },
+            triggers: BTreeMap::from([("prefix/1".into(), 1000)]),
+            events: Vec::new(),
+        };
+        let error =
+            window(&[option], &[], &BTreeMap::new(), false).expect_err("missing continuation");
+        assert!(error.to_string().contains("no observed continuation"));
+    }
 }

@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use petgraph::stable_graph::NodeIndex;
 use serde_json::{Value, json};
 
-use super::{Candidate, Draft, Progression, Pull, Route, Signal, common};
+use super::{Candidate, Draft, Progression, Pull, Route, Signal, common, prefixes};
 use crate::generate::mining::occurrences::{Branch, BranchOption, Event, branches};
 
 pub(in crate::generate) struct Choice {
@@ -121,33 +121,11 @@ pub(super) fn discover(
     else {
         return Ok(None);
     };
-    let prefix = route
-        .choices
-        .first()
-        .context("Missing learned choice")?
-        .join;
     for peer in candidates
         .iter()
         .filter(|peer| peer.nodes.len() < reference.nodes.len())
     {
-        let before_choice =
-            peer.nodes.len() <= prefix && peer.same_prefix(reference, progression)?;
-        let next_expected_ms = complete
-            .iter()
-            .filter_map(|path| peer.next_expected_at(path))
-            .min();
-        let censored = before_choice && next_expected_ms.is_some_and(|at| peer.end_ms < at);
-        if censored {
-            for (node, (observation, _)) in route.graph.node_weights_mut().zip(&peer.nodes) {
-                node.observations
-                    .insert(peer.reference.clone(), *observation);
-            }
-        } else {
-            route.peers_complete = false;
-        }
-        diagnostics.push(json!({"method":"representative-choice-prefix-v1","trace":peer.reference,"reference":reference.reference,
-            "status":if censored {"censored"} else {"unresolved"},"scope_end_ms":peer.end_ms,"next_expected_ms":next_expected_ms,
-            "selection":"unobserved","reason":if censored {"scope ended before the next occurrence in the shared prefix; no option inferred"} else {"prefix crosses a choice, differs from the shared prefix or extends beyond its next expected occurrence"}}));
+        diagnostics.push(prefixes::bind(&mut route, peer, &complete, progression)?);
     }
     route.refresh_relations(progression)?;
     Ok(Some((route, diagnostics)))
@@ -159,7 +137,7 @@ fn discover_complete(
     candidates: &[Candidate],
     progression: &Progression,
 ) -> Result<Option<(Route, Vec<Value>)>> {
-    // shortcut: learn complete raid permutations first; add boss origins and prefixes inside options with their own tests.
+    // shortcut: learn raid permutations first; add boss origins and unequal full routes with their own tests.
     if source.is_some()
         || candidates.len() < 2
         || candidates
@@ -270,8 +248,11 @@ pub(super) fn lower(
             let options = choice.options.iter().map(|path| {
                 let trigger = path.graph.node_weights().next().context("Missing choice trigger")?;
                 let events = path.graph.node_weights().map(|node| Ok(Event { signal: node.activity.clone(),
-                    samples: progression.samples(&node.observations)?, occurrence: Some(node.occurrence),
-                    evidence: json!({"method":"representative-order-option-v1","reference":path.reference}) })).collect::<Result<Vec<_>>>()?;
+                    // Unequal prefix coverage can invert medians; use joined runs for the entire body schedule.
+                    samples: progression.samples(&node.observations)?.into_iter().filter(|(trace,_)| ends.contains_key(trace)).collect(),
+                    occurrence: Some(node.occurrence),
+                    evidence: json!({"method":"representative-order-option-v1","reference":path.reference,
+                        "timing_policy":"observed-option-join","supported_observation_nodes":node.observations}) })).collect::<Result<Vec<_>>>()?;
                 Ok(BranchOption { trigger: trigger.activity.clone(), triggers: progression.samples(&trigger.observations)?, events })
             }).collect::<Result<Vec<_>>>()?;
             let (open, close) = branches::window(

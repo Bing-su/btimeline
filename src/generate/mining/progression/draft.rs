@@ -10,6 +10,7 @@ use super::{Progression, Pull, Signal, common, covers};
 use crate::generate::mining::bosses;
 
 mod choices;
+mod prefixes;
 mod validation;
 
 pub(in crate::generate) struct Node {
@@ -108,7 +109,12 @@ impl Candidate {
         at.checked_add(next.checked_sub(*previous)?)
     }
 
-    fn same_prefix(&self, reference: &Self, progression: &Progression) -> Result<bool> {
+    fn same_prefix(
+        &self,
+        reference: &Self,
+        progression: &Progression,
+        reference_progression: &Progression,
+    ) -> Result<bool> {
         if self.nodes.len() > reference.nodes.len() {
             return Ok(false);
         }
@@ -116,7 +122,7 @@ impl Candidate {
             .traces
             .get(self.trace)
             .context("Invalid peer trace")?;
-        let original = progression
+        let original = reference_progression
             .traces
             .get(reference.trace)
             .context("Invalid representative trace")?;
@@ -329,7 +335,7 @@ impl Route {
         let mut peers_complete = true;
         let correspondence = candidates
             .iter()
-            .map(|peer| Ok((peer, peer.same_prefix(candidate, progression)?)))
+            .map(|peer| Ok((peer, peer.same_prefix(candidate, progression, progression)?)))
             .collect::<Result<Vec<_>>>()?;
         let complete: Vec<_> = correspondence
             .iter()
