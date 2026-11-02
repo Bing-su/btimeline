@@ -71,6 +71,78 @@ fn with_helpers(path: PathBuf) -> PathBuf {
 }
 
 #[rstest::rstest]
+#[case("complementary", true)]
+#[case("same-entity", false)]
+#[case("no-witness", false)]
+fn loop_fragments_need_per_position_witnesses_and_disjoint_entities(
+    #[case] scenario: &str,
+    #[case] expected: bool,
+) {
+    let dir = tempfile::tempdir().unwrap();
+    let paths: Vec<_> = (0..2)
+        .map(|peer| {
+            let path = with_helpers(fixture(
+                dir.path(),
+                &format!("split{peer}"),
+                &[9, 1, 2, 3, 4, 1, 2, 3],
+            ));
+            let mut data: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+            let events = data["events"].as_array_mut().unwrap();
+            for event in events.iter_mut() {
+                event["sourceInstance"] = 1.into();
+            }
+            let fragmented = if scenario == "no-witness" {
+                1
+            } else {
+                peer + 1
+            };
+            let extra: Vec<_> = events
+                .iter()
+                .filter(|event| event["abilityGameID"] == fragmented)
+                .map(|event| {
+                    let mut event = event.clone();
+                    event["timestamp"] = (event["timestamp"].as_i64().unwrap() + 50).into();
+                    event["sourceInstance"] = if scenario == "same-entity" { 1 } else { 2 }.into();
+                    event
+                })
+                .collect();
+            events.extend(extra);
+            data["collection"]["eventCount"] = data["events"].as_array().unwrap().len().into();
+            fs::write(&path, serde_json::to_vec(&data).unwrap()).unwrap();
+            path
+        })
+        .collect();
+    let output = dir.path().join("timeline.kdl");
+    cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(paths)
+        .args(["--mode", "raid", "-o"])
+        .arg(&output)
+        .assert()
+        .success();
+    let e: Value =
+        serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
+    assert_eq!(
+        e["loops"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| row["status"] == "rendered"),
+        expected
+    );
+    if expected {
+        let rows = e["loops"][0]["events"].as_array().unwrap();
+        assert_eq!(rows.len(), 4);
+        let members: usize = rows
+            .iter()
+            .flat_map(|row| row["observations"].as_array().unwrap())
+            .map(|observation| observation["members"].as_array().unwrap().len())
+            .sum();
+        assert_eq!(members, 18);
+    }
+}
+
+#[rstest::rstest]
 #[case("dungeon", false)]
 #[case("alliance", false)]
 #[case("dungeon", true)]

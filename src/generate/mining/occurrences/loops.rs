@@ -288,16 +288,6 @@ fn candidate(scopes: &[&Scope], reference: &Scope, start: usize, end: usize) -> 
                 .is_some_and(|entry| body.iter().filter(|key| *key == entry).count() == 1),
         "Loop needs a unique boundary identity"
     );
-    // Every base position has an unfragmented witness; coalescing peers still checks disjoint entities.
-    ensure!(
-        reference
-            .waves
-            .iter()
-            .take(end)
-            .skip(start)
-            .all(|wave| wave.coalescible && wave.key.len() == wave.members.len()),
-        "Fragmented loop reference"
-    );
     let mut episodes = Vec::new();
     for scope in scopes {
         let offset = context
@@ -324,6 +314,18 @@ fn candidate(scopes: &[&Scope], reference: &Scope, start: usize, end: usize) -> 
         .iter()
         .map(|ep| mapping(ep, &body).context("Terminal path differs from loop body"))
         .collect::<Result<Vec<_>>>()?;
+    // Each position needs an exact-time witness, but witnesses may come from different traces/rounds.
+    let witnessed: BTreeSet<_> = episodes
+        .iter()
+        .zip(&paths)
+        .flat_map(|(episode, path)| episode.waves.iter().zip(path.iter().flatten()))
+        .filter(|(wave, _)| wave.key.len() == wave.members.len())
+        .map(|(_, position)| *position)
+        .collect();
+    ensure!(
+        witnessed.len() == body.len(),
+        "Loop position has no unfragmented witness"
+    );
     let supported: BTreeSet<_> = episodes
         .iter()
         .filter(|ep| ep.waves.len() >= body.len() + 3)
@@ -463,6 +465,50 @@ mod tests {
         assert_eq!(
             candidate(&[&reference, &peer], &reference, 1, 5).is_ok(),
             accepted
+        );
+    }
+
+    #[test]
+    fn fragmented_positions_can_use_complementary_witnesses() {
+        let mut a = scope("a", &[9, 1, 2, 3, 4, 1, 2, 3], 1000);
+        let mut b = scope("b", &[9, 1, 2, 3, 4, 1, 2, 3], 1000);
+        for (scope, fragmented) in [(&mut a, 1), (&mut b, 2)] {
+            for wave in scope
+                .waves
+                .iter_mut()
+                .filter(|wave| wave.key[0].identifier == Identifier::Ability(fragmented))
+            {
+                let mut member = wave.members[0].clone();
+                member.at_ms += 50;
+                member.batch += 100;
+                wave.members.push(member);
+            }
+        }
+        let model = candidate(&[&a, &b], &a, 1, 5).unwrap();
+        assert_eq!(model.body.len(), 4);
+        assert_eq!(
+            model
+                .episodes
+                .iter()
+                .flat_map(|episode| &episode.waves)
+                .map(|wave| wave.members.len())
+                .sum::<usize>(),
+            18
+        );
+        // Without the complementary peer, disjoint entities alone cannot prove a single wave.
+        for wave in &mut b.waves {
+            if wave.key[0].identifier == Identifier::Ability(1) {
+                let mut member = wave.members[0].clone();
+                member.at_ms += 50;
+                member.batch += 100;
+                wave.members.push(member);
+            }
+        }
+        assert!(
+            candidate(&[&a, &b], &a, 1, 5)
+                .unwrap_err()
+                .to_string()
+                .contains("unfragmented witness")
         );
     }
 
