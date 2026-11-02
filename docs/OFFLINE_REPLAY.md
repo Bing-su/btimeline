@@ -75,6 +75,8 @@ dungeon·alliance 생성기의 보스 시도 선택과 처치 경계도 분석�
 
 자동 생성 loop의 별도 개발 검증은 `bun scripts/replay_dungeon_loops.ts FIT.evidence.json OBSERVED.evidence.json target/debug/btimeline REPORT.json`으로 재현한다. 입력·KDL 해시와 관측 구조가 같은지 확인하고 원본 시도를 각각 cast→Ability로 투영해 실제 `compare`를 실행한다. 학습에서 빠진 trace는 holdout으로 표시한다. 이 도구는 각 원본 멤버에 가장 가까운 같은 신호의 표시를 측정하며 일대일 경로 대응 검사는 아니다. 구조 검증·원본 커버리지 감사와 함께 해석하며, 시도들을 분리한 결과를 보스 처치 취소·전멸·재시작의 검증으로 취급하지 않는다. [던전 반복 검증](DUNGEON_LOOP_VALIDATION.md)에 별도 결과를 기록한다.
 
+이 비교에는 관측 코퍼스의 helper 표시 후보도 포함한다. `associated_helper_members`로 별도 집계하며, 학습 KDL이 해당 예고를 만들지 않으면 예측 없음으로 남긴다. helper를 실행용 sync로 채택하거나 원본 미분류를 해제하지 않는다. [helper 표시 검증](HELPER_DISPLAY_VALIDATION.md)에 본체·보조 발동의 보류 재생과 한계를 기록한다.
+
 발생 그래프의 미분류 NPC 시전도 이 개발 투영에는 포함한다. 이름이 없는 경우 source 필드를 생략해 관측을 유지하며 가짜 이름이나 null 문자열을 만들지 않는다. 보고서의 `unclassified_casts`·`unnamed_sources`로 범위를 기록한다. 이 관측들의 미래 예측 커버리지나 모든 sync 경쟁이 검증됐다는 뜻은 아니다. 현재 학습된 loop 멤버의 최근접 표시 측정과 별개다.
 
 | 구분                       | 현재 처리                                                                                                                                                                                                                                                         |

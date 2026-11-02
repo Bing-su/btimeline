@@ -2,7 +2,7 @@
 
 후속 [파동 대응 보완](WAVE_ALIGNMENT_VALIDATION.md)으로 Alexandria의 대표 생성본은 49→53개 정의가 됐다. loop는 여전히 0개이며 아래 단계별 49개 수치는 당시 결과다. Griffin·Chirurgeon의 반복 KDL과 재생 결과는 유지됐다.
 
-**Chirurgeon General과 Thundergust Griffin의 본체 이름에 속하는 시전 반복을 자동 생성한다.** Griffin의 KDL에는 이름이 다른 helper가 빠져 전체 기믹 검증이 미완료이며, 나머지 7개 참조 보스의 반복도 생성하지 못한다. 유한 로그의 공통 시전 복원과 반복 모델링은 구분한다. cactbot에 타임라인이 없는 Clyteum 대신 Alexandria·Mistwake·Meso Terminal을 검사했다. 비교 기준은 고정 커밋과 [9개 보스 반복 조사](CACTBOT_DUNGEON_LOOP_REFERENCE.md)에 기록했다.
+**Chirurgeon General과 Thundergust Griffin의 시전 반복을 자동 생성한다.** 후속 [helper 표시 연결](HELPER_DISPLAY_VALIDATION.md)로 Griffin의 Shock Storm을 추가해, 전체 참조 본문이 관측된 8개 범위에서 표시 대응이 17/17이 됐다. 아래의 helper 누락·16/17 수치는 이전 단계 결과다. 나머지 7개 참조 보스의 반복은 아직 생성하지 못한다. 유한 로그의 공통 시전 복원과 반복 모델링은 구분한다. cactbot에 타임라인이 없는 Clyteum 대신 Alexandria·Mistwake·Meso Terminal을 검사했다. 비교 기준은 고정 커밋과 [9개 보스 반복 조사](CACTBOT_DUNGEON_LOOP_REFERENCE.md)에 기록했다.
 
 ## 조사 시작 시점의 입력과 생성 결과
 
