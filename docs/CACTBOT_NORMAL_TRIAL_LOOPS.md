@@ -47,4 +47,4 @@ ARR 경계 사례: [Shiva Hard의 trigger](https://github.com/OverlayPlugin/cact
 1. Valigarmanda의 후반 반복은 앞에서 선택한 storm→ice 또는 ice→storm 경로와 연결된다. 당시 초안은 `loop`를 `phase` 안에만 둘 수 있어 선택지별 반복을 표현할 수 없었다.
 2. Queen Eternal의 Castellation 전환 신호는 대기 반복 시작보다 먼저 등장할 수 있도록 설정돼 있다. 당시 초안의 `until`은 반복 시작 전 신호를 처리하지 않았다. [전환과 대기 반복](https://github.com/OverlayPlugin/cactbot/blob/e79ea7f16093be5b80cda0e2d5bc8eb899d6fb4b/ui/raidboss/data/07-dt/trial/queen-eternal.txt#L49-L68)
 
-이후 스키마 초안에 선택지별 loop와 window 안에서의 반복 시작 전 탈출을 반영했다. 실제 사례 재생을 통한 검증은 남아 있다.
+이후 스키마 초안에 선택지별 loop와 window 안에서의 반복 시작 전 탈출을 반영했다. 후속 [Queen Eternal 작성·검증](../timelines/queen-eternal-hold.authoring.md)에서 실제 시작 전/본문 실행 후 탈출과 on-exit 예고를 확인했다. 실제 다음 회차까지 관측한 반복 검증과 선택지별 반복 사례는 여전히 남아 있다.
