@@ -339,3 +339,47 @@ fn a_history_overlay_cannot_drop_previously_supported_displays() {
             .any(|row| row["activity"]["identifier"]["Ability"] == 5000)
     );
 }
+
+#[test]
+fn unordered_unique_companions_survive_inside_a_known_block() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = permutation_inputs(dir.path());
+    for (peer, path) in paths.iter().enumerate() {
+        let mut data: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        let events = data["events"].as_array_mut().unwrap();
+        for block in events[1..10].chunks_mut(3) {
+            let at = block[0]["timestamp"].as_i64().unwrap() + 20000;
+            block[1]["timestamp"] = (at + if peer % 3 == 2 { 300 } else { 0 }).into();
+            block[2]["timestamp"] = (at + if peer % 3 == 1 { 300 } else { 50 }).into();
+        }
+        fs::write(path, serde_json::to_vec(&data).unwrap()).unwrap();
+    }
+    let output = dir.path().join("timeline.kdl");
+    cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(paths)
+        .args(["--mode", "raid", "-o"])
+        .arg(&output)
+        .assert()
+        .success();
+    let evidence: Value =
+        serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
+    assert_eq!(evidence["histories"][0]["status"], "rendered");
+    for block in evidence["histories"][0]["model"]["blocks"]
+        .as_array()
+        .unwrap()
+    {
+        assert_eq!(
+            block["events"].as_array().unwrap().len(),
+            3,
+            "Unique companions must not disappear because their order is uncertain"
+        );
+        assert!(
+            block["events"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|event| event["occurrence"] == 1)
+        );
+    }
+}

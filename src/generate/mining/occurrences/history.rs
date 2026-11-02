@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use anyhow::{Context, Result, ensure};
 use petgraph::unionfind::UnionFind;
 use serde::Serialize;
-use serde_json::json;
+use serde_json::{Value, json};
 
-use super::{Boundary, Common, Event, Pull, Signal, fragments, span, trace};
+use super::{Boundary, Common, Event, Group, Pull, Signal, fragments, span, trace};
 
 type Samples = BTreeMap<String, i64>;
 type Table = BTreeMap<Signal, Vec<i64>>;
@@ -126,6 +126,47 @@ fn paths(
     Ok(result)
 }
 
+// A once-per-block identity has a known occurrence even when two peer casts exchange order.
+fn unique_displays(pulls: &[&Pull], rows: &[Vec<Group<'_>>], bounds: &Value) -> Result<Vec<Event>> {
+    let Some(first) = rows.first() else {
+        return Ok(Vec::new());
+    };
+    let keys: BTreeSet<_> = first
+        .iter()
+        .flat_map(|group| group.key.iter().copied())
+        .collect();
+    let mut result = Vec::new();
+    for signal in keys {
+        let groups = rows
+            .iter()
+            .map(|row| {
+                let mut matches = row.iter().filter(|group| group.key.contains(&signal));
+                match (matches.next(), matches.next()) {
+                    (Some(group), None) if group.unique(signal).is_some() => Some(group),
+                    _ => None,
+                }
+            })
+            .collect::<Option<Vec<_>>>();
+        let Some(groups) = groups else { continue };
+        for mut event in super::events(pulls, &groups, bounds)?
+            .into_iter()
+            .filter(|event| event.signal == *signal)
+        {
+            let fields = event
+                .evidence
+                .as_object_mut()
+                .context("Invalid unique block evidence")?;
+            fields.insert("method".into(), "unique-block-activity-v1".into());
+            fields.insert(
+                "relative_order".into(),
+                "not inferred by unique identity; display only".into(),
+            );
+            result.push(event);
+        }
+    }
+    Ok(result)
+}
+
 fn body(pulls: &[&Pull], origins: &Samples, ends: &Samples) -> Result<Vec<Event>> {
     let mut rows = pulls
         .iter()
@@ -153,9 +194,18 @@ fn body(pulls: &[&Pull], origins: &Samples, ends: &Samples) -> Result<Vec<Event>
     super::expand_interval(
         pulls,
         &rows.iter().map(Vec::as_slice).collect::<Vec<_>>(),
-        bounds,
+        bounds.clone(),
         &mut learned,
     )?;
+    for event in unique_displays(pulls, &rows, &bounds)? {
+        if !learned
+            .events
+            .iter()
+            .any(|existing| existing.signal == event.signal && existing.samples == event.samples)
+        {
+            learned.events.push(event);
+        }
+    }
     ensure!(!learned.events.is_empty(), "No block displays");
     // Encounter-wide ordinals change with block order; display IDs count occurrences inside the block.
     learned.events.sort_by(|a, b| {
