@@ -76,26 +76,31 @@ fn competing_window(
     at: i64,
     triggers: &BTreeSet<&Signal>,
 ) -> (Option<i64>, Option<i64>) {
+    // Reused IDs compete too, e.g. an earlier copy must not select this option before its real occurrence.
     let frames = || {
-        pull.batches.iter().filter(|batch| {
-            batch
-                .signals
-                .iter()
-                .any(|signal| triggers.contains(signal) && signal != trigger)
-        })
+        pull.batches
+            .iter()
+            .filter(|batch| batch.signals.iter().any(|signal| triggers.contains(signal)))
     };
     let before = frames()
         .filter(|frame| frame.at_ms < at)
         .map(|frame| (frame.at_ms + 50) / 100 + 1)
         .max();
     let after = frames()
-        .filter(|frame| frame.at_ms >= at)
+        .filter(|frame| {
+            frame.at_ms > at
+                || (frame.at_ms == at
+                    && frame
+                        .signals
+                        .iter()
+                        .any(|signal| triggers.contains(signal) && signal != trigger))
+        })
         .map(|frame| (frame.at_ms + 50) / 100)
         .min();
     (before, after)
 }
 
-fn window(
+pub(in crate::generate::mining) fn window(
     options: &[BranchOption],
     pulls: &[&Pull],
     ends: &Samples,

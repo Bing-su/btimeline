@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use super::{Pull, Signal, alignment};
 
 mod attempts;
-mod branches;
+pub(super) mod branches;
 mod entry;
 mod fragments;
 mod helpers;

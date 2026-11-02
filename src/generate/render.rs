@@ -99,6 +99,7 @@ fn draft_anchors(
     progression: &Progression,
     draft: &Draft,
 ) -> Result<Prepared> {
+    let branches = analysis.draft_branches(draft, progression)?;
     let mut events = Vec::new();
     for route in &draft.routes {
         let mut counts = BTreeMap::<_, usize>::new();
@@ -119,12 +120,21 @@ fn draft_anchors(
         !events.is_empty(),
         "No eligible casts in a supported representative scope"
     );
-    let seen: BTreeSet<_> = events.iter().map(|event| &event.activity).collect();
+    let seen: BTreeSet<_> = events
+        .iter()
+        .map(|event| &event.activity)
+        .chain(
+            branches
+                .iter()
+                .flat_map(|branch| &branch.options)
+                .flat_map(|option| option.events.iter().map(|event| &event.signal)),
+        )
+        .collect();
     let excluded = analysis.signals().iter().filter(|activity| !seen.contains(activity))
         .map(|activity| json!({"activity":activity,"reason":"outside representative scope or not execution eligible"})).collect();
     Ok(Prepared {
         events,
-        branches: Vec::new(),
+        branches,
         excluded,
         diagnostics: Vec::new(),
     })

@@ -9,6 +9,8 @@ use serde_json::{Value, json};
 use super::{Progression, Pull, Signal, common, covers};
 use crate::generate::mining::bosses;
 
+mod choices;
+
 pub(in crate::generate) struct Node {
     pub activity: Signal,
     pub occurrence: usize,
@@ -21,6 +23,7 @@ pub(in crate::generate) struct Route {
     pub graph: StableDiGraph<Node, (), usize>,
     relations_complete: bool,
     peers_complete: bool,
+    pub choices: Vec<choices::Choice>,
 }
 
 pub(in crate::generate) struct Draft {
@@ -134,6 +137,14 @@ impl Candidate {
 }
 
 impl Draft {
+    pub(in crate::generate::mining) fn branches(
+        &self,
+        pulls: &[Pull],
+        progression: &Progression,
+    ) -> Result<Vec<crate::generate::mining::Branch>> {
+        choices::lower(self, pulls, progression)
+    }
+
     // Start with one observed route, e.g. a long wipe retains mechanics absent in a fast clear.
     pub(in crate::generate::mining) fn new(
         pulls: &[Pull],
@@ -199,27 +210,51 @@ impl Draft {
     }
 
     pub(in crate::generate) fn evidence(&self) -> Value {
-        let routes: Vec<_> = self.routes.iter().map(|route| {
-            let nodes: Vec<_> = route.graph.node_indices().filter_map(|index| route.graph.node_weight(index).map(|node|
-                json!({"index":index.index(),"activity":node.activity,"occurrence":node.occurrence,
-                    "observation_nodes":node.observations}))).collect();
-            let mut before: Vec<_> = route.graph.edge_references().map(|edge| [edge.source().index(),edge.target().index()]).collect();
-            before.sort_unstable();
-            json!({"source":route.source,"reference":route.reference,"nodes":nodes,"before":before,
-                "relations_complete":route.relations_complete,"peers_complete":route.peers_complete,"coverage":"unconfirmed"})
-        }).collect();
-        json!({"method":"representative-route-v1","scope":"one observed route per combat or boss; alternatives and loops not inferred",
+        let routes: Vec<_> = self.routes.iter().map(Route::evidence).collect();
+        json!({"method":"representative-route-v1","scope":"representative routes with supported local order choices; general loops not inferred",
             "routes":routes,"diagnostics":self.diagnostics})
     }
 }
 
 impl Route {
+    fn evidence(&self) -> Value {
+        let route = self;
+        let nodes: Vec<_> = route
+            .graph
+            .node_indices()
+            .filter_map(|index| {
+                route.graph.node_weight(index).map(|node|
+                json!({"index":index.index(),"activity":node.activity,"occurrence":node.occurrence,
+                    "observation_nodes":node.observations}))
+            })
+            .collect();
+        let mut before: Vec<_> = route
+            .graph
+            .edge_references()
+            .map(|edge| [edge.source().index(), edge.target().index()])
+            .collect();
+        before.sort_unstable();
+        let choices: Vec<_> = self
+            .choices
+            .iter()
+            .map(|choice| {
+                json!({"after":choice.after,"join":choice.join,"source":choice.source,
+            "options":choice.options.iter().map(Route::evidence).collect::<Vec<_>>()})
+            })
+            .collect();
+        json!({"source":route.source,"reference":route.reference,"nodes":nodes,"before":before,"choices":choices,
+            "relations_complete":route.relations_complete,"peers_complete":route.peers_complete,"coverage":"unconfirmed"})
+    }
+
     fn learn(
         source: Option<String>,
         candidate: &Candidate,
         candidates: &[Candidate],
         progression: &Progression,
     ) -> Result<(Self, Vec<Value>)> {
+        if let Some(discovery) = choices::discover(&source, candidate, candidates, progression)? {
+            return Ok(discovery);
+        }
         let mut diagnostics = Vec::new();
         let raw = progression
             .traces
@@ -299,6 +334,7 @@ impl Route {
                 graph,
                 relations_complete,
                 peers_complete,
+                choices: Vec::new(),
             },
             diagnostics,
         ))

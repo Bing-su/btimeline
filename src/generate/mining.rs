@@ -155,6 +155,14 @@ impl Analysis {
         self.pulls.len() == 1 || self.pulls.iter().filter(|pull| pull.kill).count() < 2
     }
 
+    pub(super) fn draft_branches(
+        &self,
+        draft: &Draft,
+        progression: &Progression,
+    ) -> Result<Vec<Branch>> {
+        draft.branches(&self.pulls, progression)
+    }
+
     pub(super) fn loop_models(&self, boss_only: bool) -> Result<LoopDiscovery> {
         let views: Vec<_> = self.pulls.iter().map(Pull::learning_view).collect();
         let mut discovery = occurrences::loop_models(
