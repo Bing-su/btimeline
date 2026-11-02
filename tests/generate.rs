@@ -10,7 +10,7 @@ const INPUT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/pull.js
 #[case("raid", "same", vec![1,2])]
 #[case("dungeon", "swapped", vec![1,2])]
 #[case("alliance", "jitter", vec![1,2])]
-#[case("raid", "missing", vec![])]
+#[case("raid", "missing", vec![1,2])]
 #[case("raid", "duplicates", vec![3])]
 fn uncertainty_groups_preserve_multiplicity_and_individual_samples(
     #[case] mode: &str,

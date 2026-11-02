@@ -36,6 +36,55 @@ fn fixture(directory: &Path, code: &str, events: Vec<Value>) -> PathBuf {
     path
 }
 
+#[test]
+fn varying_repeated_choices_do_not_hide_shared_repeated_casts() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths: Vec<_> = (0..3).map(|peer| {
+        let ids = if peer == 0 {
+            vec![100,200,400,100,200,300,400,400,300]
+        } else {
+            vec![100,200,400,400,300,100,100,200,200,300]
+        };
+        let mut events:Vec<_>=ids.iter().enumerate().map(|(index,id)|json!({"timestamp":2000+index*1000,"type":"cast","sourceID":10,"abilityGameID":id,"fight":1})).collect();
+        events.push(json!({"timestamp":18000,"type":"death","targetID":10,"fight":1}));
+        let path=fixture(dir.path(),&format!("choices{peer}"),events);
+        let mut data:Value=serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        data["report"]["masterData"]["abilities"].as_array_mut().unwrap().push(json!({"gameID":400,"name":"Alternative","type":"1"}));
+        fs::write(&path,serde_json::to_vec(&data).unwrap()).unwrap();
+        path
+    }).collect();
+    let output = dir.path().join("timeline.kdl");
+    cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(paths)
+        .args(["--mode", "dungeon", "-o"])
+        .arg(&output)
+        .assert()
+        .success();
+    let evidence: Value =
+        serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
+    let casts: Vec<_> = evidence["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|row| row["activity"]["identifier"]["Ability"] == 300)
+        .collect();
+    assert_eq!(
+        casts.len(),
+        2,
+        "Shared repeated casts must survive unrelated choice/count differences"
+    );
+    for cast in casts {
+        assert_eq!(cast["samples"].as_array().unwrap().len(), 3);
+        assert!(
+            cast["alignment"]["sync"]
+                .as_str()
+                .unwrap()
+                .contains("omitted")
+        );
+    }
+}
+
 #[rstest::rstest]
 #[case("dungeon", "damage", true)]
 #[case("alliance", "damage", true)]

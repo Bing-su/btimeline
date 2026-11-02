@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 #[case("compatible", 250, 4)]
 #[case("compatible", 1000, 4)]
 #[case("cycle", 250, 0)]
-#[case("missing", 250, 0)]
+#[case("missing", 250, 2)]
 fn partial_order_recovers_split_waves_without_ignoring_conflicts_or_missing_occurrences(
     #[case] scenario: &str,
     #[case] gap: i64,
@@ -37,6 +37,10 @@ fn partial_order_recovers_split_waves_without_ignoring_conflicts_or_missing_occu
         .collect();
     assert_eq!(recovered.len(), expected);
     for event in recovered {
+        if scenario == "missing" {
+            // The missing 103 occurrence is not invented; the two intact 101 casts still survive.
+            assert_eq!(event["activity"]["identifier"]["Ability"], 101);
+        }
         assert_eq!(
             event["alignment"]["correspondence_policy"],
             "consistent-partial-order-v1"

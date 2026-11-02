@@ -25,10 +25,28 @@ fn tokens<'a>(row: &[Group<'a>]) -> Option<Vec<(Token<'a>, usize)>> {
 
 // Union only observed inter-group order; unordered peers add no invented edges inside their wave.
 fn compatible<'a>(rows: &[&[Group<'a>]]) -> Option<Vec<Vec<(Token<'a>, usize)>>> {
-    let paths = rows
+    let mut paths = rows
         .iter()
         .map(|row| tokens(row))
         .collect::<Option<Vec<_>>>()?;
+    let counts: Vec<BTreeMap<_, _>> = paths
+        .iter()
+        .map(|path| {
+            path.iter()
+                .map(|((signal, ordinal), _)| (*signal, *ordinal))
+                .collect()
+        })
+        .collect();
+    let first = counts.first()?;
+    // Variable choices must not veto stable casts; retain equal-count activities before ordering.
+    let common: BTreeSet<_> = first
+        .iter()
+        .filter(|(signal, count)| counts.iter().all(|row| row.get(*signal) == Some(*count)))
+        .map(|(signal, _)| *signal)
+        .collect();
+    for path in &mut paths {
+        path.retain(|((signal, _), _)| common.contains(signal));
+    }
     let reference = paths.first()?;
     if !alignment::within_limit(reference.len(), reference.len()) {
         return None;
@@ -47,6 +65,7 @@ fn compatible<'a>(rows: &[&[Group<'a>]]) -> Option<Vec<Vec<(Token<'a>, usize)>>>
         for (token, index) in path {
             groups.get_mut(*index)?.push(*nodes.get(token)?);
         }
+        groups.retain(|group| !group.is_empty());
         for pair in groups.windows(2) {
             let [left, right] = pair else { return None };
             work += left.len().checked_mul(right.len())?;
@@ -101,6 +120,10 @@ pub(super) fn partial(
                 "correspondence_policy".into(),
                 "consistent-partial-order-v1".into(),
             );
+            fields.insert(
+                "activity_projection".into(),
+                "equal-count-activities".into(),
+            );
             result.push(event);
         }
     }
@@ -141,5 +164,48 @@ pub(super) fn shared(
             group.key.retain(|signal| common.contains(signal));
         }
         row.retain(|group| !group.key.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::Observation;
+    use super::*;
+    use crate::generate::mining::Identifier;
+
+    #[test]
+    fn filtered_groups_do_not_break_order_edges_across_variable_choices() {
+        let signals: Vec<_> = (1..=3)
+            .map(|id| Signal {
+                kind: "cast".into(),
+                identifier: Identifier::Ability(id),
+                source: Some("Boss".into()),
+                target: None,
+            })
+            .collect();
+        let path = |indices: &[usize]| {
+            indices
+                .iter()
+                .enumerate()
+                .map(|(index, id)| {
+                    let signal = &signals[*id];
+                    Group {
+                        key: vec![signal],
+                        observations: vec![Observation {
+                            signal,
+                            batch: index,
+                            at: index as i64 * 1000,
+                            ordinal: 1,
+                            entities: BTreeSet::new(),
+                        }],
+                    }
+                })
+                .collect::<Vec<_>>()
+        };
+        let first = path(&[0, 2, 1, 0, 2, 1]);
+        let compatible_path = path(&[0, 2, 1, 0, 2, 2, 1]);
+        let conflicting_path = path(&[1, 2, 0, 1, 2, 2, 0]);
+        assert!(compatible(&[&first, &compatible_path]).is_some());
+        assert!(compatible(&[&first, &conflicting_path]).is_none());
     }
 }
