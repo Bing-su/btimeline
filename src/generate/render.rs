@@ -20,6 +20,7 @@ use super::mining::{
 use super::timing::{self, median};
 
 mod branches;
+mod history;
 mod loops;
 
 #[derive(Clone, Copy, Debug, serde::Serialize)]
@@ -43,6 +44,7 @@ impl FromStr for Mode {
     }
 }
 
+#[derive(Clone)]
 struct Anchor {
     activity: Signal,
     name: String,
@@ -347,6 +349,7 @@ struct Rendered {
     events: Vec<Value>,
     origins: Vec<Value>,
     loops: Vec<Value>,
+    histories: Vec<Value>,
 }
 
 // Boss metadata supplies scope boundaries; travel and preceding trash never share a boss clock.
@@ -474,13 +477,34 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
             excluded.push(json!({"boss":boss,"reason":"no unique common casts for this boss"}));
         }
     }
-    let rendered = compose(&analysis, &progression, anchors, branches, mode, &models)?;
+    let histories = if matches!(mode, Mode::Raid) && models.is_empty() {
+        analysis.history_models()?
+    } else {
+        Vec::new()
+    };
+    let preserved = if histories.is_empty() {
+        Vec::new()
+    } else {
+        anchors.clone()
+    };
+    let mut rendered = compose(&analysis, &progression, anchors, branches, mode, &models)?;
+    history::apply(
+        &analysis,
+        &progression,
+        &histories,
+        &preserved,
+        &mut rendered,
+    );
     excluded.retain(|row| {
-        !rendered.loops.iter().any(|item| {
-            item["activities"]
-                .as_array()
-                .is_some_and(|activities| activities.contains(&row["activity"]))
-        })
+        !rendered
+            .events
+            .iter()
+            .any(|event| event["activity"] == row["activity"])
+            && !rendered.loops.iter().any(|item| {
+                item["activities"]
+                    .as_array()
+                    .is_some_and(|activities| activities.contains(&row["activity"]))
+            })
     });
     let count = rendered.events.len()
         + rendered
@@ -512,7 +536,7 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
         "timeline_sha256":timeline_sha256,"policy_reference":"cactbot@e79ea7f16093be5b80cda0e2d5bc8eb899d6fb4b",
         "origins":rendered.origins,
         "events":rendered.events,"excluded":excluded,"alignment_diagnostics":alignment_diagnostics,
-        "loops":rendered.loops,"loop_diagnostics":loop_diagnostics,
+        "loops":rendered.loops,"loop_diagnostics":loop_diagnostics,"histories":rendered.histories,
         "not_checked":["live ACT/runtime behavior","English name accuracy","missing-signal coverage","branch and loop path conformance in automatic validation","correlated choices and variable joins","internal boss phases and helper assignment","unclassified NPC casts as competing runtime signals","completion signals and content-specific lifecycle exceptions"]});
     crate::output::write_new(&[
         (output, timeline.as_bytes()),

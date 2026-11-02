@@ -10,6 +10,7 @@ mod branches;
 mod entry;
 mod fragments;
 mod helpers;
+pub(super) mod history;
 mod loops;
 mod projection;
 mod tail;
@@ -28,6 +29,7 @@ pub(super) fn loop_models(pulls: &[&Pull], boss_only: bool) -> Result<LoopDiscov
     loops::discover(pulls, boss_only)
 }
 
+#[derive(Clone, serde::Serialize)]
 pub(in crate::generate) struct Event {
     pub signal: Signal,
     pub samples: BTreeMap<String, i64>,

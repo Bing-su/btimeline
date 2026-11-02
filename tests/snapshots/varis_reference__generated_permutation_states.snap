@@ -1,0 +1,20 @@
+---
+source: tests/varis_reference.rs
+expression: "json!({\n    \"triggers\":evidence[\"histories\"][0][\"model\"][\"blocks\"].as_array().unwrap().iter().map(|block|block[\"trigger\"][\"identifier\"].clone()).collect::<Vec<_>>(),\n    \"states\":evidence[\"histories\"][0][\"states\"].as_array().unwrap().len(),\n    \"edges\":evidence[\"histories\"][0][\"edges\"].as_array().unwrap().len(),\n    \"window_policy\":evidence[\"histories\"][0][\"window_policy\"]\n})"
+---
+{
+  "edges": 15,
+  "states": 13,
+  "triggers": [
+    {
+      "Ability": 19671
+    },
+    {
+      "Ability": 19672
+    },
+    {
+      "Ability": 19673
+    }
+  ],
+  "window_policy": "state start until observed competing progression"
+}

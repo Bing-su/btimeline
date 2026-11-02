@@ -20,6 +20,7 @@ mod progression;
 mod repeats;
 mod unclassified;
 mod validation;
+pub(super) use occurrences::history::Permutation;
 pub(super) use occurrences::{
     Branch,
     Event as CommonEvent,
@@ -137,6 +138,11 @@ fn timing_table(pull: &Pull) -> BTreeMap<Signal, Vec<i64>> {
 }
 
 impl Analysis {
+    pub(super) fn history_models(&self) -> Result<Vec<occurrences::history::Permutation>> {
+        let views: Vec<_> = self.pulls.iter().map(Pull::learning_view).collect();
+        occurrences::history::discover(&views.iter().map(Cow::as_ref).collect::<Vec<_>>())
+    }
+
     pub(super) fn progression(&self) -> Progression {
         Progression::new(&self.pulls)
     }
