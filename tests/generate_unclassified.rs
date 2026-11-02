@@ -205,7 +205,7 @@ fn unlisted_npc_casts_are_evidence_without_automatic_execution(
 }
 
 #[test]
-fn unclassified_same_name_casts_cannot_add_steps_to_a_learned_loop() {
+fn unclassified_same_name_casts_do_not_change_the_core_loop_or_add_syncs() {
     let dir = tempfile::tempdir().unwrap();
     let paths:Vec<_>=(0..3).map(|peer| {
         let path=input(dir.path(),peer,"NPC",false,false,true);
@@ -229,7 +229,37 @@ fn unclassified_same_name_casts_cannot_add_steps_to_a_learned_loop() {
     let loop_ = &evidence["loops"][0];
     assert_eq!(loop_["status"], "rendered");
     assert_eq!(loop_["model"]["body"].as_array().unwrap().len(), 3);
-    assert_eq!(loop_["events"].as_array().unwrap().len(), 3);
+    let events = loop_["events"].as_array().unwrap();
+    assert_eq!(events.len(), 4);
+    let helper = events
+        .iter()
+        .find(|event| event["helper_association"].is_object())
+        .unwrap();
+    assert_eq!(helper["sync"], false);
+    assert_eq!(helper["activities"][0]["identifier"]["Ability"], 400);
+    let document: kdl::KdlDocument = fs::read_to_string(&output).unwrap().parse().unwrap();
+    let phase = &document
+        .get("timeline")
+        .unwrap()
+        .children()
+        .unwrap()
+        .nodes()
+        .iter()
+        .find(|node| node.name().value() == "phase")
+        .unwrap();
+    let body = phase
+        .children()
+        .unwrap()
+        .get("loop")
+        .unwrap()
+        .children()
+        .unwrap();
+    let display = body
+        .nodes()
+        .iter()
+        .find(|node| node.get(0).and_then(kdl::KdlValue::as_string) == helper["event"].as_str())
+        .unwrap();
+    assert!(display.children().is_none());
     for trace in evidence["progression"]["traces"].as_array().unwrap() {
         assert_eq!(
             trace["nodes"]
@@ -246,8 +276,7 @@ fn unclassified_same_name_casts_cannot_add_steps_to_a_learned_loop() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|row| row["activity"]["identifier"]["Ability"] == 400
-                && row["reason"].as_str().unwrap().contains("unclassified NPC"))
+            .all(|row| row["activity"]["identifier"]["Ability"] != 400)
     );
 }
 

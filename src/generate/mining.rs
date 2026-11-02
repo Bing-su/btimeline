@@ -20,7 +20,14 @@ mod progression;
 mod repeats;
 mod unclassified;
 mod validation;
-pub(super) use occurrences::{Branch, Event as CommonEvent, LoopDiscovery, LoopModel};
+pub(super) use occurrences::{
+    Branch,
+    Event as CommonEvent,
+    HelperAssociation,
+    HelperOccurrence,
+    LoopDiscovery,
+    LoopModel,
+};
 pub(super) use progression::Progression;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
@@ -136,10 +143,12 @@ impl Analysis {
 
     pub(super) fn loop_models(&self, boss_only: bool) -> Result<LoopDiscovery> {
         let views: Vec<_> = self.pulls.iter().map(Pull::learning_view).collect();
-        occurrences::loop_models(
+        let mut discovery = occurrences::loop_models(
             &views.iter().map(Cow::as_ref).collect::<Vec<_>>(),
             boss_only,
-        )
+        )?;
+        occurrences::associate_helpers(&self.pulls.iter().collect::<Vec<_>>(), &mut discovery)?;
+        Ok(discovery)
     }
 
     pub(super) fn aligned(

@@ -9,10 +9,20 @@ mod attempts;
 mod branches;
 mod entry;
 mod fragments;
+mod helpers;
 mod loops;
 mod projection;
 mod tail;
-pub(in crate::generate) use loops::{LoopDiscovery, LoopModel};
+pub(in crate::generate) use loops::{
+    HelperAssociation,
+    HelperOccurrence,
+    LoopDiscovery,
+    LoopModel,
+};
+
+pub(super) fn associate_helpers(pulls: &[&Pull], discovery: &mut LoopDiscovery) -> Result<()> {
+    helpers::associate(pulls, discovery)
+}
 
 pub(super) fn loop_models(pulls: &[&Pull], boss_only: bool) -> Result<LoopDiscovery> {
     loops::discover(pulls, boss_only)

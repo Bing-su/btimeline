@@ -95,9 +95,18 @@ try {
         .filter((row: any) => row.action === "event")
         .map((row: any) => ({ ...row, definition: definitions.get(row.detail.split(":")[0]) }))
         .filter((row: any) => row.definition);
-      const errors = episode.waves
-        .flatMap((wave: any) => wave.members)
-        .map((member: any) => {
+      // Helper forecasts are observable predictions without making the helper a runtime sync.
+      const helperMembers = (raw.model.helper_associations ?? [])
+        .flatMap((association: any) => association.observations)
+        .filter(
+          (row: any) =>
+            row.trace === episode.trace &&
+            row.actor === episode.actor &&
+            row.instance === episode.instance,
+        )
+        .flatMap((row: any) => row.members);
+      const errors = [...episode.waves.flatMap((wave: any) => wave.members), ...helperMembers].map(
+        (member: any) => {
           const matches = events.filter((event: any) =>
             event.definition.activities.some(
               (signal: any) => JSON.stringify(signal) === JSON.stringify(member.signal),
@@ -110,7 +119,8 @@ try {
                 ),
               )
             : null;
-        });
+        },
+      );
       results.push({
         source: loop.source,
         trace: episode.trace,
@@ -118,6 +128,7 @@ try {
         instance: episode.instance,
         role: fitted.has(episode.trace) ? "fitted" : "holdout",
         observed_members: errors.length,
+        associated_helper_members: helperMembers.length,
         unclassified_casts: samples.filter((sample: any) => sample.unclassified).length,
         unnamed_sources: samples.filter((sample: any) => sample.signal.source === null).length,
         no_prediction: errors.filter((error: number | null) => error === null).length,
@@ -141,7 +152,7 @@ try {
         observedFile,
         results,
         scope:
-          "Raw cast-to-Ability projection per observed body span or raid combat. Raid start is a synthetic InCombat observation. Closest same-signal emitted forecast per raw member; not a one-to-one path validator. Shared observed structure is required before comparing timing. No ACT capture, death/reset or conditional-path proof.",
+          "Raw cast-to-Ability projection per observed body span or raid combat, including associated helper forecasts. Raid start is a synthetic InCombat observation. Closest same-signal emitted forecast per raw member; not a one-to-one path validator. Shared observed structure is required before comparing timing. No ACT capture, death/reset or conditional-path proof.",
       },
       null,
       2,

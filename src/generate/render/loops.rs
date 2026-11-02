@@ -7,6 +7,8 @@ use serde_json::{Value, json};
 use super::{Analysis, Anchor, Identifier, LoopModel, Progression, Signal, prop, slug};
 use crate::generate::timing::median;
 
+mod helpers;
+
 struct Spec {
     position: usize,
     signals: Vec<Signal>,
@@ -366,12 +368,7 @@ fn safe(index: usize, rows: &[Scheduled], period: i64) -> bool {
         })
 }
 
-pub(super) fn render(
-    analysis: &Analysis,
-    progression: &Progression,
-    model: &LoopModel,
-    origins: &[&Anchor],
-) -> Result<LoopRender> {
+fn check_origin(progression: &Progression, model: &LoopModel, origins: &[&Anchor]) -> Result<()> {
     let entry = model
         .prefix
         .first()
@@ -399,6 +396,16 @@ pub(super) fn render(
             "Finite phase origin differs from the observed loop context"
         );
     }
+    Ok(())
+}
+
+pub(super) fn render(
+    analysis: &Analysis,
+    progression: &Progression,
+    model: &LoopModel,
+    origins: &[&Anchor],
+) -> Result<LoopRender> {
+    check_origin(progression, model, origins)?;
     let (start, period, rows) = schedule(model)?;
     let id = format!(
         "{}-rotation",
@@ -412,6 +419,7 @@ pub(super) fn render(
     prop(&mut node, "start", start as f64 / 10.0);
     prop(&mut node, "every", period as f64 / 10.0);
     let mut events = Vec::new();
+    let mut activities = BTreeSet::new();
     for (index, row) in rows.iter().enumerate() {
         let name = label(analysis, &row.spec)?;
         let ids: BTreeSet<_> = row
@@ -457,16 +465,39 @@ pub(super) fn render(
         if sync {
             event.ensure_children().nodes_mut().extend(syncs(row)?);
         }
+        let evidence = json!({"event":event_id,"offset_ms":row.tick*100,"activities":row.spec.signals,"sync":sync,
+            "observations":observations(model,&row.spec,progression)?});
+        activities.extend(row.spec.signals.iter().cloned());
         node.ensure_children().nodes_mut().push(event);
-        events.push(json!({"event":event_id,"offset_ms":row.tick*100,"activities":row.spec.signals,"sync":sync,
-            "observations":observations(model,&row.spec,progression)?}));
+        events.push(evidence);
     }
-    let activities: BTreeSet<_> = model.body.iter().flatten().collect();
+    let mut helper_errors = Vec::new();
+    for (index, association) in model.helper_associations.iter().enumerate() {
+        let prefix = format!("{id}-helper-{}", index + 1);
+        match helpers::render(analysis, progression, association, period, &prefix) {
+            Ok((event, evidence)) => {
+                activities.insert(association.activity.clone());
+                node.ensure_children().nodes_mut().push(event);
+                events.push(evidence);
+            }
+            Err(error) => helper_errors
+                .push(json!({"activity":association.activity,"reason":error.to_string()})),
+        }
+    }
+    // Helper estimates can fall between core casts; keep the authored document chronological.
+    if !model.helper_associations.is_empty() {
+        node.ensure_children().nodes_mut().sort_by(|a, b| {
+            a.get(1)
+                .and_then(kdl::KdlValue::as_float)
+                .unwrap_or(0.0)
+                .total_cmp(&b.get(1).and_then(kdl::KdlValue::as_float).unwrap_or(0.0))
+        });
+    }
     Ok(LoopRender {
         node,
         start_tick: start,
         evidence: json!({"id":id,"source":model.source,"status":"rendered","start_ms":start*100,"period_ms":period*100,
-        "activities":activities,"events":events,"model":model,"not_checked":["ACT runtime","conditional path semantics","exit signal generation"]}),
+        "activities":activities,"events":events,"model":model,"helper_errors":helper_errors,"not_checked":["ACT runtime","conditional path semantics","exit signal generation"]}),
     })
 }
 

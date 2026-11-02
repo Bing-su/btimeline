@@ -57,6 +57,27 @@ pub(in crate::generate) struct LoopModel {
     pub body: Vec<Vec<Signal>>,
     pub blocks: Vec<Vec<usize>>,
     pub episodes: Vec<Episode>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub helper_associations: Vec<HelperAssociation>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(in crate::generate) struct HelperOccurrence {
+    pub trace: String,
+    pub actor: Option<i64>,
+    pub instance: Option<i64>,
+    pub iteration: usize,
+    pub preceding_position: usize,
+    pub cycle_start_ms: i64,
+    pub members: Vec<Member>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(in crate::generate) struct HelperAssociation {
+    pub activity: Signal,
+    pub occurrence: usize,
+    pub observations: Vec<HelperOccurrence>,
+    pub unobserved_complete_cycles: BTreeMap<String, Vec<usize>>,
 }
 
 #[derive(Default)]
@@ -183,7 +204,7 @@ fn episode(
     })
 }
 
-fn mapping(episode: &Episode, body: &[Vec<Signal>]) -> Option<Vec<Vec<usize>>> {
+pub(super) fn mapping(episode: &Episode, body: &[Vec<Signal>]) -> Option<Vec<Vec<usize>>> {
     episode
         .waves
         .chunks(body.len())
@@ -343,6 +364,7 @@ fn candidate(scopes: &[&Scope], reference: &Scope, start: usize, end: usize) -> 
         body,
         blocks,
         episodes,
+        helper_associations: Vec::new(),
     })
 }
 
