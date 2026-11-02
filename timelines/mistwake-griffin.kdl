@@ -34,12 +34,14 @@ timeline 1 "Mistwake - Thundergust Griffin" {
             // Shock Storm supplies B0F4 after Storm Surge in all development traces; keep its forecast display-only.
             event "rotation-electrifying-flight" 13.0 name="Electrifying Flight"
             event "rotation-high-volts" 19.6 name="High Volts" {
-                sync 19.6 "Ability" id="B0EC" source="Thundergust Griffin" before=8.0 after=8.0
+                // One High Volts per late cycle can recover a missed Storm Surge without accepting the next cycle's occurrence.
+                sync 19.6 "Ability" id="B0EC" source="Thundergust Griffin" before=8.0 after=25.0
             }
             event "rotation-roar-first" 31.0 name="Thundering Roar"
             event "rotation-roar-second" 42.4 name="Thundering Roar"
             event "rotation-golden-talons" 54.2 name="Golden Talons" {
-                sync 54.2 "Ability" id="B0F9" source="Thundergust Griffin" before=8.0 after=8.0
+                // Keep a third recovery point when both earlier markers are absent; processed displays are never replayed.
+                sync 54.2 "Ability" id="B0F9" source="Thundergust Griffin" before=8.0 after=25.0
             }
             event "rotation-fulgurous-fall" 69.5 name="Fulgurous Fall"
             event "rotation-electrogenetic-force" 73.1 name="Electrogenetic Force"

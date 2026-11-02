@@ -2,6 +2,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "bun test_compare_cactbot.ts && bun test_audit_dungeon_loops.ts && bun test_audit_normal_trials.ts"
+    "test": "bun test_compare_cactbot.ts && bun test_audit_dungeon_loops.ts && bun test_audit_normal_trials.ts && bun test_griffin_scenarios.ts"
   }
 }

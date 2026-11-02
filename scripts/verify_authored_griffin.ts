@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { griffinScenarios, type Sample } from "./griffin_scenarios.ts";
 
 const [binary, output, baseline] = process.argv.slice(2);
 assert(
@@ -23,7 +24,6 @@ const names: Record<string, string> = {
   B0F8: "Electrogenetic Force",
   B0F9: "Golden Talons",
 };
-type Sample = [number, string, number];
 type Observation = { at_ms: number; type: string; fields: Record<string, string> };
 type Row = { action: string; at_ms: number; detail: string; run: number };
 const observation = ([at_ms, id]: Sample): Observation => ({
@@ -50,7 +50,7 @@ function query(
   end_ms: number,
   at_ms: number,
 ): {
-  events: { name: string; at_ms: number; lead_ms: number }[];
+  events: { id: string; name: string; at_ms: number; lead_ms: number }[];
   diagnostics: Row[];
   projection_diagnostics: Row[];
 } {
@@ -185,6 +185,62 @@ try {
     }
   }
   const cases = [];
+  const recovery = [];
+  for (const trace of corpus.traces) {
+    for (const scenario of griffinScenarios(trace.samples, trace.end_ms)) {
+      const observations = scenario.observations.map(observation);
+      const rows = replay(timeline, observations, scenario.end_ms);
+      let bad = clean(rows).length;
+      const targets = [];
+      for (const { sample, event_id } of scenario.targets
+        .map((sample, index) => ({ sample, event_id: scenario.event_ids[index] }))
+        .filter((row) => row.sample[0] >= scenario.onset_ms)) {
+        const projected = query(timeline, observations, scenario.end_ms, sample[0] - 5000);
+        bad += projected.diagnostics.length + projected.projection_diagnostics.length;
+        const candidates = projected.events.filter((row) => row.id === event_id);
+        const nearest = candidates.sort(
+          (a, b) => Math.abs(a.at_ms - sample[0]) - Math.abs(b.at_ms - sample[0]),
+        )[0];
+        const queryError = nearest ? Math.abs(nearest.at_ms - sample[0]) : null;
+        const executed = rows.filter(
+          (row) => row.action === "event" && row.detail.startsWith(event_id + ":"),
+        );
+        const replayError = Math.min(...executed.map((row) => Math.abs(row.at_ms - sample[0])));
+        targets.push({
+          id: sample[1],
+          event_id,
+          at_ms: sample[0],
+          source_event_index: sample[2],
+          query_ok: queryError !== null && queryError <= 1500,
+          forecast_ms: nearest?.at_ms ?? null,
+          query_error_ms: queryError,
+          replay_error_ms: Number.isFinite(replayError) ? replayError : null,
+        });
+      }
+      // A single correct display does not prove recovery; require the entire remaining observed suffix to forecast correctly.
+      const lastMiss = targets.findLastIndex((row) => !row.query_ok);
+      const suffix = targets.slice(lastMiss + 1);
+      const restored = suffix.length >= 2 ? suffix[0] : undefined;
+      recovery.push({
+        trace: trace.trace,
+        scenario: scenario.name,
+        shift_ms: scenario.shift_ms,
+        omitted_signals: scenario.omit,
+        onset_ms: scenario.onset_ms,
+        scope_end_ms: scenario.end_ms,
+        matched: targets.filter((row) => row.query_ok).length,
+        total: targets.length,
+        stable_recovery_ms: restored?.at_ms ?? null,
+        recovery_target: restored?.id ?? null,
+        correct_suffix_targets: suffix.length,
+        accepted_syncs: rows.filter(
+          (row) => row.action === "sync" && row.at_ms >= scenario.onset_ms,
+        ),
+        bad,
+        targets,
+      });
+    }
+  }
   for (const shift of [-5000, 12000]) {
     const at = 94200 + shift;
     const marker = observation([at, "B0F3", 0]);
@@ -265,6 +321,7 @@ try {
     tolerance_ms: 1500,
     reports,
     cases,
+    recovery,
     ...(baseline ? { baseline, baseline_sha256: sha256(baseline) } : {}),
     not_checked: [
       "independent holdout",
@@ -279,8 +336,25 @@ try {
     assert.equal(row.bad, 0, JSON.stringify(row));
     assert.equal(row.matched, row.total, JSON.stringify(row));
   }
+  for (const row of recovery) {
+    assert.equal(row.bad, 0, JSON.stringify(row));
+    assert(
+      row.matched < row.total,
+      "A changed schedule must expose its pre-recovery forecast errors",
+    );
+    if (row.scenario === "delayed-without-anchors") {
+      assert.equal(row.stable_recovery_ms, null);
+      assert.equal(row.accepted_syncs.length, 0);
+    }
+  }
+  for (const scenario of ["delayed-without-storm", "delayed-without-storm-or-volts"]) {
+    const representative = recovery.find(
+      (row) => row.trace === "YQAawtmnD6FRVzPj/80" && row.scenario === scenario,
+    );
+    assert(representative?.stable_recovery_ms, `Fallback did not restore forecasts: ${scenario}`);
+  }
   console.log(
-    `Verified ${reports.filter((row) => row.label === "authored").length} development checks and ${cases.length} control cases; report: ${output}`,
+    `Verified ${reports.filter((row) => row.label === "authored").length} development checks and ${cases.length} control cases; evaluated ${recovery.length} perturbations with pre-recovery misses retained; report: ${output}`,
   );
 } finally {
   fs.rmSync(directory, { recursive: true, force: true });

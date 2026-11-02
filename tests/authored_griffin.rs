@@ -66,3 +66,48 @@ fn authored_griffin_predicts_without_evidence_and_resets(#[case] reset: bool) {
         }));
     }
 }
+
+#[rstest::rstest]
+#[case("B0EC", 113400, 131200, "rotation-roar-second", 136200)]
+#[case("B0F9", 148000, 158300, "rotation-fulgurous-fall", 163300)]
+#[case("B0EC", 126400, 156000, "rotation-golden-talons", 161000)]
+#[case("B0F9", 161000, 181500, "rotation-roar-last", 186500)]
+#[case("B0EC", 126500, 166100, "rotation-thunderspark", 171100)]
+#[case("B0F9", 161100, 166100, "rotation-thunderspark", 171100)]
+fn late_anchor_windows_restore_supported_delays_and_ignore_outside_occurrences(
+    #[case] anchor: &str,
+    #[case] observed_at: i64,
+    #[case] cutoff: i64,
+    #[case] expected_id: &str,
+    #[case] expected_at: i64,
+) {
+    let directory = tempfile::tempdir().expect("temporary directory");
+    let timeline = Path::new(env!("CARGO_MANIFEST_DIR")).join("timelines/mistwake-griffin.kdl");
+    let recording = directory.path().join("recording.json");
+    // A late second Thunderspark cannot resync; exercise the fallback window and its rejection boundary.
+    fs::write(&recording, serde_json::to_vec(&json!({"version":1,"end_ms":200000,"observations":[
+        {"at_ms":0,"type":"Ability","fields":{"id":"B0EB","source":"Thundergust Griffin"}},
+        {"at_ms":93800,"type":"Ability","fields":{"id":"B0EB","source":"Thundergust Griffin"}},
+        {"at_ms":observed_at,"type":"Ability","fields":{"id":anchor,"source":"Thundergust Griffin"}}
+    ]})).expect("encode recording")).expect("write recording");
+    let result = cargo_bin_cmd!("btimeline")
+        .arg("forecast")
+        .arg(timeline)
+        .arg(recording)
+        .arg("--at-ms")
+        .arg(cutoff.to_string())
+        .args(["--horizon-ms", "6500"])
+        .assert()
+        .success();
+    let forecast: Value =
+        serde_json::from_slice(&result.get_output().stdout).expect("forecast JSON");
+    assert_eq!(forecast["diagnostics"], json!([]));
+    assert!(
+        forecast["events"]
+            .as_array()
+            .expect("events")
+            .iter()
+            .any(|row| row["id"] == expected_id && row["at_ms"] == expected_at),
+        "{forecast}"
+    );
+}
