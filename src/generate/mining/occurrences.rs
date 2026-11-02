@@ -10,6 +10,7 @@ mod branches;
 mod entry;
 mod fragments;
 mod loops;
+mod projection;
 mod tail;
 pub(in crate::generate) use loops::{LoopDiscovery, LoopModel};
 
@@ -343,6 +344,7 @@ fn expand_interval(
             "reference_only":batches(reference,&aligned.reference_only),
             "ambiguous_peer":batches(row,&aligned.ambiguous_right),"peer_only":batches(row,&aligned.peer_only)}));
     }
+    let previous_events = result.events.len();
     for index in 0..reference.len() {
         let peers = matches
             .iter()
@@ -361,6 +363,15 @@ fn expand_interval(
             .map(|(row, j)| row.get(j).context("Missing aligned observation"))
             .collect::<Result<Vec<_>>>()?;
         result.events.extend(events(pulls, &groups, &bounds)?);
+    }
+    if result.events.len() - previous_events < reference.iter().map(|group| group.key.len()).sum() {
+        for event in projection::partial(pulls, rows, &bounds)? {
+            if !result.events.iter().any(|existing| {
+                existing.signal == event.signal && existing.samples == event.samples
+            }) {
+                result.events.push(event);
+            }
+        }
     }
     Ok(())
 }
@@ -395,6 +406,7 @@ fn bounded(
             .collect::<Result<Vec<_>, _>>();
         match rows {
             Ok(mut rows) => {
+                projection::shared(pulls, &mut rows, &bounds, result);
                 fragments::normalize(&mut rows)?;
                 expand_interval(
                     pulls,
@@ -468,6 +480,7 @@ fn opening(
         .collect::<Result<Vec<_>, _>>();
     match rows {
         Ok(mut rows) => {
+            projection::shared(pulls, &mut rows, &bounds, result);
             fragments::normalize(&mut rows)?;
             expand_interval(
                 pulls,

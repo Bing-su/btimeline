@@ -5,6 +5,52 @@ use assert_cmd::cargo::cargo_bin_cmd;
 use proptest::prelude::*;
 use serde_json::{Value, json};
 
+#[rstest::rstest]
+#[case("compatible", 101, 4)]
+#[case("compatible", 250, 4)]
+#[case("compatible", 1000, 4)]
+#[case("cycle", 250, 0)]
+#[case("missing", 250, 0)]
+fn partial_order_recovers_split_waves_without_ignoring_conflicts_or_missing_occurrences(
+    #[case] scenario: &str,
+    #[case] gap: i64,
+    #[case] expected: usize,
+) {
+    let dir = tempfile::tempdir().unwrap();
+    let paths:Vec<_> = (0..3).map(|peer| {
+        let path = input(dir.path(),peer,"split",100,50);
+        let mut data:Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        let gap = if peer==0 {50} else {gap};
+        let (left,right) = if scenario=="cycle" && peer==2 {(103,101)} else {(101,103)};
+        let mut records = vec![(2000,100),(4000,left),(4000+gap,right),(8000,left),(8000+gap,right),(12000,102)];
+        if scenario=="missing" && peer==2 {records.remove(4);}
+        data["events"] = records.iter().map(|(at,id)|json!({"timestamp":at,"type":"cast","sourceID":10,"sourceInstance":1,"abilityGameID":id,"fight":1})).collect();
+        data["collection"]["eventCount"] = records.len().into();
+        fs::write(&path,serde_json::to_vec(&data).unwrap()).unwrap();path
+    }).collect();
+    let evidence = generate(&paths, &dir.path().join("timeline.kdl"));
+    let recovered: Vec<_> = evidence["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|event| event["alignment"]["method"] == "consistent-partial-order-v1")
+        .collect();
+    assert_eq!(recovered.len(), expected);
+    for event in recovered {
+        assert_eq!(
+            event["alignment"]["correspondence_policy"],
+            "consistent-partial-order-v1"
+        );
+        assert_eq!(event["observation_nodes"].as_object().unwrap().len(), 3);
+        assert!(
+            event["alignment"]["sync"]
+                .as_str()
+                .unwrap()
+                .contains("omitted")
+        );
+    }
+}
+
 #[test]
 fn local_reference_ordinals_do_not_collide_across_intervals() {
     let dir = tempfile::tempdir().unwrap();
@@ -106,7 +152,7 @@ fn generate(paths: &[PathBuf], output: &Path) -> Value {
 #[case("same-entity", 2, 0)]
 #[case("all-split", 2, 1)]
 #[case("long-chain", 80, 0)]
-#[case("different-member", 2, 0)]
+#[case("different-member", 2, 2)]
 fn fragmented_instances_need_a_forced_unfragmented_peer(
     #[case] scenario: &str,
     #[case] gap: i64,
@@ -125,6 +171,30 @@ fn fragmented_instances_need_a_forced_unfragmented_peer(
         .filter(|event| event["activity"]["identifier"]["Ability"] == 101)
         .collect();
     assert_eq!(events.len(), expected, "{scenario}");
+    if scenario == "different-member" {
+        assert!(
+            e["alignment_diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|row| row["method"] == "shared-activity-interval-v1")
+        );
+        assert!(
+            !e["events"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|row| row["activity"]["identifier"]["Ability"] == 103)
+        );
+        assert!(
+            e["progression"]["traces"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .flat_map(|trace| trace["nodes"].as_array().unwrap())
+                .any(|node| node["activity"]["identifier"]["Ability"] == 103)
+        );
+    }
     if scenario == "split" {
         let event = events
             .iter()
