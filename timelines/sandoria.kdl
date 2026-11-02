@@ -7,6 +7,9 @@ timeline 1 "San d'Oria: The Second Walk" {
     wipe "ActorControl" command="4000000F"
     wipe "ActorControl" command="40000010"
     finish "InCombat" inGameCombat="0"
+    // The joint schedule ends at either boss's defeat; the survivor's solo tail is outside this authored route.
+    boss-complete "WasDefeated" target="Omega, the One"
+    boss-complete "WasDefeated" target="Ultima, the Feared"
     zone-exit "ChangeZone"
 
     phase "kirin" {
@@ -18,33 +21,49 @@ timeline 1 "San d'Oria: The Second Walk" {
         event "kirin-5" 50.2 name="Crimson Riddle"
         event "kirin-6" 57.4 name="Crimson Riddle"
         event "kirin-7" 71.5 name="Summon Shijin"
-        // Shijin's two observed resolutions differ; the shared second Wrought Arms fixes the continuation origin.
-        event "kirin-arms-return" 122.4 name="Wrought Arms"
-        branch "shijin" open=85.0 close=115.0 {
+        // Each Shijin route predicts Arms early; its cast start then replaces the option schedule before impact.
+        branch "shijin" open=72.0 close=115.0 {
             option "quake" {
                 when "StartsUsing" id="B07B" source="Faithbound Kirin"
                 event "kirin-quake-first" 3.0 name="Quake"
                 event "kirin-quake-second" 8.1 name="Quake"
                 event "kirin-quake-third" 13.1 name="Quake"
                 event "kirin-quake-fourth" 18.1 name="Quake"
+                event "kirin-quake-arms" 28.5 name="Wrought Arms"
             }
             option "stonega" {
                 when "StartsUsing" id="B079" source="Faithbound Kirin"
                 event "kirin-stonega-first" 3.0 name="Stonega III"
                 event "kirin-stonega-second" 11.1 name="Stonega III"
+                event "kirin-stonega-arms" 20.5 name="Wrought Arms"
+            }
+            option "genbu" {
+                when "StartsUsing" id="AD84" source="Moonbound Genbu"
+                event "kirin-genbu-riddle" 34.1 name="Crimson Riddle"
+                event "kirin-genbu-arms" 44.7 name="Wrought Arms"
+            }
+            // Riddle also appears on Genbu's route, so use distinct earlier controls instead of Riddle itself.
+            option "eastwind" {
+                when "Ability" id="AD82" source="Faithbound Kirin"
+                event "kirin-eastwind-riddle" 7.9 name="Crimson Riddle"
+                event "kirin-double-cast" 19.1 name="Double Cast"
+                event "kirin-double-quake" 27.1 name="Quake"
+                event "kirin-double-stonega" 27.1 name="Stonega III"
+                event "kirin-eastwind-arms" 34.6 name="Wrought Arms"
             }
             merge {
-                when "Ability" id="AD91" source="Faithbound Kirin" at=122.4 before=8.0 after=8.0
-                event "kirin-8" 8.5 name="Wringer"
-                event "kirin-9" 23.1 name="Striking Right / Striking Left"
-                event "kirin-10" 33.4 name="Stonega IV"
-                event "kirin-11" 41.9 name="Wringer / Synchronized Strike"
-                event "kirin-12" 45.9 name="Wringer / Synchronized Strike"
-                event "kirin-13" 47.2 name="Synchronized Sequence / Double Wringer"
-                event "kirin-14" 52.3 name="Wringer / Synchronized Strike"
-                event "kirin-15" 70.2 name="Mighty Grip"
-                event "kirin-16" 90.9 name="Deadly Hold"
-                event "kirin-17" 98.9 name="Bury"
+                when "StartsUsing" id="AD91" source="Faithbound Kirin" at=118.9 before=8.0 after=8.0
+                event "kirin-arms-return" 3.5 name="Wrought Arms"
+                event "kirin-8" 12.0 name="Wringer"
+                event "kirin-9" 26.6 name="Striking Right / Striking Left"
+                event "kirin-10" 36.9 name="Stonega IV"
+                event "kirin-11" 45.4 name="Wringer / Synchronized Strike"
+                event "kirin-12" 49.4 name="Wringer / Synchronized Strike"
+                event "kirin-13" 50.7 name="Synchronized Sequence / Double Wringer"
+                event "kirin-14" 55.8 name="Wringer / Synchronized Strike"
+                event "kirin-15" 73.7 name="Mighty Grip"
+                event "kirin-16" 94.4 name="Deadly Hold"
+                event "kirin-17" 102.4 name="Bury"
             }
         }
     }
@@ -105,6 +124,8 @@ timeline 1 "San d'Oria: The Second Walk" {
             sync 94.0 "Ability" id="ACBD" source="Kam'lanaut" before=3.0 after=8.0
         }
         event "kam-12" 114.5 name="Esoteric Scrivening" {
+            // Its six-second cast supplies enough lead to recover a shortened preceding gap before the five-second query.
+            sync 108.5 "StartsUsing" id="ACB2" source="Kam'lanaut" before=8.0 after=8.0
             sync 114.5 "Ability" id="ACB2" source="Kam'lanaut" before=3.0 after=8.0
         }
         event "kam-13" 137.9 name="Shockwave"
@@ -138,6 +159,7 @@ timeline 1 "San d'Oria: The Second Walk" {
         event "kam-35" 317.6 name="Esoteric Palisade" {
             sync 317.6 "Ability" id="ACB6" source="Kam'lanaut" before=3.0 after=8.0
         }
+        event "kam-36" 323.7 name="Crystalline Resonance"
     }
 
     phase "eald" {

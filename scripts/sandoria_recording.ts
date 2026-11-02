@@ -27,6 +27,9 @@ export const sandoriaBosses = [
       AD93: "Striking Right / Striking Left",
       ADA0: "Synchronized Sequence / Double Wringer",
       ADA2: "Wringer / Synchronized Strike",
+      A916: "Double Cast",
+      A917: "Stonega III",
+      A918: "Quake",
     },
   },
   {
@@ -140,7 +143,22 @@ export function sandoriaRecording(raw: any) {
   // A wipe is a censored attempt, not a missing completion signal; do not fabricate an ACT finish from HP.
   // Evaluate only the authored finite route, even when a later holdout survives beyond the development observations.
   const limits: Record<string, number> = { kirin: 230000, duo: 238000, kam: 325000, eald: 357000 };
-  const end = Math.min(raw.report.fights[0].endTime, start + limits[boss.phase]!);
+  const defeat =
+    boss.phase === "duo"
+      ? raw.events.findIndex(
+          (event: any) =>
+            event.timestamp >= start &&
+            event.type === "damage" &&
+            main.some((actor) => actor.id === event.targetID) &&
+            event.targetResources?.hitPoints === 0,
+        )
+      : -1;
+  // HP is only a scope boundary here; synthetic WasDefeated is tested separately and is never fabricated from FFLogs HP.
+  const end = Math.min(
+    raw.report.fights[0].endTime,
+    start + limits[boss.phase]!,
+    defeat < 0 ? Infinity : raw.events[defeat].timestamp,
+  );
   if (!(end > start)) throw new InputExclusion("Empty encounter scope", { entry });
   for (const actor of main) {
     let lowest = 1;

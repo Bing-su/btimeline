@@ -81,3 +81,19 @@ assert.equal(JSON.stringify(raw), before);
 console.log(
   "Sandoria simultaneous scope, censored wipes, selection lead and input rejection verified",
 );
+
+// Death ends the jointly alive scope without inventing a runtime WasDefeated packet from HP.
+const ended = sandoriaRecording({
+  ...raw,
+  events: [
+    ...raw.events,
+    {
+      type: "damage",
+      timestamp: 15000,
+      targetID: 1,
+      targetResources: { hitPoints: 0, maxHitPoints: 100 },
+    },
+  ],
+});
+assert.equal(ended.bosses[0]!.end_ms, 15000);
+assert(!ended.observations.some((row) => row.type === "WasDefeated"));

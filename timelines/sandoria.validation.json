@@ -592,6 +592,3046 @@
         "post-second-Fire duo tail, helper attacks and reactive buffs",
         "unobserved later cycles and mechanic positioning"
       ]
+    },
+    {
+      "manifest": "tests/fixtures/authored/sandoria-holdout-plan.json",
+      "manifest_sha256": "d39b58c4f9824c4010c90c127cf352cf8d660b74eff380700a4a77738c8014ec",
+      "timeline_sha256": "71515ca84e56a05841ac4930c522369448e889807237510d43e316cd48345d6b",
+      "role": "held-out; fresh report metadata selected before content inspection, candidate and criteria frozen before evaluation",
+      "summary": {
+        "selected": 16,
+        "excluded": 0,
+        "eligible": 16,
+        "passed_traces": 9,
+        "passed": false
+      },
+      "traces": [
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/HnxFmz3CVZkNW1Xp_50.json",
+          "sha256": "8af65dd17317718aeb31bf521bd72aa269b454b208de2af06efb0696104a4f6b",
+          "trace": "HnxFmz3CVZkNW1Xp/50",
+          "fingerprint": "5708bb2da7a621cc434458d4b5d9785cceff615e6887fb4a49306810a2310c6e",
+          "origin_timestamp_ms": 33402123,
+          "cast_observations": 6182,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eald",
+              "entry_ms": 11226,
+              "end_ms": 368226,
+              "entry_event": 336,
+              "completion_event": 30308,
+              "targets": [
+                [336, 11226, "AD51", 0, null, null],
+                [2290, 41008, "AD6D", 18, 18, 5000],
+                [4271, 58218, "AD49", 92, 92, 5000],
+                [5643, 71839, "AD56", 13, 13, 5000],
+                [6202, 78255, "AD58", 129, 129, 5000],
+                [6882, 85743, "AD53", 117, 117, 5000],
+                [7847, 95863, "AD5C", 137, 137, 5000],
+                [8961, 107046, "AD77", 120, 120, 5000],
+                [10174, 122139, "AD77", 113, 113, 5000],
+                [12443, 151754, "B040", 128, 128, 5000],
+                [12583, 156880, "AD59", 154, 154, 5000],
+                [12679, 179102, "AD5A", 0, 78, 5000],
+                [12995, 191321, "AD77", 19, 19, 5000],
+                [13793, 200458, "AD75", 56, 56, 5000],
+                [14128, 204557, "AD76", 1, 55, 5000],
+                [14705, 209587, "AD72", 29, 29, 5000],
+                [17887, 233969, "AD5F", 289, 289, 5000],
+                [19500, 249659, "AD53", 199, 199, 5000],
+                [21213, 268778, "AD51", 0, 280, 5000],
+                [21837, 275953, "AD77", 75, 75, 5000],
+                [22539, 285083, "AD75", 5, 5, 5000],
+                [22854, 289178, "AD76", 5, 0, 5000],
+                [23248, 294210, "AD5C", 27, 27, 5000],
+                [23990, 302711, "AD53", 28, 28, 5000],
+                [24921, 315853, "AD49", 70, 70, 5000],
+                [26162, 330019, "AD72", 36, 36, 5000],
+                [29168, 353419, "AD5F", 36, 36, 5000],
+                [29924, 362067, "AD77", 84, 84, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/aPVdHQmZJ9AbgwM6_24.json",
+          "sha256": "ae3666aae7da5c1496f0b9a70f0f063a32d0cd589e11cef29358626d124f93f3",
+          "trace": "aPVdHQmZJ9AbgwM6/24",
+          "fingerprint": "f8354974cbfb6eaaf94fe91ca0ba670f59ab2f7e8fa31f6d28f9accb6abe21f6",
+          "origin_timestamp_ms": 9528143,
+          "cast_observations": 6247,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kam",
+              "entry_ms": 12296,
+              "end_ms": 337296,
+              "entry_event": 1099,
+              "completion_event": 34339,
+              "targets": [
+                [1099, 12296, "ACBD", 0, null, null],
+                [2347, 20856, "B009", 40, 40, 5000],
+                [3993, 33998, "AC91", 2, 2, 5000],
+                [5118, 45145, "B00A", 51, 51, 5000],
+                [6298, 56290, "AC91", 6, 6, 5000],
+                [7263, 67444, "B00A", 48, 48, 5000],
+                [8147, 77784, "ACBB", 12, 12, 5000],
+                [8782, 83983, "ACAB", 13, 13, 5000],
+                [9857, 93171, "ACAF", 25, 25, 5000],
+                [10505, 99057, "ACB1", 39, 39, 5000],
+                [11517, 106331, "ACBD", 35, 35, 5000],
+                [14021, 126863, "ACB2", 32, 32, 5000],
+                [15945, 150346, "ACB3", 83, 83, 5000],
+                [17296, 158982, "ACB4", 119, 119, 5000],
+                [18640, 165535, "ACB5", 172, 172, 5000],
+                [20124, 181487, "ACB6", 124, 124, 5000],
+                [20591, 187634, "ACB7", 53, 53, 5000],
+                [21141, 195477, "ACB8", 10, 10, 5000],
+                [21597, 202517, "ACB8", 30, 30, 5000],
+                [22104, 209556, "ACB8", 69, 69, 5000],
+                [22132, 209824, "ACB9", 37, 37, 5000],
+                [22133, 209824, "ACBF", 37, 37, 5000],
+                [23089, 220691, "ACBA", 4, 4, 5000],
+                [23848, 228084, "ACBE", 3, 3, 5000],
+                [24814, 237212, "AF6B", 25, 25, 5000],
+                [25821, 247556, "ACBB", 31, 31, 5000],
+                [26977, 263012, "B009", 125, 125, 5000],
+                [28058, 277132, "AC92", 20, 20, 5000],
+                [28898, 288273, "B00A", 39, 39, 5000],
+                [29534, 295447, "ACAB", 65, 65, 5000],
+                [30181, 301460, "ACBF", 52, 52, 5000],
+                [30528, 304622, "ACB0", 90, 90, 5000],
+                [31190, 310505, "ACB1", 7, 7, 5000],
+                [32151, 317766, "ACBD", 0, 46, 5000],
+                [33705, 330102, "ACB6", 0, 64, 5000],
+                [34266, 336247, "ACB7", 148560, null, 5000]
+              ],
+              "failures": [
+                {
+                  "raw_index": 34266,
+                  "at_ms": 336247,
+                  "id": "ACB7",
+                  "error_ms": 148560,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                }
+              ]
+            }
+          ],
+          "passed": false
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/HnxFmz3CVZkNW1Xp_45.json",
+          "sha256": "1dd19123f19251bb6ca13fc890d0ee3b558de57e9c5f47ebbe0adb05424009ee",
+          "trace": "HnxFmz3CVZkNW1Xp/45",
+          "fingerprint": "97ccf07ff1a1863008b36d1a6365ee1c1d6a4de1bd9a35eda52a78b193541c2d",
+          "origin_timestamp_ms": 32239018,
+          "cast_observations": 4487,
+          "safe_entry": true,
+          "diagnostics": [
+            {
+              "action": "unresolved",
+              "at_ms": 127744,
+              "detail": "shijin",
+              "run": 1
+            }
+          ],
+          "bosses": [
+            {
+              "phase": "kirin",
+              "entry_ms": 12794,
+              "end_ms": 242794,
+              "entry_event": 1151,
+              "completion_event": 22898,
+              "targets": [
+                [1151, 12794, "ADCA", 0, null, null],
+                [2588, 23454, "AD91", 440, 440, 5000],
+                [3663, 34289, "AD95", 405, 405, 5000],
+                [4648, 46291, "AD95", 403, 403, 5000],
+                [6022, 62850, "AFF5", 144, 144, 5000],
+                [6486, 69981, "AFF4", 213, 213, 5000],
+                [7659, 84078, "AD7E", 216, 216, 5000],
+                [10877, 125484, "AFF4", 55290, null, 5000],
+                [12093, 136082, "AD91", 888, 888, 5000],
+                [12941, 144537, "AD92", 57, 57, 5000],
+                [14270, 159145, "AD94", 49, 49, 5000],
+                [15283, 169486, "ADCA", 8, 8, 5000],
+                [16275, 178393, "ADB0", 399, 399, 5000],
+                [16822, 183737, "ADA0", 443, 443, 5000],
+                [19051, 206738, "ADB1", 444, 444, 5000],
+                [21048, 227371, "ADB2", 377, 377, 5000]
+              ],
+              "failures": [
+                {
+                  "raw_index": 10877,
+                  "at_ms": 125484,
+                  "id": "AFF4",
+                  "error_ms": 55290,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 12093,
+                  "at_ms": 136082,
+                  "id": "AD91",
+                  "error_ms": 888,
+                  "forecast": {
+                    "error_ms": 888,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 127744,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 12941,
+                  "at_ms": 144537,
+                  "id": "AD92",
+                  "error_ms": 57,
+                  "forecast": {
+                    "error_ms": 57,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 127744,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 14270,
+                  "at_ms": 159145,
+                  "id": "AD94",
+                  "error_ms": 49,
+                  "forecast": {
+                    "error_ms": 49,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 127744,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 15283,
+                  "at_ms": 169486,
+                  "id": "ADCA",
+                  "error_ms": 8,
+                  "forecast": {
+                    "error_ms": 8,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 127744,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 16275,
+                  "at_ms": 178393,
+                  "id": "ADB0",
+                  "error_ms": 399,
+                  "forecast": {
+                    "error_ms": 399,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 127744,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 16822,
+                  "at_ms": 183737,
+                  "id": "ADA0",
+                  "error_ms": 443,
+                  "forecast": {
+                    "error_ms": 443,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 127744,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 19051,
+                  "at_ms": 206738,
+                  "id": "ADB1",
+                  "error_ms": 444,
+                  "forecast": {
+                    "error_ms": 444,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 127744,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 21048,
+                  "at_ms": 227371,
+                  "id": "ADB2",
+                  "error_ms": 377,
+                  "forecast": {
+                    "error_ms": 377,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 127744,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                }
+              ]
+            }
+          ],
+          "passed": false
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/HnxFmz3CVZkNW1Xp_47.json",
+          "sha256": "dc9fb561b04023f4c418b23616a5850990b62520c0ca8cc2912d21f847408ede",
+          "trace": "HnxFmz3CVZkNW1Xp/47",
+          "fingerprint": "53502e9a626fd3308425cac20d89f7b0bd9141ec65b72e19826bc1162de0b974",
+          "origin_timestamp_ms": 32635276,
+          "cast_observations": 4243,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "duo",
+              "entry_ms": 12203,
+              "end_ms": 250203,
+              "entry_event": 1168,
+              "completion_event": 23528,
+              "targets": [
+                [1168, 12203, "AD2B", 0, null, null],
+                [1794, 15941, "AD10", 38, null, null],
+                [2523, 21061, "AD08", 42, 42, 5000],
+                [3833, 32283, "AD27", 80, 80, 5000],
+                [5422, 48625, "AD06", 22, 22, 5000],
+                [5452, 48893, "B087", 90, 90, 5000],
+                [7432, 66250, "B075", 147, 147, 5000],
+                [7637, 68207, "AD08", 4, 4, 5000],
+                [8263, 75594, "B087", 91, 91, 5000],
+                [9123, 83655, "AD09", 52, 52, 5000],
+                [9643, 88775, "AD08", 72, 72, 5000],
+                [10544, 97728, "AD0C", 25, 25, 5000],
+                [11013, 102408, "AD23", 5, 5, 5000],
+                [11880, 113147, "AD24", 44, 44, 5000],
+                [12398, 118710, "AD12", 7, 7, 5000],
+                [12561, 124016, "AFEB", 13, 13, 5000],
+                [12565, 124105, "AD14", 2, 2, 5000],
+                [12754, 128296, "AFEB", 7, 7, 5000],
+                [12880, 132573, "AFEB", 70, 70, 5000],
+                [12976, 136851, "AFEB", 48, 48, 5000],
+                [13625, 153440, "AD1B", 37, 37, 5000],
+                [14323, 159231, "AD2F", 28, 28, 5000],
+                [16325, 176507, "AD06", 4, 4, 5000],
+                [16382, 177262, "AD23", 59, 59, 5000],
+                [17314, 187771, "AD09", 32, 32, 5000],
+                [17372, 187994, "AD24", 9, 9, 5000],
+                [17803, 192939, "AD08", 36, 36, 5000],
+                [18638, 201892, "AD0D", 11, 11, 5000],
+                [18669, 202201, "B087", 2, 2, 5000],
+                [20158, 215839, "AD0E", 64, 64, 5000],
+                [22335, 233913, "B075", 90, 90, 5000],
+                [22658, 237167, "AD08", 36, 36, 5000],
+                [23468, 249362, "AD09", 61559, null, 5000]
+              ],
+              "failures": [
+                {
+                  "raw_index": 23468,
+                  "at_ms": 249362,
+                  "id": "AD09",
+                  "error_ms": 61559,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                }
+              ]
+            }
+          ],
+          "passed": false
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/Y3v4JFghpTjbnWwL_11.json",
+          "sha256": "762c84e9a869dd75289d2bdfc572fd19f2adcf3e1c54fc21ed056dc31fe7e6d8",
+          "trace": "Y3v4JFghpTjbnWwL/11",
+          "fingerprint": "da8400b77102770f198fbeb92f50aa44ca66e0c6561b15adae71fa9cb5c896cb",
+          "origin_timestamp_ms": 2769554,
+          "cast_observations": 6987,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eald",
+              "entry_ms": 11390,
+              "end_ms": 368390,
+              "entry_event": 371,
+              "completion_event": 30286,
+              "targets": [
+                [371, 11390, "AD51", 0, null, null],
+                [1337, 24497, "AD4A", 7, 7, 5000],
+                [2872, 41144, "AD6D", 46, 46, 5000],
+                [6618, 71993, "AD56", 3, 3, 5000],
+                [7103, 78456, "AD58", 166, 166, 5000],
+                [7575, 85944, "AD53", 154, 154, 5000],
+                [8311, 96060, "AD5C", 170, 170, 5000],
+                [9297, 107248, "AD77", 158, 158, 5000],
+                [10523, 122378, "AD77", 188, 188, 5000],
+                [13024, 151870, "B040", 80, 80, 5000],
+                [13235, 156989, "AD59", 99, 99, 5000],
+                [13413, 179185, "AD5A", 0, 104, 5000],
+                [13719, 191469, "AD77", 84, 84, 5000],
+                [14348, 200602, "AD75", 117, 117, 5000],
+                [14589, 204707, "AD76", 5, 122, 5000],
+                [14964, 209739, "AD72", 37, 37, 5000],
+                [17589, 234168, "AD5F", 234, 234, 5000],
+                [19071, 249862, "AD53", 140, 140, 5000],
+                [20838, 268989, "AD51", 0, 213, 5000],
+                [21588, 276164, "AD77", 75, 75, 5000],
+                [22362, 285299, "AD75", 10, 10, 5000],
+                [22686, 289406, "AD76", 7, 17, 5000],
+                [23070, 294437, "AD5C", 38, 38, 5000],
+                [23832, 302774, "AD53", 125, 125, 5000],
+                [24985, 315925, "AD4A", 74, 74, 5000],
+                [26244, 330093, "AD72", 106, 106, 5000],
+                [28866, 353482, "AD5F", 117, 117, 5000],
+                [29729, 362126, "AD77", 73, 73, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/HnxFmz3CVZkNW1Xp_49.json",
+          "sha256": "e0ea75695dc165cc75ab093009a9db7aec2da1b882e4300ceacbccd05d57bc45",
+          "trace": "HnxFmz3CVZkNW1Xp/49",
+          "fingerprint": "e2f6b44dc7bc32d8fdeb28290671291844ba1e60dd5195b554e453b2efa1d5dc",
+          "origin_timestamp_ms": 33026367,
+          "cast_observations": 6083,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kam",
+              "entry_ms": 11755,
+              "end_ms": 326392,
+              "entry_event": 744,
+              "completion_event": 31220,
+              "targets": [
+                [744, 11755, "ACBD", 0, null, null],
+                [1752, 20302, "B009", 53, 53, 5000],
+                [3180, 33435, "AC91", 20, 20, 5000],
+                [4067, 44557, "B00A", 98, 98, 5000],
+                [5016, 55694, "AC91", 61, 61, 5000],
+                [5886, 66833, "B00A", 22, 22, 5000],
+                [6679, 77170, "ACBB", 85, 85, 5000],
+                [7236, 83360, "ACAB", 95, 95, 5000],
+                [7990, 92538, "ACB0", 117, 117, 5000],
+                [8525, 98419, "ACB1", 136, 136, 5000],
+                [9170, 105678, "ACBD", 0, 77, 5000],
+                [11381, 126205, "ACB2", 27, 27, 5000],
+                [12734, 149685, "ACB3", 80, 80, 5000],
+                [13967, 158328, "ACB4", 123, 123, 5000],
+                [15157, 164837, "ACB5", 132, 132, 5000],
+                [17140, 180840, "ACB6", 135, 135, 5000],
+                [17684, 186989, "ACB7", 51, 51, 5000],
+                [18443, 194835, "ACB8", 5, 5, 5000],
+                [18976, 201868, "ACB8", 28, 28, 5000],
+                [19507, 208905, "ACB8", 65, 65, 5000],
+                [19537, 209171, "ACB9", 31, 31, 5000],
+                [19538, 209171, "ACBF", 31, 31, 5000],
+                [20657, 220044, "ACBA", 4, 4, 5000],
+                [21347, 227480, "ACBE", 40, 40, 5000],
+                [22202, 236607, "AF6B", 67, 67, 5000],
+                [23375, 246944, "ACBB", 4, 4, 5000],
+                [24705, 262304, "B009", 64, 64, 5000],
+                [26060, 276462, "AC92", 58, 58, 5000],
+                [26997, 287590, "B00A", 14, 14, 5000],
+                [27731, 294764, "ACAB", 40, 40, 5000],
+                [28279, 300784, "ACBF", 20, 20, 5000],
+                [28603, 303948, "ACAF", 56, 56, 5000],
+                [29272, 309824, "ACB1", 20, 20, 5000],
+                [30244, 317081, "ACBD", 0, 23, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/aPVdHQmZJ9AbgwM6_22.json",
+          "sha256": "2e56638c0426f6038382d53c2114476c97b78534577d3fa317fabfb349d95021",
+          "trace": "aPVdHQmZJ9AbgwM6/22",
+          "fingerprint": "8e9ed09bbc2c55b8d26fb457d66919a61e99e8cda9148a566535dcde8911dfeb",
+          "origin_timestamp_ms": 9138315,
+          "cast_observations": 4319,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "duo",
+              "entry_ms": 12168,
+              "end_ms": 250168,
+              "entry_event": 1265,
+              "completion_event": 24451,
+              "targets": [
+                [1265, 12168, "AD2B", 0, null, null],
+                [1807, 15819, "AD10", 49, null, null],
+                [2554, 20939, "AD08", 129, 129, 5000],
+                [4009, 32251, "AD27", 83, 83, 5000],
+                [5569, 48557, "AD06", 11, 11, 5000],
+                [5597, 48870, "B087", 102, 102, 5000],
+                [7442, 66230, "B075", 162, 162, 5000],
+                [7709, 68143, "AD08", 25, 25, 5000],
+                [8573, 75762, "B087", 294, 294, 5000],
+                [9475, 83517, "AD09", 51, 51, 5000],
+                [9980, 88637, "AD08", 31, 31, 5000],
+                [11024, 97589, "AD0C", 79, 79, 5000],
+                [11581, 102538, "AD23", 170, 170, 5000],
+                [12453, 113285, "AD24", 217, 217, 5000],
+                [12964, 118816, "AD12", 148, 148, 5000],
+                [13160, 124159, "AFEB", 191, 191, 5000],
+                [13163, 124204, "AD14", 136, 136, 5000],
+                [13351, 128438, "AFEB", 170, 170, 5000],
+                [13466, 132717, "AFEB", 249, 249, 5000],
+                [13582, 136993, "AFEB", 225, 225, 5000],
+                [14221, 153520, "AD1B", 152, 152, 5000],
+                [14839, 159362, "AD2F", 194, 194, 5000],
+                [16653, 176622, "AD06", 154, 154, 5000],
+                [16704, 177380, "AD23", 212, 212, 5000],
+                [17737, 187898, "AD09", 130, 130, 5000],
+                [17748, 188121, "AD24", 153, 153, 5000],
+                [18253, 193069, "AD08", 201, 201, 5000],
+                [19024, 202033, "AD0C", 165, 165, 5000],
+                [19053, 202388, "B087", 220, 220, 5000],
+                [20673, 215991, "AD0E", 123, 123, 5000],
+                [23082, 234053, "B075", 85, 85, 5000],
+                [23394, 237312, "AD08", 144, 144, 5000],
+                [24388, 249529, "AD09", 61761, null, 5000]
+              ],
+              "failures": [
+                {
+                  "raw_index": 24388,
+                  "at_ms": 249529,
+                  "id": "AD09",
+                  "error_ms": 61761,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                }
+              ]
+            }
+          ],
+          "passed": false
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/Y3v4JFghpTjbnWwL_6.json",
+          "sha256": "e6ee85bdb40dcbeab8e061f01ea8f54c2d3c7aeba8bcd7fc11dee64b682b558a",
+          "trace": "Y3v4JFghpTjbnWwL/6",
+          "fingerprint": "74dc5fbcfb43866904372cb2c0c22a1682ed9fc74be37f498f618521bfcb2e55",
+          "origin_timestamp_ms": 1607177,
+          "cast_observations": 4266,
+          "safe_entry": true,
+          "diagnostics": [
+            {
+              "action": "unresolved",
+              "at_ms": 128411,
+              "detail": "shijin",
+              "run": 1
+            }
+          ],
+          "bosses": [
+            {
+              "phase": "kirin",
+              "entry_ms": 13461,
+              "end_ms": 209284,
+              "entry_event": 1086,
+              "completion_event": 19318,
+              "targets": [
+                [1086, 13461, "ADCA", 0, null, null],
+                [2559, 24558, "AD91", 3, 3, 5000],
+                [3730, 35402, "AD95", 41, 41, 5000],
+                [4761, 47401, "AD95", 40, 40, 5000],
+                [6023, 63224, "AFF4", 437, 437, 5000],
+                [6591, 70358, "AFF5", 503, 503, 5000],
+                [7869, 84490, "AD7E", 471, 471, 5000],
+                [11503, 125720, "AFF5", 54859, null, 5000],
+                [12490, 136321, "AD91", 460, 460, 5000],
+                [13194, 144789, "AD92", 72, 72, 5000],
+                [14419, 159390, "AD94", 71, 71, 5000],
+                [15426, 169716, "ADCA", 45, 45, 5000],
+                [16565, 178621, "ADAD", 360, 360, 5000],
+                [17098, 184533, "AD9D", 972, 972, 5000]
+              ],
+              "failures": [
+                {
+                  "raw_index": 11503,
+                  "at_ms": 125720,
+                  "id": "AFF5",
+                  "error_ms": 54859,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 12490,
+                  "at_ms": 136321,
+                  "id": "AD91",
+                  "error_ms": 460,
+                  "forecast": {
+                    "error_ms": 460,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 128411,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 13194,
+                  "at_ms": 144789,
+                  "id": "AD92",
+                  "error_ms": 72,
+                  "forecast": {
+                    "error_ms": 72,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 128411,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 14419,
+                  "at_ms": 159390,
+                  "id": "AD94",
+                  "error_ms": 71,
+                  "forecast": {
+                    "error_ms": 71,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 128411,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 15426,
+                  "at_ms": 169716,
+                  "id": "ADCA",
+                  "error_ms": 45,
+                  "forecast": {
+                    "error_ms": 45,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 128411,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 16565,
+                  "at_ms": 178621,
+                  "id": "ADAD",
+                  "error_ms": 360,
+                  "forecast": {
+                    "error_ms": 360,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 128411,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 17098,
+                  "at_ms": 184533,
+                  "id": "AD9D",
+                  "error_ms": 972,
+                  "forecast": {
+                    "error_ms": 972,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 128411,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                }
+              ]
+            }
+          ],
+          "passed": false
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/Zdxv3yCMtJq6QVcP_36.json",
+          "sha256": "803d67b5be9d32837b80d9ecfd40d9bc29ed15492b54409048fadd87e1463110",
+          "trace": "Zdxv3yCMtJq6QVcP/36",
+          "fingerprint": "858bd577d43487d586f9e628e340e40f114e794eff6dcb4984d7547689d878ef",
+          "origin_timestamp_ms": 14262222,
+          "cast_observations": 6740,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eald",
+              "entry_ms": 10779,
+              "end_ms": 343426,
+              "entry_event": 917,
+              "completion_event": 30731,
+              "targets": [
+                [917, 10779, "AD51", 0, null, null],
+                [4058, 40569, "AD6D", 10, 10, 5000],
+                [6230, 57810, "AD49", 131, 131, 5000],
+                [7538, 71431, "AD56", 52, 52, 5000],
+                [7984, 77844, "AD58", 165, 165, 5000],
+                [8586, 85193, "AD53", 14, 14, 5000],
+                [9469, 95307, "AD5C", 28, 28, 5000],
+                [10589, 106487, "AD77", 8, 8, 5000],
+                [11933, 121620, "AD77", 41, 41, 5000],
+                [14574, 151111, "B040", 68, 68, 5000],
+                [14828, 156228, "AD59", 0, 51, 5000],
+                [15072, 178433, "AD5A", 0, 95, 5000],
+                [15468, 190637, "AD77", 4, 4, 5000],
+                [16190, 199771, "AD75", 38, 38, 5000],
+                [16447, 203876, "AD76", 5, 43, 5000],
+                [16902, 208914, "AD72", 43, 43, 5000],
+                [19455, 233502, "AD5F", 69, 69, 5000],
+                [21063, 249191, "AD53", 20, 20, 5000],
+                [22950, 268298, "AD51", 0, 73, 5000],
+                [23807, 275472, "AD77", 74, 74, 5000],
+                [24706, 284595, "AD75", 0, 3, 5000],
+                [25085, 288692, "AD76", 3, 6, 5000],
+                [25589, 293718, "AD5C", 23, 23, 5000],
+                [26422, 302085, "AD53", 110, 110, 5000],
+                [27720, 315190, "AD49", 105, 105, 5000],
+                [29142, 329349, "AD72", 146, 146, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/Mf29DAWxyrg1Tnpv_8.json",
+          "sha256": "d3c0256d1efe4466b27d3eae3861c83460e3d8210e2f9f8d2ab0aa8bee5bd56a",
+          "trace": "Mf29DAWxyrg1Tnpv/8",
+          "fingerprint": "b1164f5fa53b2f569f55fdde69e938e25e3e2dfebd4651b956ac355770be4b56",
+          "origin_timestamp_ms": 2732832,
+          "cast_observations": 5983,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kam",
+              "entry_ms": 12041,
+              "end_ms": 324202,
+              "entry_event": 1059,
+              "completion_event": 29998,
+              "targets": [
+                [1059, 12041, "ACBD", 0, null, null],
+                [2170, 20372, "B009", 269, 269, 5000],
+                [3474, 33538, "AC91", 203, 203, 5000],
+                [4591, 44685, "B00A", 256, 256, 5000],
+                [5571, 55817, "AC91", 224, 224, 5000],
+                [6518, 66959, "B00A", 182, 182, 5000],
+                [7386, 77301, "ACBB", 240, 240, 5000],
+                [7972, 83488, "ACAB", 253, 253, 5000],
+                [8869, 92665, "ACAF", 276, 276, 5000],
+                [9447, 98541, "ACB1", 300, 300, 5000],
+                [10162, 105800, "ACBD", 0, 241, 5000],
+                [12008, 122511, "ACB2", 3789, null, 5000],
+                [13435, 145995, "ACB3", 3705, null, 5000],
+                [14723, 154633, "ACB4", 3667, null, 5000],
+                [16100, 161179, "ACB5", 2879, 2879, 5000],
+                [17901, 177130, "ACB6", 3670, null, 5000],
+                [18393, 183276, "ACB7", 3724, null, 5000],
+                [19027, 191114, "ACB8", 3686, null, 5000],
+                [19563, 198147, "ACB8", 3347, 3347, 5000],
+                [20148, 205184, "ACB8", 3384, 3384, 5000],
+                [20176, 205450, "ACB9", 3650, null, 5000],
+                [20177, 205450, "ACBF", 3650, null, 5000],
+                [21292, 216321, "ACBA", 3679, null, 5000],
+                [21964, 223715, "ACBE", 3685, null, 5000],
+                [23005, 232842, "AF6B", 3658, null, 5000],
+                [24152, 243172, "ACBB", 3728, null, 5000],
+                [25118, 258670, "B009", 3530, null, 5000],
+                [25990, 272790, "AC92", 3510, null, 5000],
+                [26719, 283922, "B00A", 3578, null, 5000],
+                [27358, 291095, "ACAB", 3605, null, 5000],
+                [27893, 297112, "ACBF", 3588, null, 5000],
+                [28179, 300276, "ACB0", 3624, null, 5000],
+                [28561, 306158, "ACB1", 2258, 2258, 5000],
+                [29119, 313428, "ACBD", 3572, null, 5000]
+              ],
+              "failures": [
+                {
+                  "raw_index": 12008,
+                  "at_ms": 122511,
+                  "id": "ACB2",
+                  "error_ms": 3789,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 13435,
+                  "at_ms": 145995,
+                  "id": "ACB3",
+                  "error_ms": 3705,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 14723,
+                  "at_ms": 154633,
+                  "id": "ACB4",
+                  "error_ms": 3667,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 16100,
+                  "at_ms": 161179,
+                  "id": "ACB5",
+                  "error_ms": 2879,
+                  "forecast": {
+                    "error_ms": 2879,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 17901,
+                  "at_ms": 177130,
+                  "id": "ACB6",
+                  "error_ms": 3670,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 18393,
+                  "at_ms": 183276,
+                  "id": "ACB7",
+                  "error_ms": 3724,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 19027,
+                  "at_ms": 191114,
+                  "id": "ACB8",
+                  "error_ms": 3686,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 19563,
+                  "at_ms": 198147,
+                  "id": "ACB8",
+                  "error_ms": 3347,
+                  "forecast": {
+                    "error_ms": 3347,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 20148,
+                  "at_ms": 205184,
+                  "id": "ACB8",
+                  "error_ms": 3384,
+                  "forecast": {
+                    "error_ms": 3384,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 20176,
+                  "at_ms": 205450,
+                  "id": "ACB9",
+                  "error_ms": 3650,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 20177,
+                  "at_ms": 205450,
+                  "id": "ACBF",
+                  "error_ms": 3650,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 21292,
+                  "at_ms": 216321,
+                  "id": "ACBA",
+                  "error_ms": 3679,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 21964,
+                  "at_ms": 223715,
+                  "id": "ACBE",
+                  "error_ms": 3685,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 23005,
+                  "at_ms": 232842,
+                  "id": "AF6B",
+                  "error_ms": 3658,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 24152,
+                  "at_ms": 243172,
+                  "id": "ACBB",
+                  "error_ms": 3728,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 25118,
+                  "at_ms": 258670,
+                  "id": "B009",
+                  "error_ms": 3530,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 25990,
+                  "at_ms": 272790,
+                  "id": "AC92",
+                  "error_ms": 3510,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 26719,
+                  "at_ms": 283922,
+                  "id": "B00A",
+                  "error_ms": 3578,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 27358,
+                  "at_ms": 291095,
+                  "id": "ACAB",
+                  "error_ms": 3605,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 27893,
+                  "at_ms": 297112,
+                  "id": "ACBF",
+                  "error_ms": 3588,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 28179,
+                  "at_ms": 300276,
+                  "id": "ACB0",
+                  "error_ms": 3624,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 28561,
+                  "at_ms": 306158,
+                  "id": "ACB1",
+                  "error_ms": 2258,
+                  "forecast": {
+                    "error_ms": 2258,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 29119,
+                  "at_ms": 313428,
+                  "id": "ACBD",
+                  "error_ms": 3572,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                }
+              ]
+            }
+          ],
+          "passed": false
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/Y3v4JFghpTjbnWwL_8.json",
+          "sha256": "e7f7093c6a072c9177b434b7f9f2a979cb3186179b8a5728dcfc4250aa40f1b3",
+          "trace": "Y3v4JFghpTjbnWwL/8",
+          "fingerprint": "ff841071285ce3ace99b5187d1a1d85951ff215234bd32302cdf0ed2886ac3fc",
+          "origin_timestamp_ms": 1954805,
+          "cast_observations": 4624,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "duo",
+              "entry_ms": 12397,
+              "end_ms": 250397,
+              "entry_event": 1094,
+              "completion_event": 23755,
+              "targets": [
+                [1094, 12397, "AD2B", 0, null, null],
+                [1628, 16144, "AD10", 47, null, null],
+                [2446, 21270, "AD08", 27, 27, 5000],
+                [3815, 32457, "AD27", 60, 60, 5000],
+                [5268, 48815, "AD06", 18, 18, 5000],
+                [5296, 49082, "B087", 85, 85, 5000],
+                [7325, 66368, "B075", 71, 71, 5000],
+                [7586, 68418, "AD08", 21, 21, 5000],
+                [8395, 75686, "B087", 11, 11, 5000],
+                [9265, 83842, "AD09", 45, 45, 5000],
+                [9896, 88975, "AD08", 78, 78, 5000],
+                [10853, 97929, "AD0D", 32, 32, 5000],
+                [11370, 102600, "AD23", 3, 3, 5000],
+                [12272, 113346, "AD24", 49, 49, 5000],
+                [12798, 118915, "AD12", 18, 18, 5000],
+                [12957, 124209, "AFEB", 12, 12, 5000],
+                [12966, 124343, "AD14", 46, 46, 5000],
+                [13076, 128485, "AFEB", 12, 12, 5000],
+                [13136, 132758, "AFEB", 61, 61, 5000],
+                [13193, 137023, "AFEB", 26, 26, 5000],
+                [13844, 153625, "AD1B", 28, 28, 5000],
+                [14635, 159416, "AD2F", 19, 19, 5000],
+                [16616, 176696, "AD06", 1, 1, 5000],
+                [16660, 177409, "AD23", 12, 12, 5000],
+                [17594, 187971, "AD09", 26, 26, 5000],
+                [17607, 188149, "AD24", 48, 48, 5000],
+                [18105, 193144, "AD08", 47, 47, 5000],
+                [18875, 202109, "AD0C", 12, 12, 5000],
+                [18908, 202420, "B087", 23, 23, 5000],
+                [20425, 216009, "AD0E", 88, 88, 5000],
+                [22577, 234058, "B075", 139, 139, 5000],
+                [22793, 237354, "AD08", 43, 43, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/Zdxv3yCMtJq6QVcP_31.json",
+          "sha256": "b03e674e06e56470dbda64b48ba7efa6d9588eb80112fd2789b40d1202382766",
+          "trace": "Zdxv3yCMtJq6QVcP/31",
+          "fingerprint": "4f911015c511df6fa1a14564d314cd0a725ea14d8ab7f597092ff4941991003d",
+          "origin_timestamp_ms": 13105084,
+          "cast_observations": 4141,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kirin",
+              "entry_ms": 12884,
+              "end_ms": 203458,
+              "entry_event": 1214,
+              "completion_event": 19579,
+              "targets": [
+                [1214, 12884, "ADCA", 0, null, null],
+                [2539, 23618, "AD91", 366, 366, 5000],
+                [3614, 34449, "AD95", 335, 335, 5000],
+                [4549, 46437, "AD95", 347, 347, 5000],
+                [6156, 62926, "AFF4", 158, 158, 5000],
+                [6880, 70053, "AFF5", 231, 231, 5000],
+                [8243, 84182, "AD7E", 202, 202, 5000],
+                [10837, 116476, "B079", 8, 8, 2000],
+                [11553, 124535, "B07A", 49, 49, 5000],
+                [12741, 134022, "AD91", 1262, 1262, 5000],
+                [13571, 142485, "AD92", 1, 1, 5000],
+                [15004, 157104, "AD93", 20, 20, 5000],
+                [15986, 167432, "ADCA", 48, 48, 5000],
+                [17614, 180344, "ADAD", 460, 460, 5000],
+                [18073, 187337, "ADA2", 1053, 1053, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/aPVdHQmZJ9AbgwM6_25.json",
+          "sha256": "90b35e99a8576dcb7317a1e89753066b651abdd27a7b74a6142b14512dc1aa9c",
+          "trace": "aPVdHQmZJ9AbgwM6/25",
+          "fingerprint": "62cfd243272908ff01f3e73aadf4cee47deb249bf096537d129be0200db5417e",
+          "origin_timestamp_ms": 9963515,
+          "cast_observations": 6597,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eald",
+              "entry_ms": 10650,
+              "end_ms": 341004,
+              "entry_event": 845,
+              "completion_event": 32873,
+              "targets": [
+                [845, 10650, "AD51", 0, null, null],
+                [2471, 23784, "AD4B", 34, 34, 5000],
+                [4637, 40443, "AD6D", 7, 7, 5000],
+                [7082, 57676, "AD49", 126, 126, 5000],
+                [8441, 71302, "AD56", 52, 52, 5000],
+                [8949, 77760, "AD58", 210, 210, 5000],
+                [9524, 85248, "AD53", 198, 198, 5000],
+                [10544, 95358, "AD5C", 208, 208, 5000],
+                [11833, 106532, "AD77", 182, 182, 5000],
+                [13347, 121635, "AD77", 185, 185, 5000],
+                [16205, 151259, "B040", 209, 209, 5000],
+                [16473, 156377, "AD59", 227, 227, 5000],
+                [16679, 178562, "AD5A", 0, 115, 5000],
+                [17048, 190773, "AD77", 11, 11, 5000],
+                [17875, 199910, "AD75", 48, 48, 5000],
+                [18237, 204007, "AD76", 3, 45, 5000],
+                [18701, 209040, "AD72", 30, 30, 5000],
+                [21817, 233416, "AD5F", 294, 294, 5000],
+                [23330, 249092, "AD53", 218, 218, 5000],
+                [25284, 268200, "AD51", 0, 310, 5000],
+                [26131, 275372, "AD77", 72, 72, 5000],
+                [26981, 284499, "AD75", 0, 1, 5000],
+                [27266, 288599, "AD76", 0, 1, 5000],
+                [27799, 293632, "AD5C", 33, 33, 5000],
+                [28551, 302137, "AD53", 38, 38, 5000],
+                [29914, 315272, "AD4A", 73, 73, 5000],
+                [31398, 329427, "AD72", 28, 28, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/Y3v4JFghpTjbnWwL_10.json",
+          "sha256": "0346d6ef103eb68170daec8c5e3ee448724a4e088e1ae505afa18cb994c3ae52",
+          "trace": "Y3v4JFghpTjbnWwL/10",
+          "fingerprint": "26077fe3cad537aefec6b68cc7fa968b5970376aef695382c27a99b062a4ca42",
+          "origin_timestamp_ms": 2379031,
+          "cast_observations": 6332,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kam",
+              "entry_ms": 12469,
+              "end_ms": 322971,
+              "entry_event": 942,
+              "completion_event": 30510,
+              "targets": [
+                [942, 12469, "ACBD", 0, null, null],
+                [1960, 20805, "B009", 264, 264, 5000],
+                [3429, 33953, "AC91", 216, 216, 5000],
+                [4209, 45100, "B00A", 269, 269, 5000],
+                [5064, 56248, "AC91", 221, 221, 5000],
+                [5888, 67393, "B00A", 176, 176, 5000],
+                [6827, 77736, "ACBB", 233, 233, 5000],
+                [7401, 83932, "ACAB", 237, 237, 5000],
+                [8124, 93115, "ACAF", 254, 254, 5000],
+                [8587, 99001, "ACB1", 268, 268, 5000],
+                [9432, 106267, "ACBD", 0, 202, 5000],
+                [11910, 126827, "ACB2", 60, 60, 5000],
+                [13406, 150325, "ACB3", 98, 98, 5000],
+                [14638, 158970, "ACB4", 143, 143, 5000],
+                [15934, 165482, "ACB5", 155, 155, 5000],
+                [17979, 181485, "ACB6", 158, 158, 5000],
+                [18504, 187630, "ACB7", 55, 55, 5000],
+                [19104, 195474, "ACB8", 11, 11, 5000],
+                [19563, 202474, "ACB8", 11, 11, 5000],
+                [20102, 209477, "ACB8", 8, 8, 5000],
+                [20137, 209834, "ACB9", 49, 49, 5000],
+                [20138, 209834, "ACBF", 49, 49, 5000],
+                [21196, 220712, "ACBA", 27, 27, 5000],
+                [21998, 228068, "ACBE", 17, 17, 5000],
+                [23108, 237210, "AF6B", 25, 25, 5000],
+                [24317, 247539, "ACBB", 46, 46, 5000],
+                [25538, 262904, "B009", 19, 19, 5000],
+                [26656, 277026, "AC92", 22, 22, 5000],
+                [27510, 288172, "B00A", 32, 32, 5000],
+                [28032, 295344, "ACAB", 60, 60, 5000],
+                [28591, 301362, "ACBF", 42, 42, 5000],
+                [28856, 304524, "ACAE", 80, 80, 5000],
+                [29459, 310372, "ACB1", 32, 32, 5000],
+                [30153, 317672, "ACBD", 0, 32, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/Zdxv3yCMtJq6QVcP_33.json",
+          "sha256": "9315e7036aedd2757adb9f4de34fb5bdf47ff4968df9fce406ed4f17467dc5ee",
+          "trace": "Zdxv3yCMtJq6QVcP/33",
+          "fingerprint": "fec802c0a32c0a6027cacda81879fff61846408fe157c79333fd5e0413b5120c",
+          "origin_timestamp_ms": 13441671,
+          "cast_observations": 4491,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "duo",
+              "entry_ms": 12433,
+              "end_ms": 246541,
+              "entry_event": 1234,
+              "completion_event": 23762,
+              "targets": [
+                [1234, 12433, "AD2B", 0, null, null],
+                [1754, 16175, "AD10", 42, null, null],
+                [2382, 21300, "AD08", 33, 33, 5000],
+                [3545, 32477, "AD25", 44, 44, 5000],
+                [5046, 48828, "AD06", 5, 5, 5000],
+                [5067, 49093, "B087", 60, 60, 5000],
+                [7015, 66466, "B075", 133, 133, 5000],
+                [7228, 68427, "AD08", 6, 6, 5000],
+                [7961, 75825, "B087", 92, 92, 5000],
+                [8872, 83806, "AD09", 27, 27, 5000],
+                [9486, 88929, "AD08", 4, 4, 5000],
+                [10564, 97890, "AD0C", 43, 43, 5000],
+                [11115, 102569, "AD23", 64, 64, 5000],
+                [12200, 113299, "AD24", 34, 34, 5000],
+                [12814, 118861, "AD12", 72, 72, 5000],
+                [13031, 124167, "AFEB", 66, 66, 5000],
+                [13035, 124255, "AD14", 78, 78, 5000],
+                [13192, 128442, "AFEB", 91, 91, 5000],
+                [13256, 132715, "AFEB", 18, 18, 5000],
+                [13361, 136992, "AFEB", 41, 41, 5000],
+                [14339, 153563, "AD1B", 70, 70, 5000],
+                [15133, 159350, "AD2F", 83, 83, 5000],
+                [17009, 176643, "AD06", 90, 90, 5000],
+                [17082, 177398, "AD23", 35, 35, 5000],
+                [17914, 187907, "AD09", 126, 126, 5000],
+                [17936, 188130, "AD24", 103, 103, 5000],
+                [18478, 193071, "AD08", 62, 62, 5000],
+                [19247, 202020, "AD0C", 113, 113, 5000],
+                [19276, 202333, "B087", 100, 100, 5000],
+                [20802, 215974, "AD0E", 159, 159, 5000],
+                [23027, 237277, "AD08", 156, 156, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/FqmhgXHZRdc6D7AK_14.json",
+          "sha256": "502b92dc3f48295f9ffae50b7d77fa08ef144804b7f80ee525efd10510112d50",
+          "trace": "FqmhgXHZRdc6D7AK/14",
+          "fingerprint": "a8e1e30109fee9413c0d8ad0ef7fe949556aba948afd66df77d78fe839bf395b",
+          "origin_timestamp_ms": 14579698,
+          "cast_observations": 4022,
+          "safe_entry": true,
+          "diagnostics": [
+            {
+              "action": "unresolved",
+              "at_ms": 127245,
+              "detail": "shijin",
+              "run": 1
+            }
+          ],
+          "bosses": [
+            {
+              "phase": "kirin",
+              "entry_ms": 12295,
+              "end_ms": 200819,
+              "entry_event": 1262,
+              "completion_event": 18558,
+              "targets": [
+                [1262, 12295, "ADCA", 0, null, null],
+                [2702, 23312, "AD91", 83, 83, 5000],
+                [3809, 34140, "AD95", 55, 55, 5000],
+                [4781, 46122, "AD95", 73, 73, 5000],
+                [6026, 61927, "AFF5", 568, 568, 5000],
+                [6713, 69054, "AFF4", 641, 641, 5000],
+                [8099, 83166, "AD7E", 629, 629, 5000],
+                [10163, 110211, "AFF5", 40516, null, 5000],
+                [12506, 136841, "AD91", 2146, 2146, 5000],
+                [13279, 145292, "AD92", 3, 3, 5000],
+                [14663, 159885, "AD94", 10, 10, 5000],
+                [15796, 170221, "ADCA", 26, 26, 5000],
+                [16817, 178679, "ADAD", 16, 16, 5000],
+                [17122, 182686, "ADB0", 9, 9, 5000],
+                [17264, 184647, "AD9D", 652, 652, 5000],
+                [17620, 189143, "ADA5", 48, 48, 5000]
+              ],
+              "failures": [
+                {
+                  "raw_index": 10163,
+                  "at_ms": 110211,
+                  "id": "AFF5",
+                  "error_ms": 40516,
+                  "forecast": {
+                    "error_ms": null,
+                    "passed": false,
+                    "diagnostics": []
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 12506,
+                  "at_ms": 136841,
+                  "id": "AD91",
+                  "error_ms": 2146,
+                  "forecast": {
+                    "error_ms": 2146,
+                    "passed": false,
+                    "diagnostics": [
+                      {
+                        "at_ms": 127245,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 13279,
+                  "at_ms": 145292,
+                  "id": "AD92",
+                  "error_ms": 3,
+                  "forecast": {
+                    "error_ms": 3,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 127245,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 14663,
+                  "at_ms": 159885,
+                  "id": "AD94",
+                  "error_ms": 10,
+                  "forecast": {
+                    "error_ms": 10,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 127245,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 15796,
+                  "at_ms": 170221,
+                  "id": "ADCA",
+                  "error_ms": 26,
+                  "forecast": {
+                    "error_ms": 26,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 127245,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 16817,
+                  "at_ms": 178679,
+                  "id": "ADAD",
+                  "error_ms": 16,
+                  "forecast": {
+                    "error_ms": 16,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 127245,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 17122,
+                  "at_ms": 182686,
+                  "id": "ADB0",
+                  "error_ms": 9,
+                  "forecast": {
+                    "error_ms": 9,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 127245,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 17264,
+                  "at_ms": 184647,
+                  "id": "AD9D",
+                  "error_ms": 652,
+                  "forecast": {
+                    "error_ms": 652,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 127245,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                },
+                {
+                  "raw_index": 17620,
+                  "at_ms": 189143,
+                  "id": "ADA5",
+                  "error_ms": 48,
+                  "forecast": {
+                    "error_ms": 48,
+                    "passed": true,
+                    "diagnostics": [
+                      {
+                        "at_ms": 127245,
+                        "action": "unresolved",
+                        "detail": "shijin",
+                        "run": 1
+                      }
+                    ]
+                  },
+                  "passed": false
+                }
+              ]
+            }
+          ],
+          "passed": false
+        }
+      ],
+      "not_checked": [
+        "ACT equivalence and actual lifecycle signals",
+        "UI visibility",
+        "post-second-Fire duo tail, helper attacks and reactive buffs",
+        "unobserved later cycles and mechanic positioning"
+      ]
+    },
+    {
+      "manifest": "tests/fixtures/authored/sandoria-expanded-development-plan.json",
+      "manifest_sha256": "8e3637b992ed63ee8a3e45733a41c6940db03ed417b46bbca054514355a95079",
+      "timeline_sha256": "4175ef50f2da90edbbb423cfea23befd5c8f51aeeb11c539a4aa3b766596c2ca",
+      "role": "expanded development: original 12 plus 16 initial holdouts; initial 9/16 failure used for revision, no longer independent evidence for this candidate",
+      "summary": {
+        "selected": 28,
+        "excluded": 2,
+        "eligible": 26,
+        "passed_traces": 26,
+        "passed": true
+      },
+      "traces": [
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-development/MFCVjw7RNch6mxtZ_208.json",
+          "sha256": "37147f9ce99c3fc9619d53a58836f3d241e09fc39ed7161452b9708262671788",
+          "trace": "MFCVjw7RNch6mxtZ/208",
+          "fingerprint": "699fa921fa6680163e0ea59a257ec32099273867407aa28d6e0c44ada6b93d47",
+          "origin_timestamp_ms": 607998302,
+          "cast_observations": 4041,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "duo",
+              "entry_ms": 12489,
+              "end_ms": 250489,
+              "entry_event": 1417,
+              "completion_event": 23090,
+              "targets": [
+                [1417, 12489, "AD2B", 0, null, null],
+                [1972, 16144, "AD10", 45, null, null],
+                [2594, 21269, "AD08", 120, 120, 5000],
+                [3916, 32763, "AD27", 274, 274, 5000],
+                [5412, 49072, "AD06", 183, 183, 5000],
+                [5445, 49385, "B087", 296, 296, 5000],
+                [7189, 66746, "B075", 357, 357, 5000],
+                [7422, 68709, "AD08", 220, 220, 5000],
+                [8212, 76067, "B087", 278, 278, 5000],
+                [9053, 84138, "AD09", 249, 249, 5000],
+                [9613, 89265, "AD08", 276, 276, 5000],
+                [10555, 98227, "AD0D", 238, 238, 5000],
+                [11035, 102948, "AD23", 259, 259, 5000],
+                [12022, 113688, "AD24", 299, 299, 5000],
+                [12558, 119216, "AD12", 227, 227, 5000],
+                [12675, 124565, "AFEB", 276, 276, 5000],
+                [12678, 124611, "AD14", 222, 222, 5000],
+                [12845, 128842, "AFEB", 253, 253, 5000],
+                [12963, 133123, "AFEB", 334, 334, 5000],
+                [13081, 137399, "AFEB", 310, 310, 5000],
+                [13822, 153937, "AD1B", 248, 248, 5000],
+                [14470, 159776, "AD2F", 287, 287, 5000],
+                [16294, 177028, "AD06", 239, 239, 5000],
+                [16343, 177785, "AD23", 296, 296, 5000],
+                [17246, 188310, "AD09", 221, 221, 5000],
+                [17268, 188534, "AD24", 245, 245, 5000],
+                [17732, 193484, "AD08", 295, 295, 5000],
+                [18480, 202454, "AD0C", 265, 265, 5000],
+                [18521, 202811, "B087", 322, 322, 5000],
+                [19845, 216368, "AD0E", 179, 179, 5000],
+                [21761, 234422, "B075", 133, 133, 5000],
+                [22041, 237675, "AD08", 186, 186, 5000],
+                [22608, 245479, "AD25", 10, 10, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-development/vxCKdkn9y4D8FRBQ_57.json",
+          "sha256": "6e4ca6a56b81f64db7a46359ecee50858d2940ca8cfc4bcb1cce133d08431dd5",
+          "trace": "vxCKdkn9y4D8FRBQ/57",
+          "fingerprint": "d43214180454924ae4700e26cd0d4a87f58149ba88f7690d0f7db559661a7cba",
+          "origin_timestamp_ms": 87218342,
+          "cast_observations": 4030,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "duo",
+              "entry_ms": 12391,
+              "end_ms": 250391,
+              "entry_event": 1390,
+              "completion_event": 23789,
+              "targets": [
+                [1390, 12391, "AD2B", 0, null, null],
+                [2030, 16044, "AD10", 47, null, null],
+                [2744, 21172, "AD08", 119, 119, 5000],
+                [4145, 32502, "AD27", 111, 111, 5000],
+                [5672, 48819, "AD06", 28, 28, 5000],
+                [5682, 49131, "B087", 140, 140, 5000],
+                [7364, 66460, "B075", 169, 169, 5000],
+                [7592, 68419, "AD08", 28, 28, 5000],
+                [8376, 75777, "B087", 86, 86, 5000],
+                [9299, 83804, "AD09", 13, 13, 5000],
+                [9855, 88934, "AD08", 43, 43, 5000],
+                [10772, 97891, "AD0D", 0, 0, 5000],
+                [11227, 102657, "AD23", 66, 66, 5000],
+                [12330, 113390, "AD24", 99, 99, 5000],
+                [13015, 118919, "AD12", 28, 28, 5000],
+                [13280, 124254, "AFEB", 63, 63, 5000],
+                [13286, 124343, "AD14", 52, 52, 5000],
+                [13477, 128523, "AFEB", 32, 32, 5000],
+                [13645, 132791, "AFEB", 100, 100, 5000],
+                [13737, 137060, "AFEB", 69, 69, 5000],
+                [14501, 153624, "AD1B", 33, 33, 5000],
+                [15206, 159459, "AD2F", 68, 68, 5000],
+                [16895, 176717, "AD06", 26, 26, 5000],
+                [16960, 177474, "AD23", 83, 83, 5000],
+                [17732, 187985, "AD09", 6, 6, 5000],
+                [17751, 188209, "AD24", 18, 18, 5000],
+                [18179, 193146, "AD08", 55, 55, 5000],
+                [18828, 202103, "AD0D", 12, 12, 5000],
+                [18848, 202460, "B087", 69, 69, 5000],
+                [20158, 216049, "AD0E", 42, 42, 5000],
+                [22185, 234139, "B075", 52, 52, 5000],
+                [22529, 237347, "AD08", 44, 44, 5000],
+                [23287, 245321, "AD25", 70, 70, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-development/PAq8bNtxvXWG16QZ_70.json",
+          "sha256": "cf66300f9b203169afd391218e9e4a5cc1b812cf8040686889a1a00c01b73f75",
+          "trace": "PAq8bNtxvXWG16QZ/70",
+          "fingerprint": "727d4a87a9864fa3bc5a30770fc71c716db03043bc713855a3139601e752970f",
+          "origin_timestamp_ms": 37932945,
+          "cast_observations": 4026,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "duo",
+              "entry_ms": 12209,
+              "end_ms": 250209,
+              "entry_event": 1301,
+              "completion_event": 22550,
+              "targets": [
+                [1301, 12209, "AD2B", 0, null, null],
+                [1893, 15951, "AD10", 42, null, null],
+                [2553, 21081, "AD08", 28, 28, 5000],
+                [3785, 32220, "AD25", 11, 11, 5000],
+                [5168, 48591, "AD06", 18, 18, 5000],
+                [5196, 48858, "B087", 49, 49, 5000],
+                [6912, 66153, "B075", 44, 44, 5000],
+                [7150, 68206, "AD08", 3, 3, 5000],
+                [7833, 75474, "B087", 35, 35, 5000],
+                [8585, 83589, "AD09", 20, 20, 5000],
+                [9098, 88717, "AD08", 8, 8, 5000],
+                [10015, 97683, "AD0D", 26, 26, 5000],
+                [10471, 102404, "AD23", 5, 5, 5000],
+                [11432, 113137, "AD24", 28, 28, 5000],
+                [11959, 118707, "AD12", 2, 2, 5000],
+                [12117, 124004, "AFEB", 5, 5, 5000],
+                [12124, 124093, "AD14", 16, 16, 5000],
+                [12281, 128277, "AFEB", 32, 32, 5000],
+                [12395, 132542, "AFEB", 33, 33, 5000],
+                [12452, 136809, "AFEB", 0, 0, 5000],
+                [13086, 153425, "AD1B", 16, 16, 5000],
+                [13742, 159216, "AD2F", 7, 7, 5000],
+                [15647, 176521, "AD06", 12, 12, 5000],
+                [15712, 177233, "AD23", 24, 24, 5000],
+                [16504, 187783, "AD09", 26, 26, 5000],
+                [16513, 187962, "AD24", 47, 47, 5000],
+                [16947, 192953, "AD08", 44, 44, 5000],
+                [17567, 201911, "AD0C", 2, 2, 5000],
+                [17603, 202225, "B087", 16, 16, 5000],
+                [18824, 215866, "AD0E", 43, 43, 5000],
+                [21136, 233976, "B075", 33, 33, 5000],
+                [21512, 237186, "AD08", 23, 23, 5000],
+                [22116, 245167, "AD25", 42, 42, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-development/vxCKdkn9y4D8FRBQ_59.json",
+          "sha256": "59c3b2d71fb792455c8318b9227801e05d284bec6ca28e4a01570be09b20d64e",
+          "trace": "vxCKdkn9y4D8FRBQ/59",
+          "fingerprint": "43dbc56f9a8c46787f0b53e478ee2454a69c715da536a0bd7b1a2906639c0bb1",
+          "origin_timestamp_ms": 87641688,
+          "cast_observations": 6147,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kam",
+              "entry_ms": 11852,
+              "end_ms": 332476,
+              "entry_event": 1018,
+              "completion_event": 33644,
+              "targets": [
+                [1018, 11852, "ACBD", 0, null, null],
+                [2186, 20405, "B009", 47, 47, 5000],
+                [3632, 33532, "AC91", 20, 20, 5000],
+                [4726, 44658, "B00A", 94, 94, 5000],
+                [5812, 55786, "AC91", 66, 66, 5000],
+                [6731, 66913, "B00A", 39, 39, 5000],
+                [7647, 77244, "ACBB", 108, 108, 5000],
+                [8274, 83440, "ACAB", 112, 112, 5000],
+                [9205, 92614, "ACAF", 138, 138, 5000],
+                [9796, 98496, "ACB1", 156, 156, 5000],
+                [10592, 105758, "ACBD", 0, 94, 5000],
+                [12725, 126277, "ACB2", 0, 32, 5000],
+                [14398, 149779, "ACB3", 102, 102, 5000],
+                [15721, 158421, "ACB4", 144, 144, 5000],
+                [17033, 164967, "ACB5", 190, 190, 5000],
+                [19055, 180953, "ACB6", 176, 176, 5000],
+                [19706, 187096, "ACB7", 57, 57, 5000],
+                [20391, 194926, "ACB8", 27, 27, 5000],
+                [20938, 201957, "ACB8", 4, 4, 5000],
+                [21510, 208991, "ACB8", 38, 38, 5000],
+                [21540, 209258, "ACB9", 5, 5, 5000],
+                [21541, 209258, "ACBF", 5, 5, 5000],
+                [22463, 220122, "ACBA", 31, 31, 5000],
+                [23190, 227520, "ACBE", 33, 33, 5000],
+                [24125, 236652, "AF6B", 1, 1, 5000],
+                [25280, 246980, "ACBB", 73, 73, 5000],
+                [26610, 262329, "B009", 0, 24, 5000],
+                [27917, 276487, "AC92", 58, 58, 5000],
+                [28996, 287623, "B00A", 6, 6, 5000],
+                [29731, 294791, "ACAB", 38, 38, 5000],
+                [30317, 300807, "ACBF", 22, 22, 5000],
+                [30636, 303970, "ACAE", 59, 59, 5000],
+                [31187, 309852, "ACB1", 23, 23, 5000],
+                [32189, 317122, "ACBD", 0, 7, 5000],
+                [33486, 329490, "ACB6", 0, 32, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-development/PAq8bNtxvXWG16QZ_72.json",
+          "sha256": "05249ea09596343ac8b5a9ad4ac6b920d5074f37ab08b786649f9ea2bd956b5a",
+          "trace": "PAq8bNtxvXWG16QZ/72",
+          "fingerprint": "5fd4ac0396422e12f45973a4147d5495cd5b4e498f1b3bd7997ddce551faf77b",
+          "origin_timestamp_ms": 38355708,
+          "cast_observations": 6166,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kam",
+              "entry_ms": 12126,
+              "end_ms": 337126,
+              "entry_event": 1025,
+              "completion_event": 32624,
+              "targets": [
+                [1025, 12126, "ACBD", 0, null, null],
+                [2180, 20690, "B009", 36, 36, 5000],
+                [3578, 33844, "AC91", 18, 18, 5000],
+                [4431, 44986, "B00A", 40, 40, 5000],
+                [5441, 56131, "AC91", 5, 5, 5000],
+                [6323, 67274, "B00A", 48, 48, 5000],
+                [7261, 77626, "ACBB", 0, 0, 5000],
+                [7843, 83828, "ACAB", 2, 2, 5000],
+                [8736, 93015, "ACB0", 11, 11, 5000],
+                [9234, 98903, "ACB1", 23, 23, 5000],
+                [9969, 106174, "ACBD", 48, 48, 5000],
+                [12355, 126577, "ACB2", 0, 38, 5000],
+                [13677, 150054, "ACB3", 77, 77, 5000],
+                [14871, 158659, "ACB4", 82, 82, 5000],
+                [16189, 165171, "ACB5", 94, 94, 5000],
+                [18003, 181157, "ACB6", 80, 80, 5000],
+                [18467, 187302, "ACB7", 55, 55, 5000],
+                [18983, 195105, "ACB8", 52, 52, 5000],
+                [19435, 202152, "ACB8", 5, 5, 5000],
+                [19908, 209154, "ACB8", 3, 3, 5000],
+                [19944, 209466, "ACB9", 9, 9, 5000],
+                [19945, 209466, "ACBF", 9, 9, 5000],
+                [20819, 220348, "ACBA", 9, 9, 5000],
+                [21488, 227705, "ACBE", 52, 52, 5000],
+                [22393, 236844, "AF6B", 13, 13, 5000],
+                [23786, 247198, "ACBB", 59, 59, 5000],
+                [25213, 262530, "B009", 0, 27, 5000],
+                [26438, 276663, "AC92", 33, 33, 5000],
+                [27363, 287806, "B00A", 24, 24, 5000],
+                [28035, 294988, "ACAB", 42, 42, 5000],
+                [28592, 301014, "ACBF", 16, 16, 5000],
+                [28898, 304182, "ACAF", 48, 48, 5000],
+                [29498, 310028, "ACB1", 2, 2, 5000],
+                [30419, 317346, "ACBD", 16, 16, 5000],
+                [31864, 329695, "ACB6", 0, 51, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-development/MFCVjw7RNch6mxtZ_211.json",
+          "sha256": "45f0ce714577d035efbcd41dc713a9ba41b00bd63940107c0e96ca102f9cc98d",
+          "trace": "MFCVjw7RNch6mxtZ/211",
+          "fingerprint": "6b4029aa8627f794f89c72470d5a5b3b15e296360b1db81d2e94dd7194008717",
+          "origin_timestamp_ms": 608800528,
+          "cast_observations": 6423,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eald",
+              "entry_ms": 10114,
+              "end_ms": 366588,
+              "entry_event": 422,
+              "completion_event": 32764,
+              "targets": [
+                [422, 10114, "AD51", 0, null, null],
+                [1403, 23262, "AD49", 48, 48, 5000],
+                [2966, 39931, "AD6D", 17, 17, 5000],
+                [5087, 57178, "AD4B", 164, 164, 5000],
+                [6555, 70818, "AD56", 104, 104, 5000],
+                [7089, 77285, "AD58", 271, 271, 5000],
+                [7731, 84770, "AD53", 256, 256, 5000],
+                [8608, 94888, "AD5C", 274, 274, 5000],
+                [9760, 106060, "AD77", 246, 246, 5000],
+                [11173, 121163, "AD77", 249, 249, 5000],
+                [13785, 150757, "B040", 243, 243, 5000],
+                [14056, 155886, "AD59", 272, 272, 5000],
+                [14320, 178093, "AD5A", 0, 93, 5000],
+                [14692, 190298, "AD77", 5, 5, 5000],
+                [15520, 199422, "AD75", 29, 29, 5000],
+                [15880, 203515, "AD76", 7, 22, 5000],
+                [16481, 208546, "AD72", 24, 24, 5000],
+                [19394, 232926, "AD5F", 296, 296, 5000],
+                [20606, 248591, "AD53", 231, 231, 5000],
+                [22326, 267731, "AD51", 0, 291, 5000],
+                [23064, 274899, "AD77", 68, 68, 5000],
+                [23897, 284020, "AD75", 0, 11, 5000],
+                [24290, 288117, "AD76", 3, 14, 5000],
+                [24777, 293184, "AD5C", 64, 64, 5000],
+                [25599, 301721, "AD53", 101, 101, 5000],
+                [26773, 314835, "AD4A", 115, 115, 5000],
+                [28490, 328981, "AD72", 61, 61, 5000],
+                [31437, 352337, "AD5F", 17, 17, 5000],
+                [32353, 360973, "AD77", 53, 53, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-development/MFCVjw7RNch6mxtZ_206.json",
+          "sha256": "406e28d667b7dc8068dc55476465b1f4f1a37b52bfc6de44b7026e1d94b91e97",
+          "trace": "MFCVjw7RNch6mxtZ/206",
+          "fingerprint": "123bfb892d84b3b4ed7d6b0766ab3ef85e3ec238f8d93852d7f7b5cea55f1948",
+          "origin_timestamp_ms": 607589813,
+          "cast_observations": 4416,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kirin",
+              "entry_ms": 12928,
+              "end_ms": 242928,
+              "entry_event": 1286,
+              "completion_event": 23548,
+              "targets": [
+                [1286, 12928, "ADCA", 0, null, null],
+                [2688, 24242, "AD91", 214, 214, 5000],
+                [3780, 35058, "AD95", 230, 230, 5000],
+                [4891, 47043, "AD95", 215, 215, 5000],
+                [6214, 63582, "AFF4", 454, 454, 5000],
+                [6883, 70705, "AFF5", 377, 377, 5000],
+                [8167, 84828, "AD7E", 400, 400, 5000],
+                [10505, 111108, "B07B", 20, 20, 2000],
+                [10893, 116187, "B07C", 41, 41, 5000],
+                [11277, 121218, "B07C", 10, 10, 5000],
+                [11646, 126204, "B07C", 24, 24, 5000],
+                [12685, 136629, "AD91", 1, 1, 5000],
+                [13424, 145085, "AD92", 43, 43, 5000],
+                [14771, 159703, "AD94", 25, 25, 5000],
+                [15751, 170038, "ADCA", 10, 10, 5000],
+                [16866, 178511, "ADAD", 17, 17, 5000],
+                [17192, 182522, "ADB0", 6, 6, 5000],
+                [17400, 184486, "AD9D", 658, 658, 5000],
+                [17826, 188991, "ADA5", 63, 63, 5000],
+                [19779, 206863, "ADB1", 35, 35, 5000],
+                [21758, 227503, "ADB2", 25, 25, 5000],
+                [22691, 235617, "ADBF", 89, 89, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "excluded",
+          "input": "logs/sandoria-authoring-development/waxKy7T83zctVNGB_211.json",
+          "sha256": "cd6e1dd180555e1d32fcdf40ecbe7e31532b68011c00778e99f3a9cfbcaefa45",
+          "stage": "input-validation",
+          "error": "InputExclusion: Duplicate mechanic sequence",
+          "passed": null,
+          "evidence": {
+            "fingerprint": "6b4029aa8627f794f89c72470d5a5b3b15e296360b1db81d2e94dd7194008717"
+          }
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-development/PAq8bNtxvXWG16QZ_73.json",
+          "sha256": "a86379d51c6aaae784efaba356eb32c48fe96788209a55f06b33c5c960bc4712",
+          "trace": "PAq8bNtxvXWG16QZ/73",
+          "fingerprint": "24f7cd24f6ffe659b7f638c9a780cec0252a2db5f8b55e41a99d9305ba297969",
+          "origin_timestamp_ms": 38821969,
+          "cast_observations": 6590,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eald",
+              "entry_ms": 8386,
+              "end_ms": 361061,
+              "entry_event": 609,
+              "completion_event": 31378,
+              "targets": [
+                [609, 8386, "AD51", 0, null, null],
+                [1946, 21532, "AD4A", 46, 46, 5000],
+                [3496, 38164, "AD6D", 22, 22, 5000],
+                [5815, 55333, "AD4B", 47, 47, 5000],
+                [7080, 68971, "AD56", 15, 15, 5000],
+                [7492, 75298, "AD58", 12, 12, 5000],
+                [7988, 82783, "AD53", 3, 3, 5000],
+                [8686, 92895, "AD5C", 9, 9, 5000],
+                [9801, 104078, "AD77", 8, 8, 5000],
+                [11019, 119206, "AD77", 20, 20, 5000],
+                [13756, 148818, "B040", 32, 32, 5000],
+                [14068, 153922, "AD59", 36, 36, 5000],
+                [14405, 176142, "AD5A", 0, 80, 5000],
+                [14853, 188371, "AD77", 29, 29, 5000],
+                [15518, 197502, "AD75", 60, 60, 5000],
+                [15806, 201599, "AD76", 3, 57, 5000],
+                [16295, 206629, "AD72", 27, 27, 5000],
+                [19200, 231238, "AD5F", 64, 64, 5000],
+                [20362, 246928, "AD53", 26, 26, 5000],
+                [22152, 266043, "AD51", 0, 59, 5000],
+                [22902, 273218, "AD77", 75, 75, 5000],
+                [23663, 282349, "AD75", 6, 6, 5000],
+                [23967, 286447, "AD76", 2, 4, 5000],
+                [24424, 291480, "AD5C", 31, 31, 5000],
+                [25293, 299948, "AD53", 1, 1, 5000],
+                [26463, 313090, "AD49", 41, 41, 5000],
+                [27586, 327251, "AD72", 2, 2, 5000],
+                [30404, 350663, "AD5F", 14, 14, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-development/vXgwtAWNJ3TBhHmy_7.json",
+          "sha256": "0d9c702ca9483386b2c0cff040958cd4b2bc9024218868a78d1822e48c195ea7",
+          "trace": "vXgwtAWNJ3TBhHmy/7",
+          "fingerprint": "2760d7443a9a67285647b285c193cf73e4ff091e1ef90929354fd3cbe8150b7d",
+          "origin_timestamp_ms": 960598,
+          "cast_observations": 6015,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kam",
+              "entry_ms": 11775,
+              "end_ms": 319691,
+              "entry_event": 1124,
+              "completion_event": 31211,
+              "targets": [
+                [1124, 11775, "ACBD", 0, null, null],
+                [2267, 20341, "B009", 34, 34, 5000],
+                [3700, 33489, "AC91", 14, 14, 5000],
+                [4537, 44637, "B00A", 38, 38, 5000],
+                [5380, 55775, "AC91", 0, 0, 5000],
+                [6159, 66923, "B00A", 48, 48, 5000],
+                [6842, 77278, "ACBB", 3, 3, 5000],
+                [7309, 83477, "ACAB", 2, 2, 5000],
+                [8070, 92661, "ACB0", 14, 14, 5000],
+                [8497, 98550, "ACB1", 25, 25, 5000],
+                [9218, 105823, "ACBD", 48, 48, 5000],
+                [11458, 126329, "ACB2", 0, 31, 5000],
+                [13160, 149842, "ACB3", 113, 113, 5000],
+                [14441, 158442, "ACB4", 113, 113, 5000],
+                [15697, 164955, "ACB5", 126, 126, 5000],
+                [17877, 181016, "ACB6", 187, 187, 5000],
+                [18443, 187169, "ACB7", 47, 47, 5000],
+                [19121, 194980, "ACB8", 36, 36, 5000],
+                [19612, 201982, "ACB8", 34, 34, 5000],
+                [20152, 208983, "ACB8", 33, 33, 5000],
+                [20170, 209340, "ACB9", 24, 24, 5000],
+                [20171, 209340, "ACBF", 24, 24, 5000],
+                [21164, 220228, "ACBA", 12, 12, 5000],
+                [21838, 227677, "ACBE", 61, 61, 5000],
+                [22839, 236826, "AF6B", 110, 110, 5000],
+                [24096, 247176, "ACBB", 60, 60, 5000],
+                [25661, 262511, "B009", 95, 95, 5000],
+                [27031, 276635, "AC92", 24, 24, 5000],
+                [27939, 287792, "B00A", 19, 19, 5000],
+                [28693, 294981, "ACAB", 30, 30, 5000],
+                [29285, 300959, "ACBF", 52, 52, 5000],
+                [29624, 304169, "ACAD", 42, 42, 5000],
+                [30161, 310057, "ACB1", 46, 46, 5000],
+                [31079, 317337, "ACBD", 26, 26, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "excluded",
+          "input": "logs/sandoria-authoring-development/waxKy7T83zctVNGB_206.json",
+          "sha256": "d90acb4866bb701faaaa0b38dca5ea87b4719569d8c6e6be38e217f06702c5a8",
+          "stage": "input-validation",
+          "error": "InputExclusion: Duplicate mechanic sequence",
+          "passed": null,
+          "evidence": {
+            "fingerprint": "123bfb892d84b3b4ed7d6b0766ab3ef85e3ec238f8d93852d7f7b5cea55f1948"
+          }
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-development/PAq8bNtxvXWG16QZ_68.json",
+          "sha256": "c2aff20ed87e6ef8f56e4039dc138b90af3b99e2227e20451e28647e668b084b",
+          "trace": "PAq8bNtxvXWG16QZ/68",
+          "fingerprint": "83ea5f9d969adc0a95171ca07f3aa39edce3a60d91a9dc6972051b0a91d49b4d",
+          "origin_timestamp_ms": 37531225,
+          "cast_observations": 4548,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kirin",
+              "entry_ms": 12929,
+              "end_ms": 242929,
+              "entry_event": 1328,
+              "completion_event": 22623,
+              "targets": [
+                [1328, 12929, "ADCA", 0, null, null],
+                [2727, 23988, "AD91", 41, 41, 5000],
+                [3813, 34823, "AD95", 6, 6, 5000],
+                [4716, 46809, "AD95", 20, 20, 5000],
+                [5962, 63152, "AFF4", 23, 23, 5000],
+                [6494, 70286, "AFF5", 43, 43, 5000],
+                [7696, 84411, "AD7E", 18, 18, 5000],
+                [10262, 116686, "B079", 43, 43, 2000],
+                [10899, 124758, "B07A", 71, 71, 5000],
+                [12105, 134210, "AD91", 19, 19, 5000],
+                [13125, 142676, "AD92", 53, 53, 5000],
+                [14617, 157284, "AD93", 45, 45, 5000],
+                [15593, 167614, "ADCA", 15, 15, 5000],
+                [16549, 176079, "ADB0", 50, 50, 5000],
+                [16835, 180089, "ADAD", 40, 40, 5000],
+                [16952, 181425, "ADA0", 4, 4, 5000],
+                [17296, 186502, "ADA2", 27, 27, 5000],
+                [18814, 204420, "ADB1", 9, 9, 5000],
+                [20831, 225062, "ADB2", 67, 67, 5000],
+                [21524, 233123, "ADBF", 6, 6, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/HnxFmz3CVZkNW1Xp_50.json",
+          "sha256": "8af65dd17317718aeb31bf521bd72aa269b454b208de2af06efb0696104a4f6b",
+          "trace": "HnxFmz3CVZkNW1Xp/50",
+          "fingerprint": "5708bb2da7a621cc434458d4b5d9785cceff615e6887fb4a49306810a2310c6e",
+          "origin_timestamp_ms": 33402123,
+          "cast_observations": 6182,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eald",
+              "entry_ms": 11226,
+              "end_ms": 368226,
+              "entry_event": 336,
+              "completion_event": 30308,
+              "targets": [
+                [336, 11226, "AD51", 0, null, null],
+                [2290, 41008, "AD6D", 18, 18, 5000],
+                [4271, 58218, "AD49", 92, 92, 5000],
+                [5643, 71839, "AD56", 13, 13, 5000],
+                [6202, 78255, "AD58", 129, 129, 5000],
+                [6882, 85743, "AD53", 117, 117, 5000],
+                [7847, 95863, "AD5C", 137, 137, 5000],
+                [8961, 107046, "AD77", 120, 120, 5000],
+                [10174, 122139, "AD77", 113, 113, 5000],
+                [12443, 151754, "B040", 128, 128, 5000],
+                [12583, 156880, "AD59", 154, 154, 5000],
+                [12679, 179102, "AD5A", 0, 78, 5000],
+                [12995, 191321, "AD77", 19, 19, 5000],
+                [13793, 200458, "AD75", 56, 56, 5000],
+                [14128, 204557, "AD76", 1, 55, 5000],
+                [14705, 209587, "AD72", 29, 29, 5000],
+                [17887, 233969, "AD5F", 289, 289, 5000],
+                [19500, 249659, "AD53", 199, 199, 5000],
+                [21213, 268778, "AD51", 0, 280, 5000],
+                [21837, 275953, "AD77", 75, 75, 5000],
+                [22539, 285083, "AD75", 5, 5, 5000],
+                [22854, 289178, "AD76", 5, 0, 5000],
+                [23248, 294210, "AD5C", 27, 27, 5000],
+                [23990, 302711, "AD53", 28, 28, 5000],
+                [24921, 315853, "AD49", 70, 70, 5000],
+                [26162, 330019, "AD72", 36, 36, 5000],
+                [29168, 353419, "AD5F", 36, 36, 5000],
+                [29924, 362067, "AD77", 84, 84, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/aPVdHQmZJ9AbgwM6_24.json",
+          "sha256": "ae3666aae7da5c1496f0b9a70f0f063a32d0cd589e11cef29358626d124f93f3",
+          "trace": "aPVdHQmZJ9AbgwM6/24",
+          "fingerprint": "f8354974cbfb6eaaf94fe91ca0ba670f59ab2f7e8fa31f6d28f9accb6abe21f6",
+          "origin_timestamp_ms": 9528143,
+          "cast_observations": 6247,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kam",
+              "entry_ms": 12296,
+              "end_ms": 337296,
+              "entry_event": 1099,
+              "completion_event": 34339,
+              "targets": [
+                [1099, 12296, "ACBD", 0, null, null],
+                [2347, 20856, "B009", 40, 40, 5000],
+                [3993, 33998, "AC91", 2, 2, 5000],
+                [5118, 45145, "B00A", 51, 51, 5000],
+                [6298, 56290, "AC91", 6, 6, 5000],
+                [7263, 67444, "B00A", 48, 48, 5000],
+                [8147, 77784, "ACBB", 12, 12, 5000],
+                [8782, 83983, "ACAB", 13, 13, 5000],
+                [9857, 93171, "ACAF", 25, 25, 5000],
+                [10505, 99057, "ACB1", 39, 39, 5000],
+                [11517, 106331, "ACBD", 35, 35, 5000],
+                [14021, 126863, "ACB2", 0, 28, 5000],
+                [15945, 150346, "ACB3", 83, 83, 5000],
+                [17296, 158982, "ACB4", 119, 119, 5000],
+                [18640, 165535, "ACB5", 172, 172, 5000],
+                [20124, 181487, "ACB6", 124, 124, 5000],
+                [20591, 187634, "ACB7", 53, 53, 5000],
+                [21141, 195477, "ACB8", 10, 10, 5000],
+                [21597, 202517, "ACB8", 30, 30, 5000],
+                [22104, 209556, "ACB8", 69, 69, 5000],
+                [22132, 209824, "ACB9", 37, 37, 5000],
+                [22133, 209824, "ACBF", 37, 37, 5000],
+                [23089, 220691, "ACBA", 4, 4, 5000],
+                [23848, 228084, "ACBE", 3, 3, 5000],
+                [24814, 237212, "AF6B", 25, 25, 5000],
+                [25821, 247556, "ACBB", 31, 31, 5000],
+                [26977, 263012, "B009", 125, 125, 5000],
+                [28058, 277132, "AC92", 20, 20, 5000],
+                [28898, 288273, "B00A", 39, 39, 5000],
+                [29534, 295447, "ACAB", 65, 65, 5000],
+                [30181, 301460, "ACBF", 52, 52, 5000],
+                [30528, 304622, "ACB0", 90, 90, 5000],
+                [31190, 310505, "ACB1", 7, 7, 5000],
+                [32151, 317766, "ACBD", 0, 46, 5000],
+                [33705, 330102, "ACB6", 0, 64, 5000],
+                [34266, 336247, "ACB7", 45, 45, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/HnxFmz3CVZkNW1Xp_45.json",
+          "sha256": "1dd19123f19251bb6ca13fc890d0ee3b558de57e9c5f47ebbe0adb05424009ee",
+          "trace": "HnxFmz3CVZkNW1Xp/45",
+          "fingerprint": "97ccf07ff1a1863008b36d1a6365ee1c1d6a4de1bd9a35eda52a78b193541c2d",
+          "origin_timestamp_ms": 32239018,
+          "cast_observations": 4487,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kirin",
+              "entry_ms": 12794,
+              "end_ms": 242794,
+              "entry_event": 1151,
+              "completion_event": 22898,
+              "targets": [
+                [1151, 12794, "ADCA", 0, null, null],
+                [2588, 23454, "AD91", 440, 440, 5000],
+                [3663, 34289, "AD95", 405, 405, 5000],
+                [4648, 46291, "AD95", 403, 403, 5000],
+                [6022, 62850, "AFF5", 144, 144, 5000],
+                [6486, 69981, "AFF4", 213, 213, 5000],
+                [7659, 84078, "AD7E", 216, 216, 5000],
+                [10877, 125484, "AFF4", 10, 10, 5000],
+                [12093, 136082, "AD91", 12, 12, 5000],
+                [12941, 144537, "AD92", 57, 57, 5000],
+                [14270, 159145, "AD94", 49, 49, 5000],
+                [15283, 169486, "ADCA", 8, 8, 5000],
+                [16275, 178393, "ADB0", 399, 399, 5000],
+                [16822, 183737, "ADA0", 443, 443, 5000],
+                [19051, 206738, "ADB1", 444, 444, 5000],
+                [21048, 227371, "ADB2", 377, 377, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/HnxFmz3CVZkNW1Xp_47.json",
+          "sha256": "dc9fb561b04023f4c418b23616a5850990b62520c0ca8cc2912d21f847408ede",
+          "trace": "HnxFmz3CVZkNW1Xp/47",
+          "fingerprint": "77b9ad07a0ccfbe76a12abd3d5167f71888c1c1c3e230524a4ccfc6aa5fd3c78",
+          "origin_timestamp_ms": 32635276,
+          "cast_observations": 4056,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "duo",
+              "entry_ms": 12203,
+              "end_ms": 237969,
+              "entry_event": 1168,
+              "completion_event": 22749,
+              "targets": [
+                [1168, 12203, "AD2B", 0, null, null],
+                [1794, 15941, "AD10", 38, null, null],
+                [2523, 21061, "AD08", 42, 42, 5000],
+                [3833, 32283, "AD27", 80, 80, 5000],
+                [5422, 48625, "AD06", 22, 22, 5000],
+                [5452, 48893, "B087", 90, 90, 5000],
+                [7432, 66250, "B075", 147, 147, 5000],
+                [7637, 68207, "AD08", 4, 4, 5000],
+                [8263, 75594, "B087", 91, 91, 5000],
+                [9123, 83655, "AD09", 52, 52, 5000],
+                [9643, 88775, "AD08", 72, 72, 5000],
+                [10544, 97728, "AD0C", 25, 25, 5000],
+                [11013, 102408, "AD23", 5, 5, 5000],
+                [11880, 113147, "AD24", 44, 44, 5000],
+                [12398, 118710, "AD12", 7, 7, 5000],
+                [12561, 124016, "AFEB", 13, 13, 5000],
+                [12565, 124105, "AD14", 2, 2, 5000],
+                [12754, 128296, "AFEB", 7, 7, 5000],
+                [12880, 132573, "AFEB", 70, 70, 5000],
+                [12976, 136851, "AFEB", 48, 48, 5000],
+                [13625, 153440, "AD1B", 37, 37, 5000],
+                [14323, 159231, "AD2F", 28, 28, 5000],
+                [16325, 176507, "AD06", 4, 4, 5000],
+                [16382, 177262, "AD23", 59, 59, 5000],
+                [17314, 187771, "AD09", 32, 32, 5000],
+                [17372, 187994, "AD24", 9, 9, 5000],
+                [17803, 192939, "AD08", 36, 36, 5000],
+                [18638, 201892, "AD0D", 11, 11, 5000],
+                [18669, 202201, "B087", 2, 2, 5000],
+                [20158, 215839, "AD0E", 64, 64, 5000],
+                [22335, 233913, "B075", 90, 90, 5000],
+                [22658, 237167, "AD08", 36, 36, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/Y3v4JFghpTjbnWwL_11.json",
+          "sha256": "762c84e9a869dd75289d2bdfc572fd19f2adcf3e1c54fc21ed056dc31fe7e6d8",
+          "trace": "Y3v4JFghpTjbnWwL/11",
+          "fingerprint": "da8400b77102770f198fbeb92f50aa44ca66e0c6561b15adae71fa9cb5c896cb",
+          "origin_timestamp_ms": 2769554,
+          "cast_observations": 6987,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eald",
+              "entry_ms": 11390,
+              "end_ms": 368390,
+              "entry_event": 371,
+              "completion_event": 30286,
+              "targets": [
+                [371, 11390, "AD51", 0, null, null],
+                [1337, 24497, "AD4A", 7, 7, 5000],
+                [2872, 41144, "AD6D", 46, 46, 5000],
+                [6618, 71993, "AD56", 3, 3, 5000],
+                [7103, 78456, "AD58", 166, 166, 5000],
+                [7575, 85944, "AD53", 154, 154, 5000],
+                [8311, 96060, "AD5C", 170, 170, 5000],
+                [9297, 107248, "AD77", 158, 158, 5000],
+                [10523, 122378, "AD77", 188, 188, 5000],
+                [13024, 151870, "B040", 80, 80, 5000],
+                [13235, 156989, "AD59", 99, 99, 5000],
+                [13413, 179185, "AD5A", 0, 104, 5000],
+                [13719, 191469, "AD77", 84, 84, 5000],
+                [14348, 200602, "AD75", 117, 117, 5000],
+                [14589, 204707, "AD76", 5, 122, 5000],
+                [14964, 209739, "AD72", 37, 37, 5000],
+                [17589, 234168, "AD5F", 234, 234, 5000],
+                [19071, 249862, "AD53", 140, 140, 5000],
+                [20838, 268989, "AD51", 0, 213, 5000],
+                [21588, 276164, "AD77", 75, 75, 5000],
+                [22362, 285299, "AD75", 10, 10, 5000],
+                [22686, 289406, "AD76", 7, 17, 5000],
+                [23070, 294437, "AD5C", 38, 38, 5000],
+                [23832, 302774, "AD53", 125, 125, 5000],
+                [24985, 315925, "AD4A", 74, 74, 5000],
+                [26244, 330093, "AD72", 106, 106, 5000],
+                [28866, 353482, "AD5F", 117, 117, 5000],
+                [29729, 362126, "AD77", 73, 73, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/HnxFmz3CVZkNW1Xp_49.json",
+          "sha256": "e0ea75695dc165cc75ab093009a9db7aec2da1b882e4300ceacbccd05d57bc45",
+          "trace": "HnxFmz3CVZkNW1Xp/49",
+          "fingerprint": "e2f6b44dc7bc32d8fdeb28290671291844ba1e60dd5195b554e453b2efa1d5dc",
+          "origin_timestamp_ms": 33026367,
+          "cast_observations": 6083,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kam",
+              "entry_ms": 11755,
+              "end_ms": 326392,
+              "entry_event": 744,
+              "completion_event": 31220,
+              "targets": [
+                [744, 11755, "ACBD", 0, null, null],
+                [1752, 20302, "B009", 53, 53, 5000],
+                [3180, 33435, "AC91", 20, 20, 5000],
+                [4067, 44557, "B00A", 98, 98, 5000],
+                [5016, 55694, "AC91", 61, 61, 5000],
+                [5886, 66833, "B00A", 22, 22, 5000],
+                [6679, 77170, "ACBB", 85, 85, 5000],
+                [7236, 83360, "ACAB", 95, 95, 5000],
+                [7990, 92538, "ACB0", 117, 117, 5000],
+                [8525, 98419, "ACB1", 136, 136, 5000],
+                [9170, 105678, "ACBD", 0, 77, 5000],
+                [11381, 126205, "ACB2", 0, 31, 5000],
+                [12734, 149685, "ACB3", 80, 80, 5000],
+                [13967, 158328, "ACB4", 123, 123, 5000],
+                [15157, 164837, "ACB5", 132, 132, 5000],
+                [17140, 180840, "ACB6", 135, 135, 5000],
+                [17684, 186989, "ACB7", 51, 51, 5000],
+                [18443, 194835, "ACB8", 5, 5, 5000],
+                [18976, 201868, "ACB8", 28, 28, 5000],
+                [19507, 208905, "ACB8", 65, 65, 5000],
+                [19537, 209171, "ACB9", 31, 31, 5000],
+                [19538, 209171, "ACBF", 31, 31, 5000],
+                [20657, 220044, "ACBA", 4, 4, 5000],
+                [21347, 227480, "ACBE", 40, 40, 5000],
+                [22202, 236607, "AF6B", 67, 67, 5000],
+                [23375, 246944, "ACBB", 4, 4, 5000],
+                [24705, 262304, "B009", 64, 64, 5000],
+                [26060, 276462, "AC92", 58, 58, 5000],
+                [26997, 287590, "B00A", 14, 14, 5000],
+                [27731, 294764, "ACAB", 40, 40, 5000],
+                [28279, 300784, "ACBF", 20, 20, 5000],
+                [28603, 303948, "ACAF", 56, 56, 5000],
+                [29272, 309824, "ACB1", 20, 20, 5000],
+                [30244, 317081, "ACBD", 0, 23, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/aPVdHQmZJ9AbgwM6_22.json",
+          "sha256": "2e56638c0426f6038382d53c2114476c97b78534577d3fa317fabfb349d95021",
+          "trace": "aPVdHQmZJ9AbgwM6/22",
+          "fingerprint": "43e50cfb781aff2a17e6501e5f70b3434eb04e80f45628bbb48b4248f3aad009",
+          "origin_timestamp_ms": 9138315,
+          "cast_observations": 4058,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "duo",
+              "entry_ms": 12168,
+              "end_ms": 236731,
+              "entry_event": 1265,
+              "completion_event": 23375,
+              "targets": [
+                [1265, 12168, "AD2B", 0, null, null],
+                [1807, 15819, "AD10", 49, null, null],
+                [2554, 20939, "AD08", 129, 129, 5000],
+                [4009, 32251, "AD27", 83, 83, 5000],
+                [5569, 48557, "AD06", 11, 11, 5000],
+                [5597, 48870, "B087", 102, 102, 5000],
+                [7442, 66230, "B075", 162, 162, 5000],
+                [7709, 68143, "AD08", 25, 25, 5000],
+                [8573, 75762, "B087", 294, 294, 5000],
+                [9475, 83517, "AD09", 51, 51, 5000],
+                [9980, 88637, "AD08", 31, 31, 5000],
+                [11024, 97589, "AD0C", 79, 79, 5000],
+                [11581, 102538, "AD23", 170, 170, 5000],
+                [12453, 113285, "AD24", 217, 217, 5000],
+                [12964, 118816, "AD12", 148, 148, 5000],
+                [13160, 124159, "AFEB", 191, 191, 5000],
+                [13163, 124204, "AD14", 136, 136, 5000],
+                [13351, 128438, "AFEB", 170, 170, 5000],
+                [13466, 132717, "AFEB", 249, 249, 5000],
+                [13582, 136993, "AFEB", 225, 225, 5000],
+                [14221, 153520, "AD1B", 152, 152, 5000],
+                [14839, 159362, "AD2F", 194, 194, 5000],
+                [16653, 176622, "AD06", 154, 154, 5000],
+                [16704, 177380, "AD23", 212, 212, 5000],
+                [17737, 187898, "AD09", 130, 130, 5000],
+                [17748, 188121, "AD24", 153, 153, 5000],
+                [18253, 193069, "AD08", 201, 201, 5000],
+                [19024, 202033, "AD0C", 165, 165, 5000],
+                [19053, 202388, "B087", 220, 220, 5000],
+                [20673, 215991, "AD0E", 123, 123, 5000],
+                [23082, 234053, "B075", 85, 85, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/Y3v4JFghpTjbnWwL_6.json",
+          "sha256": "e6ee85bdb40dcbeab8e061f01ea8f54c2d3c7aeba8bcd7fc11dee64b682b558a",
+          "trace": "Y3v4JFghpTjbnWwL/6",
+          "fingerprint": "74dc5fbcfb43866904372cb2c0c22a1682ed9fc74be37f498f618521bfcb2e55",
+          "origin_timestamp_ms": 1607177,
+          "cast_observations": 4266,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kirin",
+              "entry_ms": 13461,
+              "end_ms": 209284,
+              "entry_event": 1086,
+              "completion_event": 19318,
+              "targets": [
+                [1086, 13461, "ADCA", 0, null, null],
+                [2559, 24558, "AD91", 3, 3, 5000],
+                [3730, 35402, "AD95", 41, 41, 5000],
+                [4761, 47401, "AD95", 40, 40, 5000],
+                [6023, 63224, "AFF4", 437, 437, 5000],
+                [6591, 70358, "AFF5", 503, 503, 5000],
+                [7869, 84490, "AD7E", 471, 471, 5000],
+                [11503, 125720, "AFF5", 141, 141, 5000],
+                [12490, 136321, "AD91", 40, 140, 5000],
+                [13194, 144789, "AD92", 72, 72, 5000],
+                [14419, 159390, "AD94", 71, 71, 5000],
+                [15426, 169716, "ADCA", 45, 45, 5000],
+                [16565, 178621, "ADAD", 360, 360, 5000],
+                [17098, 184533, "AD9D", 972, 972, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/Zdxv3yCMtJq6QVcP_36.json",
+          "sha256": "803d67b5be9d32837b80d9ecfd40d9bc29ed15492b54409048fadd87e1463110",
+          "trace": "Zdxv3yCMtJq6QVcP/36",
+          "fingerprint": "858bd577d43487d586f9e628e340e40f114e794eff6dcb4984d7547689d878ef",
+          "origin_timestamp_ms": 14262222,
+          "cast_observations": 6740,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eald",
+              "entry_ms": 10779,
+              "end_ms": 343426,
+              "entry_event": 917,
+              "completion_event": 30731,
+              "targets": [
+                [917, 10779, "AD51", 0, null, null],
+                [4058, 40569, "AD6D", 10, 10, 5000],
+                [6230, 57810, "AD49", 131, 131, 5000],
+                [7538, 71431, "AD56", 52, 52, 5000],
+                [7984, 77844, "AD58", 165, 165, 5000],
+                [8586, 85193, "AD53", 14, 14, 5000],
+                [9469, 95307, "AD5C", 28, 28, 5000],
+                [10589, 106487, "AD77", 8, 8, 5000],
+                [11933, 121620, "AD77", 41, 41, 5000],
+                [14574, 151111, "B040", 68, 68, 5000],
+                [14828, 156228, "AD59", 0, 51, 5000],
+                [15072, 178433, "AD5A", 0, 95, 5000],
+                [15468, 190637, "AD77", 4, 4, 5000],
+                [16190, 199771, "AD75", 38, 38, 5000],
+                [16447, 203876, "AD76", 5, 43, 5000],
+                [16902, 208914, "AD72", 43, 43, 5000],
+                [19455, 233502, "AD5F", 69, 69, 5000],
+                [21063, 249191, "AD53", 20, 20, 5000],
+                [22950, 268298, "AD51", 0, 73, 5000],
+                [23807, 275472, "AD77", 74, 74, 5000],
+                [24706, 284595, "AD75", 0, 3, 5000],
+                [25085, 288692, "AD76", 3, 6, 5000],
+                [25589, 293718, "AD5C", 23, 23, 5000],
+                [26422, 302085, "AD53", 110, 110, 5000],
+                [27720, 315190, "AD49", 105, 105, 5000],
+                [29142, 329349, "AD72", 146, 146, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/Mf29DAWxyrg1Tnpv_8.json",
+          "sha256": "d3c0256d1efe4466b27d3eae3861c83460e3d8210e2f9f8d2ab0aa8bee5bd56a",
+          "trace": "Mf29DAWxyrg1Tnpv/8",
+          "fingerprint": "b1164f5fa53b2f569f55fdde69e938e25e3e2dfebd4651b956ac355770be4b56",
+          "origin_timestamp_ms": 2732832,
+          "cast_observations": 5983,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kam",
+              "entry_ms": 12041,
+              "end_ms": 324202,
+              "entry_event": 1059,
+              "completion_event": 29998,
+              "targets": [
+                [1059, 12041, "ACBD", 0, null, null],
+                [2170, 20372, "B009", 269, 269, 5000],
+                [3474, 33538, "AC91", 203, 203, 5000],
+                [4591, 44685, "B00A", 256, 256, 5000],
+                [5571, 55817, "AC91", 224, 224, 5000],
+                [6518, 66959, "B00A", 182, 182, 5000],
+                [7386, 77301, "ACBB", 240, 240, 5000],
+                [7972, 83488, "ACAB", 253, 253, 5000],
+                [8869, 92665, "ACAF", 276, 276, 5000],
+                [9447, 98541, "ACB1", 300, 300, 5000],
+                [10162, 105800, "ACBD", 0, 241, 5000],
+                [12008, 122511, "ACB2", 0, 34, 5000],
+                [13435, 145995, "ACB3", 84, 84, 5000],
+                [14723, 154633, "ACB4", 122, 122, 5000],
+                [16100, 161179, "ACB5", 168, 168, 5000],
+                [17901, 177130, "ACB6", 119, 119, 5000],
+                [18393, 183276, "ACB7", 54, 54, 5000],
+                [19027, 191114, "ACB8", 16, 16, 5000],
+                [19563, 198147, "ACB8", 17, 17, 5000],
+                [20148, 205184, "ACB8", 54, 54, 5000],
+                [20176, 205450, "ACB9", 20, 20, 5000],
+                [20177, 205450, "ACBF", 20, 20, 5000],
+                [21292, 216321, "ACBA", 9, 9, 5000],
+                [21964, 223715, "ACBE", 15, 15, 5000],
+                [23005, 232842, "AF6B", 12, 12, 5000],
+                [24152, 243172, "ACBB", 58, 58, 5000],
+                [25118, 258670, "B009", 140, 140, 5000],
+                [25990, 272790, "AC92", 20, 20, 5000],
+                [26719, 283922, "B00A", 48, 48, 5000],
+                [27358, 291095, "ACAB", 75, 75, 5000],
+                [27893, 297112, "ACBF", 58, 58, 5000],
+                [28179, 300276, "ACB0", 94, 94, 5000],
+                [28561, 306158, "ACB1", 12, 12, 5000],
+                [29119, 313428, "ACBD", 0, 42, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/Y3v4JFghpTjbnWwL_8.json",
+          "sha256": "e7f7093c6a072c9177b434b7f9f2a979cb3186179b8a5728dcfc4250aa40f1b3",
+          "trace": "Y3v4JFghpTjbnWwL/8",
+          "fingerprint": "7d4453dcede18985d8e77edfae0cf3349f5208ef924d45a0f81070c8e1e332af",
+          "origin_timestamp_ms": 1954805,
+          "cast_observations": 4364,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "duo",
+              "entry_ms": 12397,
+              "end_ms": 234726,
+              "entry_event": 1094,
+              "completion_event": 22658,
+              "targets": [
+                [1094, 12397, "AD2B", 0, null, null],
+                [1628, 16144, "AD10", 47, null, null],
+                [2446, 21270, "AD08", 27, 27, 5000],
+                [3815, 32457, "AD27", 60, 60, 5000],
+                [5268, 48815, "AD06", 18, 18, 5000],
+                [5296, 49082, "B087", 85, 85, 5000],
+                [7325, 66368, "B075", 71, 71, 5000],
+                [7586, 68418, "AD08", 21, 21, 5000],
+                [8395, 75686, "B087", 11, 11, 5000],
+                [9265, 83842, "AD09", 45, 45, 5000],
+                [9896, 88975, "AD08", 78, 78, 5000],
+                [10853, 97929, "AD0D", 32, 32, 5000],
+                [11370, 102600, "AD23", 3, 3, 5000],
+                [12272, 113346, "AD24", 49, 49, 5000],
+                [12798, 118915, "AD12", 18, 18, 5000],
+                [12957, 124209, "AFEB", 12, 12, 5000],
+                [12966, 124343, "AD14", 46, 46, 5000],
+                [13076, 128485, "AFEB", 12, 12, 5000],
+                [13136, 132758, "AFEB", 61, 61, 5000],
+                [13193, 137023, "AFEB", 26, 26, 5000],
+                [13844, 153625, "AD1B", 28, 28, 5000],
+                [14635, 159416, "AD2F", 19, 19, 5000],
+                [16616, 176696, "AD06", 1, 1, 5000],
+                [16660, 177409, "AD23", 12, 12, 5000],
+                [17594, 187971, "AD09", 26, 26, 5000],
+                [17607, 188149, "AD24", 48, 48, 5000],
+                [18105, 193144, "AD08", 47, 47, 5000],
+                [18875, 202109, "AD0C", 12, 12, 5000],
+                [18908, 202420, "B087", 23, 23, 5000],
+                [20425, 216009, "AD0E", 88, 88, 5000],
+                [22577, 234058, "B075", 139, 139, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/Zdxv3yCMtJq6QVcP_31.json",
+          "sha256": "b03e674e06e56470dbda64b48ba7efa6d9588eb80112fd2789b40d1202382766",
+          "trace": "Zdxv3yCMtJq6QVcP/31",
+          "fingerprint": "4f911015c511df6fa1a14564d314cd0a725ea14d8ab7f597092ff4941991003d",
+          "origin_timestamp_ms": 13105084,
+          "cast_observations": 4141,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kirin",
+              "entry_ms": 12884,
+              "end_ms": 203458,
+              "entry_event": 1214,
+              "completion_event": 19579,
+              "targets": [
+                [1214, 12884, "ADCA", 0, null, null],
+                [2539, 23618, "AD91", 366, 366, 5000],
+                [3614, 34449, "AD95", 335, 335, 5000],
+                [4549, 46437, "AD95", 347, 347, 5000],
+                [6156, 62926, "AFF4", 158, 158, 5000],
+                [6880, 70053, "AFF5", 231, 231, 5000],
+                [8243, 84182, "AD7E", 202, 202, 5000],
+                [10837, 116476, "B079", 8, 8, 2000],
+                [11553, 124535, "B07A", 49, 49, 5000],
+                [12741, 134022, "AD91", 62, 38, 5000],
+                [13571, 142485, "AD92", 99, 99, 5000],
+                [15004, 157104, "AD93", 80, 80, 5000],
+                [15986, 167432, "ADCA", 52, 52, 5000],
+                [17614, 180344, "ADAD", 360, 360, 5000],
+                [18073, 187337, "ADA2", 953, 953, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/aPVdHQmZJ9AbgwM6_25.json",
+          "sha256": "90b35e99a8576dcb7317a1e89753066b651abdd27a7b74a6142b14512dc1aa9c",
+          "trace": "aPVdHQmZJ9AbgwM6/25",
+          "fingerprint": "62cfd243272908ff01f3e73aadf4cee47deb249bf096537d129be0200db5417e",
+          "origin_timestamp_ms": 9963515,
+          "cast_observations": 6597,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eald",
+              "entry_ms": 10650,
+              "end_ms": 341004,
+              "entry_event": 845,
+              "completion_event": 32873,
+              "targets": [
+                [845, 10650, "AD51", 0, null, null],
+                [2471, 23784, "AD4B", 34, 34, 5000],
+                [4637, 40443, "AD6D", 7, 7, 5000],
+                [7082, 57676, "AD49", 126, 126, 5000],
+                [8441, 71302, "AD56", 52, 52, 5000],
+                [8949, 77760, "AD58", 210, 210, 5000],
+                [9524, 85248, "AD53", 198, 198, 5000],
+                [10544, 95358, "AD5C", 208, 208, 5000],
+                [11833, 106532, "AD77", 182, 182, 5000],
+                [13347, 121635, "AD77", 185, 185, 5000],
+                [16205, 151259, "B040", 209, 209, 5000],
+                [16473, 156377, "AD59", 227, 227, 5000],
+                [16679, 178562, "AD5A", 0, 115, 5000],
+                [17048, 190773, "AD77", 11, 11, 5000],
+                [17875, 199910, "AD75", 48, 48, 5000],
+                [18237, 204007, "AD76", 3, 45, 5000],
+                [18701, 209040, "AD72", 30, 30, 5000],
+                [21817, 233416, "AD5F", 294, 294, 5000],
+                [23330, 249092, "AD53", 218, 218, 5000],
+                [25284, 268200, "AD51", 0, 310, 5000],
+                [26131, 275372, "AD77", 72, 72, 5000],
+                [26981, 284499, "AD75", 0, 1, 5000],
+                [27266, 288599, "AD76", 0, 1, 5000],
+                [27799, 293632, "AD5C", 33, 33, 5000],
+                [28551, 302137, "AD53", 38, 38, 5000],
+                [29914, 315272, "AD4A", 73, 73, 5000],
+                [31398, 329427, "AD72", 28, 28, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/Y3v4JFghpTjbnWwL_10.json",
+          "sha256": "0346d6ef103eb68170daec8c5e3ee448724a4e088e1ae505afa18cb994c3ae52",
+          "trace": "Y3v4JFghpTjbnWwL/10",
+          "fingerprint": "26077fe3cad537aefec6b68cc7fa968b5970376aef695382c27a99b062a4ca42",
+          "origin_timestamp_ms": 2379031,
+          "cast_observations": 6332,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kam",
+              "entry_ms": 12469,
+              "end_ms": 322971,
+              "entry_event": 942,
+              "completion_event": 30510,
+              "targets": [
+                [942, 12469, "ACBD", 0, null, null],
+                [1960, 20805, "B009", 264, 264, 5000],
+                [3429, 33953, "AC91", 216, 216, 5000],
+                [4209, 45100, "B00A", 269, 269, 5000],
+                [5064, 56248, "AC91", 221, 221, 5000],
+                [5888, 67393, "B00A", 176, 176, 5000],
+                [6827, 77736, "ACBB", 233, 233, 5000],
+                [7401, 83932, "ACAB", 237, 237, 5000],
+                [8124, 93115, "ACAF", 254, 254, 5000],
+                [8587, 99001, "ACB1", 268, 268, 5000],
+                [9432, 106267, "ACBD", 0, 202, 5000],
+                [11910, 126827, "ACB2", 0, 24, 5000],
+                [13406, 150325, "ACB3", 98, 98, 5000],
+                [14638, 158970, "ACB4", 143, 143, 5000],
+                [15934, 165482, "ACB5", 155, 155, 5000],
+                [17979, 181485, "ACB6", 158, 158, 5000],
+                [18504, 187630, "ACB7", 55, 55, 5000],
+                [19104, 195474, "ACB8", 11, 11, 5000],
+                [19563, 202474, "ACB8", 11, 11, 5000],
+                [20102, 209477, "ACB8", 8, 8, 5000],
+                [20137, 209834, "ACB9", 49, 49, 5000],
+                [20138, 209834, "ACBF", 49, 49, 5000],
+                [21196, 220712, "ACBA", 27, 27, 5000],
+                [21998, 228068, "ACBE", 17, 17, 5000],
+                [23108, 237210, "AF6B", 25, 25, 5000],
+                [24317, 247539, "ACBB", 46, 46, 5000],
+                [25538, 262904, "B009", 19, 19, 5000],
+                [26656, 277026, "AC92", 22, 22, 5000],
+                [27510, 288172, "B00A", 32, 32, 5000],
+                [28032, 295344, "ACAB", 60, 60, 5000],
+                [28591, 301362, "ACBF", 42, 42, 5000],
+                [28856, 304524, "ACAE", 80, 80, 5000],
+                [29459, 310372, "ACB1", 32, 32, 5000],
+                [30153, 317672, "ACBD", 0, 32, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/Zdxv3yCMtJq6QVcP_33.json",
+          "sha256": "9315e7036aedd2757adb9f4de34fb5bdf47ff4968df9fce406ed4f17467dc5ee",
+          "trace": "Zdxv3yCMtJq6QVcP/33",
+          "fingerprint": "7f8f1b9f5bec980f0f1a8598f839ac3c0ca84e42e2b579ae2fc1ea1e6a22a96c",
+          "origin_timestamp_ms": 13441671,
+          "cast_observations": 4241,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "duo",
+              "entry_ms": 12433,
+              "end_ms": 229928,
+              "entry_event": 1234,
+              "completion_event": 22439,
+              "targets": [
+                [1234, 12433, "AD2B", 0, null, null],
+                [1754, 16175, "AD10", 42, null, null],
+                [2382, 21300, "AD08", 33, 33, 5000],
+                [3545, 32477, "AD25", 44, 44, 5000],
+                [5046, 48828, "AD06", 5, 5, 5000],
+                [5067, 49093, "B087", 60, 60, 5000],
+                [7015, 66466, "B075", 133, 133, 5000],
+                [7228, 68427, "AD08", 6, 6, 5000],
+                [7961, 75825, "B087", 92, 92, 5000],
+                [8872, 83806, "AD09", 27, 27, 5000],
+                [9486, 88929, "AD08", 4, 4, 5000],
+                [10564, 97890, "AD0C", 43, 43, 5000],
+                [11115, 102569, "AD23", 64, 64, 5000],
+                [12200, 113299, "AD24", 34, 34, 5000],
+                [12814, 118861, "AD12", 72, 72, 5000],
+                [13031, 124167, "AFEB", 66, 66, 5000],
+                [13035, 124255, "AD14", 78, 78, 5000],
+                [13192, 128442, "AFEB", 91, 91, 5000],
+                [13256, 132715, "AFEB", 18, 18, 5000],
+                [13361, 136992, "AFEB", 41, 41, 5000],
+                [14339, 153563, "AD1B", 70, 70, 5000],
+                [15133, 159350, "AD2F", 83, 83, 5000],
+                [17009, 176643, "AD06", 90, 90, 5000],
+                [17082, 177398, "AD23", 35, 35, 5000],
+                [17914, 187907, "AD09", 126, 126, 5000],
+                [17936, 188130, "AD24", 103, 103, 5000],
+                [18478, 193071, "AD08", 62, 62, 5000],
+                [19247, 202020, "AD0C", 113, 113, 5000],
+                [19276, 202333, "B087", 100, 100, 5000],
+                [20802, 215974, "AD0E", 159, 159, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/sandoria-authoring-holdout/FqmhgXHZRdc6D7AK_14.json",
+          "sha256": "502b92dc3f48295f9ffae50b7d77fa08ef144804b7f80ee525efd10510112d50",
+          "trace": "FqmhgXHZRdc6D7AK/14",
+          "fingerprint": "8aa021d97f3f2494d3cb0a320391b5f112531916057417c18862afa9eed87077",
+          "origin_timestamp_ms": 14579698,
+          "cast_observations": 4022,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "kirin",
+              "entry_ms": 12295,
+              "end_ms": 200819,
+              "entry_event": 1262,
+              "completion_event": 18558,
+              "targets": [
+                [1262, 12295, "ADCA", 0, null, null],
+                [2702, 23312, "AD91", 83, 83, 5000],
+                [3809, 34140, "AD95", 55, 55, 5000],
+                [4781, 46122, "AD95", 73, 73, 5000],
+                [6026, 61927, "AFF5", 568, 568, 5000],
+                [6713, 69054, "AFF4", 641, 641, 5000],
+                [8099, 83166, "AD7E", 629, 629, 5000],
+                [10163, 110211, "AFF5", 16, 16, 5000],
+                [10938, 121346, "A916", 49, 49, 5000],
+                [11642, 129404, "A918", 9, 9, 5000],
+                [11652, 129404, "A917", 9, 9, 5000],
+                [12506, 136841, "AD91", 54, 54, 5000],
+                [13279, 145292, "AD92", 103, 103, 5000],
+                [14663, 159885, "AD94", 110, 110, 5000],
+                [15796, 170221, "ADCA", 74, 74, 5000],
+                [16817, 178679, "ADAD", 116, 116, 5000],
+                [17122, 182686, "ADB0", 109, 109, 5000],
+                [17264, 184647, "AD9D", 552, 552, 5000],
+                [17620, 189143, "ADA5", 52, 52, 5000]
+              ],
+              "failures": []
+            }
+          ],
+          "passed": true
+        }
+      ],
+      "not_checked": [
+        "ACT equivalence and actual lifecycle signals",
+        "UI visibility",
+        "post-second-Fire duo tail, helper attacks and reactive buffs",
+        "unobserved later cycles and mechanic positioning"
+      ]
     }
   ],
   "observation_graphs": [
@@ -618,6 +3658,17 @@
       "output": "out/sandoria-authoring/observations-73.kdl",
       "sha256": "0ccd0e55eb089c93f1c6db1aecba68caa4c3a9c65a05801bb86e06459a204fc6",
       "command": "btimeline mine logs/sandoria-authoring-development/PAq8bNtxvXWG16QZ_73.json -o out/sandoria-authoring/observations-73.kdl"
+    }
+  ],
+  "candidate_history": [
+    {
+      "commit": "784924f",
+      "sha256": "71515ca84e56a05841ac4930c522369448e889807237510d43e316cd48345d6b",
+      "result": "initial heldout 9/16 passed; all 16 reclassified as development for revision"
+    },
+    {
+      "sha256": "4175ef50f2da90edbbb423cfea23befd5c8f51aeeb11c539a4aa3b766596c2ca",
+      "result": "revised candidate; expanded development 26/26 eligible passed; fresh heldout frozen before event inspection"
     }
   ]
 }

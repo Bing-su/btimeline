@@ -101,7 +101,7 @@ fn shijin_choice_predicts_before_resolution_and_common_arms_restores_late_schedu
         vec![
             start,
             select,
-            signal(123000, "Ability", "AD91", "Faithbound Kirin"),
+            signal(119500, "StartsUsing", "AD91", "Faithbound Kirin"),
         ],
         126500,
         6000,
@@ -122,7 +122,7 @@ fn missing_choice_is_reported_but_common_continuation_recovers() {
         "forecast",
         vec![
             signal(0, "Ability", "ADCA", "Faithbound Kirin"),
-            signal(123000, "Ability", "AD91", "Faithbound Kirin"),
+            signal(119500, "StartsUsing", "AD91", "Faithbound Kirin"),
         ],
         126500,
         6000,
@@ -204,5 +204,103 @@ fn duo_forecasts_simultaneous_abilities_without_cross_boss_sync() {
         events
             .iter()
             .any(|e| e["name"] == "Ultima: Citadel Siege" && e["at_ms"] == 111900)
+    );
+}
+
+#[rstest::rstest]
+#[case("StartsUsing", "B07B", 95000, 123500)]
+#[case("StartsUsing", "B079", 101000, 121500)]
+#[case("StartsUsing", "AD84", 78000, 122700)]
+#[case("Ability", "AD82", 90000, 124600)]
+fn each_shijin_route_predicts_common_arms_before_its_own_signal(
+    #[case] kind: &str,
+    #[case] id: &str,
+    #[case] select: u64,
+    #[case] arms: u64,
+) {
+    let mut observations = vec![
+        signal(0, "Ability", "ADCA", "Faithbound Kirin"),
+        signal(
+            select,
+            kind,
+            id,
+            if id == "AD84" {
+                "Moonbound Genbu"
+            } else {
+                "Faithbound Kirin"
+            },
+        ),
+    ];
+    if id == "AD82" {
+        // Riddle also occurs on the longer Eastwind route; it must not override the earlier choice.
+        observations.push(signal(
+            select + 2900,
+            "StartsUsing",
+            "AFF5",
+            "Faithbound Kirin",
+        ));
+    }
+    let result = run("forecast", observations, arms - 5000, 6500);
+    assert_eq!(result["diagnostics"], json!([]));
+    assert_eq!(result["projection_diagnostics"], json!([]));
+    assert!(
+        result["events"]
+            .as_array()
+            .expect("events")
+            .iter()
+            .any(|e| e["name"] == "Wrought Arms" && e["at_ms"] == arms)
+    );
+}
+
+#[test]
+fn early_scrivening_cast_recovers_before_its_five_second_query() {
+    let result = run(
+        "forecast",
+        vec![
+            signal(0, "Ability", "ACBD", "Kam'lanaut"),
+            signal(104700, "StartsUsing", "ACB2", "Kam'lanaut"),
+        ],
+        105700,
+        6500,
+    );
+    assert!(
+        result["events"]
+            .as_array()
+            .expect("events")
+            .iter()
+            .any(|e| e["name"] == "Esoteric Scrivening" && e["at_ms"] == 110700)
+    );
+    let result = run(
+        "forecast",
+        vec![signal(0, "Ability", "ACBD", "Kam'lanaut")],
+        318700,
+        6500,
+    );
+    assert!(
+        result["events"]
+            .as_array()
+            .expect("events")
+            .iter()
+            .any(|e| e["name"] == "Crystalline Resonance" && e["at_ms"] == 323700)
+    );
+}
+
+#[rstest::rstest]
+#[case("Omega, the One", true)]
+#[case("Ultima, the Feared", true)]
+#[case("Player", false)]
+fn joint_schedule_cancels_only_on_a_named_boss_defeat(#[case] target: &str, #[case] cancels: bool) {
+    let result = run(
+        "forecast",
+        vec![
+            signal(0, "Ability", "AD2B", "Omega, the One"),
+            json!({"at_ms":90000,"type":"WasDefeated","fields":{"target":target}}),
+        ],
+        96000,
+        6500,
+    );
+    assert_eq!(
+        result["events"].as_array().expect("events").is_empty(),
+        cancels
     );
 }

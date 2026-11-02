@@ -2,6 +2,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "bun test_compare_cactbot.ts && bun test_audit_dungeon_loops.ts && bun test_audit_normal_trials.ts && bun test_griffin_scenarios.ts && bun test_griffin_recording.ts && bun test_griffin_holdout_cli.ts && bun test_mistwake_recording.ts && bun test_varis_p3_recording.ts && bun test_queen_hold_recording.ts && bun test_clyteum_recording.ts && bun test_sandoria_recording.ts"
+    "test": "bun test_compare_cactbot.ts && bun test_audit_dungeon_loops.ts && bun test_audit_normal_trials.ts && bun test_griffin_scenarios.ts && bun test_griffin_recording.ts && bun test_griffin_holdout_cli.ts && bun test_mistwake_recording.ts && bun test_varis_p3_recording.ts && bun test_queen_hold_recording.ts && bun test_clyteum_recording.ts && bun test_sandoria_recording.ts && bun test_dungeon_evaluation.ts"
   }
 }

@@ -178,6 +178,12 @@ export function verifyDungeon(project: (raw: any) => Dungeon, notChecked: string
         });
       }
     }
+    // A long evaluation must not publish results for a candidate edited between subprocess calls.
+    assert.equal(
+      hash(manifest.timeline),
+      manifest.timeline_sha256,
+      "Candidate changed during evaluation",
+    );
     const report = {
       manifest: manifestFile,
       manifest_sha256: hash(manifestFile),
