@@ -185,6 +185,8 @@ sync 42.0 "Ability" source="The Tyrant" {
 
 필요하면 `enter`에 `from="phase-id"`와 `at`, `before`, `after`를 지정한다. `from`은 현재 활성 phase에 대한 조건이며, window는 **그 phase의 상대 시계**를 사용한다. `at`이 있으면 `from`이 필수이고 window 생략 기본값은 `sync`와 같다. `from`만 지정할 수도 있다. `from`이 없으면 특정 이전 phase에 제한하지 않는다. 최초 진입이나 `boss-complete` 후 대기 중인 진입에는 활성 `from`이 없으므로 해당 제약 없는 신호가 필요하다.
 
+이전 선택에 따라 다음 선택의 시간 창이 달라지면 기믹 구간을 phase로 표현하고, 같은 대상 phase에 이전 구간별 `enter from`을 둘 수 있다. [Varis EX의 P3 발췌](../tests/fixtures/timeline/varis-choice-windows.kdl)는 Loaded 진입을 이전 Reinforced 시계의 52.8초 또는 Electrified 시계의 58.7초에 받는 예시다. [검증 범위](VARIS_ANTIVIRUS_VALIDATION.md)의 여섯 순서·창 경계 확인은 생성기의 선택 이력 학습 완료와 구분한다.
+
 타임라인은 유휴 상태로 시작한다. 같은 신호가 `start`와 첫 phase `enter`에 일치하면 두 시계를 같은 관측 시각에 시작한다. 여러 lifecycle 사건에 일치하면 `zone-exit`, `wipe`, `finish`, `boss-complete`, `start` 순으로 하나만 적용한다. `zone-exit`, `wipe`, `finish`는 같은 관측에서 새 phase나 option을 시작하지 않는다.
 
 같은 관측이 `boss-complete`와 다음 phase의 `enter`에 일치하면 이전 phase를 닫고 다음 phase로 진입하는 하나의 전환으로 처리한다. `from`과 window는 이전 phase를 닫기 전 상태를 기준으로 평가한다. 같은 관측이 현재 loop의 `until`과 새 phase의 `enter`에 일치할 때도 phase 전환을 한 번 적용한다. 이때 이전 phase가 닫히므로 해당 loop의 `on-exit`은 실행하지 않는다. 유효한 새 phase가 둘 이상이면 `ambiguous`로 보고하고 어느 phase로도 전환하지 않는다. lifecycle·전환·선택과 이벤트 sync가 충돌하면 제어 동작을 우선하고 그 관측을 이벤트 sync로 재사용하지 않는다. FFLogs fight 경계를 ACT의 실제 시작·전멸 신호로 간주하지 않는다.

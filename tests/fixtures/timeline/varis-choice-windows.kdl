@@ -1,0 +1,25 @@
+// P3 excerpt authored from cactbot e79ea7f; this is an executor oracle, not generated output.
+timeline 1 "Varis EX choice-dependent windows" {
+    start InCombat inGameCombat="1"
+    phase random-groups {
+        enter InCombat inGameCombat="1"
+    }
+    phase loaded {
+        enter StartsUsing id="4CD8" source="Varis Yae Galvus" from=random-groups at=14.2 before=100.0 after=100.0
+        enter StartsUsing id="4CD8" source="Varis Yae Galvus" from=reinforced at=52.8 before=10.0 after=10.0
+        enter StartsUsing id="4CD8" source="Varis Yae Galvus" from=electrified at=58.7 before=10.0 after=10.0
+        event loaded-gunshield 5.0 name="Loaded Gunshield"
+    }
+    phase reinforced {
+        enter StartsUsing id="4CD9" source="Varis Yae Galvus" from=random-groups at=14.2 before=100.0 after=100.0
+        enter StartsUsing id="4CD9" source="Varis Yae Galvus" from=loaded at=54.3 before=10.0 after=10.0
+        enter StartsUsing id="4CD9" source="Varis Yae Galvus" from=electrified at=58.7 before=10.0 after=10.0
+        event reinforced-gunshield 5.0 name="Reinforced Gunshield"
+    }
+    phase electrified {
+        enter StartsUsing id="4CD7" source="Varis Yae Galvus" from=random-groups at=14.2 before=100.0 after=100.0
+        enter StartsUsing id="4CD7" source="Varis Yae Galvus" from=loaded at=54.3 before=10.0 after=10.0
+        enter StartsUsing id="4CD7" source="Varis Yae Galvus" from=reinforced at=52.8 before=10.0 after=10.0
+        event electrified-gunshield 5.0 name="Electrified Gunshield"
+    }
+}
