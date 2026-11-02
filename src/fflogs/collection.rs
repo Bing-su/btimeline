@@ -15,7 +15,7 @@ use super::client::{API_URL, Client, TOKEN_URL, validate_selection};
 use super::model::{CollectedLog, Fight};
 
 mod selection;
-use selection::{FightMetadata, POLICY, prioritize};
+use selection::{FightMetadata, Purpose, prioritize};
 
 const CANDIDATES: &str = r#"
 query TimelineCandidates($code: String!) {
@@ -107,6 +107,9 @@ pub struct FFLogsCollectCommand {
     /// Maximum selected fights after all inspected reports have been compared.
     #[usage(long, default = "100")]
     max_fights: usize,
+    /// Candidate selection purpose: training favors long progress; verification includes short runs.
+    #[usage(long, default = "training")]
+    purpose: String,
     /// New JSON plan path, e.g. out/r12s.download-plan.json.
     #[usage(short = 'o', long)]
     output: Utf8PathBuf,
@@ -134,6 +137,8 @@ pub struct FFLogsDownloadCommand {
 #[serde(rename_all = "camelCase")]
 struct DownloadPlan {
     schema_version: u32,
+    #[serde(default)]
+    purpose: Option<Purpose>,
     collected_at_unix_ms: u64,
     source: PlanSource,
     #[serde(default)]
@@ -241,13 +246,14 @@ struct Failure {
 impl DownloadPlan {
     fn validate(&self) -> Result<()> {
         ensure!(
-            self.schema_version == 2,
+            self.schema_version == 3,
             "Unsupported download plan version {}; regenerate with fflogs-collect",
             self.schema_version
         );
+        let purpose = self.purpose.context("Missing collection purpose")?;
         ensure!(!self.fights.is_empty(), "Empty download plan");
         ensure!(
-            self.selection_policy == POLICY && self.candidate_count >= self.fights.len(),
+            self.selection_policy == purpose.policy() && self.candidate_count >= self.fights.len(),
             "Invalid download selection evidence"
         );
         let mut identities = BTreeSet::new();
@@ -452,8 +458,10 @@ impl FFLogsCollectCommand {
     }
 
     fn collect(&self, client: &Client) -> Result<DownloadPlan> {
+        let purpose: Purpose = self.purpose.parse()?;
         let mut plan = DownloadPlan {
-            schema_version: 2,
+            schema_version: 3,
+            purpose: Some(purpose),
             collected_at_unix_ms: now()?,
             source: PlanSource {
                 reports: self.reports.clone(),
@@ -465,7 +473,7 @@ impl FFLogsCollectCommand {
                 first_page: self.page,
                 pages: self.pages,
             },
-            selection_policy: POLICY.into(),
+            selection_policy: purpose.policy().into(),
             candidate_count: 0,
             fights: Vec::new(),
             failures: Vec::new(),
@@ -509,7 +517,7 @@ impl FFLogsCollectCommand {
         }
         plan.candidate_count = plan.fights.len();
         plan.truncated |= plan.candidate_count > self.max_fights;
-        plan.fights = prioritize(plan.fights, self.max_fights);
+        plan.fights = prioritize(plan.fights, self.max_fights, purpose);
         Ok(plan)
     }
 }
@@ -518,6 +526,7 @@ impl Run for FFLogsCollectCommand {
     type Output = Result<()>;
 
     fn run(self) -> Result<()> {
+        self.purpose.parse::<Purpose>()?;
         self.access.validate()?;
         ensure!(!self.output.exists(), "Download plan already exists");
         ensure!(

@@ -3,7 +3,8 @@ source: src/fflogs/collection/tests.rs
 expression: "serde_json::to_string_pretty(&plan).unwrap()"
 ---
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
+  "purpose": "training",
   "collectedAtUnixMs": 1,
   "source": {
     "reports": [
@@ -17,7 +18,7 @@ expression: "serde_json::to_string_pretty(&plan).unwrap()"
     "firstPage": 1,
     "pages": 1
   },
-  "selectionPolicy": "report-cohort-outcome-long-short-v1",
+  "selectionPolicy": "cohort-long-progress-v1",
   "candidateCount": 1,
   "fights": [
     {

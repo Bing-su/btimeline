@@ -156,6 +156,31 @@ fn fflogs_tools_load_dotenv_without_exposing_credentials() {
 }
 
 #[test]
+fn collection_rejects_unknown_purpose_before_authentication() {
+    let directory = tempfile::tempdir().unwrap();
+    let result = cargo_bin_cmd!("btimeline")
+        .current_dir(directory.path())
+        .args([
+            "fflogs-collect",
+            "example",
+            "--purpose",
+            "invalid",
+            "-o",
+            "plan.json",
+            "--client-id",
+            "test-id",
+            "--client-secret",
+            "private-test-value",
+        ])
+        .assert()
+        .failure();
+    let stderr = String::from_utf8_lossy(&result.get_output().stderr);
+    assert!(stderr.contains("Unknown collection purpose"));
+    assert!(!stderr.contains("private-test-value"));
+    assert!(!directory.path().join("plan.json").exists());
+}
+
+#[test]
 fn mine_preserves_wipes_simultaneous_events_and_existing_output() {
     let dir = tempfile::tempdir().unwrap();
     let mut first: Value = serde_json::from_slice(&fs::read(INPUT).unwrap()).unwrap();

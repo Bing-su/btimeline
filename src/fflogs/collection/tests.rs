@@ -31,6 +31,7 @@ fn options() -> FFLogsCollectCommand {
         pages: 2,
         max_reports: 10,
         max_fights: 100,
+        purpose: "training".into(),
         output: "unused.json".into(),
         access: Access {
             client_id: "id".into(),
@@ -131,8 +132,9 @@ fn fixture_plan() -> (DownloadPlan, Value) {
     let fights = candidate_fights(&report, None, None, None).unwrap();
     (
         DownloadPlan {
-            schema_version: 2,
-            selection_policy: POLICY.into(),
+            schema_version: 3,
+            purpose: Some(Purpose::Training),
+            selection_policy: Purpose::Training.policy().into(),
             candidate_count: fights.len(),
             collected_at_unix_ms: 1,
             source: PlanSource {
@@ -257,28 +259,34 @@ fn rejects_invalid_candidate_metadata(#[case] field: &str, #[case] value: Value)
 }
 
 #[test]
-fn plan_v2_is_explicit_and_old_plans_are_rejected() {
+fn plan_v3_is_explicit_and_old_plans_are_rejected() {
     let (mut plan, _) = fixture_plan();
     insta::assert_snapshot!(serde_json::to_string_pretty(&plan).unwrap());
-    plan.schema_version = 1;
-    let mut legacy = serde_json::to_value(&plan).unwrap();
-    legacy.as_object_mut().unwrap().remove("selectionPolicy");
-    legacy.as_object_mut().unwrap().remove("candidateCount");
-    let legacy: DownloadPlan = serde_json::from_value(legacy).unwrap();
-    assert!(
-        legacy
-            .validate()
-            .unwrap_err()
-            .to_string()
-            .contains("regenerate with fflogs-collect")
-    );
-    plan.schema_version = 2;
+    for version in [1, 2] {
+        plan.schema_version = version;
+        let mut legacy = serde_json::to_value(&plan).unwrap();
+        legacy.as_object_mut().unwrap().remove("purpose");
+        let legacy: DownloadPlan = serde_json::from_value(legacy).unwrap();
+        assert!(
+            legacy
+                .validate()
+                .unwrap_err()
+                .to_string()
+                .contains("regenerate with fflogs-collect")
+        );
+    }
+    plan.schema_version = 3;
+    plan.purpose = None;
+    plan.validate().unwrap_err();
+    plan.purpose = Some(Purpose::Verification);
+    plan.validate().unwrap_err();
+    plan.selection_policy = Purpose::Verification.policy().into();
+    plan.validate().unwrap();
     plan.source.game_zone = Some(1307);
     plan.validate().unwrap_err();
 }
 
-#[test]
-fn prioritization_retains_independent_reports_outcomes_and_short_controls() {
+fn candidate_set() -> Vec<PlannedFight> {
     let mut candidates = Vec::new();
     for report in ["alpha", "beta"] {
         for (fight, kill, duration) in [
@@ -296,7 +304,45 @@ fn prioritization_retains_independent_reports_outcomes_and_short_controls() {
             candidates.push(row);
         }
     }
-    let selected = prioritize(candidates, 8);
+    candidates
+}
+
+#[test]
+fn training_prioritizes_long_progress_without_short_or_outcome_quotas() {
+    let selected = prioritize(candidate_set(), 8, Purpose::Training);
+    assert_eq!(
+        selected
+            .iter()
+            .map(|fight| (fight.report.as_str(), fight.fight))
+            .collect::<Vec<_>>(),
+        [
+            ("alpha", 1),
+            ("beta", 1),
+            ("alpha", 3),
+            ("beta", 3),
+            ("alpha", 2),
+            ("beta", 2),
+            ("alpha", 4),
+            ("beta", 4),
+        ]
+    );
+}
+
+#[test]
+fn long_wipes_precede_short_clears_and_use_combat_time_when_available() {
+    let mut candidates = candidate_set();
+    for fight in &mut candidates {
+        if fight.kill {
+            fight.metadata.combat_time = Some(50);
+        }
+    }
+    let selected = prioritize(candidates, 2, Purpose::Training);
+    assert!(selected.iter().all(|fight| !fight.kill && fight.fight == 3));
+}
+
+#[test]
+fn verification_retains_independent_reports_outcomes_and_short_controls() {
+    let selected = prioritize(candidate_set(), 8, Purpose::Verification);
     assert_eq!(
         selected
             .iter()
@@ -328,15 +374,16 @@ fn prioritization_retains_independent_reports_outcomes_and_short_controls() {
 
 proptest::proptest! {
     #[test]
-    fn prioritization_is_order_independent_and_never_fabricates_fights(lengths in proptest::collection::vec(1_i64..10000, 1..40), limit in 0_usize..50) {
+    fn prioritization_is_order_independent_and_never_fabricates_fights(lengths in proptest::collection::vec(1_i64..10000, 1..40), limit in 0_usize..50, training in proptest::bool::ANY) {
         let candidates = |reverse: bool| {
             let mut rows: Vec<PlannedFight> = lengths.iter().enumerate().map(|(index,duration)| serde_json::from_value(json!({"report":if index%2==0 {"alpha"}else{"beta"},"fight":index+1,"name":"Boss","encounter":1,"difficulty":100,"kill":index%3!=0,"startTime":0,"endTime":duration})).unwrap()).collect();
             if reverse {rows.reverse();} rows
         };
         let identities = |rows: Vec<PlannedFight>| rows.into_iter().map(|fight| (fight.report,fight.fight)).collect::<Vec<_>>();
-        let selected = identities(prioritize(candidates(false),limit));
+        let purpose = if training { Purpose::Training } else { Purpose::Verification };
+        let selected = identities(prioritize(candidates(false),limit,purpose));
         proptest::prop_assert_eq!(selected.len(),limit.min(lengths.len()));
-        proptest::prop_assert_eq!(&selected,&identities(prioritize(candidates(true),limit)));
+        proptest::prop_assert_eq!(&selected,&identities(prioritize(candidates(true),limit,purpose)));
         proptest::prop_assert_eq!(selected.iter().collect::<BTreeSet<_>>().len(),selected.len());
     }
 }
@@ -423,4 +470,23 @@ async fn fight_limit_is_applied_after_inspecting_all_report_candidates() {
     assert_eq!(plan.fights[0].report, "beta");
     assert!(plan.truncated);
     plan.validate().unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn verification_plan_records_its_purpose_and_selection_policy() {
+    let server = server(token(), None).await;
+    let mut data = metadata().1;
+    data["data"]["rateLimitData"] = quota(2.0);
+    api("TimelineCandidates")
+        .respond_with(ResponseTemplate::new(200).set_body_json(data))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let mut command = options();
+    command.reports = vec!["example".into()];
+    command.purpose = "verification".into();
+    let plan = command.collect(&authenticate(&server)).unwrap();
+    plan.validate().unwrap();
+    assert_eq!(plan.purpose, Some(Purpose::Verification));
+    assert_eq!(plan.selection_policy, Purpose::Verification.policy());
 }

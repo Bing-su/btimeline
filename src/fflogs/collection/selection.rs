@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::str::FromStr;
 
 use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
@@ -60,26 +61,68 @@ impl FightMetadata {
     }
 }
 
-pub(super) const POLICY: &str = "report-cohort-outcome-long-short-v1";
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub(super) enum Purpose {
+    Training,
+    Verification,
+}
 
-// Favor independent reports and both outcomes; later rounds retain short-clear/wipe controls too.
-pub(super) fn prioritize(mut candidates: Vec<PlannedFight>, limit: usize) -> Vec<PlannedFight> {
+impl FromStr for Purpose {
+    type Err = anyhow::Error;
+
+    fn from_str(value: &str) -> Result<Self> {
+        match value {
+            "training" => Ok(Self::Training),
+            "verification" => Ok(Self::Verification),
+            _ => anyhow::bail!("Unknown collection purpose {value}; use training or verification"),
+        }
+    }
+}
+
+impl Purpose {
+    pub fn policy(self) -> &'static str {
+        match self {
+            Self::Training => "cohort-long-progress-v1",
+            Self::Verification => "report-cohort-outcome-long-short-v1",
+        }
+    }
+}
+
+fn duration(fight: &PlannedFight) -> i64 {
+    fight
+        .metadata
+        .combat_time
+        .filter(|time| *time > 0)
+        .unwrap_or(fight.end_time - fight.start_time)
+}
+
+// Learn the full route from long pulls; reserve short clears/wipes for verification, e.g. early skips.
+pub(super) fn prioritize(
+    mut candidates: Vec<PlannedFight>,
+    limit: usize,
+    purpose: Purpose,
+) -> Vec<PlannedFight> {
     let mut reports = BTreeMap::<String, usize>::new();
     let mut cohorts = BTreeMap::new();
     let mut outcomes = BTreeMap::new();
     let mut selected = Vec::new();
     while !candidates.is_empty() && selected.len() < limit {
-        let index = candidates
-            .iter()
-            .enumerate()
-            .min_by_key(|(_, fight)| {
+        let index = match purpose {
+            Purpose::Training => candidates.iter().enumerate().min_by_key(|(_, fight)| {
+                let cohort = (fight.encounter, fight.difficulty, fight.metadata.zone_id());
+                (
+                    cohorts.get(&cohort).copied().unwrap_or(0),
+                    -duration(fight),
+                    reports.get(&fight.report).copied().unwrap_or(0),
+                    &fight.report,
+                    fight.fight,
+                )
+            }),
+            Purpose::Verification => candidates.iter().enumerate().min_by_key(|(_, fight)| {
                 let used = reports.get(&fight.report).copied().unwrap_or(0);
                 let cohort = (fight.encounter, fight.difficulty, fight.metadata.zone_id());
-                let duration = fight
-                    .metadata
-                    .combat_time
-                    .filter(|time| *time > 0)
-                    .unwrap_or(fight.end_time - fight.start_time);
+                let duration = duration(fight);
                 (
                     used,
                     cohorts.get(&cohort).copied().unwrap_or(0),
@@ -89,8 +132,9 @@ pub(super) fn prioritize(mut candidates: Vec<PlannedFight>, limit: usize) -> Vec
                     &fight.report,
                     fight.fight,
                 )
-            })
-            .map(|(index, _)| index);
+            }),
+        }
+        .map(|(index, _)| index);
         let Some(index) = index else { break };
         let fight = candidates.remove(index);
         let cohort = (fight.encounter, fight.difficulty, fight.metadata.zone_id());
