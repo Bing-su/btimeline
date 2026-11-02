@@ -27,6 +27,43 @@
 
 명령의 `{…}`는 zsh/bash의 brace expansion이다. 생성 시 출력 경로는 비어 있어야 한다.
 
+## 후속: 반복 경로의 보고서 보류 검사
+
+`repeat_holdouts_relearn_without_the_entire_report`의 14개 사례와 `a_holdout_cannot_supply_the_second_training_witness_for_a_repeat`를 추가했다. 각 보류 검사는 임시 학습 자료만으로 반복을 다시 발견하고 대표 그래프에 연결한다. 보류 관측은 시간·순서·지지 trace로 사용하지 않는다. 이는 최종 KDL 재생 검증과 별개다.
+
+| 사례                                  | 결과                                                                                               |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 같은 보고서의 두 전투                 | `zeta/1`, `zeta/2`를 함께 보류. 임시 모델의 모든 원본 참조에 zeta가 없음                           |
+| 회차 안·회차 끝·진입 전 종료          | 다음 내부 단계나 다음 회차 경계 전에 끝난 경우만 `censored`                                        |
+| 더 많은 회차                          | 학습 회차 수를 넘겨도 실제 학습 회차 순서로 대응. trace별 지지 수를 중복 계산하지 않음             |
+| 기한 초과·내부 단계/경계 누락·새 순서 | `unresolved`. 실패 회차와 확인된 완전 회차 수를 기록                                               |
+| 선택 후 공통 반복                     | raid·dungeon에서 유한 선택 경로를 먼저 확인한 뒤 회차를 검사                                       |
+| 복합 파동·근접 순서                   | 검증 지원 범위 밖이므로 `unresolved`                                                               |
+| 두 번째 학습 근거 부족                | 전체 입력으로는 반복을 생성하더라도 임시 모델에는 반복 없음. 보류 입력을 학습 근거로 보충하지 않음 |
+
+### 실제 Mistwake 자료
+
+명령: `btimeline generate logs/loop-mistwake/*.json --mode dungeon -o mistwake.kdl`.
+
+| 결과                | 관측                                                                                                            |
+| ------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 생성                | 94개 정의, `common-backbone-v1`. KDL SHA-256 `2a0a9b7c3daa4b797766f0e8243b24673d0e33382712e67ae2554301c0138df8` |
+| 보류                | `dN2P37qHWt1mFD6R/13` 한 전투를 제외하고 아래 7개 파일로 임시 학습                                              |
+| Griffin 임시 그래프 | 말단 반복은 발견했지만 유한 경로 `peers_complete=false`, 복합 파동 56개. 반복 검사는 `unresolved`               |
+| 다른 보스           | Amdusias·Treno Catoblepas도 `unresolved`                                                                        |
+| 판정 한계           | 처리 완료·생성 성공은 품질 통과를 뜻하지 않음. 새 실제 자료의 성공적인 반복 일반화·KDL 예고·ACT 동등성은 미확인 |
+
+| 역할 | 입력 (`logs/loop-mistwake/`) | SHA-256                                                            |
+| ---- | ---------------------------- | ------------------------------------------------------------------ |
+| 학습 | `YQAawtmnD6FRVzPj_4.json`    | `1557e8b0e06a0cb2b1ed0a17998f157ea27bac2382f87170213cb6bdfc427b80` |
+| 학습 | `YQAawtmnD6FRVzPj_78.json`   | `93b9707471ffffad105b2590a722c8f4c050619319ccfbb26aa4d393ea5b8b04` |
+| 학습 | `YQAawtmnD6FRVzPj_79.json`   | `c55eba66ac5c3ea6ab6a944e34b3b108c2283798fda21467c324c9bacb7a9514` |
+| 학습 | `YQAawtmnD6FRVzPj_80.json`   | `4ccb4542e91871ca9a41eab8db6986ae289c5c75a7b74411ea9b3375f497008b` |
+| 학습 | `YQAawtmnD6FRVzPj_81.json`   | `82b31c085af0e76ff688032f850f25b150b3ab38f5e6e9c6883ed038de65050e` |
+| 학습 | `YQAawtmnD6FRVzPj_82.json`   | `c4c4b1f86d4751d20c99bf4ffc2585d916a6242e45cd3bbc5fdbb55251d41ca9` |
+| 학습 | `c6BadvCfAZyFqpQh_1.json`    | `79acfead5e46196ff07a76baa02098d3bebdb49f23f581f5f8c38413e2ca9f55` |
+| 보류 | `dN2P37qHWt1mFD6R_13.json`   | `ce820880f5013845ab08f25f789c28c1a9a8335061cb9af02d12758a51d9370c` |
+
 | 입력 파일                              | SHA-256                                                            |
 | -------------------------------------- | ------------------------------------------------------------------ |
 | `logs/r11s/4kt1bfqJn7QPCj29_2.json`    | `475d3009e53ff78bfc2cdf65021cbd7aeca45800110a4cd3116a3bb322e39bd4` |

@@ -32,7 +32,7 @@ pub(super) fn activities(candidate: &Candidate, progression: &Progression) -> Re
         .collect()
 }
 
-fn slice(candidate: &Candidate, nodes: Vec<(usize, i64)>) -> Candidate {
+pub(super) fn slice(candidate: &Candidate, nodes: Vec<(usize, i64)>) -> Candidate {
     Candidate {
         trace: candidate.trace,
         reference: candidate.reference.clone(),

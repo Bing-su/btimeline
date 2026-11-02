@@ -159,10 +159,7 @@ fn learning_views(pulls: &[Pull], boss_only: bool) -> (Vec<Cow<'_, Pull>>, Vec<V
 }
 
 impl Draft {
-    pub(in crate::generate::mining) fn validate_choices(
-        pulls: &[Pull],
-        boss_only: bool,
-    ) -> Result<Value> {
+    pub(in crate::generate::mining) fn validate(pulls: &[Pull], boss_only: bool) -> Result<Value> {
         validation::check(pulls, boss_only)
     }
 

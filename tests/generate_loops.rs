@@ -484,6 +484,171 @@ fn a_representative_choice_can_join_a_shared_terminal_repeat() {
     }
 }
 
+#[rstest::rstest]
+#[case("raid", "partial", "censored")]
+#[case("dungeon", "partial", "censored")]
+#[case("alliance", "complete", "censored")]
+#[case("raid", "longer", "censored")]
+#[case("raid", "before-entry", "censored")]
+#[case("raid", "overdue", "unresolved")]
+#[case("dungeon", "overdue", "unresolved")]
+#[case("raid", "missing-step", "unresolved")]
+#[case("raid", "missing-boundary", "unresolved")]
+#[case("raid", "unseen-order", "unresolved")]
+#[case("raid", "uncertain", "unresolved")]
+#[case("raid", "choice", "censored")]
+#[case("dungeon", "choice", "censored")]
+#[case("raid", "compound", "unresolved")]
+fn repeat_holdouts_relearn_without_the_entire_report(
+    #[case] mode: &str,
+    #[case] scenario: &str,
+    #[case] status: &str,
+) {
+    let dir = tempfile::tempdir().unwrap();
+    let ids = match scenario {
+        "before-entry" => vec![9],
+        "missing-step" => vec![9, 1, 2, 4, 1, 2, 3],
+        "missing-boundary" => vec![9, 1, 2, 3, 4, 2, 3, 4],
+        "unseen-order" => vec![9, 1, 3, 2, 4, 1, 3, 2],
+        "complete" => vec![9, 1, 2, 3, 4, 1, 2, 3, 4],
+        "longer" => vec![9, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3],
+        "choice" => vec![9, 3, 2, 8, 1, 4],
+        _ => vec![9, 1, 2, 3, 4, 1, 2],
+    };
+    let (alpha, beta) = if scenario == "choice" {
+        (
+            vec![9, 2, 3, 8, 1, 4, 7, 1, 4, 7],
+            vec![9, 3, 2, 8, 1, 4, 7, 1, 4, 7],
+        )
+    } else {
+        (
+            vec![9, 1, 2, 3, 4, 1, 2, 3],
+            vec![9, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3],
+        )
+    };
+    let mut paths = vec![
+        fixture(dir.path(), "alpha", &alpha),
+        fixture(dir.path(), "beta", &beta),
+        fixture(dir.path(), "zeta", &ids),
+    ];
+    if scenario == "compound" {
+        for path in paths.iter().take(2) {
+            let mut data: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+            let events = data["events"].as_array_mut().unwrap();
+            let extra: Vec<_> = events
+                .iter()
+                .filter(|event| event["abilityGameID"] == 2)
+                .cloned()
+                .map(|mut event| {
+                    event["abilityGameID"] = 7.into();
+                    event
+                })
+                .collect();
+            events.extend(extra);
+            events.sort_by_key(|event| event["timestamp"].as_i64().unwrap());
+            data["collection"]["eventCount"] = data["events"].as_array().unwrap().len().into();
+            fs::write(path, serde_json::to_vec(&data).unwrap()).unwrap();
+        }
+    }
+    let path = paths.last().unwrap();
+    let mut data: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    if scenario == "uncertain" {
+        data["events"][2]["timestamp"] = 3050.into();
+    }
+    let end = 2000 + (ids.len() - 1) * 1000 + if scenario == "overdue" { 1500 } else { 500 };
+    if mode == "raid" {
+        for pointer in [
+            "/report/endTime",
+            "/report/fights/0/endTime",
+            "/collection/endTime",
+        ] {
+            *data.pointer_mut(pointer).unwrap() = end.into();
+        }
+    } else {
+        data["events"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"timestamp":end,"type":"death","targetID":10,"fight":1}));
+        data["collection"]["eventCount"] = data["events"].as_array().unwrap().len().into();
+    }
+    fs::write(path, serde_json::to_vec(&data).unwrap()).unwrap();
+    // A second fight in the same report must be withheld too, not become another training supporter.
+    data["report"]["fights"][0]["id"] = 2.into();
+    data["collection"]["fightID"] = 2.into();
+    for event in data["events"].as_array_mut().unwrap() {
+        event["fight"] = 2.into();
+    }
+    let second = dir.path().join("zeta-second.json");
+    fs::write(&second, serde_json::to_vec(&data).unwrap()).unwrap();
+    paths.push(second);
+    let output = dir.path().join("timeline.kdl");
+    cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(paths)
+        .args(["--mode", mode, "-o"])
+        .arg(&output)
+        .assert()
+        .success();
+    let evidence: Value =
+        serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
+    let validation = evidence["alignment_diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["method"] == "automatic-draft-validation-v1")
+        .unwrap();
+    assert_eq!(validation["status"], "evaluated");
+    assert_eq!(validation["split"]["held_out"], json!(["zeta/1", "zeta/2"]));
+    assert!(!validation["model"].to_string().contains("zeta/"));
+    assert!(validation["model"]["routes"][0]["repeat"].is_object());
+    let checks = validation["checks"].as_array().unwrap();
+    assert_eq!(checks.len(), 2);
+    for check in checks {
+        assert_eq!(check["method"], "observed-repeat-cycles-v1");
+        assert_eq!(check["status"], status, "{check}");
+        assert!(check["supporting_traces"].as_u64().unwrap() <= 2);
+        if ["missing-step", "missing-boundary", "unseen-order"].contains(&scenario) {
+            assert_eq!(
+                check["complete_cycles"],
+                if scenario == "missing-boundary" { 1 } else { 0 }
+            );
+        }
+        if status == "censored" {
+            assert!(check["scope_end_ms"].as_i64() < check["next_expected_ms"].as_i64());
+        }
+    }
+}
+
+#[test]
+fn a_holdout_cannot_supply_the_second_training_witness_for_a_repeat() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = [
+        fixture(dir.path(), "alpha", &[9, 1, 2, 3, 4, 1, 2, 3]),
+        fixture(dir.path(), "beta", &[9, 1, 2]),
+        fixture(dir.path(), "zeta", &[9, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3]),
+    ];
+    let output = dir.path().join("timeline.kdl");
+    cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(paths)
+        .args(["--mode", "raid", "-o"])
+        .arg(&output)
+        .assert()
+        .success();
+    let evidence: Value =
+        serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
+    assert!(evidence["draft"]["routes"][0]["repeat"].is_object());
+    let validation = evidence["alignment_diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["method"] == "automatic-draft-validation-v1")
+        .unwrap();
+    assert!(validation["model"]["routes"][0]["repeat"].is_null());
+    assert!(!validation["model"].to_string().contains("zeta/1"));
+    assert_eq!(validation["checks"][0]["status"], "unresolved");
+}
+
 #[test]
 fn coincident_same_name_abilities_keep_distinct_event_ids() {
     let dir = tempfile::tempdir().unwrap();

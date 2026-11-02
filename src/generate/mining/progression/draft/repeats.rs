@@ -5,6 +5,8 @@ use serde::Serialize;
 
 use super::{Candidate, LoopModel, Progression, Route, Signal};
 
+mod validation;
+
 #[derive(Serialize)]
 pub(in crate::generate) struct Repeat {
     entry: Option<usize>,

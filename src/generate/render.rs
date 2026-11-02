@@ -98,14 +98,9 @@ fn draft_anchors(
     analysis: &Analysis,
     progression: &Progression,
     draft: &Draft,
-    mode: Mode,
 ) -> Result<Prepared> {
     let branches = analysis.draft_branches(draft, progression)?;
-    let diagnostics = if draft.has_choices() {
-        vec![analysis.draft_choice_validation(!matches!(mode, Mode::Raid))?]
-    } else {
-        Vec::new()
-    };
+    let diagnostics = Vec::new();
     let mut events = Vec::new();
     for route in &draft.routes {
         let mut counts = BTreeMap::<_, usize>::new();
@@ -556,16 +551,17 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
         events: anchors,
         branches,
         mut excluded,
-        diagnostics: alignment_diagnostics,
+        diagnostics: mut alignment_diagnostics,
     } = if representative {
         ensure!(
             draft.supports_observed_routes(),
             "Representative routes differ; branch, internal-gap and ambiguous-prefix learning is not implemented for fewer than two clears"
         );
-        draft_anchors(&analysis, &progression, &draft, mode)?
+        draft_anchors(&analysis, &progression, &draft)?
     } else {
         anchors(&analysis, &progression, mode)?
     };
+    alignment_diagnostics.push(analysis.draft_validation(!matches!(mode, Mode::Raid))?);
     let represented: BTreeSet<_> = anchors.iter().map(|anchor| anchor.source.clone()).collect();
     if !matches!(mode, Mode::Raid) {
         for boss in analysis.boss_names.difference(&represented) {
