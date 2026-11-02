@@ -41,17 +41,21 @@ try {
     for (const episode of raw.model.episodes) {
       const input = observed.analysis.inputs.find((input: any) => input.trace === episode.trace);
       const graph = observed.progression.traces.find((trace: any) => trace.trace === episode.trace);
-      const scope = observed.alignment_diagnostics
-        .find(
-          (row: any) =>
-            row.method === "boss-attempt-scope-v1" &&
-            row.trace === episode.trace &&
-            row.source === loop.source,
-        )
-        .attempts.find(
-          (attempt: any) =>
-            attempt.actor === episode.actor && attempt.instance === episode.instance,
-        );
+      const scope =
+        loop.source === null
+          ? { end_ms: input.end_ms }
+          : observed.alignment_diagnostics
+              .find(
+                (row: any) =>
+                  row.method === "boss-attempt-scope-v1" &&
+                  row.trace === episode.trace &&
+                  row.source === loop.source,
+              )
+              ?.attempts.find(
+                (attempt: any) =>
+                  attempt.actor === episode.actor && attempt.instance === episode.instance,
+              );
+      assert(scope, `Missing observed scope for ${episode.trace}`);
       const end = scope.end_ms ?? scope.last_cast_ms;
       const recording = path.join(directory, "recording.json");
       const samples = graph.nodes
@@ -67,15 +71,20 @@ try {
         JSON.stringify({
           version: 1,
           end_ms: end - episode.phase_origin_ms,
-          observations: samples.map((row: any) => ({
-            at_ms: row.at - episode.phase_origin_ms,
-            type: "Ability",
-            fields: {
-              id: row.signal.identifier.Ability.toString(16).toUpperCase(),
-              // Unknown names remain absent fields, e.g. anonymous NPCs cannot match a named sync.
-              ...(row.signal.source === null ? {} : { source: row.signal.source }),
-            },
-          })),
+          observations: [
+            ...(fit.mode === "raid"
+              ? [{ at_ms: 0, type: "InCombat", fields: { inGameCombat: "1" } }]
+              : []),
+            ...samples.map((row: any) => ({
+              at_ms: row.at - episode.phase_origin_ms,
+              type: "Ability",
+              fields: {
+                id: row.signal.identifier.Ability.toString(16).toUpperCase(),
+                // Unknown names remain absent fields, e.g. anonymous NPCs cannot match a named sync.
+                ...(row.signal.source === null ? {} : { source: row.signal.source }),
+              },
+            })),
+          ],
         }),
       );
       const compared = JSON.parse(
@@ -132,7 +141,7 @@ try {
         observedFile,
         results,
         scope:
-          "Raw cast-to-Ability projection per observed body span. Closest same-signal emitted forecast per raw member; not a one-to-one path validator. Shared observed structure is required before comparing timing. No ACT capture, death/reset or conditional-path proof.",
+          "Raw cast-to-Ability projection per observed body span or raid combat. Raid start is a synthetic InCombat observation. Closest same-signal emitted forecast per raw member; not a one-to-one path validator. Shared observed structure is required before comparing timing. No ACT capture, death/reset or conditional-path proof.",
       },
       null,
       2,

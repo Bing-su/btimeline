@@ -134,9 +134,12 @@ impl Analysis {
         Progression::new(&self.pulls)
     }
 
-    pub(super) fn loop_models(&self) -> Result<LoopDiscovery> {
+    pub(super) fn loop_models(&self, boss_only: bool) -> Result<LoopDiscovery> {
         let views: Vec<_> = self.pulls.iter().map(Pull::learning_view).collect();
-        occurrences::loop_models(&views.iter().map(Cow::as_ref).collect::<Vec<_>>())
+        occurrences::loop_models(
+            &views.iter().map(Cow::as_ref).collect::<Vec<_>>(),
+            boss_only,
+        )
     }
 
     pub(super) fn aligned(

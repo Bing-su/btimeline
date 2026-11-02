@@ -115,10 +115,7 @@ pub(super) fn apply(
     source: &Option<String>,
 ) -> Vec<Value> {
     let mut reports = Vec::new();
-    for model in models
-        .iter()
-        .filter(|model| source.as_ref() == Some(&model.source))
-    {
+    for model in models.iter().filter(|model| source == &model.source) {
         match render(analysis, progression, model, origins)
             .and_then(|rendered| replace(rendered, events, evidence)) {
             Ok(report) => reports.push(report),
@@ -365,11 +362,12 @@ pub(super) fn render(
         .or_else(|| model.body.first())
         .context("Missing loop entry")?;
     ensure!(
-        entry.len() == 1
-            && !origins.is_empty()
-            && origins
-                .iter()
-                .all(|origin| entry.contains(&origin.activity)),
+        model.source.is_none()
+            || (entry.len() == 1
+                && !origins.is_empty()
+                && origins
+                    .iter()
+                    .all(|origin| entry.contains(&origin.activity))),
         "Loop entry is not consistently represented by the phase origin"
     );
     for origin in origins {
@@ -385,7 +383,13 @@ pub(super) fn render(
         );
     }
     let (start, period, rows) = schedule(model)?;
-    let id = format!("{}-rotation", slug(&model.source));
+    let id = format!(
+        "{}-rotation",
+        model
+            .source
+            .as_deref()
+            .map_or_else(|| "combat".into(), slug)
+    );
     let mut node = KdlNode::new("loop");
     node.push(id.clone());
     prop(&mut node, "start", start as f64 / 10.0);
@@ -403,9 +407,25 @@ pub(super) fn render(
             })
             .collect();
         let event_id = format!(
-            "{id}-{:02}-{}-{}",
+            "{id}-{:02}-{}{}-{}",
             row.spec.position + 1,
             slug(&name),
+            if model.source.is_none() {
+                format!(
+                    "-{}",
+                    row.spec
+                        .signals
+                        .iter()
+                        .filter_map(|signal| signal.source.as_deref())
+                        .map(slug)
+                        .collect::<BTreeSet<_>>()
+                        .into_iter()
+                        .collect::<Vec<_>>()
+                        .join("-")
+                )
+            } else {
+                String::new()
+            },
             ids.iter()
                 .cloned()
                 .collect::<Vec<_>>()
@@ -418,19 +438,7 @@ pub(super) fn render(
         prop(&mut event, "name", name);
         let sync = safe(index, &rows, period);
         if sync {
-            let mut signal = KdlNode::new("sync");
-            signal.push(row.tick as f64 / 10.0);
-            signal.push("Ability");
-            prop(&mut signal, "source", model.source.as_str());
-            prop(&mut signal, "before", row.before as f64 / 10.0);
-            prop(&mut signal, "after", row.after as f64 / 10.0);
-            let mut field = KdlNode::new("field");
-            field.push("id");
-            for id in ids {
-                field.push(id);
-            }
-            signal.ensure_children().nodes_mut().push(field);
-            event.ensure_children().nodes_mut().push(signal);
+            event.ensure_children().nodes_mut().extend(syncs(row)?);
         }
         node.ensure_children().nodes_mut().push(event);
         events.push(json!({"event":event_id,"offset_ms":row.tick*100,"activities":row.spec.signals,"sync":sync,
@@ -445,9 +453,86 @@ pub(super) fn render(
     })
 }
 
+// Keep source/ID pairs together; an OR across both fields would invent unobserved combinations.
+fn syncs(row: &Scheduled) -> Result<Vec<KdlNode>> {
+    let mut by_source = BTreeMap::<_, BTreeSet<_>>::new();
+    for activity in &row.spec.signals {
+        let source = activity
+            .source
+            .as_deref()
+            .context("Missing loop source name")?;
+        let Identifier::Ability(id) = activity.identifier else {
+            anyhow::bail!("Loop needs ability identifiers")
+        };
+        by_source
+            .entry(source)
+            .or_default()
+            .insert(format!("{id:X}"));
+    }
+    Ok(by_source
+        .into_iter()
+        .map(|(source, ids)| {
+            let mut signal = KdlNode::new("sync");
+            signal.push(row.tick as f64 / 10.0);
+            signal.push("Ability");
+            prop(&mut signal, "source", source);
+            prop(&mut signal, "before", row.before as f64 / 10.0);
+            prop(&mut signal, "after", row.after as f64 / 10.0);
+            let mut field = KdlNode::new("field");
+            field.push("id");
+            for id in ids {
+                field.push(id);
+            }
+            signal.ensure_children().nodes_mut().push(field);
+            signal
+        })
+        .collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sync_alternatives_preserve_source_and_id_pairs() {
+        let signals: Vec<_> = [("Left Helper", 1), ("Right Helper", 2)]
+            .into_iter()
+            .map(|(source, id)| Signal {
+                kind: "cast".into(),
+                identifier: Identifier::Ability(id),
+                source: Some(source.into()),
+                target: None,
+            })
+            .collect();
+        let row = Scheduled {
+            spec: Spec {
+                position: 0,
+                variants: signals.iter().cloned().map(|signal| vec![signal]).collect(),
+                signals,
+            },
+            tick: 10,
+            before: 25,
+            after: 25,
+        };
+        let alternatives = syncs(&row).unwrap();
+        assert_eq!(alternatives.len(), 2);
+        for (sync, (source, id)) in alternatives
+            .iter()
+            .zip([("Left Helper", "1"), ("Right Helper", "2")])
+        {
+            assert_eq!(
+                sync.get("source").and_then(kdl::KdlValue::as_string),
+                Some(source)
+            );
+            assert_eq!(
+                sync.children().unwrap().nodes()[0]
+                    .get(1)
+                    .and_then(kdl::KdlValue::as_string),
+                Some(id)
+            );
+            assert!(sync.children().unwrap().nodes()[0].get(2).is_none());
+        }
+    }
 
     #[test]
     fn partial_loop_binding_does_not_remove_finite_events() {

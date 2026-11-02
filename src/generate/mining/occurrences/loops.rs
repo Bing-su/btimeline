@@ -6,7 +6,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 
 use super::super::bosses;
-use super::{Boundary, Group, Pull, Signal, fragments, interval, trace};
+use super::{Boundary, Group, Pull, Signal, fragments, interval, span, trace};
 
 #[derive(Clone, Debug, Serialize)]
 pub(in crate::generate) struct Member {
@@ -33,24 +33,25 @@ impl Wave {
 
 struct Scope {
     trace: String,
-    actor: i64,
-    instance: i64,
-    source: String,
+    actor: Option<i64>,
+    instance: Option<i64>,
+    source: Option<String>,
+    origin_ms: i64,
     waves: Vec<Wave>,
 }
 
 #[derive(Clone, Debug, Serialize)]
 pub(in crate::generate) struct Episode {
     pub trace: String,
-    pub actor: i64,
-    pub instance: i64,
+    pub actor: Option<i64>,
+    pub instance: Option<i64>,
     pub phase_origin_ms: i64,
     pub waves: Vec<Wave>,
 }
 
 #[derive(Clone, Debug, Serialize)]
 pub(in crate::generate) struct LoopModel {
-    pub source: String,
+    pub source: Option<String>,
     pub prefix: Vec<Vec<Signal>>,
     pub body: Vec<Vec<Signal>>,
     pub blocks: Vec<Vec<usize>>,
@@ -91,7 +92,23 @@ fn wave(group: Group<'_>) -> Wave {
     }
 }
 
-fn scopes(pulls: &[&Pull], diagnostics: &mut Vec<Value>) -> Result<Vec<Scope>> {
+// Combat scopes include classified hostile helpers without assigning them to a particular boss.
+fn combat_scopes(pulls: &[&Pull], diagnostics: &mut Vec<Value>) -> Vec<Scope> {
+    pulls.iter().filter_map(|pull| {
+        match span(pull, -1, Some(pull.end_ms + 1), &None, &|s| s.kind == "cast", Boundary::Display) {
+            Ok(groups) => Some(Scope {
+                trace: trace(pull), actor: None, instance: None, source: None, origin_ms: 0,
+                waves: groups.into_iter().map(wave).collect(),
+            }),
+            Err(reason) => {
+                diagnostics.push(json!({"method":"terminal-loop-v1","trace":trace(pull),"source":null,"status":"unresolved","reason":reason}));
+                None
+            }
+        }
+    }).collect()
+}
+
+fn boss_scopes(pulls: &[&Pull], diagnostics: &mut Vec<Value>) -> Result<Vec<Scope>> {
     let mut result = Vec::new();
     for pull in pulls {
         for (source, attempts) in bosses::attempts(pull) {
@@ -109,8 +126,12 @@ fn scopes(pulls: &[&Pull], diagnostics: &mut Vec<Value>) -> Result<Vec<Scope>> {
                     Boundary::Display,
                 );
                 match groups {
-                    Ok(groups)=>result.push(Scope{trace:trace(pull),actor:attempt.actor,instance:attempt.instance,source:source.clone(),waves:groups.into_iter().map(wave).collect()}),
-                    Err(reason)=>diagnostics.push(json!({"method":"terminal-loop-v1","trace":trace(pull),"source":source,"status":"unresolved","reason":reason})),
+                    Ok(groups) => result.push(Scope {
+                        trace: trace(pull), actor: Some(attempt.actor), instance: Some(attempt.instance), source: Some(source.clone()),
+                        origin_ms: groups.first().and_then(|group| group.observations.first()).map_or(0, |row| row.at),
+                        waves: groups.into_iter().map(wave).collect(),
+                    }),
+                    Err(reason) => diagnostics.push(json!({"method":"terminal-loop-v1","trace":trace(pull),"source":source,"status":"unresolved","reason":reason})),
                 }
             }
         }
@@ -151,7 +172,7 @@ fn episode(scope: &Scope, prefix: &[Vec<Signal>], body: &[Vec<Signal>]) -> Optio
         trace: scope.trace.clone(),
         actor: scope.actor,
         instance: scope.instance,
-        phase_origin_ms: scope.waves.first()?.at().ok()?,
+        phase_origin_ms: scope.origin_ms,
         waves: waves.to_vec(),
     })
 }
@@ -304,15 +325,19 @@ fn ranges(scope: &Scope) -> Vec<(usize, usize)> {
     result
 }
 
-pub(super) fn discover(pulls: &[&Pull]) -> Result<LoopDiscovery> {
+pub(super) fn discover(pulls: &[&Pull], boss_only: bool) -> Result<LoopDiscovery> {
     let mut result = LoopDiscovery::default();
-    let all = scopes(pulls, &mut result.diagnostics)?;
+    let all = if boss_only {
+        boss_scopes(pulls, &mut result.diagnostics)?
+    } else {
+        combat_scopes(pulls, &mut result.diagnostics)
+    };
     let sources: BTreeSet<_> = all.iter().map(|scope| &scope.source).collect();
     for source in sources {
         if result
             .diagnostics
             .iter()
-            .any(|row| row["source"] == **source && row["status"] == "unresolved")
+            .any(|row| row["source"].as_str() == source.as_deref() && row["status"] == "unresolved")
         {
             continue;
         }
@@ -362,9 +387,10 @@ mod tests {
     fn scope(trace: &str, ids: &[i64], step: i64) -> Scope {
         Scope {
             trace: trace.into(),
-            actor: 10,
-            instance: 1,
-            source: "Boss".into(),
+            actor: Some(10),
+            instance: Some(1),
+            source: Some("Boss".into()),
+            origin_ms: 0,
             waves: ids
                 .iter()
                 .enumerate()

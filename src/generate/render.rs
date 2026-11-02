@@ -399,10 +399,11 @@ fn compose(
             events.insert(position, node);
         }
         evidence.extend(branches.events);
+        let has_loop = events.iter().any(|node| node.name().value() == "loop");
         let phase_id = name
             .as_deref()
             .map(slug)
-            .or_else(|| has_branches.then(|| "combat".into()));
+            .or_else(|| (has_branches || has_loop).then(|| "combat".into()));
         result.origins.push(json!({"phase":phase_id,"policy":if matches!(mode,Mode::Raid){"combat-start"}else{"boss-cast"},
             "activities":origins.iter().map(|anchor|&anchor.activity).collect::<Vec<_>>(),"samples":zeros}));
         if let Some(phase_id) = phase_id {
@@ -460,11 +461,7 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
     let LoopDiscovery {
         models,
         diagnostics: loop_diagnostics,
-    } = if matches!(mode, Mode::Raid) {
-        LoopDiscovery::default()
-    } else {
-        analysis.loop_models()?
-    };
+    } = analysis.loop_models(!matches!(mode, Mode::Raid))?;
     let Prepared {
         events: anchors,
         branches,

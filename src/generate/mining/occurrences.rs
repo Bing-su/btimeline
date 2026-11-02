@@ -13,8 +13,8 @@ mod loops;
 mod tail;
 pub(in crate::generate) use loops::{LoopDiscovery, LoopModel};
 
-pub(super) fn loop_models(pulls: &[&Pull]) -> Result<LoopDiscovery> {
-    loops::discover(pulls)
+pub(super) fn loop_models(pulls: &[&Pull], boss_only: bool) -> Result<LoopDiscovery> {
+    loops::discover(pulls, boss_only)
 }
 
 pub(in crate::generate) struct Event {
@@ -109,6 +109,25 @@ fn interval<'a>(
     include: &impl Fn(&Signal) -> bool,
     boundary: Boundary,
 ) -> Result<Vec<Group<'a>>, &'static str> {
+    span(
+        pull,
+        left,
+        right,
+        source,
+        &|signal| &signal.source == source && include(signal),
+        boundary,
+    )
+}
+
+// Separate the time scope from caster selection, e.g. one combat span may contain several NPCs.
+fn span<'a>(
+    pull: &'a Pull,
+    left: i64,
+    right: Option<i64>,
+    source: &Option<String>,
+    include: &impl Fn(&Signal) -> bool,
+    boundary: Boundary,
+) -> Result<Vec<Group<'a>>, &'static str> {
     let end = right.unwrap_or_else(|| pull.scope_end(source));
     let start = source
         .as_ref()
@@ -129,7 +148,7 @@ fn interval<'a>(
         let selected: Vec<_> = frame
             .waves()
             .into_iter()
-            .filter(|signal| &signal.source == source && include(signal))
+            .filter(|signal| include(signal))
             .collect();
         for signal in &selected {
             *counts.entry(*signal).or_insert(0) += 1;
