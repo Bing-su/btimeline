@@ -91,7 +91,7 @@ fn wave(group: Group<'_>) -> Wave {
     }
 }
 
-fn scopes(pulls: &[Pull], diagnostics: &mut Vec<Value>) -> Result<Vec<Scope>> {
+fn scopes(pulls: &[&Pull], diagnostics: &mut Vec<Value>) -> Result<Vec<Scope>> {
     let mut result = Vec::new();
     for pull in pulls {
         for (source, attempts) in bosses::attempts(pull) {
@@ -304,7 +304,7 @@ fn ranges(scope: &Scope) -> Vec<(usize, usize)> {
     result
 }
 
-pub(super) fn discover(pulls: &[Pull]) -> Result<LoopDiscovery> {
+pub(super) fn discover(pulls: &[&Pull]) -> Result<LoopDiscovery> {
     let mut result = LoopDiscovery::default();
     let all = scopes(pulls, &mut result.diagnostics)?;
     let sources: BTreeSet<_> = all.iter().map(|scope| &scope.source).collect();

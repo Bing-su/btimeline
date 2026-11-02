@@ -102,11 +102,11 @@ pub(super) fn concurrent(attempts: &[Attempt]) -> bool {
 }
 
 // Learning uses an observed completed boss attempt; raw graphs and original batch/event indices stay intact.
-pub(super) fn project(pulls: &[Pull]) -> (Vec<Pull>, Vec<Value>) {
+pub(super) fn project(pulls: &[&Pull]) -> (Vec<Pull>, Vec<Value>) {
     let mut views = Vec::new();
     let mut diagnostics = Vec::new();
     for pull in pulls {
-        let mut view = pull.clone();
+        let mut view = (*pull).clone();
         let mut blocked = BTreeSet::new();
         for (source, attempts) in attempts(pull) {
             let completed: Vec<_> = attempts

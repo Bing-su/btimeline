@@ -192,7 +192,12 @@ fn anchor_node(
 
 pub(super) fn node(pulls: &[Pull], ids: &BTreeMap<String, String>) -> Result<KdlNode> {
     // Wipes are censored evidence, not completed traces that disprove an unobserved suffix.
-    let completed: Vec<_> = pulls.iter().filter(|pull| pull.kill).collect();
+    let views: Vec<_> = pulls.iter().map(Pull::learning_view).collect();
+    let completed: Vec<_> = views
+        .iter()
+        .map(|view| view.as_ref())
+        .filter(|pull| pull.kill)
+        .collect();
     let tables = completed
         .iter()
         .map(|pull| timings(pull))

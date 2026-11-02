@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -17,6 +18,7 @@ mod common;
 mod occurrences;
 mod progression;
 mod repeats;
+mod unclassified;
 mod validation;
 pub(super) use occurrences::{Branch, Event as CommonEvent, LoopDiscovery, LoopModel};
 pub(super) use progression::Progression;
@@ -41,9 +43,17 @@ struct Batch {
     at_ms: i64,
     signals: Vec<Signal>,
     indices: Vec<usize>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    unclassified_indices: Vec<usize>,
+    #[serde(skip)]
+    eligible_signals: Option<Vec<Signal>>,
 }
 
 impl Batch {
+    fn eligible(&self) -> &[Signal] {
+        self.eligible_signals.as_deref().unwrap_or(&self.signals)
+    }
+
     // A display wave is one name/signal at one exact millisecond, e.g. eight simultaneous adds.
     fn waves(&self) -> std::collections::BTreeSet<&Signal> {
         self.signals.iter().collect()
@@ -70,6 +80,28 @@ struct Pull {
 }
 
 impl Pull {
+    // Preserve raw batch positions, e.g. an unclassified wave between two anchors cannot shift indices.
+    fn learning_view(&self) -> Cow<'_, Self> {
+        if self
+            .batches
+            .iter()
+            .all(|batch| batch.eligible_signals.is_none())
+        {
+            return Cow::Borrowed(self);
+        }
+        let mut view = self.clone();
+        for batch in &mut view.batches {
+            if let Some(signals) = batch.eligible_signals.take() {
+                batch.signals = signals;
+                batch
+                    .indices
+                    .retain(|index| !batch.unclassified_indices.contains(index));
+                batch.unclassified_indices.clear();
+            }
+        }
+        Cow::Owned(view)
+    }
+
     fn scope_end(&self, source: &Option<String>) -> i64 {
         source
             .as_ref()
@@ -103,7 +135,8 @@ impl Analysis {
     }
 
     pub(super) fn loop_models(&self) -> Result<LoopDiscovery> {
-        occurrences::loop_models(&self.pulls)
+        let views: Vec<_> = self.pulls.iter().map(Pull::learning_view).collect();
+        occurrences::loop_models(&views.iter().map(Cow::as_ref).collect::<Vec<_>>())
     }
 
     pub(super) fn aligned(
@@ -111,17 +144,18 @@ impl Analysis {
         include: impl Fn(&Signal) -> bool,
         boss_only: bool,
     ) -> Result<occurrences::Common> {
+        let classified: Vec<_> = self.pulls.iter().map(Pull::learning_view).collect();
+        let selected: Vec<_> = classified.iter().map(Cow::as_ref).collect();
         let (views, diagnostics) = if boss_only {
-            bosses::project(&self.pulls)
+            bosses::project(&selected)
         } else {
             (Vec::new(), Vec::new())
         };
         let pulls: Vec<_> = if boss_only {
-            views.iter()
+            views.iter().collect()
         } else {
-            self.pulls.iter()
-        }
-        .collect();
+            selected
+        };
         let common = Self::common(&pulls, &include)?;
         let mut result = occurrences::expand(&pulls, common, &include, !boss_only)?;
         result.diagnostics.extend(diagnostics);
@@ -136,6 +170,19 @@ impl Analysis {
             .iter()
             .flat_map(|pull| &pull.batches)
             .flat_map(|batch| batch.signals.iter().cloned())
+            .collect()
+    }
+
+    pub(super) fn unclassified_signals(&self) -> std::collections::BTreeSet<Signal> {
+        let eligible: std::collections::BTreeSet<_> = self
+            .pulls
+            .iter()
+            .flat_map(|pull| &pull.batches)
+            .flat_map(|batch| batch.eligible().iter())
+            .collect();
+        self.signals()
+            .into_iter()
+            .filter(|signal| !eligible.contains(signal))
             .collect()
     }
 
@@ -197,7 +244,7 @@ fn batches(pull: &super::Pull, log: &CollectedLog) -> Result<Vec<Batch>> {
         .iter()
         .map(|a| (a.id, a.name.as_str()))
         .collect();
-    let mut groups = BTreeMap::<i64, (BTreeMap<_, Signal>, Vec<usize>)>::new();
+    let mut groups = BTreeMap::<i64, (BTreeMap<_, (Signal, bool)>, Vec<usize>, Vec<usize>)>::new();
     let mut selected = Vec::new();
     for occurrence in pull.occurrences.iter() {
         let source = names
@@ -215,29 +262,52 @@ fn batches(pull: &super::Pull, log: &CollectedLog) -> Result<Vec<Batch>> {
         ));
     }
     selected.extend(candidates::select(log)?);
-    for (index, signal) in selected {
+    let known = selected.iter().map(|(index, _)| *index).collect();
+    let extra = unclassified::casts(log, &known)?;
+    for (index, signal, unclassified) in selected
+        .into_iter()
+        .map(|(i, s)| (i, s, false))
+        .chain(extra.into_iter().map(|(i, s)| (i, s, true)))
+    {
         let event = log.events.get(index).context("Missing candidate event")?;
         let group = groups
             .entry(event.timestamp - log.collection.start_time as i64)
             .or_default();
         group.0.insert(
             (event.source_id, event.source_instance, signal.clone()),
-            signal,
+            (signal, unclassified),
         );
         group.1.push(index);
+        if unclassified {
+            group.2.push(index);
+        }
     }
     Ok(groups
         .into_iter()
-        .map(|(at_ms, (signals, mut indices))| {
-            let mut signals: Vec<_> = signals.into_values().collect();
-            signals.sort();
-            indices.sort_unstable();
-            Batch {
-                at_ms,
-                signals,
-                indices,
-            }
-        })
+        .map(
+            |(at_ms, (signals, mut indices, mut unclassified_indices))| {
+                let eligible_signals = (!unclassified_indices.is_empty()).then(|| {
+                    let mut known: Vec<_> = signals
+                        .values()
+                        .filter(|(_, unclassified)| !unclassified)
+                        .map(|(signal, _)| signal.clone())
+                        .collect();
+                    known.sort();
+                    known
+                });
+                let mut signals: Vec<_> = signals.into_values().map(|(signal, _)| signal).collect();
+                signals.sort();
+                indices.sort_unstable();
+                unclassified_indices.sort_unstable();
+                Batch {
+                    at_ms,
+                    signals,
+                    indices,
+                    unclassified_indices,
+                    eligible_signals,
+                }
+            },
+        )
         .collect())
 }
 
@@ -336,6 +406,13 @@ fn trace_node(pull: &Pull, ids: &BTreeMap<String, String>) -> Result<KdlNode> {
         prop(&mut observation, "at_ms", i128::from(batch.at_ms));
         for index in &batch.indices {
             argument(&mut observation, i128::try_from(*index)?);
+        }
+        if !batch.unclassified_indices.is_empty() {
+            let mut unclassified = KdlNode::new("unclassified");
+            for index in &batch.unclassified_indices {
+                argument(&mut unclassified, i128::try_from(*index)?);
+            }
+            observation.ensure_children().nodes_mut().push(unclassified);
         }
         trace.ensure_children().nodes_mut().push(observation);
     }
@@ -594,6 +671,8 @@ mod tests {
                 })
                 .collect(),
             indices: Vec::new(),
+            unclassified_indices: Vec::new(),
+            eligible_signals: None,
         }
     }
 

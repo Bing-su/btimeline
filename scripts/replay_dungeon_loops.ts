@@ -59,6 +59,7 @@ try {
         .map((node: any) => ({
           at: input.observations[node.observation].at_ms,
           signal: node.activity,
+          unclassified: node.unclassified === true,
         }))
         .filter((row: any) => row.at >= episode.phase_origin_ms && row.at <= end);
       await fs.writeFile(
@@ -71,7 +72,8 @@ try {
             type: "Ability",
             fields: {
               id: row.signal.identifier.Ability.toString(16).toUpperCase(),
-              source: row.signal.source,
+              // Unknown names remain absent fields, e.g. anonymous NPCs cannot match a named sync.
+              ...(row.signal.source === null ? {} : { source: row.signal.source }),
             },
           })),
         }),
@@ -107,6 +109,8 @@ try {
         instance: episode.instance,
         role: fitted.has(episode.trace) ? "fitted" : "holdout",
         observed_members: errors.length,
+        unclassified_casts: samples.filter((sample: any) => sample.unclassified).length,
+        unnamed_sources: samples.filter((sample: any) => sample.signal.source === null).length,
         no_prediction: errors.filter((error: number | null) => error === null).length,
         max_prediction_error_ms: Math.max(
           0,

@@ -12,6 +12,7 @@ struct Node {
     observation: usize,
     activity: Signal,
     occurrence: usize,
+    unclassified: bool,
 }
 
 #[derive(Debug)]
@@ -81,6 +82,10 @@ impl Progression {
                     observation,
                     activity: activity.clone(),
                     occurrence: *occurrence,
+                    unclassified: pull
+                        .batches
+                        .get(observation)
+                        .is_some_and(|batch| !batch.eligible().contains(activity)),
                 });
                 result
                     .lookup
@@ -145,7 +150,7 @@ impl Progression {
         let traces: Vec<_> = self.traces.iter().map(|trace| {
             let nodes: Vec<_> = trace.graph.node_indices().filter_map(|index| {
                 trace.graph.node_weight(index).map(|node| serde_json::json!({
-                    "index":index.index(),"observation":node.observation,"activity":node.activity,"occurrence":node.occurrence
+                    "index":index.index(),"observation":node.observation,"activity":node.activity,"occurrence":node.occurrence,"unclassified":node.unclassified
                 }))
             }).collect();
             let mut before: Vec<_> = trace.graph.edge_references().map(|edge|[edge.source().index(),edge.target().index()]).collect();

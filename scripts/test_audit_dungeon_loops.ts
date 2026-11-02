@@ -48,6 +48,14 @@ assert.equal(
 assert.equal(completeCycles(rows.slice(0, 3), body, p("A", 3)).length, 0);
 assert.equal(
   completeCycles(
+    rows.map((row) => ({ ...row, source: null })),
+    body,
+    p("A", 3),
+  ).length,
+  0,
+);
+assert.equal(
+  completeCycles(
     rows.filter((row) => row.at !== 3000),
     body,
     p("A", 3),

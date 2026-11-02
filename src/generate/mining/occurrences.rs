@@ -13,7 +13,7 @@ mod loops;
 mod tail;
 pub(in crate::generate) use loops::{LoopDiscovery, LoopModel};
 
-pub(super) fn loop_models(pulls: &[Pull]) -> Result<LoopDiscovery> {
+pub(super) fn loop_models(pulls: &[&Pull]) -> Result<LoopDiscovery> {
     loops::discover(pulls)
 }
 

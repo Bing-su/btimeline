@@ -126,8 +126,11 @@ fn anchors(analysis: &Analysis, progression: &Progression, mode: Mode) -> Result
         )
         .collect();
     let mut excluded = Vec::new();
+    let unclassified = analysis.unclassified_signals();
     for activity in analysis.signals().difference(&seen) {
-        let reason = if activity.kind != "cast" {
+        let reason = if unclassified.contains(activity) {
+            "unclassified NPC cast; no inferred boss ownership or execution eligibility"
+        } else if activity.kind != "cast" {
             "non-cast activity"
         } else if !include(activity) {
             "not a Boss actor"
@@ -513,7 +516,7 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
         "origins":rendered.origins,
         "events":rendered.events,"excluded":excluded,"alignment_diagnostics":alignment_diagnostics,
         "loops":rendered.loops,"loop_diagnostics":loop_diagnostics,
-        "not_checked":["live ACT/runtime behavior","English name accuracy","missing-signal coverage","branch and loop path conformance in automatic validation","correlated choices and variable joins","internal boss phases and helper assignment","completion signals and content-specific lifecycle exceptions"]});
+        "not_checked":["live ACT/runtime behavior","English name accuracy","missing-signal coverage","branch and loop path conformance in automatic validation","correlated choices and variable joins","internal boss phases and helper assignment","unclassified NPC casts as competing runtime signals","completion signals and content-specific lifecycle exceptions"]});
     crate::output::write_new(&[
         (output, timeline.as_bytes()),
         (
