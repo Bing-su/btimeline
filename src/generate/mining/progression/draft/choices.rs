@@ -104,7 +104,62 @@ pub(super) fn discover(
     candidates: &[Candidate],
     progression: &Progression,
 ) -> Result<Option<(Route, Vec<Value>)>> {
-    // shortcut: learn complete raid permutations first; add boss origins and partial alternatives with their own tests.
+    if source.is_some()
+        || candidates
+            .iter()
+            .any(|peer| peer.nodes.len() > reference.nodes.len())
+    {
+        return Ok(None);
+    }
+    let complete: Vec<_> = candidates
+        .iter()
+        .filter(|peer| peer.nodes.len() == reference.nodes.len())
+        .map(|peer| slice(peer, peer.nodes.clone()))
+        .collect();
+    let Some((mut route, mut diagnostics)) =
+        discover_complete(source, reference, &complete, progression)?
+    else {
+        return Ok(None);
+    };
+    let prefix = route
+        .choices
+        .first()
+        .context("Missing learned choice")?
+        .join;
+    for peer in candidates
+        .iter()
+        .filter(|peer| peer.nodes.len() < reference.nodes.len())
+    {
+        let before_choice =
+            peer.nodes.len() <= prefix && peer.same_prefix(reference, progression)?;
+        let next_expected_ms = complete
+            .iter()
+            .filter_map(|path| peer.next_expected_at(path))
+            .min();
+        let censored = before_choice && next_expected_ms.is_some_and(|at| peer.end_ms < at);
+        if censored {
+            for (node, (observation, _)) in route.graph.node_weights_mut().zip(&peer.nodes) {
+                node.observations
+                    .insert(peer.reference.clone(), *observation);
+            }
+        } else {
+            route.peers_complete = false;
+        }
+        diagnostics.push(json!({"method":"representative-choice-prefix-v1","trace":peer.reference,"reference":reference.reference,
+            "status":if censored {"censored"} else {"unresolved"},"scope_end_ms":peer.end_ms,"next_expected_ms":next_expected_ms,
+            "selection":"unobserved","reason":if censored {"scope ended before the next occurrence in the shared prefix; no option inferred"} else {"prefix crosses a choice, differs from the shared prefix or extends beyond its next expected occurrence"}}));
+    }
+    route.refresh_relations(progression)?;
+    Ok(Some((route, diagnostics)))
+}
+
+fn discover_complete(
+    source: &Option<String>,
+    reference: &Candidate,
+    candidates: &[Candidate],
+    progression: &Progression,
+) -> Result<Option<(Route, Vec<Value>)>> {
+    // shortcut: learn complete raid permutations first; add boss origins and prefixes inside options with their own tests.
     if source.is_some()
         || candidates.len() < 2
         || candidates

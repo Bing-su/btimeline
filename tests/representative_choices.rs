@@ -264,6 +264,119 @@ fn correlated_differences_stay_inside_one_observed_option() {
 }
 
 #[test]
+fn a_wipe_before_the_choice_preserves_shared_evidence_without_selecting_an_option() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let mut paths = vec![
+        fixture(dir.path(), "alpha", &[1, 2, 3, 4]),
+        fixture(dir.path(), "beta", &[1, 3, 2, 4]),
+    ];
+    let baseline = dir.path().join("baseline.kdl");
+    generate(&paths, &baseline);
+    let short = fixture(dir.path(), "zeta", &[1]);
+    let mut data: Value =
+        serde_json::from_slice(&fs::read(&short).expect("fixture")).expect("fixture JSON");
+    for pointer in [
+        "/report/endTime",
+        "/report/fights/0/endTime",
+        "/collection/endTime",
+    ] {
+        *data.pointer_mut(pointer).expect("end time") = 3500.into();
+    }
+    fs::write(&short, serde_json::to_vec(&data).expect("encode fixture")).expect("save fixture");
+    paths.push(short);
+    let output = dir.path().join("with-prefix.kdl");
+    let evidence = generate(&paths, &output);
+    assert_eq!(
+        fs::read(&baseline).expect("baseline"),
+        fs::read(&output).expect("timeline")
+    );
+    let route = &evidence["draft"]["routes"][0];
+    assert_eq!(route["peers_complete"], true);
+    assert_eq!(route["nodes"][0]["observation_nodes"]["zeta/1"], 0);
+    for option in route["choices"][0]["options"].as_array().expect("options") {
+        assert!(
+            !serde_json::to_string(option)
+                .expect("option JSON")
+                .contains("zeta/1")
+        );
+    }
+    let check = evidence["draft"]["diagnostics"]
+        .as_array()
+        .expect("diagnostics")
+        .iter()
+        .find(|row| row["method"] == "representative-choice-prefix-v1" && row["trace"] == "zeta/1")
+        .expect("prefix check");
+    assert_eq!(check["status"], "censored");
+    assert_eq!(check["selection"], "unobserved");
+    assert_eq!(check["next_expected_ms"], 3000);
+}
+
+#[test]
+fn a_short_shared_prefix_can_relax_order_without_losing_its_later_relations() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let mut paths = vec![
+        fixture(dir.path(), "alpha", &[1, 2, 3, 4, 5]),
+        fixture(dir.path(), "beta", &[1, 2, 4, 3, 5]),
+    ];
+    let short = fixture(dir.path(), "zeta", &[1, 2]);
+    let mut data: Value =
+        serde_json::from_slice(&fs::read(&short).expect("fixture")).expect("fixture JSON");
+    data["events"][1]["timestamp"] = 2080.into();
+    for pointer in [
+        "/report/endTime",
+        "/report/fights/0/endTime",
+        "/collection/endTime",
+    ] {
+        *data.pointer_mut(pointer).expect("end time") = 3500.into();
+    }
+    fs::write(&short, serde_json::to_vec(&data).expect("encode fixture")).expect("save fixture");
+    paths.push(short);
+    let evidence = generate(&paths, &dir.path().join("timeline.kdl"));
+    let route = &evidence["draft"]["routes"][0];
+    assert_eq!(route["before"], json!([[0, 2], [1, 2]]));
+    assert_eq!(route["nodes"][1]["observation_nodes"]["zeta/1"], 1);
+    assert!(
+        !route["nodes"][2]["observation_nodes"]
+            .as_object()
+            .expect("join bindings")
+            .contains_key("zeta/1")
+    );
+}
+
+#[rstest::rstest]
+#[case(4000)]
+#[case(4500)]
+fn a_missing_choice_signal_is_not_excused_by_the_later_shared_join(#[case] end: i64) {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let mut paths = vec![
+        fixture(dir.path(), "alpha", &[1, 2, 3, 4]),
+        fixture(dir.path(), "beta", &[1, 3, 2, 4]),
+    ];
+    let short = fixture(dir.path(), "zeta", &[1]);
+    let mut data: Value =
+        serde_json::from_slice(&fs::read(&short).expect("fixture")).expect("fixture JSON");
+    for pointer in [
+        "/report/endTime",
+        "/report/fights/0/endTime",
+        "/collection/endTime",
+    ] {
+        *data.pointer_mut(pointer).expect("end time") = end.into();
+    }
+    fs::write(&short, serde_json::to_vec(&data).expect("encode fixture")).expect("save fixture");
+    paths.push(short);
+    let output = dir.path().join("timeline.kdl");
+    cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(paths)
+        .args(["--mode", "raid", "-o"])
+        .arg(&output)
+        .assert()
+        .failure();
+    assert!(!output.exists());
+    assert!(!output.with_extension("evidence.json").exists());
+}
+
+#[test]
 fn an_earlier_unclassified_copy_of_the_choice_signal_cannot_select_the_option() {
     let dir = tempfile::tempdir().expect("temporary directory");
     let paths = vec![

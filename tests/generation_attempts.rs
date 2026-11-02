@@ -305,6 +305,8 @@ fn validation_order_conflicts_are_localized_instead_of_blocking_the_final_fit() 
     generate(&paths, "raid", &output);
     let report: Value =
         serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
+    assert_eq!(report["generation_method"], "common-backbone-v1");
+    assert_eq!(report["draft"]["routes"][0]["peers_complete"], false);
     let validation = report["alignment_diagnostics"]
         .as_array()
         .unwrap()

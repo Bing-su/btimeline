@@ -514,7 +514,8 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
     // Build occurrence structure before choosing printable rows or estimating any schedule.
     let progression = analysis.progression();
     let draft = analysis.draft(&progression, !matches!(mode, Mode::Raid))?;
-    let representative = analysis.needs_representative_route() || draft.has_choices();
+    let graph_choices = draft.has_choices() && draft.supports_observed_routes();
+    let representative = analysis.needs_representative_route() || graph_choices;
     let LoopDiscovery {
         models,
         diagnostics: loop_diagnostics,
@@ -539,7 +540,7 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
             excluded.push(json!({"boss":boss,"reason":"no unique common casts for this boss"}));
         }
     }
-    let histories = if matches!(mode, Mode::Raid) && models.is_empty() && !draft.has_choices() {
+    let histories = if matches!(mode, Mode::Raid) && models.is_empty() && !graph_choices {
         analysis.history_models()?
     } else {
         Vec::new()

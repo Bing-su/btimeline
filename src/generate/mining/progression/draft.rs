@@ -1,7 +1,7 @@
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, ensure};
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 use petgraph::visit::{EdgeRef, IntoEdgeReferences};
 use serde_json::{Value, json};
@@ -226,6 +226,46 @@ impl Draft {
 }
 
 impl Route {
+    // Rebuild after binding a prefix, e.g. near-simultaneous A/B must not erase their certain order before C.
+    fn refresh_relations(&mut self, progression: &Progression) -> Result<()> {
+        let samples = self
+            .graph
+            .node_weights()
+            .map(|node| progression.samples(&node.observations))
+            .collect::<Result<Vec<_>>>()?;
+        let traces: BTreeSet<_> = samples.iter().flat_map(BTreeMap::keys).collect();
+        let mut starts = vec![0; samples.len()];
+        for trace in traces {
+            let times: Vec<_> = samples
+                .iter()
+                .map_while(|sample| sample.get(trace).copied())
+                .collect();
+            ensure!(
+                samples
+                    .iter()
+                    .skip(times.len())
+                    .all(|sample| !sample.contains_key(trace)),
+                "Route observations must form a complete path or prefix"
+            );
+            for (start, at) in starts.iter_mut().zip(&times) {
+                let boundary = at.saturating_add(common::ORDER_RESOLUTION_MS);
+                *start = (*start).max(times.partition_point(|time| *time <= boundary));
+            }
+        }
+        let (before, complete) = covers(&starts, 1_000_000);
+        let indices: Vec<_> = self.graph.node_indices().collect();
+        self.graph.clear_edges();
+        for [from, to] in before {
+            self.graph.add_edge(
+                *indices.get(from).context("Missing order source")?,
+                *indices.get(to).context("Missing order target")?,
+                (),
+            );
+        }
+        self.relations_complete = complete;
+        Ok(())
+    }
+
     fn evidence(&self) -> Value {
         let route = self;
         let nodes: Vec<_> = route
@@ -286,7 +326,6 @@ impl Route {
                 observations: BTreeMap::from([(candidate.reference.clone(), *observation)]),
             });
         }
-        let mut starts = vec![0; candidate.nodes.len()];
         let mut peers_complete = true;
         let correspondence = candidates
             .iter()
@@ -321,31 +360,20 @@ impl Route {
                 peers_complete = false;
                 continue;
             }
-            let times: Vec<_> = peer.nodes.iter().map(|(_, at)| *at).collect();
             for (node, (observation, _)) in graph.node_weights_mut().zip(&peer.nodes) {
                 node.observations
                     .insert(peer.reference.clone(), *observation);
             }
-            // Intersect certain precedence across peers, e.g. a near-simultaneous A/B stays unordered.
-            for (start, at) in starts.iter_mut().zip(&times) {
-                let boundary = at.saturating_add(common::ORDER_RESOLUTION_MS);
-                *start = (*start).max(times.partition_point(|time| *time <= boundary));
-            }
         }
-        let (before, relations_complete) = covers(&starts, 1_000_000);
-        for [from, to] in before {
-            graph.add_edge(NodeIndex::new(from), NodeIndex::new(to), ());
-        }
-        Ok((
-            Self {
-                source,
-                reference: candidate.reference.clone(),
-                graph,
-                relations_complete,
-                peers_complete,
-                choices: Vec::new(),
-            },
-            diagnostics,
-        ))
+        let mut route = Self {
+            source,
+            reference: candidate.reference.clone(),
+            graph,
+            relations_complete: false,
+            peers_complete,
+            choices: Vec::new(),
+        };
+        route.refresh_relations(progression)?;
+        Ok((route, diagnostics))
     }
 }
