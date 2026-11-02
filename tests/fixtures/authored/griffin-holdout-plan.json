@@ -1,0 +1,161 @@
+{
+  "role": "held-out before event download; no candidate revision allowed in this evaluation",
+  "timeline": "timelines/mistwake-griffin.kdl",
+  "timeline_sha256": "d2a2d80632bfe330e65589a3e4f7e332c9b485ae6bb5c6e3c6c63ca8da18ab1c",
+  "development_fixture": "tests/fixtures/authored/griffin-samples.json",
+  "projection": "All FFLogs casts to Ability with original actor names; no synthetic lifecycle in observed evaluation",
+  "targets": {
+    "B0EB": "Thunderspark",
+    "B0EC": "High Volts",
+    "B0EF": "Thundering Roar",
+    "B0F3": "Storm Surge",
+    "B0F4": "Electrifying Flight",
+    "B0F5": "Fulgurous Fall",
+    "B0F8": "Electrogenetic Force",
+    "B0F9": "Golden Talons"
+  },
+  "forecast_lead_ms": 5000,
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "entry": "first B0EB cast from Thundergust Griffin",
+  "endpoint": "first Griffin damage targetResources.hitPoints=0 after entry; reject missing completion",
+  "duplicates": "Reject development report IDs, duplicate report/fight identities and identical major-cast relative-time fingerprints",
+  "discovery": {
+    "reports": [],
+    "encounter": 4549,
+    "difficulty": 10,
+    "gameZone": null,
+    "partition": null,
+    "region": null,
+    "firstPage": 2000,
+    "pages": 1
+  },
+  "fights": [
+    {
+      "report": "NK81VJ9gWnkXy7qR",
+      "fight": 24,
+      "name": "Mistwake",
+      "encounter": 4549,
+      "difficulty": 10,
+      "kill": true,
+      "startTime": 28180446,
+      "endTime": 29130595,
+      "gameZone": {
+        "id": 1314,
+        "name": "Quan Caverns"
+      },
+      "combatTime": null,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "P9xGdw2Y3C7hMfH1",
+      "fight": 5,
+      "name": "Mistwake",
+      "encounter": 4549,
+      "difficulty": 10,
+      "kill": true,
+      "startTime": 9689092,
+      "endTime": 10598365,
+      "gameZone": {
+        "id": 1314,
+        "name": "Quan Caverns"
+      },
+      "combatTime": null,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "LxHcZCv8VTbY7BDk",
+      "fight": 1,
+      "name": "Mistwake",
+      "encounter": 4549,
+      "difficulty": 10,
+      "kill": true,
+      "startTime": 196192,
+      "endTime": 1087890,
+      "gameZone": {
+        "id": 1314,
+        "name": "Quan Caverns"
+      },
+      "combatTime": null,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "hzbZrF19qv3yMpKX",
+      "fight": 2,
+      "name": "Mistwake",
+      "encounter": 4549,
+      "difficulty": 10,
+      "kill": true,
+      "startTime": 10763304,
+      "endTime": 11655002,
+      "gameZone": {
+        "id": 1314,
+        "name": "Quan Caverns"
+      },
+      "combatTime": null,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "83DnJkLN7KTqWwPf",
+      "fight": 8,
+      "name": "Mistwake",
+      "encounter": 4549,
+      "difficulty": 10,
+      "kill": true,
+      "startTime": 16977174,
+      "endTime": 17868867,
+      "gameZone": {
+        "id": 1314,
+        "name": "Quan Caverns"
+      },
+      "combatTime": null,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "TBp72wVPc9Lrzbtj",
+      "fight": 113,
+      "name": "Mistwake",
+      "encounter": 4549,
+      "difficulty": 10,
+      "kill": true,
+      "startTime": 452830608,
+      "endTime": 453722299,
+      "gameZone": {
+        "id": 1314,
+        "name": "Quan Caverns"
+      },
+      "combatTime": null,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    }
+  ]
+}
