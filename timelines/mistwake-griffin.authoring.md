@@ -14,7 +14,7 @@
 | 대표 경로        | `YQAawtmnD6FRVzPj/80`. 세 번째 Thunderspark까지 관측. 확장 자료 `nfx8gFT3b26kqyLM/11`도 같은 후반 경계를 지지                                                                  |
 | 기존 자동 초안   | `out/griffin-authoring/baseline.{kdl,evidence.json}`, 기존 8개 입력으로 재생성. Griffin의 유한 17개 + 반복 32개 = 49개 정의                                                    |
 | 초안 KDL SHA-256 | `2a0a9b7c3daa4b797766f0e8243b24673d0e33382712e67ae2554301c0138df8`. 생성 evidence는 수정하지 않음                                                                              |
-| 독립 평가        | 미실시. 이 자료들은 이미 구현·평가에 사용됐으므로 미사용 보류 자료로 세지 않음                                                                                                 |
+| 독립 평가        | 아래 후속 평가의 새 보고서 6개 중 적격 4개 통과, 입력 조건 미충족 2개 제외. 기존 개발 12개는 독립 근거로 세지 않음                                                             |
 
 ## 해석과 작성 결정
 
@@ -109,6 +109,40 @@
 HP=0은 원본 damage의 대상이 Griffin이고 `targetResources.hitPoints=0`인지 확인한 평가 경계다. 이를 실제 ACT `InCombat=0` 관측으로 간주하지 않는다. 종료 신호 없는 결과는 실행 계약에 맞지만, 외부 실행기가 종료 신호를 공급하지 못하면 처치 뒤에도 예고가 남는다는 사용자 영향을 보여 준다. 실제 신호의 발생·전달 시각은 미검증이다. KDL·fixture 해시는 변경하지 않았다.
 
 보고서 `continuous`에는 trace별 관측 수·진입 시각·최대 조회 오차·합성 종료 시각·종료 신호가 없을 때 남는 표시 수와 투영 가정을 기록한다. 로컬 원본이 없는 경우 해당 검사는 생략하고 `continuous.skipped_inputs`에 경로를 남긴다. compact fixture만 실행한 결과를 이 전체 시전 검사 완료로 세지 않는다.
+
+### 후속: 새 보고서의 보류 평가
+
+후보 KDL·주요 기믹 ID·5초 전 조회·1.5초 허용 오차·입력 적격 조건과 6개 report/fight를 [평가 계획](../tests/fixtures/authored/griffin-holdout-plan.json)에 고정하고 `0c96082`로 커밋한 뒤 이벤트를 평가했다. 기존 개발 보고서와 겹치지 않는 encounter 4549, difficulty 10, rankings page 2000의 새 보고서들이다. 후보 KDL은 평가 전후 같은 해시이며, 결과에 맞춰 수정하지 않았다.
+
+| report/fight           | 입력 판정                                | 주요 기믹 | 5초 전 조회 | 최대 조회 오차 |
+| ---------------------- | ---------------------------------------- | --------- | ----------- | -------------- |
+| `NK81VJ9gWnkXy7qR/24`  | 적격·통과                                | 21/21     | 20/20       | 95ms           |
+| `P9xGdw2Y3C7hMfH1/5`   | 제외: Griffin HP=0 종료 근거 없음        | —         | —           | —              |
+| `LxHcZCv8VTbY7BDk/1`   | 적격·통과                                | 19/19     | 18/18       | 103ms          |
+| `hzbZrF19qv3yMpKX/2`   | 적격·통과                                | 17/17     | 16/16       | 163ms          |
+| `83DnJkLN7KTqWwPf/8`   | 제외: cast sourceID=39의 actor 이름 없음 | —         | —           | —              |
+| `TBp72wVPc9Lrzbtj/113` | 적격·통과                                | 19/19     | 18/18       | 217ms          |
+
+적격 4개에서 종료 경계까지 전체 시전 15,890건을 투영했고, 주요 기믹 76/76건과 조회 72/72건이 대응했다. 네 로그 모두 첫 Griffin Thunderspark에 한 번만 진입했고 그 이전의 표시나 실행 진단은 없었다. 종료 신호는 합성하지 않았다. 원본의 HP=0을 평가 종료 경계로만 사용했으므로 실제 ACT 종료·UI 확인 결과로 세지 않는다.
+
+입력 무결성·원본 actor 이름·Griffin 진입·처치 근거와 기존 개발/선정 로그의 중복을 먼저 검사한다. 보고서 ID와 report/fight 중복 외에 `[상대 ms, 주요 능력 ID]` 열의 해시를 비교해 동일한 시전 기록의 복사를 거른다. 이는 이 자료 범위의 중복 검사이며 모든 변형 업로드의 독립성을 증명하지 않는다. 입력 적격 조건을 충족하지 못한 2개는 예고 성능의 분모에서 제외하되 사유와 원본 해시는 남겼다. 예고 실패·실행 오류를 입력 제외로 바꾸지 않으며, 적격 입력이 0개면 통과하지 않는다.
+
+[평가 결과](mistwake-griffin.holdout-result.json)에 계획·KDL·원본 해시, 원본 기믹 인덱스, 재생·조회 오차, 제외 사유와 집계를 보존했다. [평가 스크립트](../scripts/verify_griffin_holdout.ts)는 원본이 없으면 해당 입력을 제외했다고 보고하며, 새 결과를 보고 후보를 고치면 이 코퍼스를 개발 자료로 전환하고 새 보류 자료가 필요하다. 현재 검증 완료된 보류 자료를 다시 실행하는 것은 같은 평가의 재현이지 새로운 독립 평가가 아니다.
+
+```sh
+bun scripts/verify_griffin_holdout.ts target/debug/btimeline logs/griffin-holdout out/griffin-check/holdout-report.json
+```
+
+원본을 새로 수집하려면 FFLogs 자격 증명을 환경에 둔다(`bun`은 로컬 `.env`를 읽는다). 아래 명령은 고정한 report/fight를 사용한다. 수집 시각·보고서 revision 등에 따라 재다운로드 파일 해시가 달라질 수 있으므로 재현 결과의 입력 해시를 함께 확인한다.
+
+```sh
+bun -e '
+import { execFileSync } from "node:child_process";
+const plan = await Bun.file("tests/fixtures/authored/griffin-holdout-plan.json").json();
+for (const fight of plan.fights)
+  execFileSync("target/debug/btimeline", ["fflogs", fight.report, String(fight.fight), "-o", "logs/griffin-holdout"], { env: process.env, stdio: "inherit" });
+'
+```
 
 ### 실행 명령
 

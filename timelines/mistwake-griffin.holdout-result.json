@@ -1,0 +1,929 @@
+{
+  "plan": "tests/fixtures/authored/griffin-holdout-plan.json",
+  "plan_sha256": "3bec3e9fbc1af9be188e7d20e66dc2bdb761737f5a3fa2d8266b97482db71ebd",
+  "timeline_sha256": "d2a2d80632bfe330e65589a3e4f7e332c9b485ae6bb5c6e3c6c63ca8da18ab1c",
+  "role": "held-out before event download; no candidate revision allowed in this evaluation",
+  "projection": "All FFLogs casts to Ability with original actor names; no synthetic lifecycle in observed evaluation",
+  "traces": [
+    {
+      "status": "evaluated",
+      "input": "logs/griffin-holdout/NK81VJ9gWnkXy7qR_24.json",
+      "sha256": "3f863d6ec87147ef15ba99822a2f82e195073e2aa234c6ada46fc27f7aa23689",
+      "trace": "NK81VJ9gWnkXy7qR/24",
+      "major_cast_fingerprint": "88c8fa58d875602defb28faa61b017d036b22ff73992071b798660112ae44299",
+      "origin_timestamp_ms": 28180446,
+      "entry_ms": 761527,
+      "end_ms": 950101,
+      "completion_event": 20549,
+      "cast_observations": 4241,
+      "safe_entry": true,
+      "diagnostics": [],
+      "targets": [
+        {
+          "raw_index": 16735,
+          "id": "B0EB",
+          "at_ms": 761527,
+          "replay_error_ms": 0,
+          "forecast": null
+        },
+        {
+          "raw_index": 17045,
+          "id": "B0EC",
+          "at_ms": 773280,
+          "replay_error_ms": 53,
+          "forecast": {
+            "error_ms": 53,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 17339,
+          "id": "B0EF",
+          "at_ms": 784532,
+          "replay_error_ms": 48,
+          "forecast": {
+            "error_ms": 48,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 17527,
+          "id": "B0EF",
+          "at_ms": 795398,
+          "replay_error_ms": 18,
+          "forecast": {
+            "error_ms": 18,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 17724,
+          "id": "B0F9",
+          "at_ms": 807176,
+          "replay_error_ms": 0,
+          "forecast": {
+            "error_ms": 4,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 17988,
+          "id": "B0F5",
+          "at_ms": 823511,
+          "replay_error_ms": 65,
+          "forecast": {
+            "error_ms": 65,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 18034,
+          "id": "B0F8",
+          "at_ms": 827138,
+          "replay_error_ms": 38,
+          "forecast": {
+            "error_ms": 38,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 18201,
+          "id": "B0EF",
+          "at_ms": 833630,
+          "replay_error_ms": 46,
+          "forecast": {
+            "error_ms": 46,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 18402,
+          "id": "B0EB",
+          "at_ms": 843296,
+          "replay_error_ms": 80,
+          "forecast": {
+            "error_ms": 80,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 18666,
+          "id": "B0F3",
+          "at_ms": 855794,
+          "replay_error_ms": 18,
+          "forecast": {
+            "error_ms": 18,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 18679,
+          "id": "B0F4",
+          "at_ms": 856377,
+          "replay_error_ms": 17,
+          "forecast": {
+            "error_ms": 1,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 18802,
+          "id": "B0EC",
+          "at_ms": 862960,
+          "replay_error_ms": 0,
+          "forecast": {
+            "error_ms": 34,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 19045,
+          "id": "B0EF",
+          "at_ms": 874417,
+          "replay_error_ms": 57,
+          "forecast": {
+            "error_ms": 57,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 19336,
+          "id": "B0EF",
+          "at_ms": 885786,
+          "replay_error_ms": 26,
+          "forecast": {
+            "error_ms": 26,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 19590,
+          "id": "B0F9",
+          "at_ms": 897513,
+          "replay_error_ms": 0,
+          "forecast": {
+            "error_ms": 47,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 19846,
+          "id": "B0F5",
+          "at_ms": 912793,
+          "replay_error_ms": 20,
+          "forecast": {
+            "error_ms": 20,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 19875,
+          "id": "B0F8",
+          "at_ms": 916470,
+          "replay_error_ms": 57,
+          "forecast": {
+            "error_ms": 57,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 20002,
+          "id": "B0EF",
+          "at_ms": 922918,
+          "replay_error_ms": 95,
+          "forecast": {
+            "error_ms": 95,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 20178,
+          "id": "B0EB",
+          "at_ms": 932550,
+          "replay_error_ms": 63,
+          "forecast": {
+            "error_ms": 63,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 20476,
+          "id": "B0F3",
+          "at_ms": 944996,
+          "replay_error_ms": 0,
+          "forecast": {
+            "error_ms": 17,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 20481,
+          "id": "B0F4",
+          "at_ms": 945578,
+          "replay_error_ms": 18,
+          "forecast": {
+            "error_ms": 35,
+            "passed": true,
+            "diagnostics": []
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "status": "excluded",
+      "input": "logs/griffin-holdout/P9xGdw2Y3C7hMfH1_5.json",
+      "trace": "P9xGdw2Y3C7hMfH1/5",
+      "sha256": "8ba8d202a48e543209f58e086c64becf42493605b12365dbb35f43b2932749b5",
+      "passed": null,
+      "stage": "input-validation",
+      "error": "AssertionError [ERR_ASSERTION]: Missing observed Griffin completion"
+    },
+    {
+      "status": "evaluated",
+      "input": "logs/griffin-holdout/LxHcZCv8VTbY7BDk_1.json",
+      "sha256": "81a966e7a343a9ad30f99e687e95bcf3353b12daadb00b29732156840998fb23",
+      "trace": "LxHcZCv8VTbY7BDk/1",
+      "major_cast_fingerprint": "877990b2c9fb6b1b7d65bd93427d7badb41b3531548d17f6012e742b47c6ac69",
+      "origin_timestamp_ms": 196192,
+      "entry_ms": 713157,
+      "end_ms": 891650,
+      "completion_event": 19958,
+      "cast_observations": 4048,
+      "safe_entry": true,
+      "diagnostics": [],
+      "targets": [
+        {
+          "raw_index": 16147,
+          "id": "B0EB",
+          "at_ms": 713157,
+          "replay_error_ms": 0,
+          "forecast": null
+        },
+        {
+          "raw_index": 16482,
+          "id": "B0EC",
+          "at_ms": 724912,
+          "replay_error_ms": 55,
+          "forecast": {
+            "error_ms": 55,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 16745,
+          "id": "B0EF",
+          "at_ms": 736133,
+          "replay_error_ms": 79,
+          "forecast": {
+            "error_ms": 79,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 16932,
+          "id": "B0EF",
+          "at_ms": 746994,
+          "replay_error_ms": 18,
+          "forecast": {
+            "error_ms": 18,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 17113,
+          "id": "B0F9",
+          "at_ms": 758745,
+          "replay_error_ms": 0,
+          "forecast": {
+            "error_ms": 67,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 17382,
+          "id": "B0F5",
+          "at_ms": 775110,
+          "replay_error_ms": 35,
+          "forecast": {
+            "error_ms": 35,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 17435,
+          "id": "B0F8",
+          "at_ms": 778734,
+          "replay_error_ms": 11,
+          "forecast": {
+            "error_ms": 11,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 17635,
+          "id": "B0EF",
+          "at_ms": 785215,
+          "replay_error_ms": 30,
+          "forecast": {
+            "error_ms": 30,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 17841,
+          "id": "B0EB",
+          "at_ms": 794872,
+          "replay_error_ms": 73,
+          "forecast": {
+            "error_ms": 73,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 18102,
+          "id": "B0F3",
+          "at_ms": 807345,
+          "replay_error_ms": 0,
+          "forecast": {
+            "error_ms": 0,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 18114,
+          "id": "B0F4",
+          "at_ms": 807925,
+          "replay_error_ms": 20,
+          "forecast": {
+            "error_ms": 20,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 18264,
+          "id": "B0EC",
+          "at_ms": 814500,
+          "replay_error_ms": 0,
+          "forecast": {
+            "error_ms": 45,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 18535,
+          "id": "B0EF",
+          "at_ms": 825935,
+          "replay_error_ms": 35,
+          "forecast": {
+            "error_ms": 35,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 18835,
+          "id": "B0EF",
+          "at_ms": 837290,
+          "replay_error_ms": 10,
+          "forecast": {
+            "error_ms": 10,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 19131,
+          "id": "B0F9",
+          "at_ms": 849008,
+          "replay_error_ms": 0,
+          "forecast": {
+            "error_ms": 92,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 19405,
+          "id": "B0F5",
+          "at_ms": 864375,
+          "replay_error_ms": 67,
+          "forecast": {
+            "error_ms": 67,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 19443,
+          "id": "B0F8",
+          "at_ms": 868011,
+          "replay_error_ms": 103,
+          "forecast": {
+            "error_ms": 103,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 19604,
+          "id": "B0EF",
+          "at_ms": 874495,
+          "replay_error_ms": 13,
+          "forecast": {
+            "error_ms": 13,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 19807,
+          "id": "B0EB",
+          "at_ms": 884143,
+          "replay_error_ms": 35,
+          "forecast": {
+            "error_ms": 35,
+            "passed": true,
+            "diagnostics": []
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "status": "evaluated",
+      "input": "logs/griffin-holdout/hzbZrF19qv3yMpKX_2.json",
+      "sha256": "aa3efb0739dee58ccfc9eadd57a5ae1a67aa5fc9d0728ac5b61d0e748ec3661d",
+      "trace": "hzbZrF19qv3yMpKX/2",
+      "major_cast_fingerprint": "4bd0e591a987ddcdfde7ecf78adecda865153a1c6474f2b6044bc16f5dd253da",
+      "origin_timestamp_ms": 10763304,
+      "entry_ms": 732314,
+      "end_ms": 891650,
+      "completion_event": 18795,
+      "cast_observations": 3914,
+      "safe_entry": true,
+      "diagnostics": [],
+      "targets": [
+        {
+          "raw_index": 15642,
+          "id": "B0EB",
+          "at_ms": 732314,
+          "replay_error_ms": 0,
+          "forecast": null
+        },
+        {
+          "raw_index": 15946,
+          "id": "B0EC",
+          "at_ms": 744012,
+          "replay_error_ms": 0,
+          "forecast": {
+            "error_ms": 2,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 16191,
+          "id": "B0EF",
+          "at_ms": 755225,
+          "replay_error_ms": 87,
+          "forecast": {
+            "error_ms": 87,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 16367,
+          "id": "B0EF",
+          "at_ms": 766085,
+          "replay_error_ms": 27,
+          "forecast": {
+            "error_ms": 27,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 16538,
+          "id": "B0F9",
+          "at_ms": 777872,
+          "replay_error_ms": 0,
+          "forecast": {
+            "error_ms": 40,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 16817,
+          "id": "B0F5",
+          "at_ms": 794215,
+          "replay_error_ms": 57,
+          "forecast": {
+            "error_ms": 57,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 16855,
+          "id": "B0F8",
+          "at_ms": 797872,
+          "replay_error_ms": 0,
+          "forecast": {
+            "error_ms": 0,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 17026,
+          "id": "B0EF",
+          "at_ms": 804343,
+          "replay_error_ms": 29,
+          "forecast": {
+            "error_ms": 29,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 17228,
+          "id": "B0EB",
+          "at_ms": 813985,
+          "replay_error_ms": 87,
+          "forecast": {
+            "error_ms": 87,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 17476,
+          "id": "B0F3",
+          "at_ms": 826442,
+          "replay_error_ms": 0,
+          "forecast": {
+            "error_ms": 30,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 17480,
+          "id": "B0F4",
+          "at_ms": 827023,
+          "replay_error_ms": 19,
+          "forecast": {
+            "error_ms": 49,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 17601,
+          "id": "B0EC",
+          "at_ms": 833582,
+          "replay_error_ms": 0,
+          "forecast": {
+            "error_ms": 60,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 17864,
+          "id": "B0EF",
+          "at_ms": 845014,
+          "replay_error_ms": 32,
+          "forecast": {
+            "error_ms": 32,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 18172,
+          "id": "B0EF",
+          "at_ms": 856396,
+          "replay_error_ms": 14,
+          "forecast": {
+            "error_ms": 14,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 18413,
+          "id": "B0F9",
+          "at_ms": 868134,
+          "replay_error_ms": 0,
+          "forecast": {
+            "error_ms": 48,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 18671,
+          "id": "B0F5",
+          "at_ms": 883544,
+          "replay_error_ms": 110,
+          "forecast": {
+            "error_ms": 110,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 18698,
+          "id": "B0F8",
+          "at_ms": 887197,
+          "replay_error_ms": 163,
+          "forecast": {
+            "error_ms": 163,
+            "passed": true,
+            "diagnostics": []
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "status": "excluded",
+      "input": "logs/griffin-holdout/83DnJkLN7KTqWwPf_8.json",
+      "trace": "83DnJkLN7KTqWwPf/8",
+      "sha256": "7d3dd0b5cf175a108a96af523df3cbf5250ca0364c1f8a02eecc0fbd8031ae8c",
+      "passed": null,
+      "stage": "input-validation",
+      "error": "AssertionError [ERR_ASSERTION]: Unknown cast source 39"
+    },
+    {
+      "status": "evaluated",
+      "input": "logs/griffin-holdout/TBp72wVPc9Lrzbtj_113.json",
+      "sha256": "0ca7d2994dca7d917601208fa047c07b363476a36a9c527e7bd82711f70df2fb",
+      "trace": "TBp72wVPc9Lrzbtj/113",
+      "major_cast_fingerprint": "e87699eea471f826978714214d2c815552478e45c933f0b353e1b16476fce438",
+      "origin_timestamp_ms": 452830608,
+      "entry_ms": 719298,
+      "end_ms": 891643,
+      "completion_event": 17281,
+      "cast_observations": 3687,
+      "safe_entry": true,
+      "diagnostics": [],
+      "targets": [
+        {
+          "raw_index": 13789,
+          "id": "B0EB",
+          "at_ms": 719298,
+          "replay_error_ms": 0,
+          "forecast": null
+        },
+        {
+          "raw_index": 14072,
+          "id": "B0EC",
+          "at_ms": 731027,
+          "replay_error_ms": 29,
+          "forecast": {
+            "error_ms": 29,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 14334,
+          "id": "B0EF",
+          "at_ms": 742262,
+          "replay_error_ms": 65,
+          "forecast": {
+            "error_ms": 65,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 14557,
+          "id": "B0EF",
+          "at_ms": 753145,
+          "replay_error_ms": 18,
+          "forecast": {
+            "error_ms": 18,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 14779,
+          "id": "B0F9",
+          "at_ms": 764966,
+          "replay_error_ms": 39,
+          "forecast": {
+            "error_ms": 39,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 15107,
+          "id": "B0F5",
+          "at_ms": 781286,
+          "replay_error_ms": 80,
+          "forecast": {
+            "error_ms": 80,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 15150,
+          "id": "B0F8",
+          "at_ms": 784986,
+          "replay_error_ms": 20,
+          "forecast": {
+            "error_ms": 20,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 15321,
+          "id": "B0EF",
+          "at_ms": 791439,
+          "replay_error_ms": 27,
+          "forecast": {
+            "error_ms": 27,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 15520,
+          "id": "B0EB",
+          "at_ms": 801115,
+          "replay_error_ms": 51,
+          "forecast": {
+            "error_ms": 51,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 15765,
+          "id": "B0F3",
+          "at_ms": 813543,
+          "replay_error_ms": 0,
+          "forecast": {
+            "error_ms": 23,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 15769,
+          "id": "B0F4",
+          "at_ms": 814123,
+          "replay_error_ms": 20,
+          "forecast": {
+            "error_ms": 43,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 15895,
+          "id": "B0EC",
+          "at_ms": 820678,
+          "replay_error_ms": 0,
+          "forecast": {
+            "error_ms": 65,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 16135,
+          "id": "B0EF",
+          "at_ms": 832138,
+          "replay_error_ms": 60,
+          "forecast": {
+            "error_ms": 60,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 16400,
+          "id": "B0EF",
+          "at_ms": 843549,
+          "replay_error_ms": 71,
+          "forecast": {
+            "error_ms": 71,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 16623,
+          "id": "B0F9",
+          "at_ms": 855314,
+          "replay_error_ms": 36,
+          "forecast": {
+            "error_ms": 36,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 16849,
+          "id": "B0F5",
+          "at_ms": 870472,
+          "replay_error_ms": 142,
+          "forecast": {
+            "error_ms": 142,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 16888,
+          "id": "B0F8",
+          "at_ms": 874178,
+          "replay_error_ms": 36,
+          "forecast": {
+            "error_ms": 36,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 17064,
+          "id": "B0EF",
+          "at_ms": 880597,
+          "replay_error_ms": 217,
+          "forecast": {
+            "error_ms": 217,
+            "passed": true,
+            "diagnostics": []
+          }
+        },
+        {
+          "raw_index": 17232,
+          "id": "B0EB",
+          "at_ms": 890262,
+          "replay_error_ms": 152,
+          "forecast": {
+            "error_ms": 152,
+            "passed": true,
+            "diagnostics": []
+          }
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "summary": {
+    "selected": 6,
+    "excluded": 2,
+    "eligible": 4,
+    "passed_traces": 4,
+    "passed": true
+  },
+  "passed": true,
+  "not_checked": [
+    "ACT equivalence and lifecycle signals",
+    "UI visibility",
+    "unobserved late cycles",
+    "non-target ability coverage"
+  ]
+}
