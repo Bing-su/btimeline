@@ -403,14 +403,20 @@ fn a_reordered_validation_anchor_does_not_hide_earlier_observations() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|row| row["method"] == "automatic-validation-v1")
+        .find(|row| row["method"] == "automatic-draft-validation-v1")
         .unwrap();
-    assert_eq!(
-        validation["checks"][0]["scopes"][0]["result"]["status"],
-        "unresolved"
+    assert_eq!(validation["checks"][0]["status"], "unresolved");
+    assert_eq!(validation["split"]["held_out"], json!(["attempt2/1"]));
+    assert!(
+        !serde_json::to_string(&validation["model"])
+            .unwrap()
+            .contains("attempt2/1")
     );
     assert_eq!(
-        validation["checks"][0]["scopes"][0]["result"]["reason"],
-        "common anchor order contradicts reference origin"
+        report["draft"]["routes"][0]["choices"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
     );
 }

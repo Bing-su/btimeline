@@ -83,6 +83,14 @@ fn wipe_order_choices_predict_the_selected_path_without_evidence(
     ];
     let timeline = dir.path().join("timeline.kdl");
     let evidence = generate(&paths, &timeline);
+    let validation = evidence["alignment_diagnostics"]
+        .as_array()
+        .expect("diagnostics")
+        .iter()
+        .find(|row| row["method"] == "automatic-draft-validation-v1")
+        .expect("draft validation");
+    assert_eq!(validation["status"], "insufficient-reports");
+    assert_eq!(validation["reports"], 2);
     let route = &evidence["draft"]["routes"][0];
     assert_eq!(route["nodes"].as_array().expect("common nodes").len(), 2);
     assert_eq!(route["choices"][0]["after"], 0);
@@ -156,6 +164,55 @@ fn a_choice_can_begin_before_the_first_shared_cast() {
         );
         assert_eq!(event["at_ms"], at);
     }
+}
+
+#[test]
+fn automatic_validation_withholds_the_entire_report_before_selecting_a_representative() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let mut paths = vec![
+        fixture(dir.path(), "alpha", &[1, 2, 3, 4]),
+        fixture(dir.path(), "beta", &[1, 3, 2, 4]),
+        fixture(dir.path(), "zeta", &[1, 2, 3, 4]),
+    ];
+    let extra = dir.path().join("zeta-second.json");
+    let mut data: Value =
+        serde_json::from_slice(&fs::read(paths.last().expect("zeta fixture")).expect("fixture"))
+            .expect("fixture JSON");
+    data["report"]["fights"][0]["id"] = 2.into();
+    data["collection"]["fightID"] = 2.into();
+    for event in data["events"].as_array_mut().expect("events") {
+        event["fight"] = 2.into();
+    }
+    data["events"][3]["timestamp"] = 18000.into();
+    fs::write(&extra, serde_json::to_vec(&data).expect("encode fixture")).expect("save fixture");
+    paths.push(extra);
+    let evidence = generate(&paths, &dir.path().join("timeline.kdl"));
+    assert_eq!(evidence["draft"]["routes"][0]["reference"], "zeta/2");
+    let validation = evidence["alignment_diagnostics"]
+        .as_array()
+        .expect("diagnostics")
+        .iter()
+        .find(|row| row["method"] == "automatic-draft-validation-v1")
+        .expect("draft validation");
+    assert_eq!(validation["status"], "evaluated");
+    assert_eq!(
+        validation["split"]["training"],
+        json!(["alpha/1", "beta/1"])
+    );
+    assert_eq!(validation["split"]["held_out"], json!(["zeta/1", "zeta/2"]));
+    assert_eq!(validation["model"]["routes"][0]["reference"], "alpha/1");
+    assert!(
+        !serde_json::to_string(&validation["model"])
+            .expect("model JSON")
+            .contains("zeta/")
+    );
+    assert!(
+        validation["checks"]
+            .as_array()
+            .expect("checks")
+            .iter()
+            .all(|check| check["status"] == "matched" && check["training"] == false)
+    );
 }
 
 #[test]

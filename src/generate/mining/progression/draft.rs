@@ -10,6 +10,7 @@ use super::{Progression, Pull, Signal, common, covers};
 use crate::generate::mining::bosses;
 
 mod choices;
+mod validation;
 
 pub(in crate::generate) struct Node {
     pub activity: Signal,
@@ -137,6 +138,10 @@ impl Candidate {
 }
 
 impl Draft {
+    pub(in crate::generate::mining) fn validate_choices(pulls: &[Pull]) -> Result<Value> {
+        validation::check(pulls)
+    }
+
     pub(in crate::generate::mining) fn branches(
         &self,
         pulls: &[Pull],
@@ -207,6 +212,10 @@ impl Draft {
 
     pub(in crate::generate) fn supports_observed_routes(&self) -> bool {
         !self.routes.is_empty() && self.routes.iter().all(|route| route.peers_complete)
+    }
+
+    pub(in crate::generate) fn has_choices(&self) -> bool {
+        self.routes.iter().any(|route| !route.choices.is_empty())
     }
 
     pub(in crate::generate) fn evidence(&self) -> Value {

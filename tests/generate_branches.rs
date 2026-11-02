@@ -48,12 +48,21 @@ fn local_order_choices_replay_without_the_evidence(
     }
     let evidence: Value =
         serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
+    assert_eq!(evidence["generation_method"], "representative-route-v1");
     assert!(
-        evidence["alignment_diagnostics"]
+        evidence["draft"]["diagnostics"]
             .as_array()
             .unwrap()
             .iter()
-            .any(|row| row["method"] == "local-order-branch-v1" && row["status"] == "generated")
+            .any(|row| row["method"] == "representative-order-choice-v1"
+                && row["status"] == "learned")
+    );
+    assert!(
+        evidence["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|event| event["alignment"]["method"] == "representative-order-option-v1")
     );
     let mut observations = vec![
         json!({"at_ms":0,"type":"InCombat","fields":{"inGameCombat":"1"}}),
@@ -166,15 +175,29 @@ fn later_correlated_choices_are_not_generated_as_independent_combinations() {
     );
     let report: Value =
         serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
-    assert!(
-        report["alignment_diagnostics"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|row| row["method"] == "local-order-branch-v1"
-                && row["status"] == "unresolved"
-                && row["join"]["identifier"]["Ability"] == 46382)
+    let choices = report["draft"]["routes"][0]["choices"].as_array().unwrap();
+    assert_eq!(choices.len(), 1);
+    let paths: Vec<Vec<i64>> = choices[0]["options"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|option| {
+            option["nodes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|node| node["activity"]["identifier"]["Ability"].as_i64().unwrap())
+                .collect()
+        })
+        .collect();
+    assert_eq!(
+        paths,
+        [
+            vec![46377, 46378, 46379, 46380, 46381],
+            vec![46378, 46377, 46379, 46381, 46380]
+        ]
     );
+    assert_eq!(report["events"].as_array().unwrap().len(), 12);
 }
 
 #[test]

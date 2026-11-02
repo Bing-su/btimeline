@@ -14,7 +14,7 @@ pub(in crate::generate) struct Choice {
     pub options: Vec<Route>,
 }
 
-fn activities(candidate: &Candidate, progression: &Progression) -> Result<Vec<Signal>> {
+pub(super) fn activities(candidate: &Candidate, progression: &Progression) -> Result<Vec<Signal>> {
     let trace = progression
         .traces
         .get(candidate.trace)

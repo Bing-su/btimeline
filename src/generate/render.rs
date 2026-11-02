@@ -100,6 +100,11 @@ fn draft_anchors(
     draft: &Draft,
 ) -> Result<Prepared> {
     let branches = analysis.draft_branches(draft, progression)?;
+    let diagnostics = if draft.has_choices() {
+        vec![analysis.draft_choice_validation()?]
+    } else {
+        Vec::new()
+    };
     let mut events = Vec::new();
     for route in &draft.routes {
         let mut counts = BTreeMap::<_, usize>::new();
@@ -136,7 +141,7 @@ fn draft_anchors(
         events,
         branches,
         excluded,
-        diagnostics: Vec::new(),
+        diagnostics,
     })
 }
 
@@ -509,6 +514,7 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
     // Build occurrence structure before choosing printable rows or estimating any schedule.
     let progression = analysis.progression();
     let draft = analysis.draft(&progression, !matches!(mode, Mode::Raid))?;
+    let representative = analysis.needs_representative_route() || draft.has_choices();
     let LoopDiscovery {
         models,
         diagnostics: loop_diagnostics,
@@ -518,7 +524,7 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
         branches,
         mut excluded,
         diagnostics: alignment_diagnostics,
-    } = if analysis.needs_representative_route() {
+    } = if representative {
         ensure!(
             draft.supports_observed_routes(),
             "Representative routes differ; branch, internal-gap and ambiguous-prefix learning is not implemented for fewer than two clears"
@@ -533,7 +539,7 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
             excluded.push(json!({"boss":boss,"reason":"no unique common casts for this boss"}));
         }
     }
-    let histories = if matches!(mode, Mode::Raid) && models.is_empty() {
+    let histories = if matches!(mode, Mode::Raid) && models.is_empty() && !draft.has_choices() {
         analysis.history_models()?
     } else {
         Vec::new()
@@ -588,13 +594,14 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
         .map(|byte| format!("{byte:02x}"))
         .collect();
     let report = json!({"version":3,"mode":mode,"analysis":analysis.evidence(),
+        "generation_method":if representative {"representative-route-v1"} else {"common-backbone-v1"},
         "progression":progression.evidence(),
         "draft":draft.evidence(),
         "timeline_sha256":timeline_sha256,"policy_reference":"cactbot@e79ea7f16093be5b80cda0e2d5bc8eb899d6fb4b",
         "origins":rendered.origins,
         "events":rendered.events,"excluded":excluded,"alignment_diagnostics":alignment_diagnostics,
         "loops":rendered.loops,"loop_diagnostics":loop_diagnostics,"histories":rendered.histories,
-        "not_checked":["live ACT/runtime behavior","English name accuracy","missing-signal coverage","branch and loop path conformance in automatic validation","correlated choices and variable joins","internal boss phases and helper assignment","unclassified NPC casts as competing runtime signals","completion signals and content-specific lifecycle exceptions"]});
+        "not_checked":["live ACT/runtime behavior","English name accuracy","missing-signal coverage","general branch and loop path conformance in automatic validation","general correlated choices and variable joins","internal boss phases and helper assignment","unclassified NPC casts as competing runtime signals","completion signals and content-specific lifecycle exceptions"]});
     crate::output::write_new(&[
         (output, timeline.as_bytes()),
         (
