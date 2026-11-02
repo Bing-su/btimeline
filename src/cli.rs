@@ -225,7 +225,7 @@ impl Run for InspectCommand {
             }
             if clears < 2 {
                 println!(
-                    "  A single log can generate a representative-route draft; multiple-log common progress still needs two clears."
+                    "  Single or matching logs can generate a representative-route draft; divergent routes still need two clears."
                 );
             }
         }

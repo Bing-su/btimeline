@@ -293,3 +293,83 @@ fn overlapping_boss_entities_are_not_treated_as_one_supported_route() {
     assert!(!output.exists());
     assert!(!output.with_extension("evidence.json").exists());
 }
+
+#[rstest::rstest]
+#[case(false)]
+#[case(true)]
+fn matching_routes_can_learn_from_wipes_without_two_clears(#[case] first_kill: bool) {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let paths = vec![
+        fixture(
+            dir.path(),
+            "alpha",
+            first_kill,
+            &[(2000, 1), (3000, 2), (6000, 3)],
+        ),
+        fixture(
+            dir.path(),
+            "beta",
+            false,
+            &[(2000, 1), (2080, 2), (6000, 3)],
+        ),
+    ];
+    let output = dir.path().join("timeline.kdl");
+    let evidence = generate(&paths, "raid", &output);
+    let route = &evidence["draft"]["routes"][0];
+    assert_eq!(route["reference"], "alpha/1");
+    assert_eq!(route["peers_complete"], true);
+    // The representative orders A before B; the other pull only confirms both precede C.
+    assert_eq!(route["before"], json!([[0, 2], [1, 2]]));
+    for node in route["nodes"].as_array().expect("nodes") {
+        assert_eq!(
+            node["observation_nodes"]
+                .as_object()
+                .expect("bindings")
+                .len(),
+            2
+        );
+    }
+    for event in evidence["events"].as_array().expect("events") {
+        assert_eq!(event["samples"].as_array().expect("samples").len(), 2);
+    }
+    let reversed = generate(
+        &paths.into_iter().rev().collect::<Vec<_>>(),
+        "raid",
+        &dir.path().join("reverse.kdl"),
+    );
+    assert_eq!(evidence["draft"], reversed["draft"]);
+    assert_eq!(evidence["events"], reversed["events"]);
+}
+
+#[test]
+fn divergent_wipe_routes_are_reported_instead_of_silently_picking_one() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let paths = vec![
+        fixture(
+            dir.path(),
+            "alpha",
+            false,
+            &[(2000, 1), (4000, 2), (6000, 3)],
+        ),
+        fixture(
+            dir.path(),
+            "beta",
+            false,
+            &[(2000, 1), (4000, 3), (6000, 2)],
+        ),
+    ];
+    let output = dir.path().join("timeline.kdl");
+    let result = cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(paths)
+        .args(["--mode", "raid", "-o"])
+        .arg(&output)
+        .assert()
+        .failure();
+    assert!(
+        String::from_utf8_lossy(&result.get_output().stderr)
+            .contains("Representative routes differ")
+    );
+    assert!(!output.exists());
+    assert!(!output.with_extension("evidence.json").exists());
+}

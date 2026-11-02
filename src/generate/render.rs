@@ -106,10 +106,9 @@ fn draft_anchors(
             *counts.entry(&node.activity).or_default() += 1;
         }
         for node in route.graph.node_weights() {
-            let observations = BTreeMap::from([(route.reference.clone(), node.observation)]);
             events.push(anchor(analysis, progression, &CommonEvent {
                 signal: node.activity.clone(),
-                samples: progression.samples(&observations)?,
+                samples: progression.samples(&node.observations)?,
                 occurrence: counts.get(&node.activity).filter(|count| **count > 1).map(|_| node.occurrence),
                 evidence: json!({"method":"representative-route-v1","reference":route.reference,"source":route.source,
                     "coverage":"unconfirmed"}),
@@ -509,7 +508,11 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
         branches,
         mut excluded,
         diagnostics: alignment_diagnostics,
-    } = if inputs.len() == 1 {
+    } = if analysis.needs_representative_route() {
+        ensure!(
+            draft.supports_observed_routes(),
+            "Representative routes differ; branch and censored-route learning is not implemented for fewer than two clears"
+        );
         draft_anchors(&analysis, &progression, &draft)?
     } else {
         anchors(&analysis, &progression, mode)?

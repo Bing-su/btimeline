@@ -151,6 +151,10 @@ impl Analysis {
         Draft::new(&self.pulls, progression, boss_only)
     }
 
+    pub(super) fn needs_representative_route(&self) -> bool {
+        self.pulls.len() == 1 || self.pulls.iter().filter(|pull| pull.kill).count() < 2
+    }
+
     pub(super) fn loop_models(&self, boss_only: bool) -> Result<LoopDiscovery> {
         let views: Vec<_> = self.pulls.iter().map(Pull::learning_view).collect();
         let mut discovery = occurrences::loop_models(

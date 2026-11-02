@@ -6,13 +6,13 @@ use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 use petgraph::visit::{EdgeRef, IntoEdgeReferences};
 use serde_json::{Value, json};
 
-use super::{Progression, Pull, Signal, relations};
+use super::{Progression, Pull, Signal, common, covers};
 use crate::generate::mining::bosses;
 
 pub(in crate::generate) struct Node {
     pub activity: Signal,
     pub occurrence: usize,
-    pub observation: usize,
+    pub observations: BTreeMap<String, usize>,
 }
 
 pub(in crate::generate) struct Route {
@@ -20,6 +20,7 @@ pub(in crate::generate) struct Route {
     pub reference: String,
     pub graph: StableDiGraph<Node, (), usize>,
     relations_complete: bool,
+    peers_complete: bool,
 }
 
 pub(in crate::generate) struct Draft {
@@ -136,7 +137,7 @@ impl Draft {
             diagnostics.extend(candidates.iter().map(|candidate|
                 json!({"method":"representative-candidate-v1","source":source,"trace":candidate.reference,
                     "observed_span_ms":candidate.observed_span_ms,"cast_waves":candidate.nodes.len(),"coverage":"unconfirmed"})));
-            let Some(candidate) = candidates.into_iter().min_by_key(|candidate| {
+            let Some(candidate) = candidates.iter().min_by_key(|candidate| {
                 (
                     Reverse(candidate.observed_span_ms),
                     Reverse(candidate.nodes.len()),
@@ -146,39 +147,9 @@ impl Draft {
                 diagnostics.push(json!({"method":"representative-route-v1","source":source,"status":"unresolved","reason":"no unambiguous eligible scope"}));
                 continue;
             };
-            let raw = progression
-                .traces
-                .get(candidate.trace)
-                .context("Invalid representative trace")?;
-            let mut graph = StableDiGraph::default();
-            let mut counts = BTreeMap::new();
-            for (observation, _) in &candidate.nodes {
-                let activity = raw
-                    .graph
-                    .node_weight(NodeIndex::new(*observation))
-                    .context("Missing representative node")?
-                    .activity
-                    .clone();
-                let occurrence = counts.entry(activity.clone()).or_insert(0);
-                *occurrence += 1;
-                graph.add_node(Node {
-                    activity,
-                    occurrence: *occurrence,
-                    observation: *observation,
-                });
-            }
-            // Recompute covers after filtering, e.g. A -> excluded helper -> B must still retain A -> B.
-            let times: Vec<_> = candidate.nodes.iter().map(|(_, at)| *at).collect();
-            let (before, relations_complete) = relations(&times, 1_000_000);
-            for [from, to] in before {
-                graph.add_edge(NodeIndex::new(from), NodeIndex::new(to), ());
-            }
-            routes.push(Route {
-                source,
-                reference: candidate.reference,
-                graph,
-                relations_complete,
-            });
+            let (route, checks) = Route::learn(source, candidate, &candidates, progression)?;
+            routes.push(route);
+            diagnostics.extend(checks);
         }
         Ok(Self {
             routes,
@@ -186,17 +157,101 @@ impl Draft {
         })
     }
 
+    pub(in crate::generate) fn supports_observed_routes(&self) -> bool {
+        !self.routes.is_empty() && self.routes.iter().all(|route| route.peers_complete)
+    }
+
     pub(in crate::generate) fn evidence(&self) -> Value {
         let routes: Vec<_> = self.routes.iter().map(|route| {
             let nodes: Vec<_> = route.graph.node_indices().filter_map(|index| route.graph.node_weight(index).map(|node|
                 json!({"index":index.index(),"activity":node.activity,"occurrence":node.occurrence,
-                    "observation_nodes":{route.reference.clone():node.observation}}))).collect();
+                    "observation_nodes":node.observations}))).collect();
             let mut before: Vec<_> = route.graph.edge_references().map(|edge| [edge.source().index(),edge.target().index()]).collect();
             before.sort_unstable();
             json!({"source":route.source,"reference":route.reference,"nodes":nodes,"before":before,
-                "relations_complete":route.relations_complete,"coverage":"unconfirmed"})
+                "relations_complete":route.relations_complete,"peers_complete":route.peers_complete,"coverage":"unconfirmed"})
         }).collect();
         json!({"method":"representative-route-v1","scope":"one observed route per combat or boss; alternatives and loops not inferred",
             "routes":routes,"diagnostics":self.diagnostics})
+    }
+}
+
+impl Route {
+    fn learn(
+        source: Option<String>,
+        candidate: &Candidate,
+        candidates: &[Candidate],
+        progression: &Progression,
+    ) -> Result<(Self, Vec<Value>)> {
+        let mut diagnostics = Vec::new();
+        let raw = progression
+            .traces
+            .get(candidate.trace)
+            .context("Invalid representative trace")?;
+        let mut graph = StableDiGraph::default();
+        let mut counts = BTreeMap::new();
+        for (observation, _) in &candidate.nodes {
+            let activity = raw
+                .graph
+                .node_weight(NodeIndex::new(*observation))
+                .context("Missing representative node")?
+                .activity
+                .clone();
+            let occurrence = counts.entry(activity.clone()).or_insert(0);
+            *occurrence += 1;
+            graph.add_node(Node {
+                activity,
+                occurrence: *occurrence,
+                observations: BTreeMap::from([(candidate.reference.clone(), *observation)]),
+            });
+        }
+        let mut starts = vec![0; candidate.nodes.len()];
+        let mut peers_complete = true;
+        for peer in candidates {
+            let raw = progression
+                .traces
+                .get(peer.trace)
+                .context("Invalid peer trace")?;
+            let matches = graph.node_count() == peer.nodes.len()
+                && graph
+                    .node_weights()
+                    .zip(&peer.nodes)
+                    .all(|(node, (observation, _))| {
+                        raw.graph
+                            .node_weight(NodeIndex::new(*observation))
+                            .is_some_and(|peer| peer.activity == node.activity)
+                    });
+            diagnostics.push(json!({"method":"exact-route-correspondence-v1","source":source,
+                    "reference":candidate.reference,"trace":peer.reference,"status":if matches {"matched"} else {"unresolved"},
+                    "reason":if matches {"same complete occurrence sequence"} else {"occurrence sequence differs; alternatives or censoring need analysis"}}));
+            if !matches {
+                peers_complete = false;
+                continue;
+            }
+            let times: Vec<_> = peer.nodes.iter().map(|(_, at)| *at).collect();
+            for (node, (observation, _)) in graph.node_weights_mut().zip(&peer.nodes) {
+                node.observations
+                    .insert(peer.reference.clone(), *observation);
+            }
+            // Intersect certain precedence across peers, e.g. a near-simultaneous A/B stays unordered.
+            for (start, at) in starts.iter_mut().zip(&times) {
+                let boundary = at.saturating_add(common::ORDER_RESOLUTION_MS);
+                *start = (*start).max(times.partition_point(|time| *time <= boundary));
+            }
+        }
+        let (before, relations_complete) = covers(&starts, 1_000_000);
+        for [from, to] in before {
+            graph.add_edge(NodeIndex::new(from), NodeIndex::new(to), ());
+        }
+        Ok((
+            Self {
+                source,
+                reference: candidate.reference.clone(),
+                graph,
+                relations_complete,
+                peers_complete,
+            },
+            diagnostics,
+        ))
     }
 }

@@ -34,16 +34,23 @@ pub(in crate::generate) struct Progression {
 
 // Preserve only certain precedence, e.g. 0,80,160ms retains 0->160 without ordering its neighbors.
 fn relations(times: &[i64], limit: usize) -> (Vec<[usize; 2]>, bool) {
+    let starts: Vec<_> = times
+        .iter()
+        .map(|at| {
+            times.partition_point(|time| *time <= at.saturating_add(common::ORDER_RESOLUTION_MS))
+        })
+        .collect();
+    covers(&starts, limit)
+}
+
+// Starts are monotone: covers retain reachability without connecting every later occurrence.
+fn covers(starts: &[usize], limit: usize) -> (Vec<[usize; 2]>, bool) {
     let mut edges = Vec::new();
-    for (from, at) in times.iter().enumerate() {
-        let start =
-            times.partition_point(|time| *time <= at.saturating_add(common::ORDER_RESOLUTION_MS));
-        let Some(first) = times.get(start) else {
+    for (from, start) in starts.iter().copied().enumerate() {
+        let Some(end) = starts.get(start) else {
             continue;
         };
-        let end = times
-            .partition_point(|time| *time <= first.saturating_add(common::ORDER_RESOLUTION_MS));
-        for to in start..end {
+        for to in start..*end {
             if edges.len() == limit {
                 return (edges, false);
             }
