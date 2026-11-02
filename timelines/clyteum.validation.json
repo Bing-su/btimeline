@@ -1,0 +1,3418 @@
+{
+  "candidate_commit": "1ed237c",
+  "sample_columns": [
+    "raw_index",
+    "at_ms",
+    "ability_id",
+    "replay_error_ms",
+    "forecast_error_ms_or_null_before_entry_lead"
+  ],
+  "reports": [
+    {
+      "manifest": "tests/fixtures/authored/clyteum-development-plan.json",
+      "manifest_sha256": "2557b105f7d620a25f8779ba5441144c6f2d6fcb306c35f7e4165d424d3997ca",
+      "timeline_sha256": "69c5639aabdfa9261e13d7f4f69b4ee8cbb4c27759bd2cc3f21c47420160afc3",
+      "role": "development; previously investigated Clyteum inputs",
+      "summary": {
+        "selected": 31,
+        "excluded": 8,
+        "eligible": 23,
+        "passed_traces": 23,
+        "passed": true
+      },
+      "traces": [
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum/AVxmgdNytFPBwLRH_31.json",
+          "sha256": "caacd6768c6290491080a9b9cf05d8740f1ad9ef309d2618f55fd4602a6b296c",
+          "trace": "AVxmgdNytFPBwLRH/31",
+          "fingerprint": "89db3be787aab13361c139604bc6c8e321e38adcd1064270e089fd8ba908974b",
+          "origin_timestamp_ms": 12834652,
+          "cast_observations": 1689,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 154263,
+              "end_ms": 297438,
+              "entry_event": 3763,
+              "completion_event": 6371,
+              "targets": [
+                [3763, 154263, "BF00", 0, null],
+                [4039, 170566, "C400", 3, 3],
+                [4206, 180817, "C3FF", 54, 54],
+                [4383, 190606, "BF00", 43, 43],
+                [4503, 196972, "BEFD", 0, 34],
+                [4773, 216463, "BF01", 9, 9],
+                [4935, 224628, "BF05", 44, 44],
+                [4978, 225878, "BF01", 6, 6],
+                [5105, 230972, "BF02", 0, 0],
+                [5164, 232980, "BF02", 8, 8],
+                [5280, 239045, "C400", 27, 27],
+                [5486, 249745, "BF00", 73, 73],
+                [5619, 256027, "BEFD", 0, 18],
+                [5834, 267705, "BF03", 22, 22],
+                [6076, 282684, "BF00", 43, 43],
+                [6124, 285091, "BF01", 36, 36],
+                [6240, 290179, "BF02", 48, 48],
+                [6282, 292179, "BF02", 48, 48]
+              ],
+              "cycle_evidence": {
+                "markers": [[6076, 282684]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 451249,
+              "end_ms": 605733,
+              "entry_event": 9064,
+              "completion_event": 11350,
+              "targets": [
+                [9064, 451249, "BEF4", 0, null],
+                [9282, 463969, "BEE6", 20, 20],
+                [9327, 469489, "BEEC", 60, 60],
+                [9333, 472068, "BEEE", 19, 19],
+                [9496, 484248, "C4B9", 99, 99],
+                [9697, 495850, "BEEF", 2, 2],
+                [10075, 518076, "BEF4", 174, 174],
+                [10278, 530876, "BEE5", 74, 74],
+                [10293, 536386, "BEEC", 64, 64],
+                [10319, 541809, "BEEC", 41, 41],
+                [10332, 543901, "BEEE", 49, 49],
+                [10412, 549720, "C4F1", 0, 30],
+                [10510, 555364, "BEF6", 44, 44],
+                [10625, 561586, "C4B9", 0, 234],
+                [10863, 579230, "BEEF", 244, 244],
+                [11285, 601559, "BEF4", 0, 71]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 765647,
+              "end_ms": 971073,
+              "entry_event": 14050,
+              "completion_event": 17392,
+              "targets": [
+                [14050, 765647, "BF18", 0, null],
+                [14269, 776510, "C489", 37, 37],
+                [14452, 786168, "BF19", 79, 79],
+                [14603, 796639, "BF1A", 8, 8],
+                [14731, 806062, "BF1A", 85, 85],
+                [14883, 816508, "BF21", 39, 39],
+                [15084, 827949, "BF18", 98, 98],
+                [15245, 835859, "BF19", 12, 12],
+                [15405, 845311, "BF1B", 48, 48],
+                [15539, 853149, "C489", 0, 10],
+                [15673, 862257, "BF23", 8, 8],
+                [15830, 873685, "C48B", 64, 64],
+                [15944, 881820, "BF18", 0, 29],
+                [16165, 892676, "BF19", 44, 44],
+                [16471, 911168, "BF1D", 48, 48],
+                [16598, 919153, "C489", 133, 133],
+                [16800, 934255, "BF1D", 35, 35],
+                [16997, 947467, "C489", 547, 547],
+                [17105, 954577, "BF18", 457, 457],
+                [17290, 965444, "BF19", 33, 33]
+              ],
+              "cycle_evidence": {
+                "markers": [[15405, 845311]],
+                "periods_ms": [],
+                "complete_bodies": 1,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum/BTxgcVRnWMpDrK9X_30.json",
+          "sha256": "b68215c569f03dd3b008867fa9b6332df2a519c4516edc52a44983bd03b4ced7",
+          "trace": "BTxgcVRnWMpDrK9X/30",
+          "fingerprint": "e77bd5f1573a0976b5931b85b593e76a88ff06bc8d289493df29537f1934eef6",
+          "origin_timestamp_ms": 24154454,
+          "cast_observations": 1567,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 145264,
+              "end_ms": 278933,
+              "entry_event": 4067,
+              "completion_event": 6908,
+              "targets": [
+                [4067, 145264, "BF00", 0, null],
+                [4490, 161541, "C400", 23, 23],
+                [4645, 171797, "C3FF", 33, 33],
+                [4809, 181619, "BF00", 55, 55],
+                [4946, 187990, "BEFD", 0, 29],
+                [5266, 207493, "BF01", 3, 3],
+                [5434, 215619, "BF05", 71, 71],
+                [5476, 216915, "BF01", 25, 25],
+                [5607, 221997, "BF02", 7, 7],
+                [5670, 224003, "BF02", 13, 13],
+                [5809, 230071, "C3FF", 19, 19],
+                [6023, 240648, "BF00", 0, 42],
+                [6167, 246928, "BEFD", 0, 20],
+                [6375, 258583, "BF03", 45, 45],
+                [6740, 273578, "BF00", 50, 50],
+                [6814, 275986, "BF01", 42, 42]
+              ],
+              "cycle_evidence": {
+                "markers": [[6740, 273578]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 436385,
+              "end_ms": 565286,
+              "entry_event": 10221,
+              "completion_event": 12535,
+              "targets": [
+                [10221, 436385, "BEF4", 0, null],
+                [10535, 449091, "BEE7", 6, 6],
+                [10588, 454613, "BEEC", 72, 72],
+                [10608, 457196, "BEEE", 11, 11],
+                [10809, 469008, "C4B9", 0, 277],
+                [11031, 480858, "BEEF", 250, 250],
+                [11485, 503237, "BEF4", 21, 21],
+                [11744, 515935, "BEE5", 23, 23],
+                [11782, 521460, "BEEC", 2, 2],
+                [11811, 526853, "BEEC", 5, 5],
+                [11822, 528946, "BEEE", 12, 12],
+                [11926, 534785, "C4F1", 27, 27],
+                [12050, 540443, "BEF6", 58, 58],
+                [12169, 547078, "C4B9", 193, 193],
+                [12528, 564352, "BEEF", 0, 126]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 741195,
+              "end_ms": 922738,
+              "entry_event": 15916,
+              "completion_event": 19396,
+              "targets": [
+                [15916, 741195, "BF18", 0, null],
+                [16102, 751906, "C489", 189, 189],
+                [16271, 761792, "BF19", 3, 3],
+                [16435, 772255, "BF1A", 60, 60],
+                [16610, 781705, "BF1A", 10, 10],
+                [16810, 792131, "BF21", 36, 36],
+                [17087, 803584, "BF18", 11, 11],
+                [17273, 811469, "BF19", 74, 74],
+                [17452, 820925, "BF1B", 44, 44],
+                [17608, 828821, "C489", 52, 52],
+                [17752, 837964, "BF23", 43, 43],
+                [17909, 849389, "C48B", 32, 32],
+                [18029, 857548, "BF18", 27, 27],
+                [18260, 868450, "BF19", 2, 2],
+                [18605, 886903, "BF1D", 55, 55],
+                [18771, 894558, "C489", 190, 190],
+                [19073, 909651, "BF1D", 297, 297],
+                [19378, 922292, "C489", 356, 356]
+              ],
+              "cycle_evidence": {
+                "markers": [[17452, 820925]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum/Xjph97WBQKHGcfNt_1.json",
+          "sha256": "dc83a1aebec320a6bfa755f0c70f82fdd905be317c3820fd01524de30f269a60",
+          "trace": "Xjph97WBQKHGcfNt/1",
+          "fingerprint": "ae63e7c37c271e3e65c04f28ff2210c16419d50e2156e9a07337e522a1d0964d",
+          "origin_timestamp_ms": 1181471,
+          "cast_observations": 1715,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 171063,
+              "end_ms": 298370,
+              "entry_event": 4437,
+              "completion_event": 7510,
+              "targets": [
+                [4437, 171063, "BF00", 0, null],
+                [4910, 187362, "C400", 1, 1],
+                [5082, 197670, "C3FF", 107, 107],
+                [5290, 207489, "BF00", 126, 126],
+                [5470, 213926, "BEFD", 37, 37],
+                [5887, 233377, "BF01", 49, 49],
+                [6096, 241601, "BF05", 25, 25],
+                [6134, 242758, "BF01", 68, 68],
+                [6288, 247834, "BF02", 92, 92],
+                [6353, 249833, "BF02", 93, 93],
+                [6507, 255881, "C3FF", 145, 145],
+                [6757, 266466, "BF00", 0, 160],
+                [6916, 272812, "BEFD", 46, 46],
+                [7179, 284479, "BF03", 33, 33]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 437372,
+              "end_ms": 556484,
+              "entry_event": 10665,
+              "completion_event": 13032,
+              "targets": [
+                [10665, 437372, "BEF4", 0, null],
+                [11007, 449935, "BEE5", 137, 137],
+                [11076, 455484, "BEEC", 188, 188],
+                [11109, 458070, "BEEE", 102, 102],
+                [11368, 469617, "C4B9", 0, 655],
+                [11592, 481088, "BEEF", 0, 129],
+                [12079, 503348, "BEF4", 140, 140],
+                [12380, 516076, "BEE7", 112, 112],
+                [12430, 521579, "BEEC", 109, 109],
+                [12460, 526988, "BEEC", 100, 100],
+                [12466, 529116, "BEEE", 72, 72],
+                [12577, 534940, "C4F1", 0, 48],
+                [12717, 540584, "BEF6", 44, 44],
+                [12865, 546790, "C4B9", 0, 250]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 709660,
+              "end_ms": 871482,
+              "entry_event": 16592,
+              "completion_event": 20122,
+              "targets": [
+                [16592, 709660, "BF18", 0, null],
+                [16929, 720321, "C489", 239, 239],
+                [17156, 730036, "BF19", 224, 224],
+                [17336, 740524, "BF1A", 136, 136],
+                [17496, 749977, "BF1A", 183, 183],
+                [17669, 760404, "BF21", 156, 156],
+                [17910, 771866, "BF18", 194, 194],
+                [18154, 779764, "BF19", 0, 96],
+                [18374, 789210, "BF1B", 54, 54],
+                [18528, 796745, "C489", 0, 319],
+                [18671, 805880, "BF23", 35, 35],
+                [18860, 817299, "C48B", 46, 46],
+                [19030, 825460, "BF18", 15, 15],
+                [19365, 836173, "BF19", 187, 187],
+                [19799, 854653, "BF1D", 107, 107],
+                [19956, 862486, "C489", 174, 174]
+              ],
+              "cycle_evidence": {
+                "markers": [[18374, 789210]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum/nK4JqMXxNa6hYfR7_1.json",
+          "sha256": "42e99cbe2e0fdbd064fd3e7c4e95faedf2bd284bcb24ef8f34d7046fe9308e1f",
+          "trace": "nK4JqMXxNa6hYfR7/1",
+          "fingerprint": "82c9a4bdfdecb6572da860076171cac8eb7b03bd85d04e77cc6f946598e3c81e",
+          "origin_timestamp_ms": 7733,
+          "cast_observations": 1485,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 127041,
+              "end_ms": 235037,
+              "entry_event": 3100,
+              "completion_event": 5094,
+              "targets": [
+                [3100, 127041, "BF00", 0, null],
+                [3401, 143260, "C3FF", 81, 81],
+                [3582, 153516, "C400", 25, 25],
+                [3765, 163324, "BF00", 0, 17],
+                [3884, 169761, "BEFD", 37, 37],
+                [4215, 189251, "BF01", 10, 10],
+                [4349, 197421, "BF05", 40, 40],
+                [4382, 198799, "BF01", 138, 138],
+                [4509, 203910, "BF02", 149, 149],
+                [4556, 205918, "BF02", 157, 157],
+                [4684, 211982, "C3FF", 121, 121],
+                [4891, 222587, "BF00", 126, 126],
+                [4995, 228863, "BEFD", 0, 24]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 365808,
+              "end_ms": 472833,
+              "entry_event": 7405,
+              "completion_event": 9113,
+              "targets": [
+                [7405, 365808, "BEF4", 0, null],
+                [7598, 378603, "BEE4", 95, 95],
+                [7623, 384106, "BEEC", 2, 2],
+                [7644, 386770, "BEEE", 162, 162],
+                [7884, 398333, "C4B9", 0, 375],
+                [8111, 409629, "BEEF", 0, 304],
+                [8532, 431999, "BEF4", 30, 30],
+                [8729, 444568, "BEE5", 161, 161],
+                [8754, 450087, "BEEC", 142, 142],
+                [8791, 455461, "BEEC", 168, 168],
+                [8798, 457589, "BEEE", 140, 140],
+                [8896, 463449, "C4F1", 0, 80],
+                [9034, 469098, "BEF6", 49, 49]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 625936,
+              "end_ms": 773517,
+              "entry_event": 11817,
+              "completion_event": 14346,
+              "targets": [
+                [11817, 625936, "BF18", 0, null],
+                [11987, 636832, "C489", 4, 4],
+                [12172, 646533, "BF19", 3, 3],
+                [12362, 657005, "BF1A", 69, 69],
+                [12506, 666427, "BF1A", 9, 9],
+                [12672, 676861, "BF21", 25, 25],
+                [12888, 688315, "BF18", 21, 21],
+                [13050, 696212, "BF19", 76, 76],
+                [13230, 705667, "BF1B", 45, 45],
+                [13373, 713474, "C489", 0, 38],
+                [13487, 722606, "BF23", 32, 32],
+                [13649, 734007, "C48B", 67, 67],
+                [13769, 742140, "BF18", 0, 34],
+                [13940, 753044, "BF19", 4, 4],
+                [14300, 771512, "BF1D", 72, 72]
+              ],
+              "cycle_evidence": {
+                "markers": [[13230, 705667]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum/mwAQvf23gMkFdNGK_1.json",
+          "sha256": "90479110d4aff60a9dc83a8eb911355d293160c21c04db09cccfcbe65e9adbbb",
+          "trace": "mwAQvf23gMkFdNGK/1",
+          "fingerprint": "f627483db4623ca8c7bd3ad5a02fcfb66e5852d68f298340ccfab423f832d93a",
+          "origin_timestamp_ms": 7163,
+          "cast_observations": 1551,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 129032,
+              "end_ms": 226225,
+              "entry_event": 3482,
+              "completion_event": 5734,
+              "targets": [
+                [3482, 129032, "BF00", 0, null],
+                [3936, 145286, "C3FF", 46, 46],
+                [4114, 155539, "C400", 7, 7],
+                [4330, 165337, "BF00", 5, 5],
+                [4495, 171734, "BEFD", 0, 3],
+                [4861, 191215, "BF01", 19, 19],
+                [5045, 199412, "BF05", 22, 22],
+                [5096, 200618, "BF01", 16, 16],
+                [5243, 205718, "BF02", 16, 16],
+                [5298, 207687, "BF02", 47, 47],
+                [5436, 213775, "C400", 59, 59],
+                [5687, 224477, "BF00", 43, 43]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 346162,
+              "end_ms": 451331,
+              "entry_event": 8870,
+              "completion_event": 10882,
+              "targets": [
+                [8870, 346162, "BEF4", 0, null],
+                [9150, 358924, "BEE7", 62, 62],
+                [9193, 364434, "BEEC", 28, 28],
+                [9206, 367079, "BEEE", 117, 117],
+                [9443, 378998, "C4B9", 0, 64],
+                [9694, 390774, "BEEF", 176, 176],
+                [10276, 413027, "BEF4", 147, 147],
+                [10530, 425569, "BEE5", 305, 305],
+                [10563, 431081, "BEEC", 293, 293],
+                [10583, 436458, "BEEC", 316, 316],
+                [10601, 438610, "BEEE", 264, 264],
+                [10718, 444432, "C4F1", 0, 242],
+                [10848, 450076, "BEF6", 44, 44]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 591982,
+              "end_ms": 733955,
+              "entry_event": 13918,
+              "completion_event": 16855,
+              "targets": [
+                [13918, 591982, "BF18", 0, null],
+                [14128, 602862, "C489", 20, 20],
+                [14345, 612563, "BF19", 19, 19],
+                [14549, 623019, "BF1A", 37, 37],
+                [14705, 632446, "BF1A", 36, 36],
+                [14880, 642889, "BF21", 7, 7],
+                [15162, 654330, "BF18", 52, 52],
+                [15392, 662012, "BF19", 0, 170],
+                [15629, 671443, "BF1B", 69, 69],
+                [15788, 678943, "C489", 0, 369],
+                [15931, 688080, "BF23", 37, 37],
+                [16142, 699507, "C48B", 36, 36],
+                [16297, 707673, "BF18", 30, 30],
+                [16526, 718610, "BF19", 37, 37]
+              ],
+              "cycle_evidence": {
+                "markers": [[15629, 671443]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "excluded",
+          "input": "logs/clyteum/JGNgkPYqhm7WbdFT_7.json",
+          "sha256": "54882809ffb2e659d9f824d104518042e44c945fb65505f0ec59f7379c507029",
+          "stage": "input-validation",
+          "error": "InputExclusion: Possible attempt reset or large boss heal",
+          "passed": null,
+          "evidence": {
+            "source": "Chort",
+            "raw_index": 13677
+          }
+        },
+        {
+          "status": "excluded",
+          "input": "logs/clyteum/J1xNVnwWXLHDfkcG_1.json",
+          "sha256": "4255394378d9e7cd55aa3e52d8d104848129795adf4eb46359e9c0b091b1e35e",
+          "stage": "input-validation",
+          "error": "InputExclusion: Missing observed boss completion",
+          "passed": null,
+          "evidence": {
+            "source": "Chort",
+            "entry_event": 10294
+          }
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum/VWqvbjnZpxa2GMNL_1.json",
+          "sha256": "479179c1263389a8b42e81ebf50c7e8786324e7e845870d5cbb06a7f9deb9dea",
+          "trace": "VWqvbjnZpxa2GMNL/1",
+          "fingerprint": "672695b147cfb367700074a0fae24aa7e39aba884abd03342372081c9014c8f7",
+          "origin_timestamp_ms": 6348,
+          "cast_observations": 1742,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 139718,
+              "end_ms": 266916,
+              "entry_event": 4046,
+              "completion_event": 6848,
+              "targets": [
+                [4046, 139718, "BF00", 0, null],
+                [4471, 156011, "C3FF", 7, 7],
+                [4663, 166255, "C400", 37, 37],
+                [4842, 176060, "BF00", 42, 42],
+                [4999, 182426, "BEFD", 0, 34],
+                [5333, 201921, "BF01", 5, 5],
+                [5545, 210053, "BF05", 73, 73],
+                [5605, 211302, "BF01", 24, 24],
+                [5744, 216400, "BF02", 26, 26],
+                [5799, 218410, "BF02", 16, 16],
+                [5923, 224488, "C3FF", 38, 38],
+                [6135, 235084, "BF00", 0, 42],
+                [6288, 241369, "BEFD", 0, 15],
+                [6567, 253033, "BF03", 36, 36]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 404183,
+              "end_ms": 526065,
+              "entry_event": 9927,
+              "completion_event": 12045,
+              "targets": [
+                [9927, 404183, "BEF4", 0, null],
+                [10210, 416912, "BEE6", 29, 29],
+                [10239, 422429, "BEEC", 54, 54],
+                [10245, 425011, "BEEE", 28, 28],
+                [10438, 437180, "C4B9", 97, 97],
+                [10630, 448379, "BEEF", 0, 401],
+                [11175, 470621, "BEF4", 158, 158],
+                [11403, 483368, "BEE4", 111, 111],
+                [11427, 488898, "BEEC", 81, 81],
+                [11444, 494287, "BEEC", 92, 92],
+                [11458, 496381, "BEEE", 98, 98],
+                [11574, 502174, "C4F1", 0, 105],
+                [11706, 507793, "BEF6", 19, 19],
+                [11842, 514171, "C4B9", 0, 103]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 671518,
+              "end_ms": 831122,
+              "entry_event": 15026,
+              "completion_event": 18167,
+              "targets": [
+                [15026, 671518, "BF18", 0, null],
+                [15227, 682120, "C489", 298, 298],
+                [15423, 691841, "BF19", 277, 277],
+                [15587, 702317, "BF1A", 201, 201],
+                [15771, 711764, "BF1A", 254, 254],
+                [15982, 722191, "BF21", 227, 227],
+                [16253, 733649, "BF18", 269, 269],
+                [16444, 741310, "BF19", 0, 408],
+                [16650, 750726, "BF1B", 84, 84],
+                [16814, 758577, "C489", 0, 33],
+                [16975, 767716, "BF23", 39, 39],
+                [17183, 779107, "C48B", 70, 70],
+                [17327, 787261, "BF18", 0, 16],
+                [17568, 798045, "BF19", 116, 116],
+                [17882, 816506, "BF1D", 55, 55],
+                [18030, 824478, "C489", 17, 17]
+              ],
+              "cycle_evidence": {
+                "markers": [[16650, 750726]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "excluded",
+          "input": "logs/clyteum/Vr3G2DLgXtCf9YTa_28.json",
+          "sha256": "a25c106aa1ce95edf2aba5be321dbf9a037e40012af81b814a31c08a4d591686",
+          "stage": "input-validation",
+          "error": "InputExclusion: Possible attempt reset or large boss heal",
+          "passed": null,
+          "evidence": {
+            "source": "Eye of the Scorpion",
+            "raw_index": 8502
+          }
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum/jZkbx2NG94mBf6PH_1.json",
+          "sha256": "98b69edb8c9ce7f3eb603de283d621884d2369107a930f22f11693bb00cddcea",
+          "trace": "jZkbx2NG94mBf6PH/1",
+          "fingerprint": "3ef18a65ea14d4738e7a8dc8ebd2ffe1762b14e9f267ed7bc34d522d993dfa0a",
+          "origin_timestamp_ms": 3532203,
+          "cast_observations": 1636,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 149028,
+              "end_ms": 280606,
+              "entry_event": 3454,
+              "completion_event": 5902,
+              "targets": [
+                [3454, 149028, "BF00", 0, null],
+                [3777, 165326, "C3FF", 2, 2],
+                [3899, 175602, "C400", 74, 74],
+                [4054, 185398, "BF00", 70, 70],
+                [4185, 191802, "BEFD", 4, 4],
+                [4503, 211276, "BF01", 26, 26],
+                [4663, 219464, "BF05", 38, 38],
+                [4692, 220760, "BF01", 58, 58],
+                [4813, 225814, "BF02", 12, 12],
+                [4870, 227873, "BF02", 71, 71],
+                [4980, 233912, "C400", 10, 10],
+                [5189, 244601, "BF00", 99, 99],
+                [5322, 250915, "BEFD", 14, 14],
+                [5524, 262593, "BF03", 22, 22],
+                [5828, 277610, "BF00", 5, 5],
+                [5898, 280023, "BF01", 8, 8]
+              ],
+              "cycle_evidence": {
+                "markers": [[5828, 277610]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 433507,
+              "end_ms": 561763,
+              "entry_event": 8688,
+              "completion_event": 10640,
+              "targets": [
+                [8688, 433507, "BEF4", 0, null],
+                [8928, 446191, "BEE6", 16, 16],
+                [8949, 451730, "BEEC", 77, 77],
+                [8961, 454322, "BEEE", 15, 15],
+                [9185, 466285, "C4B9", 0, 122],
+                [9383, 478159, "BEEF", 274, 274],
+                [9725, 500426, "BEF4", 133, 133],
+                [9968, 513188, "BEE7", 71, 71],
+                [9990, 518718, "BEEC", 41, 41],
+                [9995, 524113, "BEEC", 46, 46],
+                [9997, 526167, "BEEE", 92, 92],
+                [10101, 532060, "C4F1", 1, 1],
+                [10217, 537687, "BEF6", 27, 27],
+                [10327, 544068, "C4B9", 0, 92],
+                [10638, 561629, "BEEF", 161, 161]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 714692,
+              "end_ms": 908088,
+              "entry_event": 13023,
+              "completion_event": 16589,
+              "targets": [
+                [13023, 714692, "BF18", 0, null],
+                [13259, 725430, "C489", 162, 162],
+                [13398, 735091, "BF19", 201, 201],
+                [13586, 745550, "BF1A", 142, 142],
+                [13715, 754995, "BF1A", 197, 197],
+                [13871, 765410, "BF21", 182, 182],
+                [14086, 776842, "BF18", 250, 250],
+                [14279, 784713, "BF19", 0, 179],
+                [14463, 794158, "BF1B", 55, 55],
+                [14632, 802032, "C489", 19, 19],
+                [14798, 811161, "BF23", 29, 29],
+                [14987, 822554, "C48B", 78, 78],
+                [15121, 830705, "BF18", 0, 27],
+                [15402, 841613, "BF19", 8, 8],
+                [15724, 860071, "BF1D", 66, 66],
+                [15866, 867897, "C489", 8, 8],
+                [16077, 883070, "BF1D", 35, 35],
+                [16328, 895803, "C489", 2, 2],
+                [16478, 902925, "BF18", 0, 80]
+              ],
+              "cycle_evidence": {
+                "markers": [[14463, 794158]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum/NJV9Gnv8Zd2xQTDm_13.json",
+          "sha256": "725e59b69add3ccf05a03ce1b76d78087d76303059f99d55cccfdb437d58ee66",
+          "trace": "NJV9Gnv8Zd2xQTDm/13",
+          "fingerprint": "41dbc670e57281cd06d4ce5d3b02f19f42aa7cd529115b22482ae6f4e39e6035",
+          "origin_timestamp_ms": 6767662,
+          "cast_observations": 1440,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 999639,
+              "end_ms": 1164112,
+              "entry_event": 7001,
+              "completion_event": 9337,
+              "targets": [
+                [7001, 999639, "BF00", 0, null],
+                [7278, 1015950, "C400", 11, 11],
+                [7371, 1026225, "C3FF", 86, 86],
+                [7477, 1036013, "BF00", 74, 74],
+                [7602, 1042401, "BEFD", 0, 12],
+                [7838, 1061889, "BF01", 12, 12],
+                [7936, 1070071, "BF05", 30, 30],
+                [7959, 1071279, "BF01", 22, 22],
+                [8031, 1076375, "BF02", 26, 26],
+                [8062, 1078388, "BF02", 13, 13],
+                [8121, 1084423, "C400", 78, 78],
+                [8270, 1095105, "BF00", 4, 4],
+                [8372, 1101406, "BEFD", 1, 1],
+                [8515, 1113065, "BF03", 41, 41],
+                [8711, 1128071, "BF00", 35, 35],
+                [8768, 1130484, "BF01", 22, 22],
+                [8883, 1135573, "BF02", 33, 33],
+                [8923, 1137583, "BF02", 23, 23],
+                [9009, 1143658, "C400", 48, 48],
+                [9171, 1154333, "BF00", 0, 73],
+                [9290, 1160630, "BEFD", 0, 3]
+              ],
+              "cycle_evidence": {
+                "markers": [[8711, 1128071]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 1520029,
+              "end_ms": 1682016,
+              "entry_event": 12927,
+              "completion_event": 14619,
+              "targets": [
+                [12927, 1520029, "BEF4", 0, null],
+                [13102, 1532728, "BEE7", 1, 1],
+                [13129, 1538273, "BEEC", 56, 56],
+                [13135, 1540866, "BEEE", 37, 37],
+                [13245, 1552713, "C4B9", 0, 216],
+                [13314, 1564069, "BEEF", 0, 244],
+                [13568, 1586330, "BEF4", 139, 139],
+                [13721, 1599073, "BEE4", 96, 96],
+                [13732, 1604613, "BEEC", 56, 56],
+                [13746, 1610020, "BEEC", 49, 49],
+                [13747, 1612121, "BEEE", 48, 48],
+                [13807, 1617797, "C4F1", 0, 172],
+                [13892, 1623429, "BEF6", 32, 32],
+                [13977, 1629822, "C4B9", 0, 75],
+                [14169, 1647246, "BEEF", 24, 24],
+                [14426, 1669500, "BEF4", 0, 146],
+                [14600, 1681434, "C4F1", 34, 34]
+              ],
+              "cycle_evidence": {
+                "markers": [[14600, 1681434]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 1951865,
+              "end_ms": 2166816,
+              "entry_event": 17797,
+              "completion_event": 20310,
+              "targets": [
+                [17797, 1951865, "BF18", 0, null],
+                [17960, 1962764, "C489", 1, 1],
+                [18056, 1972452, "BF19", 13, 13],
+                [18153, 1982897, "BF1A", 32, 32],
+                [18240, 1992359, "BF1A", 6, 6],
+                [18326, 2002808, "BF21", 43, 43],
+                [18488, 2014248, "BF18", 17, 17],
+                [18622, 2022107, "BF19", 42, 42],
+                [18762, 2031531, "BF1B", 76, 76],
+                [18855, 2038995, "C489", 0, 412],
+                [18925, 2048103, "BF23", 8, 8],
+                [19041, 2059534, "C48B", 61, 61],
+                [19151, 2067661, "BF18", 0, 34],
+                [19332, 2078559, "BF19", 2, 2],
+                [19524, 2097049, "BF1D", 88, 88],
+                [19610, 2104866, "C489", 5, 5],
+                [19725, 2119999, "BF1D", 62, 62],
+                [19893, 2132503, "C489", 258, 258],
+                [19979, 2139607, "BF18", 0, 354],
+                [20141, 2150551, "BF19", 44, 44],
+                [20238, 2159976, "BF1B", 169, 169]
+              ],
+              "cycle_evidence": {
+                "markers": [
+                  [18762, 2031531],
+                  [20238, 2159976]
+                ],
+                "periods_ms": [128445],
+                "complete_bodies": 1,
+                "observed_recurrences": 1
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum/z9wpNYrRyvGgQA74_1.json",
+          "sha256": "6f983c9f0db309d168ea954e2d6457b1e4d585c56f4de3d6a56e6ebc3e75e9cb",
+          "trace": "z9wpNYrRyvGgQA74/1",
+          "fingerprint": "ab0058aac4fb8587ee6546fb48e241cf24a8f304aa47a6ba25d998445a2c4d35",
+          "origin_timestamp_ms": 190093,
+          "cast_observations": 1725,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 152256,
+              "end_ms": 286650,
+              "entry_event": 3594,
+              "completion_event": 6263,
+              "targets": [
+                [3594, 152256, "BF00", 0, null],
+                [3919, 168519, "C400", 37, 37],
+                [4082, 178773, "C3FF", 17, 17],
+                [4246, 188583, "BF00", 27, 27],
+                [4402, 194958, "BEFD", 0, 25],
+                [4729, 214428, "BF01", 30, 30],
+                [4898, 222626, "BF05", 32, 32],
+                [4946, 223870, "BF01", 12, 12],
+                [5088, 228945, "BF02", 13, 13],
+                [5152, 230946, "BF02", 12, 12],
+                [5282, 236999, "C3FF", 59, 59],
+                [5495, 247679, "BF00", 21, 21],
+                [5655, 253959, "BEFD", 0, 20],
+                [5838, 265626, "BF03", 33, 33],
+                [6105, 280635, "BF00", 24, 24],
+                [6172, 283041, "BF01", 18, 18]
+              ],
+              "cycle_evidence": {
+                "markers": [[6105, 280635]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 431259,
+              "end_ms": 569046,
+              "entry_event": 8991,
+              "completion_event": 11129,
+              "targets": [
+                [8991, 431259, "BEF4", 0, null],
+                [9216, 443991, "BEE7", 32, 32],
+                [9241, 449508, "BEEC", 51, 51],
+                [9249, 452086, "BEEE", 27, 27],
+                [9478, 463930, "C4B9", 0, 229],
+                [9647, 475284, "BEEF", 0, 246],
+                [10098, 497535, "BEF4", 149, 149],
+                [10315, 510244, "BEE4", 140, 140],
+                [10330, 515773, "BEEC", 111, 111],
+                [10350, 521160, "BEEC", 124, 124],
+                [10352, 523253, "BEEE", 131, 131],
+                [10459, 529094, "C4F1", 0, 90],
+                [10560, 534707, "BEF6", 13, 13],
+                [10703, 541487, "C4B9", 293, 293],
+                [10981, 559455, "BEEF", 568, 568]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 733221,
+              "end_ms": 927991,
+              "entry_event": 14060,
+              "completion_event": 17491,
+              "targets": [
+                [14060, 733221, "BF18", 0, null],
+                [14249, 744109, "C489", 12, 12],
+                [14399, 753795, "BF19", 26, 26],
+                [14561, 764237, "BF1A", 16, 16],
+                [14702, 773698, "BF1A", 23, 23],
+                [14872, 784158, "BF21", 37, 37],
+                [15099, 795606, "BF18", 15, 15],
+                [15272, 803524, "BF19", 103, 103],
+                [15451, 812958, "BF1B", 66, 66],
+                [15585, 821146, "C489", 322, 322],
+                [15729, 830269, "BF23", 23, 23],
+                [15919, 841663, "C48B", 83, 83],
+                [16071, 849793, "BF18", 0, 53],
+                [16316, 860737, "BF19", 44, 44],
+                [16608, 879198, "BF1D", 105, 105],
+                [16734, 887155, "C489", 162, 162],
+                [16958, 902297, "BF1D", 104, 104],
+                [17225, 915211, "C489", 318, 318],
+                [17361, 922314, "BF18", 221, 221]
+              ],
+              "cycle_evidence": {
+                "markers": [[15451, 812958]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum/McH9xJrqaCvgGZbY_8.json",
+          "sha256": "92460f440cee62088eb34b6de326a74cdaa057dfad5132b06b412f9d1c59f037",
+          "trace": "McH9xJrqaCvgGZbY/8",
+          "fingerprint": "0dc421ebdd274b77d557209d08206946b7e01ebf980f81b79c9001c4d02bc418",
+          "origin_timestamp_ms": 1805457,
+          "cast_observations": 1594,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 151594,
+              "end_ms": 282567,
+              "entry_event": 3906,
+              "completion_event": 6514,
+              "targets": [
+                [3906, 151594, "BF00", 0, null],
+                [4265, 167855, "C3FF", 39, 39],
+                [4427, 178119, "C400", 25, 25],
+                [4584, 187889, "BF00", 0, 5],
+                [4722, 194270, "BEFD", 0, 19],
+                [5019, 213779, "BF01", 9, 9],
+                [5217, 221907, "BF05", 63, 63],
+                [5243, 223158, "BF01", 12, 12],
+                [5342, 228246, "BF02", 24, 24],
+                [5385, 230255, "BF02", 15, 15],
+                [5534, 236326, "C3FF", 44, 44],
+                [5754, 246999, "BF00", 29, 29],
+                [5878, 253294, "BEFD", 0, 5],
+                [6088, 264987, "BF03", 7, 7],
+                [6431, 279932, "BF00", 62, 62],
+                [6511, 282345, "BF01", 49, 49]
+              ],
+              "cycle_evidence": {
+                "markers": [[6431, 279932]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 452263,
+              "end_ms": 582092,
+              "entry_event": 10095,
+              "completion_event": 12176,
+              "targets": [
+                [10095, 452263, "BEF4", 0, null],
+                [10402, 465014, "BEE6", 51, 51],
+                [10440, 470525, "BEEC", 38, 38],
+                [10442, 473166, "BEEE", 103, 103],
+                [10613, 484760, "C4B9", 0, 403],
+                [10772, 496527, "BEEF", 167, 167],
+                [11238, 518903, "BEF4", 24, 24],
+                [11471, 531608, "BEE4", 19, 19],
+                [11497, 537156, "BEEC", 29, 29],
+                [11512, 542572, "BEEC", 45, 45],
+                [11514, 544631, "BEEE", 4, 4],
+                [11616, 550448, "C4F1", 21, 21],
+                [11718, 556088, "BEF6", 40, 40],
+                [11838, 562710, "C4B9", 162, 162],
+                [12151, 580659, "BEEF", 549, 549]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 746681,
+              "end_ms": 926371,
+              "entry_event": 15137,
+              "completion_event": 18276,
+              "targets": [
+                [15137, 746681, "BF18", 0, null],
+                [15409, 757602, "C489", 21, 21],
+                [15567, 767316, "BF19", 35, 35],
+                [15714, 777785, "BF1A", 104, 104],
+                [15835, 787222, "BF1A", 41, 41],
+                [15986, 797673, "BF21", 92, 92],
+                [16208, 809111, "BF18", 30, 30],
+                [16436, 817016, "BF19", 135, 135],
+                [16604, 826452, "BF1B", 64, 64],
+                [16712, 833971, "C489", 0, 345],
+                [16842, 843107, "BF23", 36, 36],
+                [16997, 854514, "C48B", 57, 57],
+                [17124, 862654, "BF18", 0, 17],
+                [17393, 873565, "BF19", 11, 11],
+                [17719, 892025, "BF1D", 71, 71],
+                [17838, 899936, "C489", 82, 82],
+                [18034, 915067, "BF1D", 13, 13]
+              ],
+              "cycle_evidence": {
+                "markers": [[16604, 826452]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "excluded",
+          "input": "logs/clyteum/Vr3G2DLgXtCf9YTa_5.json",
+          "sha256": "c2175b7af54dc1efd3af121a092062a7ac744272bd4fef15439b237149f557a9",
+          "stage": "input-validation",
+          "error": "InputExclusion: Missing observed boss completion",
+          "passed": null,
+          "evidence": {
+            "source": "Chort",
+            "entry_event": 9649
+          }
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum/VdY3xbjCFzXMn7Kv_3.json",
+          "sha256": "608eaef0d8acd50ceb6060b4c3ac81daf6422a770f249e0b2558c395e0ee1e18",
+          "trace": "VdY3xbjCFzXMn7Kv/3",
+          "fingerprint": "f2e133f9e52a70447f978b56e1c3b33e8b602c4603adc1c1ce8db6b002fbe889",
+          "origin_timestamp_ms": 10442066,
+          "cast_observations": 1511,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 133174,
+              "end_ms": 268582,
+              "entry_event": 3516,
+              "completion_event": 6093,
+              "targets": [
+                [3516, 133174, "BF00", 0, null],
+                [3883, 149432, "C3FF", 42, 42],
+                [4028, 159680, "C400", 6, 6],
+                [4184, 169491, "BF00", 17, 17],
+                [4321, 175853, "BEFD", 0, 38],
+                [4641, 195350, "BF01", 3, 3],
+                [4784, 203507, "BF05", 46, 46],
+                [4837, 204886, "BF01", 133, 133],
+                [4956, 209970, "BF02", 117, 117],
+                [5006, 211974, "BF02", 121, 121],
+                [5136, 218031, "C400", 78, 78],
+                [5317, 228642, "BF00", 89, 89],
+                [5436, 234929, "BEFD", 0, 13],
+                [5613, 246605, "BF03", 24, 24],
+                [5919, 261596, "BF00", 33, 33],
+                [5969, 264041, "BF01", 12, 12]
+              ],
+              "cycle_evidence": {
+                "markers": [[5919, 261596]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 404652,
+              "end_ms": 524688,
+              "entry_event": 8831,
+              "completion_event": 10677,
+              "targets": [
+                [8831, 404652, "BEF4", 0, null],
+                [9027, 417420, "BEE6", 68, 68],
+                [9044, 422915, "BEEC", 37, 37],
+                [9051, 425504, "BEEE", 52, 52],
+                [9301, 437607, "C4B9", 55, 55],
+                [9495, 449038, "BEEF", 0, 169],
+                [9864, 471289, "BEF4", 149, 149],
+                [10116, 484021, "BEE7", 117, 117],
+                [10145, 489560, "BEEC", 78, 78],
+                [10162, 494957, "BEEC", 81, 81],
+                [10177, 497055, "BEEE", 83, 83],
+                [10297, 502855, "C4F1", 0, 83],
+                [10420, 508481, "BEF6", 26, 26],
+                [10562, 515222, "C4B9", 267, 267]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 663627,
+              "end_ms": 837050,
+              "entry_event": 13252,
+              "completion_event": 16200,
+              "targets": [
+                [13252, 663627, "BF18", 0, null],
+                [13485, 674346, "C489", 181, 181],
+                [13695, 684026, "BF19", 201, 201],
+                [13849, 694461, "BF1A", 166, 166],
+                [13978, 703918, "BF1A", 209, 209],
+                [14147, 714330, "BF21", 197, 197],
+                [14379, 725796, "BF18", 231, 231],
+                [14549, 733640, "BF19", 0, 187],
+                [14713, 743091, "BF1B", 49, 49],
+                [14842, 750992, "C489", 52, 52],
+                [14947, 760141, "BF23", 49, 49],
+                [15082, 771523, "C48B", 69, 69],
+                [15206, 779657, "BF18", 0, 35],
+                [15390, 790522, "BF19", 35, 35],
+                [15702, 808983, "BF1D", 26, 26],
+                [15849, 816752, "C489", 105, 105],
+                [16108, 831863, "BF1D", 194, 194]
+              ],
+              "cycle_evidence": {
+                "markers": [[14713, 743091]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "excluded",
+          "input": "logs/clyteum/h8gFmLJDdwKpnCVj_7.json",
+          "sha256": "4dab79f7fb4dd8a53e096bb6a3da6a7672f9fd6a94e4aaa862a8e4f9065c012a",
+          "stage": "input-validation",
+          "error": "InputExclusion: Possible attempt reset or large boss heal",
+          "passed": null,
+          "evidence": {
+            "source": "Chort",
+            "raw_index": 13677
+          }
+        },
+        {
+          "status": "excluded",
+          "input": "logs/clyteum/wN24cyJq6MxXR8AG_11.json",
+          "sha256": "c0a2ce9897cfb1e799ba72b83136e14ced1aaf525e751a4297748e35365b09b1",
+          "stage": "input-validation",
+          "error": "InputExclusion: Possible attempt reset or large boss heal",
+          "passed": null,
+          "evidence": {
+            "source": "Eye of the Scorpion",
+            "raw_index": 6960
+          }
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum/m2VBjgFPKqWpzf9a_1.json",
+          "sha256": "ea9d0b7723e3783a11fb9d24bd4f372e9e164dc11f677e892e6c4c1ac693b10a",
+          "trace": "m2VBjgFPKqWpzf9a/1",
+          "fingerprint": "2c8952703590a0e85de107ff746a5dfebfa9318a68658c6b4ea8ad304557e56a",
+          "origin_timestamp_ms": 350976,
+          "cast_observations": 1766,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 157925,
+              "end_ms": 288415,
+              "entry_event": 3822,
+              "completion_event": 6554,
+              "targets": [
+                [3822, 157925, "BF00", 0, null],
+                [4170, 174172, "C400", 53, 53],
+                [4331, 184407, "C3FF", 18, 18],
+                [4473, 194232, "BF00", 7, 7],
+                [4633, 200597, "BEFD", 0, 35],
+                [4980, 220067, "BF01", 30, 30],
+                [5184, 228256, "BF05", 41, 41],
+                [5213, 229457, "BF01", 40, 40],
+                [5398, 234528, "BF02", 69, 69],
+                [5479, 236570, "BF02", 27, 27],
+                [5611, 242575, "C400", 122, 122],
+                [5859, 253252, "BF00", 0, 45],
+                [5995, 259531, "BEFD", 0, 21],
+                [6196, 271193, "BF03", 38, 38],
+                [6500, 286189, "BF00", 42, 42]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 439541,
+              "end_ms": 568927,
+              "entry_event": 9570,
+              "completion_event": 11776,
+              "targets": [
+                [9570, 439541, "BEF4", 0, null],
+                [9800, 452275, "BEE6", 34, 34],
+                [9831, 457786, "BEEC", 55, 55],
+                [9839, 460367, "BEEE", 26, 26],
+                [10046, 471982, "C4B9", 0, 459],
+                [10272, 483908, "BEEF", 326, 326],
+                [10760, 506218, "BEF4", 90, 90],
+                [11004, 518805, "BEE6", 203, 203],
+                [11020, 524325, "BEEC", 183, 183],
+                [11041, 529710, "BEEC", 198, 198],
+                [11046, 531807, "BEEE", 201, 201],
+                [11133, 537599, "C4F1", 0, 209],
+                [11272, 543212, "BEF6", 13, 13],
+                [11419, 549576, "C4B9", 0, 123],
+                [11743, 567325, "BEEF", 349, 349]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 740157,
+              "end_ms": 923211,
+              "entry_event": 14693,
+              "completion_event": 18070,
+              "targets": [
+                [14693, 740157, "BF18", 0, null],
+                [14961, 751077, "C489", 20, 20],
+                [15163, 760741, "BF19", 16, 16],
+                [15338, 771203, "BF1A", 46, 46],
+                [15495, 780651, "BF1A", 6, 6],
+                [15664, 791066, "BF21", 9, 9],
+                [15896, 802540, "BF18", 17, 17],
+                [16091, 810252, "BF19", 0, 105],
+                [16292, 819693, "BF1B", 59, 59],
+                [16460, 827883, "C489", 331, 331],
+                [16602, 836990, "BF23", 7, 7],
+                [16771, 848406, "C48B", 77, 77],
+                [16900, 856572, "BF18", 0, 11],
+                [17121, 867376, "BF19", 96, 96],
+                [17408, 885849, "BF1D", 23, 23],
+                [17534, 893601, "C489", 171, 171],
+                [17762, 908699, "BF1D", 273, 273],
+                [18036, 921475, "C489", 197, 197]
+              ],
+              "cycle_evidence": {
+                "markers": [[16292, 819693]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "excluded",
+          "input": "logs/clyteum/tpmrkL76NhXHMbZv_7.json",
+          "sha256": "b36a637edccc1bb2659b43917cbfc1a852a266f4d847b8e03149ed4304c2b2df",
+          "stage": "input-validation",
+          "error": "InputExclusion: Possible attempt reset or large boss heal",
+          "passed": null,
+          "evidence": {
+            "source": "Chort",
+            "raw_index": 13677
+          }
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum/TwQYZydBhgLfn3bC_1.json",
+          "sha256": "10f2d5bf0f58718d7874685ee391501e87429a2287d724c68fc4fadb5903744b",
+          "trace": "TwQYZydBhgLfn3bC/1",
+          "fingerprint": "80aaec49fbdbea189aaf1f1b1cf2a5ac01ce13622bc9642a69574cc73c5c199a",
+          "origin_timestamp_ms": 1703486,
+          "cast_observations": 2005,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 148207,
+              "end_ms": 276134,
+              "entry_event": 3966,
+              "completion_event": 6576,
+              "targets": [
+                [3966, 148207, "BF00", 0, null],
+                [4404, 164464, "C400", 43, 43],
+                [4540, 174718, "C3FF", 11, 11],
+                [4691, 184520, "BF00", 13, 13],
+                [4836, 190891, "BEFD", 0, 29],
+                [5114, 210365, "BF01", 26, 26],
+                [5290, 218568, "BF05", 23, 23],
+                [5321, 219770, "BF01", 21, 21],
+                [5453, 224849, "BF02", 42, 42],
+                [5521, 226854, "BF02", 37, 37],
+                [5666, 232915, "C3FF", 76, 76],
+                [5882, 243522, "BF00", 0, 69],
+                [6023, 249875, "BEFD", 53, 53],
+                [6235, 261558, "BF03", 17, 17]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 434657,
+              "end_ms": 564673,
+              "entry_event": 9902,
+              "completion_event": 12143,
+              "targets": [
+                [9902, 434657, "BEF4", 0, null],
+                [10219, 447408, "BEE7", 51, 51],
+                [10256, 452923, "BEEC", 34, 34],
+                [10258, 455502, "BEEE", 45, 45],
+                [10462, 467676, "C4B9", 119, 119],
+                [10622, 479145, "BEEF", 0, 131],
+                [11065, 501527, "BEF4", 18, 18],
+                [11362, 514204, "BEE6", 41, 41],
+                [11382, 519773, "BEEC", 28, 28],
+                [11394, 525159, "BEEC", 14, 14],
+                [11399, 527256, "BEEE", 11, 11],
+                [11496, 533014, "C4F1", 0, 31],
+                [11626, 538635, "BEF6", 21, 21],
+                [11746, 545089, "C4B9", 0, 25],
+                [12106, 562623, "BEEF", 134, 134]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 736451,
+              "end_ms": 924305,
+              "entry_event": 15410,
+              "completion_event": 18866,
+              "targets": [
+                [15410, 736451, "BF18", 0, null],
+                [15695, 747348, "C489", 3, 3],
+                [15862, 757025, "BF19", 26, 26],
+                [16035, 767481, "BF1A", 30, 30],
+                [16155, 776907, "BF1A", 44, 44],
+                [16313, 787334, "BF21", 17, 17],
+                [16532, 798803, "BF18", 48, 48],
+                [16745, 806689, "BF19", 38, 38],
+                [16965, 816114, "BF1B", 75, 75],
+                [17118, 823919, "C489", 0, 70],
+                [17229, 833022, "BF23", 3, 3],
+                [17385, 844421, "C48B", 98, 98],
+                [17553, 852565, "BF18", 0, 54],
+                [17831, 863469, "BF19", 4, 4],
+                [18126, 881914, "BF1D", 49, 49],
+                [18263, 889915, "C489", 150, 150],
+                [18494, 905086, "BF1D", 121, 121],
+                [18751, 917981, "C489", 316, 316]
+              ],
+              "cycle_evidence": {
+                "markers": [[16965, 816114]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum/ZpHDQcCnfgBtaTPL_1.json",
+          "sha256": "785cf97ddbccc0c870c98485d1ef907d2780a58279cf962472b63f38efadd5fb",
+          "trace": "ZpHDQcCnfgBtaTPL/1",
+          "fingerprint": "cf324e6f8ec8e7176dc2431683cf2bf23315c10d034dbd1a5b73f4c320031cc7",
+          "origin_timestamp_ms": 343628,
+          "cast_observations": 1718,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 126275,
+              "end_ms": 247370,
+              "entry_event": 3296,
+              "completion_event": 5846,
+              "targets": [
+                [3296, 126275, "BF00", 0, null],
+                [3696, 142510, "C3FF", 65, 65],
+                [3907, 152765, "C400", 10, 10],
+                [4120, 162576, "BF00", 1, 1],
+                [4243, 168964, "BEFD", 0, 12],
+                [4559, 188443, "BF01", 21, 21],
+                [4724, 196639, "BF05", 25, 25],
+                [4766, 197886, "BF01", 22, 22],
+                [4902, 202965, "BF02", 1, 1],
+                [4964, 204967, "BF02", 3, 3],
+                [5093, 211022, "C400", 42, 42],
+                [5344, 221621, "BF00", 0, 43],
+                [5502, 227905, "BEFD", 0, 16],
+                [5706, 239576, "BF03", 29, 29]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 372815,
+              "end_ms": 483689,
+              "entry_event": 8501,
+              "completion_event": 10510,
+              "targets": [
+                [8501, 372815, "BEF4", 0, null],
+                [8776, 385552, "BEE4", 37, 37],
+                [8807, 391078, "BEEC", 37, 37],
+                [8813, 393663, "BEEE", 48, 48],
+                [9067, 405815, "C4B9", 100, 100],
+                [9338, 417516, "BEEF", 101, 101],
+                [9781, 439849, "BEF4", 67, 67],
+                [10017, 452416, "BEE7", 200, 200],
+                [10049, 457936, "BEEC", 180, 180],
+                [10088, 463320, "BEEC", 196, 196],
+                [10096, 465409, "BEEE", 207, 207],
+                [10225, 471282, "C4F1", 0, 134],
+                [10362, 476928, "BEF6", 46, 46],
+                [10505, 483332, "C4B9", 0, 50]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 628043,
+              "end_ms": 782175,
+              "entry_event": 13329,
+              "completion_event": 16359,
+              "targets": [
+                [13329, 628043, "BF18", 0, null],
+                [13583, 638847, "C489", 96, 96],
+                [13787, 648525, "BF19", 118, 118],
+                [13972, 659001, "BF1A", 42, 42],
+                [14113, 668455, "BF1A", 88, 88],
+                [14320, 678876, "BF21", 67, 67],
+                [14548, 690315, "BF18", 128, 128],
+                [14737, 698186, "BF19", 0, 57],
+                [14884, 707610, "BF1B", 76, 76],
+                [15031, 715077, "C489", 0, 409],
+                [15173, 724198, "BF23", 21, 21],
+                [15348, 735588, "C48B", 89, 89],
+                [15480, 743733, "BF18", 0, 44],
+                [15753, 754624, "BF19", 9, 9],
+                [16174, 773084, "BF1D", 51, 51],
+                [16335, 780885, "C489", 48, 48]
+              ],
+              "cycle_evidence": {
+                "markers": [[14884, 707610]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/chort-long-slowest/yf3A4pRTGQmHxa1q_8.json",
+          "sha256": "fce13eb99695fc670a68618b8059dff5b0c429c2fd167b1b074a37a3ae847915",
+          "trace": "yf3A4pRTGQmHxa1q/8",
+          "fingerprint": "1a1df78537799f4d2caa784a15c21c1b91737f130d066b92d80b03a7ab676732",
+          "origin_timestamp_ms": 14010470,
+          "cast_observations": 2738,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 196150,
+              "end_ms": 463935,
+              "entry_event": 4299,
+              "completion_event": 8710,
+              "targets": [
+                [4299, 196150, "BF00", 0, null],
+                [4543, 212406, "C3FF", 44, 44],
+                [4648, 222653, "C400", 3, 3],
+                [4786, 232451, "BF00", 1, 1],
+                [4897, 238826, "BEFD", 0, 25],
+                [5196, 258286, "BF01", 40, 40],
+                [5356, 266484, "BF05", 42, 42],
+                [5406, 267687, "BF01", 39, 39],
+                [5514, 272769, "BF02", 57, 57],
+                [5563, 274768, "BF02", 58, 58],
+                [5673, 280829, "C400", 97, 97],
+                [5864, 291435, "BF00", 0, 91],
+                [6003, 297719, "BEFD", 0, 16],
+                [6152, 309400, "BF03", 19, 19],
+                [6385, 324370, "BF00", 49, 49],
+                [6463, 326776, "BF01", 43, 43],
+                [6615, 331858, "BF02", 61, 61],
+                [6659, 333861, "BF02", 58, 58],
+                [6777, 339919, "C3FF", 100, 100],
+                [6976, 350647, "BF00", 0, 72],
+                [7095, 356921, "BEFD", 0, 26],
+                [7255, 368572, "BF03", 51, 51],
+                [7526, 383572, "BF00", 51, 51],
+                [7604, 385979, "BF01", 7, 58],
+                [7701, 391054, "BF02", 18, 18],
+                [7769, 393059, "BF02", 13, 13],
+                [7867, 399111, "C3FF", 61, 61],
+                [7994, 409804, "BF00", 0, 68],
+                [8067, 416086, "BEFD", 0, 18],
+                [8191, 427760, "BF03", 74, 74],
+                [8369, 442705, "BF00", 19, 19],
+                [8424, 445114, "BF01", 9, 28],
+                [8531, 450201, "BF02", 4, 4],
+                [8572, 452206, "BF02", 1, 1],
+                [8645, 458274, "C400", 31, 31]
+              ],
+              "cycle_evidence": {
+                "markers": [
+                  [6385, 324370],
+                  [7526, 383572],
+                  [8369, 442705]
+                ],
+                "periods_ms": [59202, 59133],
+                "complete_bodies": 2,
+                "observed_recurrences": 2
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 726545,
+              "end_ms": 938187,
+              "entry_event": 11777,
+              "completion_event": 14857,
+              "targets": [
+                [11777, 726545, "BEF4", 0, null],
+                [11929, 739301, "BEE5", 56, 56],
+                [11935, 744837, "BEEC", 8, 8],
+                [11960, 747385, "BEEE", 40, 40],
+                [12090, 758899, "C4B9", 0, 546],
+                [12212, 770330, "BEEF", 0, 169],
+                [12574, 792684, "BEF4", 46, 46],
+                [12848, 805397, "BEE4", 33, 33],
+                [12900, 810924, "BEEC", 6, 6],
+                [12946, 816320, "BEEC", 10, 10],
+                [12959, 818371, "BEEE", 59, 59],
+                [13049, 824171, "C4F1", 0, 59],
+                [13136, 829797, "BEF6", 26, 26],
+                [13215, 836042, "C4B9", 0, 229],
+                [13452, 853755, "BEEF", 313, 313],
+                [13830, 876033, "BEF4", 0, 122],
+                [13993, 887941, "C4F1", 8, 8],
+                [14088, 893560, "BEF6", 19, 19],
+                [14200, 900298, "C4B9", 57, 57],
+                [14412, 912481, "BEF4", 17, 17],
+                [14723, 929711, "BEEF", 0, 287]
+              ],
+              "cycle_evidence": {
+                "markers": [[13993, 887941]],
+                "periods_ms": [],
+                "complete_bodies": 1,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 1191337,
+              "end_ms": 1574689,
+              "entry_event": 18108,
+              "completion_event": 23270,
+              "targets": [
+                [18108, 1191337, "BF18", 0, null],
+                [18282, 1202184, "C489", 53, 53],
+                [18428, 1212065, "BF19", 128, 128],
+                [18549, 1222520, "BF1A", 183, 183],
+                [18642, 1231953, "BF1A", 116, 116],
+                [18799, 1242397, "BF21", 160, 160],
+                [19021, 1253863, "BF18", 126, 126],
+                [19188, 1261737, "BF19", 200, 200],
+                [19336, 1271188, "BF1B", 49, 49],
+                [19459, 1278643, "C489", 0, 394],
+                [19538, 1287752, "BF23", 9, 9],
+                [19661, 1299173, "C48B", 70, 70],
+                [19783, 1307329, "BF18", 0, 14],
+                [19983, 1318205, "BF19", 24, 24],
+                [20231, 1336678, "BF1D", 49, 49],
+                [20353, 1344566, "C489", 37, 37],
+                [20514, 1359668, "BF1D", 61, 61],
+                [20666, 1372667, "C489", 238, 238],
+                [20715, 1379790, "BF18", 161, 161],
+                [20819, 1390503, "BF19", 187, 187],
+                [20923, 1399962, "BF1B", 28, 28],
+                [21033, 1407683, "C489", 0, 107],
+                [21132, 1416790, "BF23", 7, 7],
+                [21261, 1428220, "C48B", 63, 63],
+                [21371, 1436384, "BF18", 1, 1],
+                [21562, 1447180, "BF19", 104, 104],
+                [21750, 1465637, "BF1D", 47, 47],
+                [21851, 1473622, "C489", 38, 38],
+                [22005, 1488745, "BF1D", 39, 39],
+                [22208, 1501552, "C489", 68, 68],
+                [22296, 1508689, "BF18", 5, 5],
+                [22430, 1519527, "BF19", 62, 62],
+                [22554, 1528981, "BF1B", 92, 92],
+                [22684, 1536821, "C489", 40, 40],
+                [22806, 1545960, "BF23", 39, 39],
+                [22990, 1557389, "C48B", 32, 32],
+                [23089, 1565545, "BF18", 24, 24]
+              ],
+              "cycle_evidence": {
+                "markers": [
+                  [19336, 1271188],
+                  [20923, 1399962],
+                  [22554, 1528981]
+                ],
+                "periods_ms": [128774, 129019],
+                "complete_bodies": 2,
+                "observed_recurrences": 2
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/chort-long-slowest/jAKNPnhtqmpbW7d4_11.json",
+          "sha256": "ee2c4cd68af4816d97c6b7e91dd4cc09e3637be9ffb1f41e4d30f8deb2fd7222",
+          "trace": "jAKNPnhtqmpbW7d4/11",
+          "fingerprint": "ac9047f959b35f8064f31f3400bc18f2ed7a82141acf216fef0204dcf4f91638",
+          "origin_timestamp_ms": 27982804,
+          "cast_observations": 2791,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 244323,
+              "end_ms": 486290,
+              "entry_event": 6347,
+              "completion_event": 11616,
+              "targets": [
+                [6347, 244323, "BF00", 0, null],
+                [6709, 260581, "C400", 42, 42],
+                [6870, 270804, "C3FF", 19, 19],
+                [7087, 280631, "BF00", 8, 8],
+                [7255, 287068, "BEFD", 37, 37],
+                [7616, 306535, "BF01", 33, 33],
+                [7810, 314773, "BF05", 5, 5],
+                [7847, 316019, "BF01", 51, 51],
+                [7960, 321093, "BF02", 25, 25],
+                [8005, 323093, "BF02", 25, 25],
+                [8117, 329176, "C3FF", 8, 8],
+                [8331, 339840, "BF00", 72, 72],
+                [8497, 346114, "BEFD", 0, 26],
+                [8690, 357770, "BF03", 44, 44],
+                [8975, 372778, "BF00", 36, 36],
+                [9061, 375179, "BF01", 35, 35],
+                [9217, 380251, "BF02", 63, 63],
+                [9296, 382256, "BF02", 58, 58],
+                [9426, 388309, "C400", 105, 105],
+                [9681, 399157, "BF00", 43, 43],
+                [9865, 405435, "BEFD", 0, 22],
+                [10115, 417076, "BF03", 41, 41],
+                [10415, 432090, "BF00", 55, 55],
+                [10485, 434535, "BF01", 45, 100],
+                [10647, 439606, "BF02", 16, 16],
+                [10691, 441612, "BF02", 22, 22],
+                [10815, 447660, "C400", 30, 30],
+                [11024, 458347, "BF00", 0, 43],
+                [11191, 464620, "BEFD", 0, 27],
+                [11414, 476274, "BF03", 54, 54]
+              ],
+              "cycle_evidence": {
+                "markers": [
+                  [8975, 372778],
+                  [10415, 432090]
+                ],
+                "periods_ms": [59312],
+                "complete_bodies": 2,
+                "observed_recurrences": 1
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 876925,
+              "end_ms": 1059354,
+              "entry_event": 16984,
+              "completion_event": 20882,
+              "targets": [
+                [16984, 876925, "BEF4", 0, null],
+                [17279, 889684, "BEE7", 59, 59],
+                [17340, 895214, "BEEC", 11, 11],
+                [17356, 897758, "BEEE", 33, 33],
+                [17595, 909375, "C4B9", 0, 450],
+                [17856, 921229, "BEEF", 254, 254],
+                [18337, 943458, "BEF4", 171, 171],
+                [18624, 956044, "BEE5", 285, 285],
+                [18678, 961575, "BEEC", 254, 254],
+                [18742, 966976, "BEEC", 253, 253],
+                [18770, 969028, "BEEE", 301, 301],
+                [18889, 974919, "C4F1", 0, 210],
+                [19051, 980538, "BEF6", 19, 19],
+                [19240, 987465, "C4B9", 446, 446],
+                [19649, 1005174, "BEEF", 309, 309],
+                [20109, 1027556, "BEF4", 0, 18],
+                [20393, 1039479, "C4F1", 23, 23],
+                [20554, 1045106, "BEF6", 27, 27],
+                [20702, 1051992, "C4B9", 213, 213]
+              ],
+              "cycle_evidence": {
+                "markers": [[20393, 1039479]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 1322014,
+              "end_ms": 1584787,
+              "entry_event": 25463,
+              "completion_event": 31119,
+              "targets": [
+                [25463, 1322014, "BF18", 0, null],
+                [25674, 1332785, "C489", 129, 129],
+                [25909, 1342439, "BF19", 175, 175],
+                [26107, 1352925, "BF1A", 89, 89],
+                [26287, 1362390, "BF1A", 124, 124],
+                [26437, 1372814, "BF21", 100, 100],
+                [26712, 1384263, "BF18", 151, 151],
+                [26917, 1392061, "BF19", 0, 153],
+                [27151, 1401513, "BF1B", 48, 48],
+                [27359, 1409704, "C489", 343, 343],
+                [27560, 1418839, "BF23", 35, 35],
+                [27798, 1430250, "C48B", 54, 54],
+                [27973, 1438416, "BF18", 12, 12],
+                [28244, 1449203, "BF19", 113, 113],
+                [28590, 1467648, "BF1D", 68, 68],
+                [28759, 1475454, "C489", 162, 162],
+                [29041, 1490575, "BF1D", 241, 241],
+                [29316, 1503826, "C489", 310, 310],
+                [29523, 1510947, "BF18", 231, 231],
+                [29803, 1521689, "BF19", 158, 158],
+                [30035, 1531157, "BF1B", 10, 10],
+                [30179, 1538963, "C489", 6, 6],
+                [30340, 1548112, "BF23", 49, 49],
+                [30564, 1559533, "C48B", 30, 30],
+                [30743, 1567685, "BF18", 22, 22],
+                [31002, 1578624, "BF19", 39, 39]
+              ],
+              "cycle_evidence": {
+                "markers": [
+                  [27151, 1401513],
+                  [30035, 1531157]
+                ],
+                "periods_ms": [129644],
+                "complete_bodies": 1,
+                "observed_recurrences": 1
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/loop-clyteum-final/hRGx26nTy8cDqXYA_283.json",
+          "sha256": "177f9e61bebc44e827bf1abc67ed4ab644024806324a5a50b384d92ae91327ac",
+          "trace": "hRGx26nTy8cDqXYA/283",
+          "fingerprint": "0ba6d87656c29ba00bea1df4b4dbb5bf92e5a609f0c3d4b6505cefa30e1ba331",
+          "origin_timestamp_ms": 744926758,
+          "cast_observations": 1653,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 152475,
+              "end_ms": 285340,
+              "entry_event": 4416,
+              "completion_event": 7117,
+              "targets": [
+                [4416, 152475, "BF00", 0, null],
+                [4793, 168774, "C3FF", 1, 1],
+                [4957, 179042, "C400", 67, 67],
+                [5133, 188815, "BF00", 40, 40],
+                [5288, 195202, "BEFD", 0, 13],
+                [5601, 214684, "BF01", 18, 18],
+                [5768, 222865, "BF05", 37, 37],
+                [5803, 224072, "BF01", 30, 30],
+                [5924, 229166, "BF02", 36, 36],
+                [5971, 231178, "BF02", 24, 24],
+                [6121, 237237, "C3FF", 65, 65],
+                [6316, 247949, "BF00", 47, 47],
+                [6456, 254294, "BEFD", 45, 45],
+                [6709, 265984, "BF03", 10, 10],
+                [7017, 280968, "BF00", 26, 26],
+                [7081, 283375, "BF01", 19, 19]
+              ],
+              "cycle_evidence": {
+                "markers": [[7017, 280968]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 443013,
+              "end_ms": 570678,
+              "entry_event": 10695,
+              "completion_event": 12890,
+              "targets": [
+                [10695, 443013, "BEF4", 0, null],
+                [10982, 455765, "BEE6", 52, 52],
+                [11000, 461304, "BEEC", 9, 9],
+                [11008, 463848, "BEEE", 35, 35],
+                [11209, 476005, "C4B9", 92, 92],
+                [11429, 487673, "BEEF", 68, 68],
+                [11904, 509925, "BEF4", 148, 148],
+                [12113, 522644, "BEE4", 129, 129],
+                [12125, 528175, "BEEC", 98, 98],
+                [12151, 533611, "BEEC", 62, 62],
+                [12165, 535661, "BEEE", 112, 112],
+                [12286, 541504, "C4F1", 0, 69],
+                [12440, 547129, "BEF6", 25, 25],
+                [12607, 553823, "C4B9", 219, 219]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 748254,
+              "end_ms": 925841,
+              "entry_event": 16256,
+              "completion_event": 19610,
+              "targets": [
+                [16256, 748254, "BF18", 0, null],
+                [16478, 759103, "C489", 51, 51],
+                [16647, 768918, "BF19", 64, 64],
+                [16831, 779393, "BF1A", 139, 139],
+                [16971, 788849, "BF1A", 95, 95],
+                [17124, 799268, "BF21", 114, 114],
+                [17388, 810704, "BF18", 50, 50],
+                [17570, 818360, "BF19", 0, 94],
+                [17742, 827793, "BF1B", 67, 67],
+                [17883, 835898, "C489", 238, 238],
+                [18028, 845022, "BF23", 24, 24],
+                [18233, 856450, "C48B", 48, 48],
+                [18379, 864580, "BF18", 0, 18],
+                [18620, 875490, "BF19", 10, 10],
+                [18954, 893930, "BF1D", 50, 50],
+                [19151, 901591, "C489", 189, 189],
+                [19424, 916713, "BF1D", 267, 267]
+              ],
+              "cycle_evidence": {
+                "markers": [[17742, 827793]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/loop-clyteum-final/Drn2byvjPWpVtmZq_60.json",
+          "sha256": "71170cb7c873397dcaa793c97d723412d13fa563e18af5d159afd6c5aaf8a3f1",
+          "trace": "Drn2byvjPWpVtmZq/60",
+          "fingerprint": "6ef46a38e351ba71487ced2219e25cf3b83a0c67895867220ef1f452c6b30796",
+          "origin_timestamp_ms": 11953779,
+          "cast_observations": 1789,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 169543,
+              "end_ms": 330048,
+              "entry_event": 4402,
+              "completion_event": 7284,
+              "targets": [
+                [4402, 169543, "BF00", 0, null],
+                [4721, 185796, "C3FF", 47, 47],
+                [4828, 196032, "C400", 11, 11],
+                [4934, 205834, "BF00", 0, 9],
+                [5087, 212204, "BEFD", 0, 30],
+                [5443, 231687, "BF01", 17, 17],
+                [5623, 239891, "BF05", 13, 13],
+                [5683, 241141, "BF01", 37, 37],
+                [5797, 246222, "BF02", 18, 18],
+                [5834, 248227, "BF02", 23, 23],
+                [5931, 254286, "C3FF", 18, 18],
+                [6108, 264890, "BF00", 0, 14],
+                [6223, 271209, "BEFD", 19, 19],
+                [6395, 282877, "BF03", 32, 32],
+                [6712, 297859, "BF00", 50, 50],
+                [6786, 300268, "BF01", 41, 41],
+                [6919, 305348, "BF02", 61, 61],
+                [6975, 307355, "BF02", 54, 54],
+                [7065, 313422, "C3FF", 87, 87],
+                [7197, 324114, "BF00", 0, 95]
+              ],
+              "cycle_evidence": {
+                "markers": [[6712, 297859]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 500780,
+              "end_ms": 658952,
+              "entry_event": 10551,
+              "completion_event": 12867,
+              "targets": [
+                [10551, 500780, "BEF4", 0, null],
+                [10776, 513518, "BEE6", 38, 38],
+                [10791, 519056, "BEEC", 24, 24],
+                [10797, 521594, "BEEE", 14, 14],
+                [10985, 533070, "C4B9", 0, 610],
+                [11161, 544904, "BEEF", 234, 234],
+                [11478, 567257, "BEF4", 47, 47],
+                [11676, 579906, "BEE5", 98, 98],
+                [11710, 585428, "BEEC", 76, 76],
+                [11733, 590818, "BEEC", 86, 86],
+                [11750, 592908, "BEEE", 96, 96],
+                [11886, 598744, "C4F1", 0, 60],
+                [12028, 604365, "BEF6", 21, 21],
+                [12144, 611226, "C4B9", 382, 382],
+                [12365, 628623, "BEEF", 0, 3],
+                [12726, 650928, "BEF4", 0, 95]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 840770,
+              "end_ms": 1063851,
+              "entry_event": 16137,
+              "completion_event": 19806,
+              "targets": [
+                [16137, 840770, "BF18", 0, null],
+                [16362, 851536, "C489", 134, 134],
+                [16489, 861208, "BF19", 162, 162],
+                [16625, 871679, "BF1A", 91, 91],
+                [16770, 881115, "BF1A", 155, 155],
+                [16915, 891533, "BF21", 137, 137],
+                [17192, 902981, "BF18", 189, 189],
+                [17375, 910819, "BF19", 0, 151],
+                [17527, 920266, "BF1B", 53, 53],
+                [17663, 927722, "C489", 0, 397],
+                [17776, 936859, "BF23", 37, 37],
+                [17925, 948273, "C48B", 49, 49],
+                [18067, 956399, "BF18", 0, 23],
+                [18294, 967286, "BF19", 13, 13],
+                [18533, 985733, "BF1D", 34, 34],
+                [18656, 993489, "C489", 110, 110],
+                [18837, 1008611, "BF1D", 188, 188],
+                [19106, 1021775, "C489", 276, 276],
+                [19221, 1028916, "BF18", 217, 217],
+                [19473, 1039797, "BF19", 19, 19],
+                [19626, 1049218, "BF1B", 102, 102],
+                [19743, 1057025, "C489", 7, 7]
+              ],
+              "cycle_evidence": {
+                "markers": [
+                  [17527, 920266],
+                  [19626, 1049218]
+                ],
+                "periods_ms": [128952],
+                "complete_bodies": 1,
+                "observed_recurrences": 1
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/loop-clyteum-final/NrQh1wRzpaWLdZXq_7.json",
+          "sha256": "deb83f44d504fccccdd77e4248bd1e5f9bd6ba78ea46be4ba1e0c501621f9bfa",
+          "trace": "NrQh1wRzpaWLdZXq/7",
+          "fingerprint": "4d8aa65d4e7e97ef67c99a335a6954cd91ae7f786622d3253d34fb002266aa76",
+          "origin_timestamp_ms": 3741534,
+          "cast_observations": 1972,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 171710,
+              "end_ms": 322266,
+              "entry_event": 3997,
+              "completion_event": 6936,
+              "targets": [
+                [3997, 171710, "BF00", 0, null],
+                [4266, 187971, "C400", 39, 39],
+                [4411, 198224, "C3FF", 14, 14],
+                [4593, 208014, "BF00", 4, 4],
+                [4745, 214374, "BEFD", 0, 40],
+                [5044, 233837, "BF01", 37, 37],
+                [5189, 242008, "BF05", 66, 66],
+                [5240, 243348, "BF01", 74, 74],
+                [5368, 248435, "BF02", 61, 61],
+                [5432, 250443, "BF02", 69, 69],
+                [5596, 256511, "C3FF", 37, 37],
+                [5809, 267184, "BF00", 110, 110],
+                [5918, 273470, "BEFD", 0, 14],
+                [6123, 285144, "BF03", 26, 26],
+                [6462, 300124, "BF00", 46, 46],
+                [6547, 302535, "BF01", 35, 35],
+                [6655, 307626, "BF02", 44, 44],
+                [6693, 309634, "BF02", 36, 36],
+                [6821, 315705, "C400", 65, 65]
+              ],
+              "cycle_evidence": {
+                "markers": [[6462, 300124]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 495823,
+              "end_ms": 644513,
+              "entry_event": 10059,
+              "completion_event": 12645,
+              "targets": [
+                [10059, 495823, "BEF4", 0, null],
+                [10271, 508544, "BEE5", 21, 21],
+                [10305, 514057, "BEEC", 66, 66],
+                [10312, 516677, "BEEE", 54, 54],
+                [10500, 528418, "C4B9", 0, 305],
+                [10695, 539946, "BEEF", 0, 72],
+                [11169, 562172, "BEF4", 174, 174],
+                [11400, 574874, "BEE5", 172, 172],
+                [11427, 580387, "BEEC", 159, 159],
+                [11467, 585766, "BEEC", 180, 180],
+                [11486, 587856, "BEEE", 190, 190],
+                [11583, 593728, "C4F1", 0, 118],
+                [11695, 599370, "BEF6", 42, 42],
+                [11836, 606170, "C4B9", 342, 342],
+                [12190, 623903, "BEEF", 333, 333]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 851450,
+              "end_ms": 1063854,
+              "entry_event": 15619,
+              "completion_event": 19490,
+              "targets": [
+                [15619, 851450, "BF18", 0, null],
+                [15850, 862193, "C489", 157, 157],
+                [16041, 872138, "BF19", 88, 88],
+                [16190, 882573, "BF1A", 123, 123],
+                [16334, 891994, "BF1A", 44, 44],
+                [16502, 902474, "BF21", 124, 124],
+                [16763, 913933, "BF18", 83, 83],
+                [16937, 921834, "BF19", 184, 184],
+                [17104, 931284, "BF1B", 50, 50],
+                [17243, 939410, "C489", 276, 276],
+                [17365, 948594, "BF23", 84, 84],
+                [17540, 960008, "C48B", 2, 2],
+                [17677, 968139, "BF18", 29, 29],
+                [17909, 979058, "BF19", 19, 19],
+                [18188, 997512, "BF1D", 73, 73],
+                [18306, 1005097, "C489", 242, 242],
+                [18557, 1020266, "BF1D", 273, 273],
+                [18902, 1033229, "C489", 10, 10],
+                [19036, 1040375, "BF18", 0, 64],
+                [19254, 1051295, "BF19", 20, 20],
+                [19415, 1060746, "BF1B", 171, 171]
+              ],
+              "cycle_evidence": {
+                "markers": [
+                  [17104, 931284],
+                  [19415, 1060746]
+                ],
+                "periods_ms": [129462],
+                "complete_bodies": 1,
+                "observed_recurrences": 1
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "excluded",
+          "input": "logs/loop-clyteum-final/hRGx26nTy8cDqXYA_35.json",
+          "sha256": "8ccf72f22ac5479a8ee10f6b4b8f91e7973ec502e62c321d67cb71c66ede04b5",
+          "stage": "input-validation",
+          "error": "InputExclusion: Missing observed boss completion",
+          "passed": null,
+          "evidence": {
+            "source": "Eye of the Scorpion",
+            "entry_event": 4499
+          }
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/loop-clyteum-final/hRGx26nTy8cDqXYA_210.json",
+          "sha256": "49c49b1d47e4ddcab9631142799425e1dc55810e6049b2f024c4a097bb9f0575",
+          "trace": "hRGx26nTy8cDqXYA/210",
+          "fingerprint": "ee7922f47742f3a67e07bf67ff32c5681cdfc67520bf9aa738aad1994ce1acc2",
+          "origin_timestamp_ms": 446559280,
+          "cast_observations": 1955,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 158103,
+              "end_ms": 305622,
+              "entry_event": 4017,
+              "completion_event": 7059,
+              "targets": [
+                [4017, 158103, "BF00", 0, null],
+                [4368, 174360, "C3FF", 43, 43],
+                [4515, 184639, "C400", 36, 36],
+                [4652, 194431, "BF00", 28, 28],
+                [4787, 200790, "BEFD", 0, 41],
+                [5196, 220276, "BF01", 14, 14],
+                [5366, 228423, "BF05", 67, 67],
+                [5408, 229667, "BF01", 23, 23],
+                [5530, 234753, "BF02", 37, 37],
+                [5585, 236760, "BF02", 30, 30],
+                [5715, 242814, "C400", 76, 76],
+                [5914, 253500, "BF00", 10, 10],
+                [6037, 259788, "BEFD", 0, 12],
+                [6252, 271457, "BF03", 31, 31],
+                [6533, 286457, "BF00", 31, 31],
+                [6596, 288866, "BF01", 22, 22],
+                [6723, 293946, "BF02", 42, 42],
+                [6790, 295951, "BF02", 37, 37],
+                [6977, 302009, "C3FF", 79, 79]
+              ],
+              "cycle_evidence": {
+                "markers": [[6533, 286457]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 467191,
+              "end_ms": 607993,
+              "entry_event": 10208,
+              "completion_event": 12752,
+              "targets": [
+                [10208, 467191, "BEF4", 0, null],
+                [10459, 479945, "BEE4", 54, 54],
+                [10477, 485474, "BEEC", 17, 17],
+                [10491, 488013, "BEEE", 22, 22],
+                [10729, 500086, "C4B9", 0, 5],
+                [10920, 511482, "BEEF", 0, 204],
+                [11388, 533690, "BEF4", 192, 192],
+                [11684, 546450, "BEE6", 132, 132],
+                [11724, 551974, "BEEC", 108, 108],
+                [11745, 557370, "BEEC", 112, 112],
+                [11768, 559458, "BEEE", 124, 124],
+                [11866, 565370, "C4F1", 0, 12],
+                [11968, 571011, "BEF6", 41, 41],
+                [12111, 577812, "C4B9", 342, 342],
+                [12451, 595314, "BEEF", 102, 102]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 776397,
+              "end_ms": 967471,
+              "entry_event": 15640,
+              "completion_event": 19061,
+              "targets": [
+                [15640, 776397, "BF18", 0, null],
+                [15871, 787292, "C489", 5, 5],
+                [16080, 797016, "BF19", 19, 19],
+                [16237, 807468, "BF1A", 71, 71],
+                [16373, 816896, "BF1A", 1, 1],
+                [16553, 827317, "BF21", 20, 20],
+                [16793, 838756, "BF18", 41, 41],
+                [16973, 846503, "BF19", 0, 94],
+                [17149, 855923, "BF1B", 80, 80],
+                [17294, 863621, "C489", 0, 182],
+                [17409, 872735, "BF23", 14, 14],
+                [17590, 884127, "C48B", 94, 94],
+                [17740, 892266, "BF18", 0, 55],
+                [18015, 902984, "BF19", 182, 182],
+                [18326, 921432, "BF1D", 134, 134],
+                [18434, 929113, "C489", 353, 353],
+                [18665, 944225, "BF1D", 441, 441],
+                [18885, 957366, "C489", 0, 0],
+                [19001, 964474, "BF18", 0, 92]
+              ],
+              "cycle_evidence": {
+                "markers": [[17149, 855923]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/loop-clyteum-final/hRGx26nTy8cDqXYA_263.json",
+          "sha256": "0ee6fbb1f6ecf17a83487076656ae34d5c015099a504675fe99a511712d85df1",
+          "trace": "hRGx26nTy8cDqXYA/263",
+          "fingerprint": "ef4f4f11e3e5add85ad084df4b2a020ec9287796aeee85d83aaba70958873782",
+          "origin_timestamp_ms": 615068255,
+          "cast_observations": 1659,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 153347,
+              "end_ms": 306232,
+              "entry_event": 3458,
+              "completion_event": 6154,
+              "targets": [
+                [3458, 153347, "BF00", 0, null],
+                [3779, 169640, "C400", 7, 7],
+                [3904, 179888, "C3FF", 41, 41],
+                [4054, 189693, "BF00", 46, 46],
+                [4174, 196063, "BEFD", 0, 30],
+                [4477, 215550, "BF01", 13, 13],
+                [4645, 223722, "BF05", 41, 41],
+                [4689, 225143, "BF01", 180, 180],
+                [4816, 230211, "BF02", 148, 148],
+                [4874, 232257, "BF02", 194, 194],
+                [5009, 238265, "C400", 102, 102],
+                [5195, 248861, "BF00", 98, 98],
+                [5309, 255136, "BEFD", 0, 25],
+                [5464, 266788, "BF03", 48, 48],
+                [5668, 281777, "BF00", 59, 59],
+                [5712, 284221, "BF01", 15, 15],
+                [5839, 289296, "BF02", 40, 40],
+                [5886, 291299, "BF02", 37, 37],
+                [6006, 297382, "C3FF", 54, 54]
+              ],
+              "cycle_evidence": {
+                "markers": [[5668, 281777]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 468714,
+              "end_ms": 599301,
+              "entry_event": 9221,
+              "completion_event": 11293,
+              "targets": [
+                [9221, 468714, "BEF4", 0, null],
+                [9479, 481446, "BEE7", 32, 32],
+                [9527, 486983, "BEEC", 31, 31],
+                [9552, 489571, "BEEE", 57, 57],
+                [9780, 501347, "C4B9", 0, 267],
+                [9957, 512827, "BEEF", 0, 120],
+                [10308, 535084, "BEF4", 143, 143],
+                [10530, 547635, "BEE6", 292, 292],
+                [10552, 553153, "BEEC", 274, 274],
+                [10572, 558547, "BEEC", 280, 280],
+                [10579, 560647, "BEEE", 280, 280],
+                [10685, 566539, "C4F1", 0, 188],
+                [10809, 572166, "BEF6", 27, 27],
+                [10937, 579123, "C4B9", 484, 484],
+                [11221, 596356, "BEEF", 0, 167]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 761349,
+              "end_ms": 952864,
+              "entry_event": 13968,
+              "completion_event": 17236,
+              "targets": [
+                [13968, 761349, "BF18", 0, null],
+                [14191, 772228, "C489", 21, 21],
+                [14317, 782135, "BF19", 186, 186],
+                [14459, 792583, "BF1A", 234, 234],
+                [14575, 801991, "BF1A", 142, 142],
+                [14768, 812447, "BF21", 198, 198],
+                [14962, 823876, "BF18", 127, 127],
+                [15116, 831729, "BF19", 180, 180],
+                [15263, 841182, "BF1B", 47, 47],
+                [15408, 849027, "C489", 0, 2],
+                [15566, 858171, "BF23", 44, 44],
+                [15768, 869588, "C48B", 39, 39],
+                [15901, 877711, "BF18", 0, 16],
+                [16146, 888441, "BF19", 170, 170],
+                [16414, 906894, "BF1D", 117, 117],
+                [16565, 914568, "C489", 343, 343],
+                [16808, 929697, "BF1D", 414, 414],
+                [17054, 942576, "C489", 235, 235],
+                [17160, 949709, "BF18", 0, 302]
+              ],
+              "cycle_evidence": {
+                "markers": [[15263, 841182]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/loop-clyteum-final/hRGx26nTy8cDqXYA_350.json",
+          "sha256": "e504ecd6920479c5ee36c9665196fe7bb0a2bf7740a7cf1790c0b927a9817a86",
+          "trace": "hRGx26nTy8cDqXYA/350",
+          "fingerprint": "eac6142c5789afc356a3a60d207fb3de20fca5024b0b33a7efb2e0e0c03b75cb",
+          "origin_timestamp_ms": 875443475,
+          "cast_observations": 1594,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 157239,
+              "end_ms": 311996,
+              "entry_event": 3941,
+              "completion_event": 6684,
+              "targets": [
+                [3941, 157239, "BF00", 0, null],
+                [4279, 173500, "C400", 39, 39],
+                [4410, 183738, "C3FF", 1, 1],
+                [4534, 193549, "BF00", 10, 10],
+                [4643, 199916, "BEFD", 0, 33],
+                [4940, 219402, "BF01", 14, 14],
+                [5082, 227590, "BF05", 26, 26],
+                [5104, 228790, "BF01", 26, 26],
+                [5235, 233864, "BF02", 52, 52],
+                [5289, 235864, "BF02", 52, 52],
+                [5387, 241917, "C400", 99, 99],
+                [5569, 252611, "BF00", 0, 5],
+                [5721, 258895, "BEFD", 0, 16],
+                [5889, 270546, "BF03", 49, 49],
+                [6168, 285570, "BF00", 25, 25],
+                [6219, 287974, "BF01", 21, 21],
+                [6341, 293058, "BF02", 37, 37],
+                [6392, 295066, "BF02", 29, 29],
+                [6506, 301124, "C400", 71, 71],
+                [6677, 311728, "BF00", 0, 167]
+              ],
+              "cycle_evidence": {
+                "markers": [[6168, 285570]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 477082,
+              "end_ms": 620060,
+              "entry_event": 9922,
+              "completion_event": 12037,
+              "targets": [
+                [9922, 477082, "BEF4", 0, null],
+                [10129, 489815, "BEE7", 33, 33],
+                [10189, 495350, "BEEC", 32, 32],
+                [10233, 497932, "BEEE", 50, 50],
+                [10436, 509972, "C4B9", 0, 10],
+                [10578, 521707, "BEEF", 135, 135],
+                [10921, 543977, "BEF4", 130, 130],
+                [11133, 556737, "BEE4", 70, 70],
+                [11161, 562268, "BEEC", 39, 39],
+                [11189, 567660, "BEEC", 47, 47],
+                [11203, 569746, "BEEE", 61, 61],
+                [11297, 575659, "C4F1", 52, 52],
+                [11424, 581303, "BEF6", 44, 44],
+                [11560, 587879, "C4B9", 120, 120],
+                [11804, 605225, "BEEF", 0, 54]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 816045,
+              "end_ms": 1034808,
+              "entry_event": 15159,
+              "completion_event": 18716,
+              "targets": [
+                [15159, 816045, "BF18", 0, null],
+                [15420, 826985, "C489", 40, 40],
+                [15609, 836671, "BF19", 26, 26],
+                [15744, 847122, "BF1A", 77, 77],
+                [15867, 856581, "BF1A", 36, 36],
+                [16038, 867034, "BF21", 89, 89],
+                [16261, 878480, "BF18", 35, 35],
+                [16408, 886205, "BF19", 0, 40],
+                [16595, 895629, "BF1B", 76, 76],
+                [16733, 903803, "C489", 298, 298],
+                [16853, 912911, "BF23", 8, 8],
+                [16996, 924327, "C48B", 76, 76],
+                [17131, 932496, "BF18", 0, 7],
+                [17356, 943438, "BF19", 42, 42],
+                [17622, 961925, "BF1D", 129, 129],
+                [17728, 969609, "C489", 87, 87],
+                [17875, 984750, "BF1D", 146, 146],
+                [18037, 997609, "C489", 13, 13],
+                [18166, 1004724, "BF18", 0, 72],
+                [18383, 1015572, "BF19", 52, 52],
+                [18542, 1024992, "BF1B", 68, 68],
+                [18674, 1032763, "C489", 0, 29]
+              ],
+              "cycle_evidence": {
+                "markers": [
+                  [16595, 895629],
+                  [18542, 1024992]
+                ],
+                "periods_ms": [129363],
+                "complete_bodies": 1,
+                "observed_recurrences": 1
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/loop-clyteum-final/214mKzhCWbJNDqYA_20.json",
+          "sha256": "b282898027f1f96a80b775f2f486b89b2d1cf92be5dd3f52932d83d0f36ff7cf",
+          "trace": "214mKzhCWbJNDqYA/20",
+          "fingerprint": "10d19651be0a506b64729e6d06aacfc26f2f60af2272a779d56d22b5e15b96ff",
+          "origin_timestamp_ms": 88718951,
+          "cast_observations": 2069,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 190030,
+              "end_ms": 334290,
+              "entry_event": 4772,
+              "completion_event": 7723,
+              "targets": [
+                [4772, 190030, "BF00", 0, null],
+                [5111, 206296, "C3FF", 34, 34],
+                [5247, 216541, "C400", 11, 11],
+                [5403, 226331, "BF00", 1, 1],
+                [5571, 232707, "BEFD", 0, 24],
+                [5911, 252176, "BF01", 31, 31],
+                [6101, 260369, "BF05", 38, 38],
+                [6144, 261619, "BF01", 12, 12],
+                [6276, 266701, "BF02", 6, 6],
+                [6321, 268706, "BF02", 1, 1],
+                [6434, 274756, "C400", 51, 51],
+                [6646, 285441, "BF00", 34, 34],
+                [6816, 291717, "BEFD", 0, 24],
+                [7032, 303420, "BF03", 3, 3],
+                [7331, 318437, "BF00", 20, 20],
+                [7414, 320844, "BF01", 7, 27],
+                [7562, 325921, "BF02", 16, 16],
+                [7609, 327925, "BF02", 12, 12],
+                [7718, 333978, "C3FF", 59, 59]
+              ],
+              "cycle_evidence": {
+                "markers": [[7331, 318437]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 512517,
+              "end_ms": 666021,
+              "entry_event": 11153,
+              "completion_event": 13681,
+              "targets": [
+                [11153, 512517, "BEF4", 0, null],
+                [11380, 525283, "BEE6", 66, 66],
+                [11400, 530816, "BEEC", 1, 1],
+                [11412, 533360, "BEEE", 43, 43],
+                [11602, 545138, "C4B9", 0, 279],
+                [11772, 556464, "BEEF", 0, 274],
+                [12257, 578863, "BEF4", 1, 1],
+                [12526, 591561, "BEE6", 3, 3],
+                [12542, 597078, "BEEC", 14, 14],
+                [12557, 602478, "BEEC", 14, 14],
+                [12567, 604577, "BEEE", 13, 13],
+                [12643, 610499, "C4F1", 135, 135],
+                [12757, 616117, "BEF6", 18, 18],
+                [12893, 622724, "C4B9", 125, 125],
+                [13176, 640471, "BEEF", 347, 347],
+                [13608, 662721, "BEF4", 0, 150]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 861754,
+              "end_ms": 1063832,
+              "entry_event": 17310,
+              "completion_event": 21059,
+              "targets": [
+                [17310, 861754, "BF18", 0, null],
+                [17519, 872669, "C489", 15, 15],
+                [17696, 882347, "BF19", 7, 7],
+                [17832, 892790, "BF1A", 36, 36],
+                [17960, 902236, "BF1A", 18, 18],
+                [18144, 912668, "BF21", 14, 14],
+                [18400, 924130, "BF18", 24, 24],
+                [18557, 932021, "BF19", 67, 67],
+                [18763, 941477, "BF1B", 44, 44],
+                [18918, 949371, "C489", 50, 50],
+                [19099, 958508, "BF23", 37, 37],
+                [19271, 969922, "C48B", 49, 49],
+                [19424, 978081, "BF18", 10, 10],
+                [19690, 988972, "BF19", 9, 9],
+                [20034, 1007445, "BF1D", 64, 64],
+                [20166, 1015343, "C489", 62, 62],
+                [20450, 1030463, "BF1D", 18, 18],
+                [20670, 1043265, "C489", 84, 84],
+                [20765, 1050407, "BF18", 26, 26],
+                [21005, 1061199, "BF19", 108, 108]
+              ],
+              "cycle_evidence": {
+                "markers": [[18763, 941477]],
+                "periods_ms": [],
+                "complete_bodies": 1,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        }
+      ],
+      "not_checked": [
+        "ACT equivalence and actual lifecycle signals",
+        "UI visibility",
+        "unobserved Chort late cycles",
+        "mechanic positioning and helper ownership"
+      ]
+    },
+    {
+      "manifest": "tests/fixtures/authored/clyteum-holdout-plan.json",
+      "manifest_sha256": "592bfc815772420fbe5d4dd65b5dcacedb34b7cbf284697c4b2fae137d121fb9",
+      "timeline_sha256": "69c5639aabdfa9261e13d7f4f69b4ee8cbb4c27759bd2cc3f21c47420160afc3",
+      "role": "held-out log-derived Clyteum; no cactbot encounter timeline; frozen before event inspection",
+      "summary": {
+        "selected": 6,
+        "excluded": 1,
+        "eligible": 5,
+        "passed_traces": 5,
+        "passed": true
+      },
+      "traces": [
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum-authoring-holdout/kACFMDnYc7rzZag6_15.json",
+          "sha256": "d802e2bfbecf0d69cfa25928ac23ba3dc44b6041d342418f6a80402a2c013559",
+          "trace": "kACFMDnYc7rzZag6/15",
+          "fingerprint": "c745b89a70f5df6a63eb4c8ecfc432d166c7bed8c83f9a7e338f89d6639e05a8",
+          "origin_timestamp_ms": 8557236,
+          "cast_observations": 1747,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 282481,
+              "end_ms": 439049,
+              "entry_event": 4974,
+              "completion_event": 7534,
+              "targets": [
+                [4974, 282481, "BF00", 0, null],
+                [5262, 298719, "C3FF", 62, 62],
+                [5373, 308970, "C400", 11, 11],
+                [5492, 318751, "BF00", 0, 30],
+                [5641, 325118, "BEFD", 0, 33],
+                [5919, 344608, "BF01", 10, 10],
+                [6017, 352794, "BF05", 24, 24],
+                [6057, 354219, "BF01", 201, 201],
+                [6164, 359292, "BF02", 174, 174],
+                [6211, 361300, "BF02", 182, 182],
+                [6291, 367360, "C3FF", 142, 142],
+                [6518, 377951, "BF00", 133, 133],
+                [6646, 384241, "BEFD", 0, 10],
+                [6838, 395896, "BF03", 45, 45],
+                [7091, 410909, "BF00", 32, 32],
+                [7139, 413312, "BF01", 29, 29],
+                [7254, 418385, "BF02", 56, 56],
+                [7288, 420393, "BF02", 48, 48],
+                [7359, 426458, "C3FF", 83, 83],
+                [7487, 437308, "BF00", 67, 67]
+              ],
+              "cycle_evidence": {
+                "markers": [[7091, 410909]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 698681,
+              "end_ms": 862291,
+              "entry_event": 10646,
+              "completion_event": 12452,
+              "targets": [
+                [10646, 698681, "BEF4", 0, null],
+                [10828, 711425, "BEE5", 44, 44],
+                [10836, 716962, "BEEC", 19, 19],
+                [10840, 719506, "BEEE", 25, 25],
+                [10961, 731063, "C4B9", 0, 518],
+                [11087, 742306, "BEEF", 0, 357],
+                [11426, 764565, "BEF4", 141, 141],
+                [11639, 777280, "BEE6", 126, 126],
+                [11650, 782814, "BEEC", 92, 92],
+                [11659, 788257, "BEEC", 49, 49],
+                [11661, 790311, "BEEE", 95, 95],
+                [11738, 796198, "C4F1", 0, 8],
+                [11822, 801819, "BEF6", 21, 21],
+                [11902, 808554, "C4B9", 256, 256],
+                [12079, 826307, "BEEF", 353, 353],
+                [12287, 848702, "BEF4", 0, 5],
+                [12422, 860645, "C4F1", 43, 43]
+              ],
+              "cycle_evidence": {
+                "markers": [[12422, 860645]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 1137129,
+              "end_ms": 1342306,
+              "entry_event": 15601,
+              "completion_event": 18709,
+              "targets": [
+                [15601, 1137129, "BF18", 0, null],
+                [15806, 1147826, "C489", 203, 203],
+                [15956, 1157545, "BF19", 184, 184],
+                [16086, 1167989, "BF1A", 140, 140],
+                [16235, 1177431, "BF1A", 198, 198],
+                [16350, 1187869, "BF21", 160, 160],
+                [16547, 1199331, "BF18", 198, 198],
+                [16668, 1206969, "BF19", 0, 360],
+                [16846, 1216428, "BF1B", 41, 41],
+                [16964, 1224249, "C489", 0, 20],
+                [17053, 1233358, "BF23", 9, 9],
+                [17218, 1244770, "C48B", 79, 79],
+                [17339, 1252904, "BF18", 0, 45],
+                [17543, 1263760, "BF19", 44, 44],
+                [17797, 1282219, "BF1D", 15, 15],
+                [17894, 1290005, "C489", 99, 99],
+                [18066, 1305141, "BF1D", 163, 163],
+                [18258, 1318254, "C489", 250, 250],
+                [18367, 1325408, "BF18", 204, 204],
+                [18592, 1336308, "BF19", 0, 0]
+              ],
+              "cycle_evidence": {
+                "markers": [[16846, 1216428]],
+                "periods_ms": [],
+                "complete_bodies": 1,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum-authoring-holdout/kACFMDnYc7rzZag6_14.json",
+          "sha256": "31c5760528327c5b4d98e4f13fcc7ed4e3db67d01c54cb639f9bd2966fa9e1f9",
+          "trace": "kACFMDnYc7rzZag6/14",
+          "fingerprint": "b0ff1ab5b3cb9ea4382a3f481fbdf88879b3ee52135cf7352ccbd597e12bb1f0",
+          "origin_timestamp_ms": 7224102,
+          "cast_observations": 1588,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 284285,
+              "end_ms": 438272,
+              "entry_event": 4758,
+              "completion_event": 7267,
+              "targets": [
+                [4758, 284285, "BF00", 0, null],
+                [5080, 300542, "C400", 43, 43],
+                [5206, 310798, "C3FF", 13, 13],
+                [5337, 320605, "BF00", 20, 20],
+                [5497, 327037, "BEFD", 32, 32],
+                [5757, 346508, "BF01", 29, 29],
+                [5862, 354734, "BF05", 3, 3],
+                [5906, 356161, "BF01", 224, 224],
+                [6007, 361264, "BF02", 227, 227],
+                [6037, 363311, "BF02", 274, 274],
+                [6134, 369348, "C400", 211, 211],
+                [6302, 380000, "BF00", 263, 263],
+                [6429, 386342, "BEFD", 42, 42],
+                [6605, 398025, "BF03", 17, 17],
+                [6820, 413059, "BF00", 17, 17],
+                [6870, 415462, "BF01", 3, 20],
+                [6972, 420568, "BF02", 9, 9],
+                [7018, 422612, "BF02", 53, 53],
+                [7099, 428614, "C400", 45, 45]
+              ],
+              "cycle_evidence": {
+                "markers": [[6820, 413059]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 701295,
+              "end_ms": 845059,
+              "entry_event": 10375,
+              "completion_event": 12047,
+              "targets": [
+                [10375, 701295, "BEF4", 0, null],
+                [10549, 714024, "BEE6", 29, 29],
+                [10565, 719542, "BEEC", 53, 53],
+                [10569, 722163, "BEEE", 68, 68],
+                [10692, 733731, "C4B9", 0, 464],
+                [10818, 745497, "BEEF", 166, 166],
+                [11129, 767934, "BEF4", 37, 37],
+                [11340, 780622, "BEE4", 25, 25],
+                [11353, 786127, "BEEC", 30, 30],
+                [11363, 791568, "BEEC", 71, 71],
+                [11367, 793663, "BEEE", 66, 66],
+                [11437, 799497, "C4F1", 100, 100],
+                [11508, 805114, "BEF6", 17, 17],
+                [11608, 811758, "C4B9", 161, 161],
+                [11830, 828975, "BEEF", 0, 183]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 1113472,
+              "end_ms": 1315634,
+              "entry_event": 14975,
+              "completion_event": 17715,
+              "targets": [
+                [14975, 1113472, "BF18", 0, null],
+                [15155, 1124376, "C489", 4, 4],
+                [15293, 1134075, "BF19", 3, 3],
+                [15411, 1144546, "BF1A", 74, 74],
+                [15530, 1153997, "BF1A", 25, 25],
+                [15638, 1164469, "BF21", 97, 97],
+                [15827, 1175932, "BF18", 60, 60],
+                [15955, 1183593, "BF19", 0, 79],
+                [16113, 1193042, "BF1B", 51, 51],
+                [16208, 1200735, "C489", 0, 158],
+                [16286, 1209853, "BF23", 18, 18],
+                [16427, 1221286, "C48B", 49, 49],
+                [16539, 1229416, "BF18", 0, 19],
+                [16726, 1240320, "BF19", 4, 4],
+                [16973, 1258814, "BF1D", 98, 98],
+                [17065, 1266540, "C489", 76, 76],
+                [17214, 1281669, "BF1D", 147, 147],
+                [17373, 1294519, "C489", 3, 3],
+                [17453, 1301617, "BF18", 0, 99],
+                [17664, 1312553, "BF19", 36, 36]
+              ],
+              "cycle_evidence": {
+                "markers": [[16113, 1193042]],
+                "periods_ms": [],
+                "complete_bodies": 1,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum-authoring-holdout/8xfbrCVZwtkLAB3p_365.json",
+          "sha256": "e91b816911478ab78d15e8fe433b2cd5f124b217991d204e8df488046a2ab7b8",
+          "trace": "8xfbrCVZwtkLAB3p/365",
+          "fingerprint": "8f5874b023ecf24e1657ed68d98f5b1ea652a08926797d103c62bfe1adf6b058",
+          "origin_timestamp_ms": 1470849775,
+          "cast_observations": 2285,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 172791,
+              "end_ms": 331001,
+              "entry_event": 5314,
+              "completion_event": 8872,
+              "targets": [
+                [5314, 172791, "BF00", 0, null],
+                [5726, 189063, "C3FF", 28, 28],
+                [5893, 199326, "C400", 35, 35],
+                [6063, 209130, "BF00", 39, 39],
+                [6213, 215494, "BEFD", 0, 36],
+                [6591, 234974, "BF01", 20, 20],
+                [6807, 243168, "BF05", 26, 26],
+                [6863, 244503, "BF01", 109, 109],
+                [6993, 249584, "BF02", 90, 90],
+                [7041, 251595, "BF02", 101, 101],
+                [7186, 257659, "C3FF", 65, 65],
+                [7445, 268358, "BF00", 164, 164],
+                [7622, 274639, "BEFD", 0, 19],
+                [7875, 286317, "BF03", 22, 22],
+                [8139, 301270, "BF00", 69, 69],
+                [8189, 303679, "BF01", 60, 60],
+                [8318, 308772, "BF02", 67, 67],
+                [8372, 310781, "BF02", 58, 58],
+                [8505, 316857, "C400", 82, 82],
+                [8769, 327567, "BF00", 0, 72]
+              ],
+              "cycle_evidence": {
+                "markers": [[8139, 301270]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 511241,
+              "end_ms": 651860,
+              "entry_event": 13252,
+              "completion_event": 15850,
+              "targets": [
+                [13252, 511241, "BEF4", 0, null],
+                [13554, 523991, "BEE6", 50, 50],
+                [13589, 529522, "BEEC", 19, 19],
+                [13603, 532064, "BEEE", 23, 23],
+                [13814, 544332, "C4B9", 191, 191],
+                [14016, 556278, "BEEF", 346, 346],
+                [14542, 578654, "BEF4", 24, 24],
+                [14762, 591380, "BEE5", 2, 2],
+                [14803, 596906, "BEEC", 28, 28],
+                [14817, 602303, "BEEC", 25, 25],
+                [14825, 604397, "BEEE", 19, 19],
+                [14920, 610244, "C4F1", 66, 66],
+                [15078, 615869, "BEF6", 25, 25],
+                [15214, 622121, "C4B9", 0, 223],
+                [15648, 639894, "BEEF", 373, 373]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 868102,
+              "end_ms": 1108141,
+              "entry_event": 20259,
+              "completion_event": 24879,
+              "targets": [
+                [20259, 868102, "BF18", 0, null],
+                [20533, 878915, "C489", 87, 87],
+                [20791, 888743, "BF19", 41, 41],
+                [20975, 899226, "BF1A", 124, 124],
+                [21124, 908680, "BF1A", 78, 78],
+                [21306, 919105, "BF21", 103, 103],
+                [21553, 930545, "BF18", 43, 43],
+                [21742, 938236, "BF19", 0, 66],
+                [21956, 947675, "BF1B", 61, 61],
+                [22079, 955484, "C489", 0, 52],
+                [22142, 964619, "BF23", 35, 35],
+                [22282, 976027, "C48B", 57, 57],
+                [22413, 984158, "BF18", 0, 26],
+                [22658, 994992, "BF19", 66, 66],
+                [23051, 1013459, "BF1D", 1, 1],
+                [23237, 1021458, "C489", 100, 100],
+                [23556, 1036580, "BF1D", 22, 22],
+                [23806, 1049108, "C489", 150, 150],
+                [23955, 1056222, "BF18", 0, 236],
+                [24221, 1067140, "BF19", 18, 18],
+                [24399, 1076574, "BF1B", 152, 152],
+                [24544, 1084406, "C489", 32, 32],
+                [24660, 1093526, "BF23", 20, 20],
+                [24840, 1104924, "C48B", 82, 82]
+              ],
+              "cycle_evidence": {
+                "markers": [
+                  [21956, 947675],
+                  [24399, 1076574]
+                ],
+                "periods_ms": [128899],
+                "complete_bodies": 1,
+                "observed_recurrences": 1
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum-authoring-holdout/8xfbrCVZwtkLAB3p_415.json",
+          "sha256": "0cf862dab89b1e5befdfe5a696c29c757122ca5644faa84597826951b330d832",
+          "trace": "8xfbrCVZwtkLAB3p/415",
+          "fingerprint": "91bfb7aefcc5beda35f0180ed01fe3dba05df1cc15734e1af59b2e2462c4b84e",
+          "origin_timestamp_ms": 1488592792,
+          "cast_observations": 2151,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 192502,
+              "end_ms": 336932,
+              "entry_event": 5235,
+              "completion_event": 8385,
+              "targets": [
+                [5235, 192502, "BF00", 0, null],
+                [5636, 208764, "C3FF", 38, 38],
+                [5834, 219022, "C400", 20, 20],
+                [6009, 228830, "BF00", 28, 28],
+                [6155, 235205, "BEFD", 0, 25],
+                [6491, 254677, "BF01", 28, 28],
+                [6675, 262878, "BF05", 27, 27],
+                [6732, 264084, "BF01", 21, 21],
+                [6862, 269164, "BF02", 41, 41],
+                [6917, 271167, "BF02", 38, 38],
+                [7059, 277212, "C3FF", 93, 93],
+                [7258, 287896, "BF00", 0, 9],
+                [7443, 294176, "BEFD", 0, 20],
+                [7686, 305835, "BF03", 41, 41],
+                [7999, 320813, "BF00", 63, 63],
+                [8064, 323223, "BF01", 53, 53],
+                [8200, 328307, "BF02", 69, 69],
+                [8267, 330310, "BF02", 66, 66],
+                [8378, 336353, "C400", 123, 123]
+              ],
+              "cycle_evidence": {
+                "markers": [[7999, 320813]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 537737,
+              "end_ms": 677940,
+              "entry_event": 12622,
+              "completion_event": 15085,
+              "targets": [
+                [12622, 537737, "BEF4", 0, null],
+                [12889, 550494, "BEE5", 57, 57],
+                [12915, 556039, "BEEC", 2, 2],
+                [12930, 558635, "BEEE", 98, 98],
+                [13163, 570763, "C4B9", 126, 126],
+                [13342, 581990, "BEEF", 0, 373],
+                [13773, 604292, "BEF4", 98, 98],
+                [14036, 617042, "BEE4", 48, 48],
+                [14062, 622591, "BEEC", 1, 1],
+                [14079, 628009, "BEEC", 19, 19],
+                [14089, 630067, "BEEE", 23, 23],
+                [14176, 635791, "C4F1", 0, 99],
+                [14290, 641430, "BEF6", 39, 39],
+                [14464, 648369, "C4B9", 478, 478],
+                [14810, 666309, "BEEF", 540, 540]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 878370,
+              "end_ms": 1077503,
+              "entry_event": 19139,
+              "completion_event": 23147,
+              "targets": [
+                [19139, 878370, "BF18", 0, null],
+                [19383, 888914, "C489", 356, 356],
+                [19614, 898842, "BF19", 128, 128],
+                [19803, 909302, "BF1A", 68, 68],
+                [19947, 918739, "BF1A", 131, 131],
+                [20116, 929196, "BF21", 74, 74],
+                [20370, 940633, "BF18", 137, 137],
+                [20553, 948542, "BF19", 0, 28],
+                [20773, 957971, "BF1B", 71, 71],
+                [20974, 966065, "C489", 223, 223],
+                [21142, 975185, "BF23", 20, 20],
+                [21311, 986583, "C48B", 82, 82],
+                [21459, 994718, "BF18", 0, 47],
+                [21721, 1005667, "BF19", 49, 49],
+                [22070, 1024130, "BF1D", 112, 112],
+                [22223, 1031998, "C489", 80, 80],
+                [22463, 1047104, "BF1D", 14, 14],
+                [22759, 1060250, "C489", 432, 432],
+                [22886, 1067358, "BF18", 340, 340]
+              ],
+              "cycle_evidence": {
+                "markers": [[20773, 957971]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "evaluated",
+          "input": "logs/clyteum-authoring-holdout/1LnqB23bHwpCdJy4_8.json",
+          "sha256": "2113db94c16f013a4e0f0a2accf3ea88059893d8a01f601a454e17e820c1d978",
+          "trace": "1LnqB23bHwpCdJy4/8",
+          "fingerprint": "ae7baf4be581ea7e4cce4ec071db9764f51ddc28707311816272d07a5b742d85",
+          "origin_timestamp_ms": 29023808,
+          "cast_observations": 2122,
+          "safe_entry": true,
+          "diagnostics": [],
+          "bosses": [
+            {
+              "phase": "eye",
+              "entry_ms": 166038,
+              "end_ms": 312633,
+              "entry_event": 5111,
+              "completion_event": 8986,
+              "targets": [
+                [5111, 166038, "BF00", 0, null],
+                [5567, 182326, "C400", 12, 12],
+                [5795, 192581, "C3FF", 43, 43],
+                [6011, 202391, "BF00", 53, 53],
+                [6176, 208767, "BEFD", 0, 24],
+                [6655, 228264, "BF01", 3, 3],
+                [6868, 236417, "BF05", 50, 50],
+                [6921, 237666, "BF01", 1, 1],
+                [7065, 242751, "BF02", 16, 16],
+                [7135, 244754, "BF02", 13, 13],
+                [7279, 250816, "C400", 51, 51],
+                [7549, 261416, "BF00", 0, 51],
+                [7705, 267703, "BEFD", 0, 13],
+                [8010, 279373, "BF03", 30, 30],
+                [8469, 294397, "BF00", 6, 6],
+                [8545, 296807, "BF01", 4, 4],
+                [8689, 301887, "BF02", 16, 16],
+                [8759, 303893, "BF02", 10, 10],
+                [8914, 309956, "C400", 47, 47]
+              ],
+              "cycle_evidence": {
+                "markers": [[8469, 294397]],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "chort",
+              "entry_ms": 475345,
+              "end_ms": 618643,
+              "entry_event": 13103,
+              "completion_event": 16373,
+              "targets": [
+                [13103, 475345, "BEF4", 0, null],
+                [13423, 488100, "BEE6", 55, 55],
+                [13494, 493637, "BEEC", 8, 8],
+                [13528, 496179, "BEEE", 34, 34],
+                [13759, 507687, "C4B9", 0, 558],
+                [14012, 519512, "BEEF", 225, 225],
+                [14606, 541777, "BEF4", 135, 135],
+                [14954, 554358, "BEE4", 254, 254],
+                [15013, 559882, "BEEC", 230, 230],
+                [15058, 565277, "BEEC", 235, 235],
+                [15078, 567328, "BEEE", 284, 284],
+                [15200, 573127, "C4F1", 0, 285],
+                [15354, 578746, "BEF6", 19, 19],
+                [15517, 585612, "C4B9", 385, 385],
+                [15934, 603131, "BEEF", 119, 119]
+              ],
+              "cycle_evidence": {
+                "markers": [],
+                "periods_ms": [],
+                "complete_bodies": 0,
+                "observed_recurrences": 0
+              },
+              "failures": []
+            },
+            {
+              "phase": "malphas",
+              "entry_ms": 791890,
+              "end_ms": 1005466,
+              "entry_event": 20310,
+              "completion_event": 25799,
+              "targets": [
+                [20310, 791890, "BF18", 0, null],
+                [20568, 802826, "C489", 36, 36],
+                [20829, 812512, "BF19", 22, 22],
+                [21037, 822960, "BF1A", 70, 70],
+                [21252, 832396, "BF1A", 6, 6],
+                [21499, 842821, "BF21", 31, 31],
+                [21795, 854273, "BF18", 17, 17],
+                [21995, 862107, "BF19", 17, 17],
+                [22284, 871542, "BF1B", 65, 65],
+                [22536, 879695, "C489", 288, 288],
+                [22759, 888831, "BF23", 36, 36],
+                [23020, 900220, "C48B", 75, 75],
+                [23210, 908354, "BF18", 0, 41],
+                [23542, 919275, "BF19", 21, 21],
+                [24013, 937710, "BF1D", 56, 56],
+                [24193, 945469, "C489", 85, 85],
+                [24512, 960566, "BF1D", 188, 188],
+                [24888, 973391, "C489", 63, 63],
+                [25101, 980519, "BF18", 0, 135],
+                [25375, 991376, "BF19", 43, 43],
+                [25639, 1000827, "BF1B", 108, 108]
+              ],
+              "cycle_evidence": {
+                "markers": [
+                  [22284, 871542],
+                  [25639, 1000827]
+                ],
+                "periods_ms": [129285],
+                "complete_bodies": 1,
+                "observed_recurrences": 1
+              },
+              "failures": []
+            }
+          ],
+          "passed": true
+        },
+        {
+          "status": "excluded",
+          "input": "logs/clyteum-authoring-holdout/Cm37YbnrZRk8TFvt_390.json",
+          "sha256": "abdcf97ee54bad06b635dcd6b2934280f8d079ad0ee4c34a45d6ae5aaa38a35d",
+          "stage": "input-validation",
+          "error": "InputExclusion: Missing observed boss completion",
+          "passed": null,
+          "evidence": {
+            "source": "Chort",
+            "entry_event": 9351
+          }
+        }
+      ],
+      "not_checked": [
+        "ACT equivalence and actual lifecycle signals",
+        "UI visibility",
+        "unobserved Chort late cycles",
+        "mechanic positioning and helper ownership"
+      ]
+    }
+  ]
+}
