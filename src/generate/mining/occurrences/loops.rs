@@ -52,6 +52,7 @@ pub(in crate::generate) struct Episode {
 #[derive(Clone, Debug, Serialize)]
 pub(in crate::generate) struct LoopModel {
     pub source: Option<String>,
+    pub context: Option<Signal>,
     pub prefix: Vec<Vec<Signal>>,
     pub body: Vec<Vec<Signal>>,
     pub blocks: Vec<Vec<usize>>,
@@ -151,20 +152,25 @@ fn accepts(wave: &Wave, key: &Vec<Signal>) -> bool {
     wave.coalescible && &wave.key == key
 }
 
-// Fixed opener context identifies onset; a later repeated ID cannot replace a missing earlier step.
-fn episode(scope: &Scope, prefix: &[Vec<Signal>], body: &[Vec<Signal>]) -> Option<Episode> {
-    if scope.waves.len() <= prefix.len() {
+// Match every step after the onset context; a later repeated ID cannot replace a missing step.
+fn episode(
+    scope: &Scope,
+    prefix: &[Vec<Signal>],
+    body: &[Vec<Signal>],
+    offset: usize,
+) -> Option<Episode> {
+    let observed = scope.waves.get(offset..)?;
+    if observed.len() <= prefix.len() {
         return None;
     }
-    if !scope
-        .waves
+    if !observed
         .iter()
         .zip(prefix)
         .all(|(wave, key)| accepts(wave, key))
     {
         return None;
     }
-    let waves = scope.waves.get(prefix.len()..)?;
+    let waves = observed.get(prefix.len()..)?;
     if !accepts(waves.first()?, body.first()?) {
         return None;
     }
@@ -242,10 +248,29 @@ fn blocks(body_len: usize, paths: &[Vec<Vec<usize>>]) -> Result<Vec<Vec<usize>>>
 }
 
 fn candidate(scopes: &[&Scope], reference: &Scope, start: usize, end: usize) -> Result<LoopModel> {
+    // A shared unique predecessor isolates the onset, e.g. tutorial variations before car entry.
+    let context = reference
+        .waves
+        .iter()
+        .take(start)
+        .enumerate()
+        .rev()
+        .find(|(_, wave)| {
+            wave.key.len() == 1
+                && scopes.iter().all(|scope| {
+                    scope
+                        .waves
+                        .iter()
+                        .filter(|row| accepts(row, &wave.key))
+                        .count()
+                        == 1
+                })
+        });
     let prefix: Vec<_> = reference
         .waves
         .iter()
         .take(start)
+        .skip(context.map_or(0, |(index, _)| index))
         .map(|wave| wave.key.clone())
         .collect();
     let body: Vec<_> = reference
@@ -269,21 +294,30 @@ fn candidate(scopes: &[&Scope], reference: &Scope, start: usize, end: usize) -> 
             .waves
             .iter()
             .take(end)
+            .skip(start)
             .all(|wave| wave.coalescible && wave.key.len() == wave.members.len()),
         "Fragmented loop reference"
     );
     let mut episodes = Vec::new();
     for scope in scopes {
-        if scope.waves.len() <= prefix.len()
-            && scope
-                .waves
+        let offset = context
+            .and_then(|(_, context)| {
+                scope
+                    .waves
+                    .iter()
+                    .position(|wave| accepts(wave, &context.key))
+            })
+            .unwrap_or(0);
+        let observed = scope.waves.get(offset..).context("Invalid onset context")?;
+        if observed.len() <= prefix.len()
+            && observed
                 .iter()
                 .zip(&prefix)
                 .all(|(wave, key)| accepts(wave, key))
         {
             continue;
         }
-        let ep = episode(scope, &prefix, &body).context("Opener or loop entry differs")?;
+        let ep = episode(scope, &prefix, &body, offset).context("Opener or loop entry differs")?;
         episodes.push(ep);
     }
     let paths = episodes
@@ -302,6 +336,7 @@ fn candidate(scopes: &[&Scope], reference: &Scope, start: usize, end: usize) -> 
     let blocks = blocks(body.len(), &paths)?;
     Ok(LoopModel {
         source: reference.source.clone(),
+        context: context.and_then(|(_, wave)| wave.key.first()).cloned(),
         prefix,
         body,
         blocks,
@@ -356,13 +391,13 @@ pub(super) fn discover(pulls: &[&Pull], boss_only: bool) -> Result<LoopDiscovery
                 break;
             }
             match candidate(&scopes, scope, start, end) {
-                Ok(model) => candidates.push(model),
+                Ok(model) => candidates.push((start, model)),
                 Err(error) => *rejected.entry(error.to_string()).or_default() += 1,
             }
         }
         // Earliest structurally supported onset keeps the finite opener small; timing is estimated later.
-        candidates.sort_by_key(|model| (model.prefix.len(), std::cmp::Reverse(model.body.len())));
-        if let Some(model) = candidates.into_iter().next() {
+        candidates.sort_by_key(|(start, model)| (*start, std::cmp::Reverse(model.body.len())));
+        if let Some((_, model)) = candidates.into_iter().next() {
             result.diagnostics.push(json!({"method":"terminal-loop-v1","source":source,"status":"learned","steps":model.body.len(),"opener_waves":model.prefix.len(),"episodes":model.episodes.len()}));
             result.models.push(model);
         } else {
@@ -429,6 +464,23 @@ mod tests {
             candidate(&[&reference, &peer], &reference, 1, 5).is_ok(),
             accepted
         );
+    }
+
+    #[test]
+    fn unique_onset_context_separates_variable_openers_from_a_shared_loop() {
+        let a = scope("a", &[9, 8, 1, 2, 3, 4, 1, 2, 3], 1000);
+        let b = scope("b", &[9, 7, 7, 8, 1, 2, 3, 4, 1, 2, 3], 1500);
+        let model = candidate(&[&a, &b], &a, 2, 6).unwrap();
+        assert_eq!(model.prefix.len(), 1);
+        assert_eq!(
+            model.context.as_ref().unwrap().identifier,
+            Identifier::Ability(8)
+        );
+        assert_eq!(model.episodes[0].waves[0].at().unwrap(), 2000);
+        assert_eq!(model.episodes[1].waves[0].at().unwrap(), 6000);
+        // A shared anchor does not excuse a missing step between it and the loop boundary.
+        let missing = scope("missing", &[9, 8, 2, 3, 4, 1, 2, 3], 1000);
+        candidate(&[&a, &missing], &a, 2, 6).unwrap_err();
     }
 
     #[test]

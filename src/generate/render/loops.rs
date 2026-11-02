@@ -28,7 +28,23 @@ fn replace(
     rendered: LoopRender,
     events: &mut Vec<KdlNode>,
     evidence: &mut Vec<Value>,
+    context: Option<&Signal>,
 ) -> Result<Value> {
+    // Local onset learning is usable only if the standalone KDL can actually observe that context.
+    ensure!(
+        context.is_none_or(|context| evidence.iter().any(|row| {
+            row["activity"] == json!(context)
+                && events.iter().any(|event| {
+                    event.get(0).and_then(kdl::KdlValue::as_string) == row["event"].as_str()
+                        && event.children().is_some_and(|body| {
+                            body.nodes()
+                                .iter()
+                                .any(|node| node.name().value() == "sync")
+                        })
+                })
+        })),
+        "Loop onset context has no finite synchronization"
+    );
     let covered: BTreeSet<_> = rendered
         .evidence
         .get("events")
@@ -117,7 +133,7 @@ pub(super) fn apply(
     let mut reports = Vec::new();
     for model in models.iter().filter(|model| source == &model.source) {
         match render(analysis, progression, model, origins)
-            .and_then(|rendered| replace(rendered, events, evidence)) {
+            .and_then(|rendered| replace(rendered, events, evidence, model.context.as_ref())) {
             Ok(report) => reports.push(report),
             Err(error) => reports.push(
                 json!({"source":model.source,"status":"unrendered","model":model,"reason":error.to_string()}),
@@ -363,11 +379,12 @@ pub(super) fn render(
         .context("Missing loop entry")?;
     ensure!(
         model.source.is_none()
-            || (entry.len() == 1
-                && !origins.is_empty()
-                && origins
-                    .iter()
-                    .all(|origin| entry.contains(&origin.activity))),
+            || (!origins.is_empty()
+                && (model.context.is_some()
+                    || (entry.len() == 1
+                        && origins
+                            .iter()
+                            .all(|origin| entry.contains(&origin.activity))))),
         "Loop entry is not consistently represented by the phase origin"
     );
     for origin in origins {
@@ -535,6 +552,28 @@ mod tests {
     }
 
     #[test]
+    fn local_onset_without_an_emitted_sync_preserves_finite_output() {
+        let context = Signal {
+            kind: "cast".into(),
+            identifier: Identifier::Ability(9),
+            source: Some("Boss".into()),
+            target: None,
+        };
+        let mut evidence = vec![json!({"event":"entry","activity":context})];
+        let original = evidence.clone();
+        let mut events = vec![KdlNode::new("event")];
+        let rendered = LoopRender {
+            node: KdlNode::new("loop"),
+            start_tick: 10,
+            evidence: json!({}),
+        };
+        let error = replace(rendered, &mut events, &mut evidence, Some(&context)).unwrap_err();
+        assert!(error.to_string().contains("no finite synchronization"));
+        assert_eq!(events.len(), 1);
+        assert_eq!(evidence, original);
+    }
+
+    #[test]
     fn partial_loop_binding_does_not_remove_finite_events() {
         let mut events = vec![KdlNode::new("event")];
         let mut evidence = vec![
@@ -546,7 +585,7 @@ mod tests {
             start_tick: 10,
             evidence: json!({"events":[{"observations":[{"trace":"a","observation_nodes":[1]}]}]}),
         };
-        let error = replace(rendered, &mut events, &mut evidence).unwrap_err();
+        let error = replace(rendered, &mut events, &mut evidence, None).unwrap_err();
         assert!(error.to_string().contains("crosses loop onset"));
         assert_eq!(events.len(), 1);
         assert_eq!(evidence, original);

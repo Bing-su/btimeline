@@ -11,6 +11,8 @@ fn fixture(directory: &Path, code: &str, ids: &[i64]) -> PathBuf {
     let events:Vec<_>=ids.iter().enumerate().map(|(index,id)|json!({"timestamp":2000+index*1000,"type":"cast","sourceID":10,"abilityGameID":id,"fight":1})).collect();
     let abilities = json!([
         {"gameID":9,"name":"Opening","type":"1"},
+        {"gameID":8,"name":"Loop Entry","type":"1"},
+        {"gameID":7,"name":"Tutorial","type":"1"},
         {"gameID":1,"name":"Boundary","type":"1"},
         {"gameID":2,"name":"Left","type":"1"},
         {"gameID":3,"name":"Right","type":"1"},
@@ -229,6 +231,38 @@ fn coincident_same_name_abilities_keep_distinct_event_ids() {
         .collect();
     assert_eq!(boundaries.len(), 2);
     assert_ne!(boundaries[0]["event"], boundaries[1]["event"]);
+}
+
+#[rstest::rstest]
+#[case("raid", 3000)]
+#[case("dungeon", 2000)]
+fn shared_local_context_allows_different_tutorial_lengths(#[case] mode: &str, #[case] start: i64) {
+    let dir = tempfile::tempdir().unwrap();
+    let paths: Vec<_> = [
+        vec![9, 8, 1, 2, 3, 4, 1, 2, 3],
+        vec![9, 7, 8, 1, 2, 3, 4, 1, 2, 3],
+    ]
+    .iter()
+    .enumerate()
+    .map(|(peer, ids)| fixture(dir.path(), &format!("tutorial{peer}"), ids))
+    .collect();
+    let output = dir.path().join("timeline.kdl");
+    cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(paths)
+        .args(["--mode", mode, "-o"])
+        .arg(&output)
+        .assert()
+        .success();
+    let evidence: Value =
+        serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
+    let model = &evidence["loops"][0];
+    assert_eq!(model["status"], "rendered");
+    assert_eq!(model["model"]["context"]["identifier"]["Ability"], 8);
+    assert_eq!(model["model"]["prefix"].as_array().unwrap().len(), 1);
+    // The existing estimator chooses the lower median of the equally weighted trace offsets.
+    assert_eq!(model["start_ms"], start);
+    assert_eq!(model["period_ms"], 4000);
 }
 
 #[test]

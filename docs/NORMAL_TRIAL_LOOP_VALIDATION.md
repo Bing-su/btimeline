@@ -58,6 +58,8 @@ Enuo의 C326만으로는 adds와 beacon을 구분하거나 15초 회전을 유�
 
 재생 보조 스크립트 `scripts/replay_dungeon_loops.ts`는 raid도 지원한다. raid 시작은 합성 InCombat이며 ACT 원본이 아니다. 회귀 자료는 `out/validation/combat-loops/`에 보관했다. 최근접 표시 대조를 일대일 경로 검증으로 해석하지 않는다.
 
+이후 국소 진입 문맥 개선에서는 반복 앞의 전체 opener 일치 요구를 줄였다. 합성 raid·dungeon의 서로 다른 튜토리얼 길이에서 학습하며, 문맥 신호가 유한 sync로 출력되지 않으면 loop를 보류한다. Clyteum Malphas에 실제 반복이 추가됐지만 두 일반 토벌전은 아직 0loop이고 KDL 해시도 유지된다. 최신 회귀 자료는 `out/validation/context-guard/`와 [Clyteum 감사](CLYTEUM_OMISSION_AUDIT.md)에 있다. 이 개선만으로 Doomtrain·Enuo의 파동·본문 대응 문제가 해결되지는 않았다.
+
 생성 및 관측 감사를 재현하려면 저장소 루트에서 다음을 실행한다. 출력 경로가 이미 있으면 다른 경로를 사용한다.
 
 ```sh
