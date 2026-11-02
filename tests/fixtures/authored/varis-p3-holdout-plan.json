@@ -1,0 +1,70 @@
+{
+  "role": "held-out P3; frozen before event inspection; six pulls from two previously unused reports",
+  "timeline": "timelines/varis-ex-p3.kdl",
+  "timeline_sha256": "98aff0a0a422bd3b0950b3ebb2fe3518cc69e22e48c4c5d29367753476fc03f4",
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "lead_ms": {
+    "shield": 3000,
+    "followup": 5000
+  },
+  "scope": "4CCF Bladesblood through 22s after 4CE0; three distinct Gunshields; explicit NPC source aliases",
+  "excluded_fingerprints": [
+    "7366357e73fc22d56f75b5ba1541c6f4a703f34836c078fa68a5bd6331f33df9",
+    "9c20cf9b5562cd2cf281d20261f01d4ed9819d49d8f13c99316a2163c2da8577",
+    "40a37ac4abc2526e8c4b92a8662351b597af667cba031db92e9bd2387f7fc886",
+    "3829a94849852be500bc6e2bb50f7ad026b248503422ac2fb2f07f6965323abf",
+    "4ff436f5d1fb5e1e1ec5c7e190809da5c23c47c07ac45868ae942aa4c2a9092b",
+    "a18bb7602bc57286eb2d92313c1f26e09c8ed3c605aa5773b6608694fd1e77a2",
+    "897eb7c20e553f1e8e3965f73147069b9b805c614e5f56197516b1692b15a8cd",
+    "6d96f0abb31a50ac337e7182d475f7aa1a26088d6ba744358419ab32096e5273"
+  ],
+  "discovery": {
+    "reports": [],
+    "encounter": 1053,
+    "difficulty": 100,
+    "gameZone": 913,
+    "partition": null,
+    "region": null,
+    "firstPage": 10,
+    "pages": 1
+  },
+  "inputs": [
+    {
+      "input": "logs/varis-p3-holdout/jAhxygNJG1ZT3MFD_14.json",
+      "sha256": "5fa848bc91c9409943002bfdd37358ace63ed76d5bbfbe79e572407defc8a56e",
+      "report": "jAhxygNJG1ZT3MFD",
+      "fight": 14
+    },
+    {
+      "input": "logs/varis-p3-holdout/M8C19GNgABxPdJKZ_9.json",
+      "sha256": "c289de58e4b55cb1f9fe9fff6966d2b0bbe137539bed98f88d2a9dabd2ec2c0a",
+      "report": "M8C19GNgABxPdJKZ",
+      "fight": 9
+    },
+    {
+      "input": "logs/varis-p3-holdout/M8C19GNgABxPdJKZ_11.json",
+      "sha256": "1e9bcf92e43f15254ae1df3632cb2660012b20edb257389db291aebd0c9e2f62",
+      "report": "M8C19GNgABxPdJKZ",
+      "fight": 11
+    },
+    {
+      "input": "logs/varis-p3-holdout/jAhxygNJG1ZT3MFD_12.json",
+      "sha256": "3bd397db5ed51b8aee73a3afd64b4509e74f703dbf7828fddd4ac33f25699a38",
+      "report": "jAhxygNJG1ZT3MFD",
+      "fight": 12
+    },
+    {
+      "input": "logs/varis-p3-holdout/jAhxygNJG1ZT3MFD_13.json",
+      "sha256": "fee70676a02634de901d78072c4fbc9584b63365f2733fed5f9e7ca1d9b84493",
+      "report": "jAhxygNJG1ZT3MFD",
+      "fight": 13
+    },
+    {
+      "input": "logs/varis-p3-holdout/M8C19GNgABxPdJKZ_5.json",
+      "sha256": "015cee50f782eb96e6ef461c9e31a8a69fca5b75cffb754c65e8babfde04c984",
+      "report": "M8C19GNgABxPdJKZ",
+      "fight": 5
+    }
+  ]
+}

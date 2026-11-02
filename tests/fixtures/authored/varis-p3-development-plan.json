@@ -1,0 +1,69 @@
+{
+  "role": "development; all previously investigated Varis long logs",
+  "timeline": "timelines/varis-ex-p3.kdl",
+  "timeline_sha256": "98aff0a0a422bd3b0950b3ebb2fe3518cc69e22e48c4c5d29367753476fc03f4",
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "lead_ms": {
+    "shield": 3000,
+    "followup": 5000
+  },
+  "inputs": [
+    {
+      "input": "logs/varis-ex-long/AgTDW2qvQFyw69b4_52.json",
+      "sha256": "e7cc423ff294f034ea5ec2f6c094d709ae2510ceda2e412084c5c4224223f87a"
+    },
+    {
+      "input": "logs/varis-ex-long/Hpfdk4naLwANX62D_6.json",
+      "sha256": "661ec529dd4b967fb50eb6da5cd7acc5a91575805739ed445956b803b4146a2a"
+    },
+    {
+      "input": "logs/varis-ex-long/Hpfdk4naLwANX62D_9.json",
+      "sha256": "619e444af5e672dfa8b2d5ad9c3b746a183c7ad131156be5bde95e66b169b19d"
+    },
+    {
+      "input": "logs/varis-ex-long/AgTDW2qvQFyw69b4_61.json",
+      "sha256": "d252728e62275776a1a18e50c188f0f44a02a748fdabec26eebacc91c5a719cc"
+    },
+    {
+      "input": "logs/varis-ex-long/AgTDW2qvQFyw69b4_60.json",
+      "sha256": "230258320468749c76a76707d22d9c631a202daea3a781904cb64ac15d5e126a"
+    },
+    {
+      "input": "logs/varis-ex-long/DFVA3vq2ThWbaGC7_62.json",
+      "sha256": "11bd9be4996d4018343c2d181fd56d0d06767a7aabe64731f818284ce25e1fd5"
+    },
+    {
+      "input": "logs/varis-ex-long/Hpfdk4naLwANX62D_5.json",
+      "sha256": "1d3cdc9bed1beca1068db1418c8331dee911e2954868c12e6a6fe4e767263bbd"
+    },
+    {
+      "input": "logs/varis-ex-long/Hpfdk4naLwANX62D_11.json",
+      "sha256": "deb9f51eb5c41d54f092eb7970e1bb05ccf0a28dee244350527de29d8e255640"
+    },
+    {
+      "input": "logs/varis-ex-long/Hpfdk4naLwANX62D_7.json",
+      "sha256": "7977e56fac472cc47c4f3a27b6875777c56c340074e0e5c18a15d2b85dacf8f3"
+    },
+    {
+      "input": "logs/varis-ex-long/AgTDW2qvQFyw69b4_53.json",
+      "sha256": "86b1b2e8ed363c19666ee97623618f597e3dcae604eb46ecf920fe01d23863c5"
+    },
+    {
+      "input": "logs/varis-ex-long/FKJmZVvwfbPYzN7a_26.json",
+      "sha256": "23e1c499d7f0407660b429347ea0b104ff0020548c746a8cb4732ab9e6e9324b"
+    },
+    {
+      "input": "logs/varis-ex-long/AgTDW2qvQFyw69b4_56.json",
+      "sha256": "a2da4c238dccf6dd8cf59f8067f4e7b40dcd7f7619a3f080970bf52df72f6175"
+    },
+    {
+      "input": "logs/varis-ex-long/Hpfdk4naLwANX62D_10.json",
+      "sha256": "975d4c174bfe0d50c12d1ce85e214ee468a5217cf653ff54a4547f76ede6e5cd"
+    },
+    {
+      "input": "logs/varis-ex-long/AgTDW2qvQFyw69b4_57.json",
+      "sha256": "34e416eb762daf13ad86bfbe7fcc8012336f17c69eaef04aed858940072ae561"
+    }
+  ]
+}

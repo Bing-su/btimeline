@@ -1,0 +1,128 @@
+timeline 1 "Varis EX - P3 random Gunshields" {
+    // Arm only after Bladesblood resolves P2; earlier Gunshield casts must not start this excerpt.
+    start "Ability" id="4CCF" source="Bladesblood"
+    wipe "ActorControl" command="4000000F"
+    wipe "ActorControl" command="40000010"
+    finish "InCombat" inGameCombat="0"
+    zone-exit "ChangeZone"
+    phase "ready" { enter "Ability" id="4CCF" source="Bladesblood"; }
+    // State IDs retain used blocks. The sixth permutation is a game-rule hypothesis checked synthetically.
+    phase "L" {
+        enter "StartsUsing" id="4CD8" source="Varis Yae Galvus" from="ready" at=16.3 before=10.0 after=30.0
+        event "L-loaded-gunshield" 5.0 name="Loaded Gunshield"
+        event "L-magitek-burst" 21.4 name="Magitek Burst" { sync 21.4 "Ability" id="4CDF" source="Varis Yae Galvus" before=5.0 after=8.0; }
+        event "L-ignis-est" 22.0 name="Ignis Est"
+        event "L-terminus-est" 29.4 name="Terminus Est"
+        event "L-festina-lente" 29.6 name="Festina Lente"
+        event "L-citius" 40.8 name="Citius"
+    }
+    phase "R" {
+        enter "StartsUsing" id="4CD9" source="Varis Yae Galvus" from="ready" at=16.3 before=10.0 after=30.0
+        event "R-reinforced-gunshield" 5.0 name="Reinforced Gunshield"
+        event "R-altius" 14.1 name="Altius" { sync 14.1 "Ability" id="4CCA" source="Varis Yae Galvus" before=5.0 after=8.0; }
+        event "R-terminus-est" 24.3 name="Terminus Est"
+        event "R-magitek-shielding" 26.4 name="Magitek Shielding"
+        event "R-ventus-est" 31.1 name="Ventus Est"
+        event "R-citius" 41.6 name="Citius"
+    }
+    phase "E" {
+        enter "StartsUsing" id="4CD7" source="Varis Yae Galvus" from="ready" at=16.3 before=10.0 after=30.0
+        event "E-electrified-gunshield" 5.0 name="Electrified Gunshield"
+        event "E-reinforcements" 10.1 name="Reinforcements"
+        event "E-aetherochemical-grenado" 19.2 name="Aetherochemical Grenado"
+        event "E-terminus-est" 28.9 name="Terminus Est"
+        event "E-magitek-shock" 31.6 name="Magitek Shock" { sync 31.6 "Ability" id="4CDA" source="Varis Yae Galvus" before=5.0 after=8.0; }
+        event "E-alea-iacta-est" 42.5 name="Alea Iacta Est"
+    }
+    phase "LR" {
+        enter "StartsUsing" id="4CD9" source="Varis Yae Galvus" from="L" at=53.0 before=15.0 after=15.0
+        event "LR-reinforced-gunshield" 5.0 name="Reinforced Gunshield"
+        event "LR-altius" 14.1 name="Altius" { sync 14.1 "Ability" id="4CCA" source="Varis Yae Galvus" before=5.0 after=8.0; }
+        event "LR-terminus-est" 24.3 name="Terminus Est"
+        event "LR-magitek-shielding" 26.4 name="Magitek Shielding"
+        event "LR-ventus-est" 31.1 name="Ventus Est"
+        event "LR-citius" 41.6 name="Citius"
+    }
+    phase "LE" {
+        enter "StartsUsing" id="4CD7" source="Varis Yae Galvus" from="L" at=53.0 before=15.0 after=15.0
+        event "LE-electrified-gunshield" 5.0 name="Electrified Gunshield"
+        event "LE-reinforcements" 10.1 name="Reinforcements"
+        event "LE-aetherochemical-grenado" 19.2 name="Aetherochemical Grenado"
+        event "LE-terminus-est" 28.9 name="Terminus Est"
+        event "LE-magitek-shock" 31.6 name="Magitek Shock" { sync 31.6 "Ability" id="4CDA" source="Varis Yae Galvus" before=5.0 after=8.0; }
+        event "LE-alea-iacta-est" 42.5 name="Alea Iacta Est"
+    }
+    phase "RL" {
+        enter "StartsUsing" id="4CD8" source="Varis Yae Galvus" from="R" at=55.0 before=15.0 after=15.0
+        event "RL-loaded-gunshield" 5.0 name="Loaded Gunshield"
+        event "RL-magitek-burst" 21.4 name="Magitek Burst" { sync 21.4 "Ability" id="4CDF" source="Varis Yae Galvus" before=5.0 after=8.0; }
+        event "RL-ignis-est" 22.0 name="Ignis Est"
+        event "RL-terminus-est" 29.4 name="Terminus Est"
+        event "RL-festina-lente" 29.6 name="Festina Lente"
+        event "RL-citius" 40.8 name="Citius"
+    }
+    phase "RE" {
+        enter "StartsUsing" id="4CD7" source="Varis Yae Galvus" from="R" at=55.0 before=15.0 after=15.0
+        event "RE-electrified-gunshield" 5.0 name="Electrified Gunshield"
+        event "RE-reinforcements" 10.1 name="Reinforcements"
+        event "RE-aetherochemical-grenado" 19.2 name="Aetherochemical Grenado"
+        event "RE-terminus-est" 28.9 name="Terminus Est"
+        event "RE-magitek-shock" 31.6 name="Magitek Shock" { sync 31.6 "Ability" id="4CDA" source="Varis Yae Galvus" before=5.0 after=8.0; }
+        event "RE-alea-iacta-est" 42.5 name="Alea Iacta Est"
+    }
+    phase "EL" {
+        enter "StartsUsing" id="4CD8" source="Varis Yae Galvus" from="E" at=58.7 before=15.0 after=15.0
+        event "EL-loaded-gunshield" 5.0 name="Loaded Gunshield"
+        event "EL-magitek-burst" 21.4 name="Magitek Burst" { sync 21.4 "Ability" id="4CDF" source="Varis Yae Galvus" before=5.0 after=8.0; }
+        event "EL-ignis-est" 22.0 name="Ignis Est"
+        event "EL-terminus-est" 29.4 name="Terminus Est"
+        event "EL-festina-lente" 29.6 name="Festina Lente"
+        event "EL-citius" 40.8 name="Citius"
+    }
+    phase "ER" {
+        enter "StartsUsing" id="4CD9" source="Varis Yae Galvus" from="E" at=58.7 before=15.0 after=15.0
+        event "ER-reinforced-gunshield" 5.0 name="Reinforced Gunshield"
+        event "ER-altius" 14.1 name="Altius" { sync 14.1 "Ability" id="4CCA" source="Varis Yae Galvus" before=5.0 after=8.0; }
+        event "ER-terminus-est" 24.3 name="Terminus Est"
+        event "ER-magitek-shielding" 26.4 name="Magitek Shielding"
+        event "ER-ventus-est" 31.1 name="Ventus Est"
+        event "ER-citius" 41.6 name="Citius"
+    }
+    phase "final-L" {
+        enter "StartsUsing" id="4CD8" source="Varis Yae Galvus" from="RE" at=58.7 before=15.0 after=15.0
+        enter "StartsUsing" id="4CD8" source="Varis Yae Galvus" from="ER" at=55.0 before=15.0 after=15.0
+        event "final-L-loaded-gunshield" 5.0 name="Loaded Gunshield"
+        event "final-L-magitek-burst" 21.4 name="Magitek Burst" { sync 21.4 "Ability" id="4CDF" source="Varis Yae Galvus" before=5.0 after=8.0; }
+        event "final-L-ignis-est" 22.0 name="Ignis Est"
+        event "final-L-terminus-est" 29.4 name="Terminus Est"
+        event "final-L-festina-lente" 29.6 name="Festina Lente"
+        event "final-L-citius" 40.8 name="Citius"
+    }
+    phase "final-R" {
+        enter "StartsUsing" id="4CD9" source="Varis Yae Galvus" from="LE" at=58.7 before=15.0 after=15.0
+        enter "StartsUsing" id="4CD9" source="Varis Yae Galvus" from="EL" at=53.0 before=15.0 after=15.0
+        event "final-R-reinforced-gunshield" 5.0 name="Reinforced Gunshield"
+        event "final-R-altius" 14.1 name="Altius" { sync 14.1 "Ability" id="4CCA" source="Varis Yae Galvus" before=5.0 after=8.0; }
+        event "final-R-terminus-est" 24.3 name="Terminus Est"
+        event "final-R-magitek-shielding" 26.4 name="Magitek Shielding"
+        event "final-R-ventus-est" 31.1 name="Ventus Est"
+        event "final-R-citius" 41.6 name="Citius"
+    }
+    phase "final-E" {
+        enter "StartsUsing" id="4CD7" source="Varis Yae Galvus" from="LR" at=55.0 before=15.0 after=15.0
+        enter "StartsUsing" id="4CD7" source="Varis Yae Galvus" from="RL" at=53.0 before=15.0 after=15.0
+        event "final-E-electrified-gunshield" 5.0 name="Electrified Gunshield"
+        event "final-E-reinforcements" 10.1 name="Reinforcements"
+        event "final-E-aetherochemical-grenado" 19.2 name="Aetherochemical Grenado"
+        event "final-E-terminus-est" 28.9 name="Terminus Est"
+        event "final-E-magitek-shock" 31.6 name="Magitek Shock" { sync 31.6 "Ability" id="4CDA" source="Varis Yae Galvus" before=5.0 after=8.0; }
+        event "final-E-alea-iacta-est" 42.5 name="Alea Iacta Est"
+    }
+    phase "joined" {
+        // This unique shared marker recovers even when an intermediate choice was missed; it does not infer that choice.
+        enter "Ability" id="4CE0" source="Varis Yae Galvus"
+        // Spark/Torch order is not predicted; these two bars each represent an unresolved alternative.
+        event "joined-first" 10.5 name="Magitek Spark / Magitek Torch"
+        event "joined-second" 19.2 name="Magitek Spark / Magitek Torch"
+    }
+}
