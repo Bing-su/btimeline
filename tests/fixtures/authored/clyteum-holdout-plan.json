@@ -1,0 +1,82 @@
+{
+  "role": "held-out log-derived Clyteum; no cactbot encounter timeline; frozen before event inspection",
+  "timeline": "timelines/clyteum.kdl",
+  "timeline_sha256": "69c5639aabdfa9261e13d7f4f69b4ee8cbb4c27759bd2cc3f21c47420160afc3",
+  "forecast_lead_ms": 5000,
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "eligibility": "Exactly one main Boss actor per name, observed HP=0, ordered non-overlapping attempts; reject recovery from below 75% to above 90% HP; nonempty cast source names inside boss scopes",
+  "excluded_fingerprints": [
+    "89db3be787aab13361c139604bc6c8e321e38adcd1064270e089fd8ba908974b",
+    "e77bd5f1573a0976b5931b85b593e76a88ff06bc8d289493df29537f1934eef6",
+    "ae63e7c37c271e3e65c04f28ff2210c16419d50e2156e9a07337e522a1d0964d",
+    "82c9a4bdfdecb6572da860076171cac8eb7b03bd85d04e77cc6f946598e3c81e",
+    "f627483db4623ca8c7bd3ad5a02fcfb66e5852d68f298340ccfab423f832d93a",
+    "672695b147cfb367700074a0fae24aa7e39aba884abd03342372081c9014c8f7",
+    "3ef18a65ea14d4738e7a8dc8ebd2ffe1762b14e9f267ed7bc34d522d993dfa0a",
+    "41dbc670e57281cd06d4ce5d3b02f19f42aa7cd529115b22482ae6f4e39e6035",
+    "ab0058aac4fb8587ee6546fb48e241cf24a8f304aa47a6ba25d998445a2c4d35",
+    "0dc421ebdd274b77d557209d08206946b7e01ebf980f81b79c9001c4d02bc418",
+    "f2e133f9e52a70447f978b56e1c3b33e8b602c4603adc1c1ce8db6b002fbe889",
+    "2c8952703590a0e85de107ff746a5dfebfa9318a68658c6b4ea8ad304557e56a",
+    "80aaec49fbdbea189aaf1f1b1cf2a5ac01ce13622bc9642a69574cc73c5c199a",
+    "cf324e6f8ec8e7176dc2431683cf2bf23315c10d034dbd1a5b73f4c320031cc7",
+    "1a1df78537799f4d2caa784a15c21c1b91737f130d066b92d80b03a7ab676732",
+    "ac9047f959b35f8064f31f3400bc18f2ed7a82141acf216fef0204dcf4f91638",
+    "0ba6d87656c29ba00bea1df4b4dbb5bf92e5a609f0c3d4b6505cefa30e1ba331",
+    "6ef46a38e351ba71487ced2219e25cf3b83a0c67895867220ef1f452c6b30796",
+    "4d8aa65d4e7e97ef67c99a335a6954cd91ae7f786622d3253d34fb002266aa76",
+    "ee7922f47742f3a67e07bf67ff32c5681cdfc67520bf9aa738aad1994ce1acc2",
+    "ef4f4f11e3e5add85ad084df4b2a020ec9287796aeee85d83aaba70958873782",
+    "eac6142c5789afc356a3a60d207fb3de20fca5024b0b33a7efb2e0e0c03b75cb",
+    "10d19651be0a506b64729e6d06aacfc26f2f60af2272a779d56d22b5e15b96ff"
+  ],
+  "discovery": {
+    "reports": [],
+    "encounter": 4551,
+    "difficulty": 10,
+    "gameZone": 1345,
+    "partition": null,
+    "region": null,
+    "firstPage": 5,
+    "pages": 1
+  },
+  "inputs": [
+    {
+      "input": "logs/clyteum-authoring-holdout/kACFMDnYc7rzZag6_15.json",
+      "sha256": "d802e2bfbecf0d69cfa25928ac23ba3dc44b6041d342418f6a80402a2c013559",
+      "report": "kACFMDnYc7rzZag6",
+      "fight": 15
+    },
+    {
+      "input": "logs/clyteum-authoring-holdout/kACFMDnYc7rzZag6_14.json",
+      "sha256": "31c5760528327c5b4d98e4f13fcc7ed4e3db67d01c54cb639f9bd2966fa9e1f9",
+      "report": "kACFMDnYc7rzZag6",
+      "fight": 14
+    },
+    {
+      "input": "logs/clyteum-authoring-holdout/8xfbrCVZwtkLAB3p_365.json",
+      "sha256": "e91b816911478ab78d15e8fe433b2cd5f124b217991d204e8df488046a2ab7b8",
+      "report": "8xfbrCVZwtkLAB3p",
+      "fight": 365
+    },
+    {
+      "input": "logs/clyteum-authoring-holdout/8xfbrCVZwtkLAB3p_415.json",
+      "sha256": "0cf862dab89b1e5befdfe5a696c29c757122ca5644faa84597826951b330d832",
+      "report": "8xfbrCVZwtkLAB3p",
+      "fight": 415
+    },
+    {
+      "input": "logs/clyteum-authoring-holdout/1LnqB23bHwpCdJy4_8.json",
+      "sha256": "2113db94c16f013a4e0f0a2accf3ea88059893d8a01f601a454e17e820c1d978",
+      "report": "1LnqB23bHwpCdJy4",
+      "fight": 8
+    },
+    {
+      "input": "logs/clyteum-authoring-holdout/Cm37YbnrZRk8TFvt_390.json",
+      "sha256": "abdcf97ee54bad06b635dcd6b2934280f8d079ad0ee4c34a45d6ae5aaa38a35d",
+      "report": "Cm37YbnrZRk8TFvt",
+      "fight": 390
+    }
+  ]
+}

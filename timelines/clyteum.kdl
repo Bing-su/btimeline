@@ -1,0 +1,138 @@
+timeline 1 "The Clyteum" {
+    // All schedules below come from collected casts; no external encounter timeline supplies the route or timing.
+    start "Ability" id="BF00" source="Eye of the Scorpion"
+    start "Ability" id="BEF4" source="Chort"
+    start "Ability" id="BF18" source="Malphas"
+    wipe "ActorControl" command="4000000F"
+    wipe "ActorControl" command="40000010"
+    finish "InCombat" inGameCombat="0"
+    zone-exit "ChangeZone"
+
+    phase "eye" {
+        enter "Ability" id="BF00" source="Eye of the Scorpion"
+        event "eye-opening-eyes" 0.0 name="Eyes on Me"
+        // Beam IDs vary while the following schedule stays common; do not invent separate routes from IDs alone.
+        event "eye-opening-beam-first" 16.3 name="Petrifying Beam"
+        event "eye-opening-beam-second" 26.5 name="Petrifying Beam"
+        event "eye-opening-eyes-second" 36.3 name="Eyes on Me" {
+            sync 36.3 "Ability" id="BF00" source="Eye of the Scorpion" before=3.0 after=5.0
+        }
+        event "eye-opening-scanner" 42.7 name="Motion Scanner" {
+            sync 42.7 "Ability" id="BEFD" source="Eye of the Scorpion" before=3.0 after=8.0
+        }
+        event "eye-opening-ballistic-first" 62.2 name="Ballistic Missile"
+        event "eye-opening-penetrator" 70.4 name="Penetrator Missile"
+        event "eye-opening-ballistic-second" 71.6 name="Ballistic Missile"
+        event "eye-opening-surface-first" 76.7 name="Surface Missile"
+        event "eye-opening-surface-second" 78.7 name="Surface Missile"
+        event "eye-opening-beam-third" 84.8 name="Petrifying Beam"
+        event "eye-opening-eyes-third" 95.4 name="Eyes on Me" {
+            sync 95.4 "Ability" id="BF00" source="Eye of the Scorpion" before=3.0 after=5.0
+        }
+        event "eye-opening-scanner-second" 101.7 name="Motion Scanner" {
+            sync 101.7 "Ability" id="BEFD" source="Eye of the Scorpion" before=3.0 after=8.0
+        }
+        event "eye-opening-antipersonnel" 113.4 name="Anti-Personnel Missile"
+        // Penetrator occurs in the opener; later missile blocks recur without replaying the whole tutorial.
+        loop "eye-rotation" start=128.4 every=59.2 {
+            event "eye-eyes-first" 0.0 name="Eyes on Me" {
+                sync 0.0 "Ability" id="BF00" source="Eye of the Scorpion" before=3.0 after=5.0
+            }
+            event "eye-ballistic" 2.4 name="Ballistic Missile"
+            event "eye-surface-first" 7.5 name="Surface Missile"
+            event "eye-surface-second" 9.5 name="Surface Missile"
+            event "eye-beam" 15.6 name="Petrifying Beam"
+            event "eye-eyes-second" 26.3 name="Eyes on Me" {
+                sync 26.3 "Ability" id="BF00" source="Eye of the Scorpion" before=3.0 after=5.0
+            }
+            event "eye-scanner" 32.6 name="Motion Scanner" {
+                sync 32.6 "Ability" id="BEFD" source="Eye of the Scorpion" before=3.0 after=8.0
+            }
+            event "eye-antipersonnel" 44.2 name="Anti-Personnel Missile"
+        }
+    }
+
+    phase "chort" {
+        enter "Ability" id="BEF4" source="Chort"
+        event "chort-opening-ripples" 0.0 name="Ripples of Gloom"
+        // BEE4-BEE7 share name, timing and continuation in development traces; positioning differences are not inferred.
+        event "chort-opening-mortifying" 12.7 name="Mortifying Flesh"
+        event "chort-opening-mortifying-followup" 18.3 name="Mortifying Flesh"
+        event "chort-opening-body" 20.8 name="Bodyweight Exorcism"
+        event "chort-opening-vomit" 32.9 name="Basic Vomit" {
+            sync 32.9 "Ability" id="C4B9" source="Chort" before=3.0 after=8.0
+        }
+        event "chort-opening-body-sequence" 44.5 name="Bodyweight Exorcism" {
+            sync 44.5 "Ability" id="BEEF" source="Chort" before=3.0 after=8.0
+        }
+        event "chort-opening-ripples-second" 66.9 name="Ripples of Gloom"
+        event "chort-opening-mortifying-second" 79.6 name="Mortifying Flesh"
+        event "chort-opening-mortifying-followup-second" 85.1 name="Mortifying Flesh"
+        event "chort-opening-mortifying-followup-third" 90.5 name="Mortifying Flesh"
+        event "chort-opening-body-second" 92.6 name="Bodyweight Exorcism"
+        event "chort-opening-emission" 98.4 name="Evil Emission" {
+            sync 98.4 "Ability" id="C4F1" source="Chort" before=3.0 after=8.0
+        }
+        event "chort-opening-pressure" 104.0 name="Profane Pressure"
+        event "chort-opening-vomit-second" 110.5 name="Basic Vomit" {
+            sync 110.5 "Ability" id="C4B9" source="Chort" before=3.0 after=8.0
+        }
+        event "chort-opening-body-sequence-second" 127.9 name="Bodyweight Exorcism" {
+            sync 127.9 "Ability" id="BEEF" source="Chort" before=3.0 after=8.0
+        }
+        event "chort-opening-ripples-third" 150.3 name="Ripples of Gloom" {
+            sync 150.3 "Ability" id="BEF4" source="Chort" before=3.0 after=8.0
+        }
+        // The late block omits the tutorial Mortifying sequence; repeated follow-through packets remain summarized.
+        loop "chort-rotation" start=162.2 every=71.5 {
+            event "chort-emission" 0.0 name="Evil Emission" {
+                sync 0.0 "Ability" id="C4F1" source="Chort" before=5.0 after=8.0
+            }
+            event "chort-pressure" 5.6 name="Profane Pressure"
+            event "chort-vomit" 12.3 name="Basic Vomit" {
+                sync 12.3 "Ability" id="C4B9" source="Chort" before=3.0 after=8.0
+            }
+            event "chort-ripples" 24.5 name="Ripples of Gloom"
+            event "chort-body-sequence" 42.0 name="Bodyweight Exorcism" {
+                sync 42.0 "Ability" id="BEEF" source="Chort" before=3.0 after=8.0
+            }
+        }
+    }
+
+    phase "malphas" {
+        enter "Ability" id="BF18" source="Malphas"
+        event "malphas-opening-rubbish" 0.0 name="Rubbish Disposal"
+        event "malphas-opening-void" 10.9 name="Void Dark"
+        event "malphas-opening-scrap" 20.6 name="Scrap Meddle"
+        event "malphas-opening-strings-first" 31.0 name="Puppet Strings"
+        event "malphas-opening-strings-second" 40.5 name="Puppet Strings"
+        event "malphas-opening-wire" 50.9 name="Gluttonous Wire"
+        event "malphas-opening-rubbish-second" 62.4 name="Rubbish Disposal"
+        event "malphas-opening-scrap-second" 70.2 name="Scrap Meddle" {
+            sync 70.2 "Ability" id="BF19" source="Malphas" before=3.0 after=8.0
+        }
+        // Two Mastery blocks belong to one larger Pair-to-Pair cycle, rather than a shorter accidental repeated suffix.
+        loop "malphas-rotation" start=79.7 every=129.0 {
+            event "malphas-pair" 0.0 name="Puppet Pair" {
+                sync 0.0 "Ability" id="BF1B" source="Malphas" before=5.0 after=8.0
+            }
+            event "malphas-void-first" 7.8 name="Void Dark" {
+                sync 7.8 "Ability" id="C489" source="Malphas" before=3.0 after=8.0
+            }
+            event "malphas-string-up" 16.9 name="String Up"
+            event "malphas-shadow" 28.4 name="Shadow Play"
+            event "malphas-rubbish-first" 36.5 name="Rubbish Disposal" {
+                sync 36.5 "Ability" id="BF18" source="Malphas" before=3.0 after=8.0
+            }
+            event "malphas-scrap-first" 47.4 name="Scrap Meddle"
+            event "malphas-mastery-first" 65.8 name="Puppet Mastery"
+            event "malphas-void-second" 73.7 name="Void Dark"
+            event "malphas-mastery-second" 88.9 name="Puppet Mastery"
+            event "malphas-void-third" 101.6 name="Void Dark"
+            event "malphas-rubbish-second" 108.8 name="Rubbish Disposal" {
+                sync 108.8 "Ability" id="BF18" source="Malphas" before=3.0 after=8.0
+            }
+            event "malphas-scrap-second" 119.7 name="Scrap Meddle"
+        }
+    }
+}

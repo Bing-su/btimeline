@@ -1,0 +1,143 @@
+{
+  "role": "development; previously investigated Clyteum inputs",
+  "timeline": "timelines/clyteum.kdl",
+  "timeline_sha256": "69c5639aabdfa9261e13d7f4f69b4ee8cbb4c27759bd2cc3f21c47420160afc3",
+  "forecast_lead_ms": 5000,
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "inputs": [
+    {
+      "input": "logs/clyteum/AVxmgdNytFPBwLRH_31.json",
+      "sha256": "caacd6768c6290491080a9b9cf05d8740f1ad9ef309d2618f55fd4602a6b296c"
+    },
+    {
+      "input": "logs/clyteum/BTxgcVRnWMpDrK9X_30.json",
+      "sha256": "b68215c569f03dd3b008867fa9b6332df2a519c4516edc52a44983bd03b4ced7"
+    },
+    {
+      "input": "logs/clyteum/Xjph97WBQKHGcfNt_1.json",
+      "sha256": "dc83a1aebec320a6bfa755f0c70f82fdd905be317c3820fd01524de30f269a60"
+    },
+    {
+      "input": "logs/clyteum/nK4JqMXxNa6hYfR7_1.json",
+      "sha256": "42e99cbe2e0fdbd064fd3e7c4e95faedf2bd284bcb24ef8f34d7046fe9308e1f"
+    },
+    {
+      "input": "logs/clyteum/mwAQvf23gMkFdNGK_1.json",
+      "sha256": "90479110d4aff60a9dc83a8eb911355d293160c21c04db09cccfcbe65e9adbbb"
+    },
+    {
+      "input": "logs/clyteum/JGNgkPYqhm7WbdFT_7.json",
+      "sha256": "54882809ffb2e659d9f824d104518042e44c945fb65505f0ec59f7379c507029"
+    },
+    {
+      "input": "logs/clyteum/J1xNVnwWXLHDfkcG_1.json",
+      "sha256": "4255394378d9e7cd55aa3e52d8d104848129795adf4eb46359e9c0b091b1e35e"
+    },
+    {
+      "input": "logs/clyteum/VWqvbjnZpxa2GMNL_1.json",
+      "sha256": "479179c1263389a8b42e81ebf50c7e8786324e7e845870d5cbb06a7f9deb9dea"
+    },
+    {
+      "input": "logs/clyteum/Vr3G2DLgXtCf9YTa_28.json",
+      "sha256": "a25c106aa1ce95edf2aba5be321dbf9a037e40012af81b814a31c08a4d591686"
+    },
+    {
+      "input": "logs/clyteum/jZkbx2NG94mBf6PH_1.json",
+      "sha256": "98b69edb8c9ce7f3eb603de283d621884d2369107a930f22f11693bb00cddcea"
+    },
+    {
+      "input": "logs/clyteum/NJV9Gnv8Zd2xQTDm_13.json",
+      "sha256": "725e59b69add3ccf05a03ce1b76d78087d76303059f99d55cccfdb437d58ee66"
+    },
+    {
+      "input": "logs/clyteum/z9wpNYrRyvGgQA74_1.json",
+      "sha256": "6f983c9f0db309d168ea954e2d6457b1e4d585c56f4de3d6a56e6ebc3e75e9cb"
+    },
+    {
+      "input": "logs/clyteum/McH9xJrqaCvgGZbY_8.json",
+      "sha256": "92460f440cee62088eb34b6de326a74cdaa057dfad5132b06b412f9d1c59f037"
+    },
+    {
+      "input": "logs/clyteum/Vr3G2DLgXtCf9YTa_5.json",
+      "sha256": "c2175b7af54dc1efd3af121a092062a7ac744272bd4fef15439b237149f557a9"
+    },
+    {
+      "input": "logs/clyteum/VdY3xbjCFzXMn7Kv_3.json",
+      "sha256": "608eaef0d8acd50ceb6060b4c3ac81daf6422a770f249e0b2558c395e0ee1e18"
+    },
+    {
+      "input": "logs/clyteum/h8gFmLJDdwKpnCVj_7.json",
+      "sha256": "4dab79f7fb4dd8a53e096bb6a3da6a7672f9fd6a94e4aaa862a8e4f9065c012a"
+    },
+    {
+      "input": "logs/clyteum/wN24cyJq6MxXR8AG_11.json",
+      "sha256": "c0a2ce9897cfb1e799ba72b83136e14ced1aaf525e751a4297748e35365b09b1"
+    },
+    {
+      "input": "logs/clyteum/m2VBjgFPKqWpzf9a_1.json",
+      "sha256": "ea9d0b7723e3783a11fb9d24bd4f372e9e164dc11f677e892e6c4c1ac693b10a"
+    },
+    {
+      "input": "logs/clyteum/tpmrkL76NhXHMbZv_7.json",
+      "sha256": "b36a637edccc1bb2659b43917cbfc1a852a266f4d847b8e03149ed4304c2b2df"
+    },
+    {
+      "input": "logs/clyteum/TwQYZydBhgLfn3bC_1.json",
+      "sha256": "10f2d5bf0f58718d7874685ee391501e87429a2287d724c68fc4fadb5903744b"
+    },
+    {
+      "input": "logs/clyteum/ZpHDQcCnfgBtaTPL_1.json",
+      "sha256": "785cf97ddbccc0c870c98485d1ef907d2780a58279cf962472b63f38efadd5fb"
+    },
+    {
+      "input": "logs/chort-long-slowest/yf3A4pRTGQmHxa1q_8.json",
+      "sha256": "fce13eb99695fc670a68618b8059dff5b0c429c2fd167b1b074a37a3ae847915"
+    },
+    {
+      "input": "logs/chort-long-slowest/jAKNPnhtqmpbW7d4_11.json",
+      "sha256": "ee2c4cd68af4816d97c6b7e91dd4cc09e3637be9ffb1f41e4d30f8deb2fd7222"
+    },
+    {
+      "input": "logs/loop-clyteum-final/hRGx26nTy8cDqXYA_283.json",
+      "sha256": "177f9e61bebc44e827bf1abc67ed4ab644024806324a5a50b384d92ae91327ac"
+    },
+    {
+      "input": "logs/loop-clyteum-final/Drn2byvjPWpVtmZq_60.json",
+      "sha256": "71170cb7c873397dcaa793c97d723412d13fa563e18af5d159afd6c5aaf8a3f1"
+    },
+    {
+      "input": "logs/loop-clyteum-final/NrQh1wRzpaWLdZXq_7.json",
+      "sha256": "deb83f44d504fccccdd77e4248bd1e5f9bd6ba78ea46be4ba1e0c501621f9bfa"
+    },
+    {
+      "input": "logs/loop-clyteum-final/hRGx26nTy8cDqXYA_35.json",
+      "sha256": "8ccf72f22ac5479a8ee10f6b4b8f91e7973ec502e62c321d67cb71c66ede04b5"
+    },
+    {
+      "input": "logs/loop-clyteum-final/hRGx26nTy8cDqXYA_210.json",
+      "sha256": "49c49b1d47e4ddcab9631142799425e1dc55810e6049b2f024c4a097bb9f0575"
+    },
+    {
+      "input": "logs/loop-clyteum-final/hRGx26nTy8cDqXYA_263.json",
+      "sha256": "0ee6fbb1f6ecf17a83487076656ae34d5c015099a504675fe99a511712d85df1"
+    },
+    {
+      "input": "logs/loop-clyteum-final/hRGx26nTy8cDqXYA_350.json",
+      "sha256": "e504ecd6920479c5ee36c9665196fe7bb0a2bf7740a7cf1790c0b927a9817a86"
+    },
+    {
+      "input": "logs/loop-clyteum-final/214mKzhCWbJNDqYA_20.json",
+      "sha256": "b282898027f1f96a80b775f2f486b89b2d1cf92be5dd3f52932d83d0f36ff7cf"
+    }
+  ],
+  "eligibility": "Exactly one main Boss actor per name, observed HP=0, ordered non-overlapping attempts; reject recovery from below 75% to above 90% HP; nonempty cast source names inside boss scopes",
+  "additional_development_evidence": [
+    {
+      "input": "logs/clyteum-chort-long/pAzgtZK8aqjTJvGL_12.json",
+      "sha256": "4a1dbf8ef1fe2dbe41f870a81707f534142dd6f6107ac63b89ac3092efa4ad7a",
+      "scope": "Chort timing only; whole-file evaluation excluded for Malphas reset",
+      "indices": [15301, 16183]
+    }
+  ]
+}

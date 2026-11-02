@@ -112,7 +112,7 @@ export function mistwakeRecording(raw: any) {
       end_ms,
       entry_event: entry.raw_index,
       completion_event: completion,
-      targets,
+      targets: targets.map((item: any) => ({ ...item, name: names[item.fields.id] })),
     };
   });
   if (bosses.some((boss, index) => index > 0 && boss.entry_ms <= bosses[index - 1]!.end_ms))
