@@ -11,6 +11,8 @@
 
 Final KDL must run in an external executor without evidence or FFLogs-only signals. Keep observations and uncertainty traceable, and report what replay could not verify.
 
+For encounter timeline authoring or mechanic interpretation, use the repository [timeline-author skill](.agents/skills/timeline-author/SKILL.md). Keep agent interpretation and tool capabilities within the [authoring agreement](docs/AGENT_TIMELINE_AUTHORING.md).
+
 ## Timeline quality
 
 Build useful mechanic forecasts with safe control and recovery at later syncs. Use cactbot's practical authoring approach as a reference; exact log reconstruction is a diagnostic, not the acceptance goal. For generation, validation, or quality reporting, read [Practical quality criteria](docs/GENERATION.md#실용적인-품질-기준).

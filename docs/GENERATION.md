@@ -49,6 +49,8 @@ cactbot의 [작성 지침](https://github.com/OverlayPlugin/cactbot/blob/main/do
 
 ## 대표 경로 초안과 evidence v3
 
+에이전트가 초안을 해석·수정하거나 관측에서 직접 KDL을 작성하는 절차는 [에이전트 작성 합의](AGENT_TIMELINE_AUTHORING.md)와 저장소의 `timeline-author` skill에 정의한다. 이는 아래 결정적 `generate` 명령에 LLM이 내장됐다는 뜻이 아니다. 수정된 KDL의 근거·해시는 별도 작성 기록에 연결하고 자동 생성 evidence는 초안 기준으로 보존한다.
+
 `generation_method`는 실제 KDL을 만든 경로다. `representative-route-v1`은 대표 그래프, `common-backbone-v1`은 이행 중인 기존 생성 경로다. evidence에 `draft`가 있다는 사실만으로 최종 KDL이 그 그래프에서 생성됐다고 해석하지 않는다.
 
 단일 유효 로그는 처치 여부와 관계없이 한 경로의 초안을 생성한다. 여러 로그의 발생 순서가 같거나 종료로 잘린 접두부이면 원본 노드를 대응해 표본을 모으며 두 개의 클리어를 요구하지 않는다. raid는 실행 적격 시전 전체, dungeon·alliance는 구분 가능한 보스 시도별 발생을 보존한다. 반복 시전도 개별 발생으로 표시하되 하나의 로그만으로 무한 loop를 확정하지 않는다. 시간 추정은 별도 함수에서 수행하고 같은 신호의 반복 발생에는 자동 sync를 붙이지 않는다.
