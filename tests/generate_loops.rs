@@ -251,6 +251,239 @@ fn generate_learns_a_loop_before_estimating_its_clock(#[case] mode: &str, #[case
     }
 }
 
+#[rstest::rstest]
+#[case("raid", false)]
+#[case("dungeon", false)]
+#[case("alliance", false)]
+#[case("dungeon", true)]
+fn representative_repeats_accept_different_wipe_lengths_and_predict_unseen_rounds(
+    #[case] mode: &str,
+    #[case] no_opener: bool,
+) {
+    let dir = tempfile::tempdir().unwrap();
+    let paths: Vec<_> = [
+        ("alpha", vec![9, 1, 2, 3, 4, 1, 2, 3]),
+        ("beta", vec![9, 1, 3, 2, 4, 1, 2, 3, 4, 1, 3, 2]),
+    ]
+    .into_iter()
+    .map(|(code, ids)| {
+        let path = fixture(dir.path(), code, &ids[usize::from(no_opener)..]);
+        let mut data: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        data["report"]["fights"][0]["kill"] = false.into();
+        fs::write(&path, serde_json::to_vec(&data).unwrap()).unwrap();
+        path
+    })
+    .collect();
+    let output = dir.path().join("timeline.kdl");
+    cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(&paths)
+        .args(["--mode", mode, "-o"])
+        .arg(&output)
+        .assert()
+        .success();
+    let evidence: Value =
+        serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap()).unwrap();
+    assert_eq!(evidence["generation_method"], "representative-route-v1");
+    let route = &evidence["draft"]["routes"][0];
+    assert_eq!(route["peers_complete"], true);
+    assert_eq!(
+        route["nodes"].as_array().unwrap().len(),
+        if no_opener { 1 } else { 2 }
+    );
+    assert_eq!(route["repeat"]["entry"], if no_opener { 0 } else { 1 });
+    assert_eq!(route["repeat"]["body"].as_array().unwrap().len(), 4);
+    for (trace, count) in [("alpha/1", 7), ("beta/1", 11)] {
+        let waves = route["repeat"]["observed_waves"][trace].as_array().unwrap();
+        assert_eq!(waves.len(), count);
+        let references: BTreeSet<_> = route["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|node| node["observation_nodes"][trace].as_u64())
+            .chain(
+                waves
+                    .iter()
+                    .flat_map(|wave| wave.as_array().unwrap())
+                    .map(|node| node.as_u64().unwrap()),
+            )
+            .collect();
+        assert_eq!(references.len(), count + usize::from(!no_opener));
+    }
+    let repeated = &evidence["loops"][0];
+    assert_eq!(repeated["status"], "rendered");
+    assert_eq!(
+        repeated["replaced_finite_events"].as_array().unwrap().len(),
+        1
+    );
+    let reversed = dir.path().join("reverse.kdl");
+    cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(paths.into_iter().rev())
+        .args(["--mode", mode, "-o"])
+        .arg(&reversed)
+        .assert()
+        .success();
+    assert_eq!(fs::read(&output).unwrap(), fs::read(&reversed).unwrap());
+    fs::remove_file(output.with_extension("evidence.json")).unwrap();
+    let recording = dir.path().join("recording.json");
+    let observations = if mode == "raid" {
+        json!([{"at_ms":0,"type":"InCombat","fields":{"inGameCombat":"1"}}])
+    } else {
+        json!([{"at_ms":0,"type":"Ability","fields":{"id":if no_opener {"1"} else {"9"},"source":"Synthetic Boss"}}])
+    };
+    fs::write(
+        &recording,
+        serde_json::to_vec(&json!({"version":1,"end_ms":23000,"observations":observations}))
+            .unwrap(),
+    )
+    .unwrap();
+    let result = cargo_bin_cmd!("btimeline")
+        .arg("compare")
+        .arg(&output)
+        .arg(&recording)
+        .arg("--json")
+        .assert()
+        .success();
+    let result: Value = serde_json::from_slice(&result.get_output().stdout).unwrap();
+    let rows = result["recordings"][recording.to_str().unwrap()]
+        .as_array()
+        .unwrap();
+    assert!(!rows.iter().any(|row| {
+        ["violation", "ambiguous", "unresolved"].contains(&row["action"].as_str().unwrap())
+    }));
+    assert!(
+        rows.iter()
+            .any(|row| row["action"] == "event" && row["at_ms"].as_i64().unwrap() > 20000)
+    );
+}
+
+#[test]
+fn a_representative_repeat_timing_failure_does_not_publish_a_truncated_route() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths: Vec<_> = ["alpha", "beta"]
+        .into_iter()
+        .map(|code| {
+            let path = fixture(dir.path(), code, &[9, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4]);
+            let mut data: Value =
+                serde_json::from_slice(&fs::read(&path).expect("fixture")).expect("fixture JSON");
+            // Two observed periods have lower median 4s, but the final complete cycle's last step needs 11s.
+            for (event, at) in data
+                .pointer_mut("/events")
+                .expect("events")
+                .as_array_mut()
+                .expect("events array")
+                .iter_mut()
+                .zip([
+                    2000, 3000, 4000, 5000, 6000, 7000, 11000, 15000, 18000, 19000, 23000, 27000,
+                    30000,
+                ])
+            {
+                *event.get_mut("timestamp").expect("timestamp") = at.into();
+            }
+            for (pointer, value) in [
+                ("/report/fights/0/kill", false.into()),
+                ("/report/fights/0/endTime", 35000.into()),
+                ("/collection/endTime", 35000.into()),
+                ("/report/endTime", 35000.into()),
+            ] {
+                *data.pointer_mut(pointer).expect("fixture field") = value;
+            }
+            fs::write(&path, serde_json::to_vec(&data).expect("encode fixture"))
+                .expect("write fixture");
+            path
+        })
+        .collect();
+    let output = dir.path().join("timeline.kdl");
+    let result = cargo_bin_cmd!("btimeline")
+        .arg("generate")
+        .args(paths)
+        .args(["--mode", "raid", "-o"])
+        .arg(&output)
+        .assert()
+        .failure();
+    assert!(
+        String::from_utf8_lossy(&result.get_output().stderr)
+            .contains("terminal repeat could not be rendered")
+    );
+    assert!(!output.exists());
+    assert!(!output.with_extension("evidence.json").exists());
+}
+
+#[test]
+fn a_representative_choice_can_join_a_shared_terminal_repeat() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths: Vec<_> = [
+        ("alpha", vec![9, 2, 3, 8, 1, 4, 7, 1, 4, 7]),
+        ("beta", vec![9, 3, 2, 8, 1, 4, 7, 1, 4, 7, 1, 4]),
+    ]
+    .into_iter()
+    .map(|(code, ids)| {
+        let path = fixture(dir.path(), code, &ids);
+        let mut data: Value =
+            serde_json::from_slice(&fs::read(&path).expect("fixture")).expect("fixture JSON");
+        *data.pointer_mut("/report/fights/0/kill").expect("kill") = false.into();
+        fs::write(&path, serde_json::to_vec(&data).expect("encode fixture"))
+            .expect("write fixture");
+        path
+    })
+    .collect();
+    for mode in ["raid", "dungeon"] {
+        let output = dir.path().join(format!("{mode}.kdl"));
+        cargo_bin_cmd!("btimeline")
+            .arg("generate")
+            .args(&paths)
+            .args(["--mode", mode, "-o"])
+            .arg(&output)
+            .assert()
+            .success();
+        let evidence: Value =
+            serde_json::from_slice(&fs::read(output.with_extension("evidence.json")).unwrap())
+                .unwrap();
+        let route = &evidence["draft"]["routes"][0];
+        assert_eq!(route["choices"].as_array().unwrap().len(), 1);
+        assert!(route["repeat"]["entry"].is_number());
+        assert_eq!(evidence["loops"][0]["status"], "rendered");
+        let kdl = fs::read_to_string(&output).unwrap();
+        assert_eq!(kdl.matches("branch ").count(), 1);
+        assert_eq!(kdl.matches("loop ").count(), 1);
+        fs::remove_file(output.with_extension("evidence.json")).unwrap();
+        let recording = dir.path().join(format!("{mode}-recording.json"));
+        let start = if mode == "raid" {
+            json!({"at_ms":0,"type":"InCombat","fields":{"inGameCombat":"1"}})
+        } else {
+            json!({"at_ms":0,"type":"Ability","fields":{"id":"9","source":"Synthetic Boss"}})
+        };
+        let select = if mode == "raid" { 2000 } else { 1000 };
+        fs::write(&recording,serde_json::to_vec(&json!({"version":1,"end_ms":23000,"observations":[start,{"at_ms":select,"type":"Ability","fields":{"id":"3","source":"Synthetic Boss"}}]})).unwrap()).unwrap();
+        let result = cargo_bin_cmd!("btimeline")
+            .arg("compare")
+            .arg(&output)
+            .arg(&recording)
+            .arg("--json")
+            .assert()
+            .success();
+        let result: Value = serde_json::from_slice(&result.get_output().stdout).unwrap();
+        let rows = result["recordings"][recording.to_str().unwrap()]
+            .as_array()
+            .unwrap();
+        assert!(
+            !rows
+                .iter()
+                .any(|row| ["violation", "ambiguous", "unresolved"]
+                    .contains(&row["action"].as_str().unwrap())),
+            "{rows:?}"
+        );
+        assert!(rows.iter().any(|row| row["action"] == "event"
+            && row["at_ms"] == select
+            && row["detail"].as_str().unwrap().contains("Right")));
+        assert!(
+            rows.iter()
+                .any(|row| row["action"] == "event" && row["at_ms"].as_i64().unwrap() > 20000)
+        );
+    }
+}
+
 #[test]
 fn coincident_same_name_abilities_keep_distinct_event_ids() {
     let dir = tempfile::tempdir().unwrap();

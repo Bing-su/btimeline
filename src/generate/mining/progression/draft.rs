@@ -8,10 +8,11 @@ use petgraph::visit::{EdgeRef, IntoEdgeReferences};
 use serde_json::{Value, json};
 
 use super::{Progression, Pull, Signal, common, covers};
-use crate::generate::mining::bosses;
+use crate::generate::mining::{LoopModel, bosses};
 
 mod choices;
 mod prefixes;
+mod repeats;
 mod validation;
 
 pub(in crate::generate) struct Node {
@@ -27,6 +28,7 @@ pub(in crate::generate) struct Route {
     relations_complete: bool,
     peers_complete: bool,
     pub choices: Vec<choices::Choice>,
+    pub repeat: Option<repeats::Repeat>,
 }
 
 pub(in crate::generate) struct Draft {
@@ -177,6 +179,7 @@ impl Draft {
         pulls: &[Pull],
         progression: &Progression,
         boss_only: bool,
+        models: &[LoopModel],
     ) -> Result<Self> {
         let (pulls, mut diagnostics) = learning_views(pulls, boss_only);
         let sources: BTreeSet<_> = if boss_only {
@@ -189,7 +192,7 @@ impl Draft {
         };
         let mut routes = Vec::new();
         for source in sources {
-            let candidates: Vec<_> = pulls
+            let mut candidates: Vec<_> = pulls
                 .iter()
                 .map(|pull| Candidate::new(pull, progression, &source))
                 .collect::<Result<Vec<_>>>()?
@@ -209,7 +212,22 @@ impl Draft {
                 diagnostics.push(json!({"method":"representative-route-v1","source":source,"status":"unresolved","reason":"no unambiguous eligible scope"}));
                 continue;
             };
-            let (route, checks) = Route::learn(source, candidate, &candidates, progression)?;
+            // Rank the raw path before folding repeats, e.g. equal-duration logs still compare original wave counts.
+            let reference = candidate.reference.clone();
+            let repeat = models
+                .iter()
+                .find(|model| model.source == source)
+                .map(|model| repeats::prepare(model, &mut candidates, progression))
+                .transpose()?
+                .flatten();
+            let candidate = candidates
+                .iter()
+                .find(|candidate| candidate.reference == reference)
+                .context("Missing selected representative")?;
+            let (mut route, checks) = Route::learn(source, candidate, &candidates, progression)?;
+            if let Some(repeat) = repeat {
+                route.repeat = Some(repeat.bind(&route)?);
+            }
             routes.push(route);
             diagnostics.extend(checks);
         }
@@ -227,9 +245,13 @@ impl Draft {
         self.routes.iter().any(|route| !route.choices.is_empty())
     }
 
+    pub(in crate::generate) fn has_repeats(&self) -> bool {
+        self.routes.iter().any(|route| route.repeat.is_some())
+    }
+
     pub(in crate::generate) fn evidence(&self) -> Value {
         let routes: Vec<_> = self.routes.iter().map(Route::evidence).collect();
-        json!({"method":"representative-route-v1","scope":"representative routes with supported local order choices; general loops not inferred",
+        json!({"method":"representative-route-v1","scope":"representative routes with local order choices and supported terminal repeats; general loops not inferred",
             "routes":routes,"diagnostics":self.diagnostics})
     }
 }
@@ -300,7 +322,7 @@ impl Route {
             "options":choice.options.iter().map(Route::evidence).collect::<Vec<_>>()})
             })
             .collect();
-        json!({"source":route.source,"reference":route.reference,"nodes":nodes,"before":before,"choices":choices,
+        json!({"source":route.source,"reference":route.reference,"nodes":nodes,"before":before,"choices":choices,"repeat":route.repeat,
             "relations_complete":route.relations_complete,"peers_complete":route.peers_complete,"coverage":"unconfirmed"})
     }
 
@@ -381,6 +403,7 @@ impl Route {
             relations_complete: false,
             peers_complete,
             choices: Vec::new(),
+            repeat: None,
         };
         route.refresh_relations(progression)?;
         Ok((route, diagnostics))

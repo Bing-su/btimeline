@@ -405,6 +405,18 @@ struct Rendered {
     histories: Vec<Value>,
 }
 
+impl Rendered {
+    fn event_count(&self) -> usize {
+        self.events.len()
+            + self
+                .loops
+                .iter()
+                .filter_map(|item| item["events"].as_array())
+                .map(Vec::len)
+                .sum::<usize>()
+    }
+}
+
 // Boss metadata supplies scope boundaries; travel and preceding trash never share a boss clock.
 fn compose(
     analysis: &Analysis,
@@ -513,18 +525,33 @@ fn compose(
     Ok(result)
 }
 
+// Folded paths have no finite tail to fall back on, e.g. failed loop timing must not publish an entry-only fight.
+fn check_repeats(draft: &Draft, rendered: &Rendered) -> Result<()> {
+    for route in draft.routes.iter().filter(|route| route.repeat.is_some()) {
+        ensure!(
+            rendered
+                .loops
+                .iter()
+                .any(|item| item["source"] == json!(route.source) && item["status"] == "rendered"),
+            "Representative terminal repeat could not be rendered; no output was saved"
+        );
+    }
+    Ok(())
+}
+
 // Mode is the only domain input; reading, mining, runtime policy, validation and publication stay internal.
 pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Result<usize> {
     let analysis = super::mining::analyze(inputs)?;
     // Build occurrence structure before choosing printable rows or estimating any schedule.
     let progression = analysis.progression();
-    let draft = analysis.draft(&progression, !matches!(mode, Mode::Raid))?;
-    let graph_choices = draft.has_choices() && draft.supports_observed_routes();
-    let representative = analysis.needs_representative_route() || graph_choices;
     let LoopDiscovery {
         models,
         diagnostics: loop_diagnostics,
     } = analysis.loop_models(!matches!(mode, Mode::Raid))?;
+    let draft = analysis.draft(&progression, !matches!(mode, Mode::Raid), &models)?;
+    let graph_choices = draft.has_choices() && draft.supports_observed_routes();
+    let representative = analysis.needs_representative_route()
+        || ((draft.has_choices() || draft.has_repeats()) && draft.supports_observed_routes());
     let Prepared {
         events: anchors,
         branches,
@@ -556,6 +583,9 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
         anchors.clone()
     };
     let mut rendered = compose(&analysis, &progression, anchors, branches, mode, &models)?;
+    if representative {
+        check_repeats(&draft, &rendered)?;
+    }
     history::apply(
         &analysis,
         &progression,
@@ -574,13 +604,7 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
                     .is_some_and(|activities| activities.contains(&row["activity"]))
             })
     });
-    let count = rendered.events.len()
-        + rendered
-            .loops
-            .iter()
-            .filter_map(|item| item["events"].as_array())
-            .map(Vec::len)
-            .sum::<usize>();
+    let count = rendered.event_count();
     ensure!(count > 0, "No common cast events after the selected origin");
     let mut timeline_root = KdlNode::new("timeline");
     timeline_root.push(1_i128);

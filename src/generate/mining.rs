@@ -147,8 +147,13 @@ impl Analysis {
         Progression::new(&self.pulls)
     }
 
-    pub(super) fn draft(&self, progression: &Progression, boss_only: bool) -> Result<Draft> {
-        Draft::new(&self.pulls, progression, boss_only)
+    pub(super) fn draft(
+        &self,
+        progression: &Progression,
+        boss_only: bool,
+        models: &[LoopModel],
+    ) -> Result<Draft> {
+        Draft::new(&self.pulls, progression, boss_only, models)
     }
 
     pub(super) fn needs_representative_route(&self) -> bool {

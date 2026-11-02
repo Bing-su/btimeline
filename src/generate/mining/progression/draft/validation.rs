@@ -65,6 +65,7 @@ pub(super) fn check(pulls: &[Pull], boss_only: bool) -> Result<Value> {
     let not_checked = [
         "final KDL execution and timing",
         "unobserved suffix conformance",
+        "terminal repeat path conformance",
         "statistical independence",
         "ACT signal equivalence",
     ];
@@ -84,7 +85,7 @@ pub(super) fn check(pulls: &[Pull], boss_only: bool) -> Result<Value> {
     let trace = |pull: &Pull| format!("{}/{}", pull.report, pull.fight);
     let split = json!({"training":training.iter().map(trace).collect::<Vec<_>>(),"held_out":withheld.iter().map(trace).collect::<Vec<_>>()});
     let training_observations = Progression::new(&training);
-    let model = Draft::new(&training, &training_observations, boss_only)?;
+    let model = Draft::new(&training, &training_observations, boss_only, &[])?;
     let (training_views, _) = learning_views(&training, boss_only);
     let (withheld_views, _) = learning_views(&withheld, boss_only);
     let observed = Progression::new(&withheld);
