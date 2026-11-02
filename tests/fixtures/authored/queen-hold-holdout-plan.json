@@ -1,0 +1,88 @@
+{
+  "role": "held-out first Castellation hold; frozen before event inspection",
+  "timeline": "timelines/queen-eternal-hold.kdl",
+  "timeline_sha256": "00ae9d849f05139ffca88439f8aef45ff3f59905dde79785ec5af2f6068c2c82",
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "lead_ms": {
+    "exit_shift": 3000,
+    "other": 5000
+  },
+  "scope": "first Ability 8F00 through post-until return 8F00; actual StartsUsing 8EFF required",
+  "excluded_fingerprints": [
+    "5129656086adaac6d98d2b6e50172f3d982d58aac231c2ae17a442403b8126ad",
+    "591b692df330d01e488e3400fabeb22b146f529dfac2e0643b071123d7ad02ad",
+    "2e0109f36b214c9fcf2a3001285dc161cd87d96cf663c4a4e16a2886f0fcbdd2",
+    "5ea67f6ce5b19266a55042819d20111040b288cbe639b03e2d8fa5df2eb9c8fb",
+    "0ff990abc14f8d13adbbb980fff5715671ae516acad3fe55d514677749080ec4",
+    "05e20b65cc21d2fa17770161f3fc09b1656cf7409ae271dbbb7a9c1383450307",
+    "75d6e20ffd2d96c8cf9cde9f98e8fb83da109f6138602217fbf4f9b7cb5582fb",
+    "9d0a6c8c204f641ace83eac0c6a3caeccff28eb2ff4dc6fd261788f9afd4be21",
+    "0a196fa9ae833bdfda2adbff5f49af5730a63544f3f6f63250e698369d8e687d",
+    "5e02d872e380b58ee275f95c98e377fb2f9062c2e1b6eadc13c5dca5d5d258ce",
+    "7d1251228b07dec1cf3b057cb94b5e65820eeeef478bfb6c7bae8b39c9ba8b5f",
+    "8ac9978b3118ec3c087968b19df863c9922f3539a9cfb2d5a6932b03409e24f2",
+    "01387860d72f7c26428c4d380fa4633a82ac37b88e44d5ecfc07fb3a338afe1d",
+    "e9fa2f6346016605cd5022eda00bd08b4476ace0d2c9c47a981eb76571fffc59"
+  ],
+  "discovery": {
+    "reports": [],
+    "encounter": 1542,
+    "difficulty": 100,
+    "gameZone": 1202,
+    "partition": null,
+    "region": null,
+    "firstPage": 20,
+    "pages": 1
+  },
+  "inputs": [
+    {
+      "input": "logs/queen-hold-holdout/rmAQkxKNRMCy68ZD_9.json",
+      "sha256": "c166b915e9cd2151fb0d5e11bc8dbf8a3e7a55f16ec6d4899569c728de91ae00",
+      "report": "rmAQkxKNRMCy68ZD",
+      "fight": 9
+    },
+    {
+      "input": "logs/queen-hold-holdout/kgAGH4FfrRB3hW9c_90.json",
+      "sha256": "2a2c75dc43a9c236053c8f1b700e7395d8b793a5c744bf8385f656b4694a8240",
+      "report": "kgAGH4FfrRB3hW9c",
+      "fight": 90
+    },
+    {
+      "input": "logs/queen-hold-holdout/jmaqT9RBtN4FwkXM_16.json",
+      "sha256": "3db0690c30c53ecd0553b66a444031927a5eaa31e496013e3faf232aa3132723",
+      "report": "jmaqT9RBtN4FwkXM",
+      "fight": 16
+    },
+    {
+      "input": "logs/queen-hold-holdout/ATtGZKgL1VN7zbBy_55.json",
+      "sha256": "c2c88794420bba7fccc53d530c81e30355aba45feb8bbdd66400f4dc63cedd3d",
+      "report": "ATtGZKgL1VN7zbBy",
+      "fight": 55
+    },
+    {
+      "input": "logs/queen-hold-holdout/6LxYV8WtAC7pyRhj_16.json",
+      "sha256": "93eaa62211a9b8caeb663cdcf779de8a745879e27e0c9f5f87ee494a2042cbfd",
+      "report": "6LxYV8WtAC7pyRhj",
+      "fight": 16
+    },
+    {
+      "input": "logs/queen-hold-holdout/V1ZXHGMxBqrQ8gvN_16.json",
+      "sha256": "08d03016a9cc276ae4f8741f1ed9980291820c5d7bf56e84fe099d3aff573538",
+      "report": "V1ZXHGMxBqrQ8gvN",
+      "fight": 16
+    },
+    {
+      "input": "logs/queen-hold-holdout/hjTfF1tzMp9BVcRm_16.json",
+      "sha256": "f9865378822fc217dd824ce89590218acd0490edacf57715b42e9d01d26955b4",
+      "report": "hjTfF1tzMp9BVcRm",
+      "fight": 16
+    },
+    {
+      "input": "logs/queen-hold-holdout/1QXHjgRrp8nDwBYA_5.json",
+      "sha256": "3d6d5541b60158ff1bd5a878a5fe40295d4bc95673970ea194eb763dcd5249df",
+      "report": "1QXHjgRrp8nDwBYA",
+      "fight": 5
+    }
+  ]
+}

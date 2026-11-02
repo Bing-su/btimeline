@@ -1,0 +1,69 @@
+{
+  "role": "development",
+  "timeline": "timelines/queen-eternal-hold.kdl",
+  "timeline_sha256": "00ae9d849f05139ffca88439f8aef45ff3f59905dde79785ec5af2f6068c2c82",
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "lead_ms": {
+    "exit_shift": 3000,
+    "other": 5000
+  },
+  "inputs": [
+    {
+      "input": "logs/queen-hold-training/2XD3yzc8PkVYGAq4_114.json",
+      "sha256": "5d6fe314503f8d21d536ced8c0b512e2e76eae0859d08dbd263d93e01caccf2e"
+    },
+    {
+      "input": "logs/queen-hold-training/dV7k9TZpgHA4q623_84.json",
+      "sha256": "5a6bf21331148521e432c933d805f96b75a2c38f4c8e36ba15e71a194c82ed96"
+    },
+    {
+      "input": "logs/queen-hold-training/vxCKdkn9y4D8FRBQ_30.json",
+      "sha256": "54a6e8a92f4c7e3b754ff82ac3687c659eea10b30436247e6c2c6ca3cea34712"
+    },
+    {
+      "input": "logs/queen-hold-training/2XkpyV4xPmNJT9KY_91.json",
+      "sha256": "d13a785c1f30eb5ed011c5513ccd8f5714f740a10d1ace5e587fd2ca15b90218"
+    },
+    {
+      "input": "logs/queen-hold-training/8tYnZHLfXD4VMQhT_50.json",
+      "sha256": "f9ed7ce4c5da82c41ece171fb674db62998035c93a1ff79945d79d286c5ca762"
+    },
+    {
+      "input": "logs/queen-hold-training/QPGRznmdVkHaw8NJ_9.json",
+      "sha256": "6380f6e2d52fed1311b1b3e828397ceb7e5c3bb81cf82c7320430e1392587516"
+    },
+    {
+      "input": "logs/queen-hold-training/2QRBnaH1fgmWkp7F_12.json",
+      "sha256": "5d0d73f8153fe28be25e7f9cec7bd5e2b5ebfee9dc4129b62cfe85371f919ca1"
+    },
+    {
+      "input": "logs/queen-hold-training/FAQ8jtB9qVg2Mxma_2.json",
+      "sha256": "77b5dd9791828be30d918d4dec5681bc4ce8e976194faaf859ad0e0cff86e74b"
+    },
+    {
+      "input": "logs/queen-hold-long-training/gjwx3h1raZX49VNd_85.json",
+      "sha256": "73cc2e853e87d3f67cf95adbaaf7cfda522be2ead78246d9ab66f063690743ea"
+    },
+    {
+      "input": "logs/queen-hold-long-training/8pCqvBWwn4mbyPjH_147.json",
+      "sha256": "6e5d1959d20ab59ccd81d4ace92aca918dd0c625321d52449921f7578f4b67db"
+    },
+    {
+      "input": "logs/queen-hold-long-training/zT8ZWmHn7LkRP1ad_49.json",
+      "sha256": "a125fcb1e08c30112adda841c343732909f6a5f6cab24156f8de77ec5d686e32"
+    },
+    {
+      "input": "logs/queen-hold-long-training/JnNP38fbVctXRHrY_32.json",
+      "sha256": "1aef5258e39fac1bcea79875c560b31a1e9cb7bd080f5dadc7ed732ebd574633"
+    },
+    {
+      "input": "logs/queen-hold-long-training/zryxB9LhNgkaHfW6_40.json",
+      "sha256": "b986123d34bf4f5bf6cc04dc5d8cad05794df1ae9cf81780d3a0b7b052123cbe"
+    },
+    {
+      "input": "logs/queen-hold-long-training/JnNP38fbVctXRHrY_30.json",
+      "sha256": "9321c556a177a0e9611f5c0ce1ff27f80969f472887aa27fe87ef7537a93d244"
+    }
+  ]
+}
