@@ -1,0 +1,123 @@
+timeline 1 "Mistwake" {
+    // Named first mechanics allow entry at any boss after a wipe; travel time never advances the next boss clock.
+    start "Ability" id="A93F" source="Treno Catoblepas"
+    start "Ability" id="B118" source="Amdusias"
+    start "Ability" id="B11D" source="Amdusias"
+    start "Ability" id="B0EB" source="Thundergust Griffin"
+    wipe "ActorControl" command="4000000F"
+    wipe "ActorControl" command="40000010"
+    finish "InCombat" inGameCombat="0"
+    // The pinned cactbot Mistwake reference uses arena unseal to cancel pending boss events.
+    finish "SystemLogMessage" id="7DE"
+    zone-exit "ChangeZone"
+
+    phase "treno" {
+        enter "Ability" id="A93F" source="Treno Catoblepas"
+        event "treno-opening-earthquake" 0.0 name="Earthquake"
+        // Forecast the telegraph once; A944/A945 are the target packets of the same Thunder II mechanic.
+        event "treno-opening-thunder-ii" 9.7 name="Thunder II"
+        event "treno-opening-light" 22.9 name="Bedeviling Light"
+        event "treno-opening-earthquake-second" 29.1 name="Earthquake"
+        event "treno-opening-thunder-iii" 37.2 name="Thunder III" {
+            sync 37.2 "Ability" id="A941" source="Treno Catoblepas" before=8.0 after=15.0
+        }
+        event "treno-opening-thunder-ii-second" 45.9 name="Thunder II"
+        event "treno-opening-light-second" 59.0 name="Bedeviling Light"
+        event "treno-opening-ray" 67.3 name="Ray of Lightning" {
+            sync 67.3 "Ability" id="AF19" source="Treno Catoblepas" before=8.0 after=15.0
+        }
+        event "treno-opening-petribreath" 75.7 name="Petribreath"
+        event "treno-opening-thunder-ii-third" 85.4 name="Thunder II"
+        event "treno-opening-light-third" 98.5 name="Bedeviling Light"
+        event "treno-opening-earthquake-third" 104.6 name="Earthquake"
+        // Only the opening suffix of this reference-supported repeat is observed; its complete recurrence remains unverified.
+        loop "treno-rotation" start=112.8 every=87.6 {
+            event "treno-earthquake" 0.0 name="Earthquake" {
+                // The final opener Earthquake is only 8.1s earlier; keep it outside this recovery window.
+                sync 0.0 "Ability" id="A93F" source="Treno Catoblepas" before=5.0 after=15.0
+            }
+            event "treno-thunder-iii" 11.1 name="Thunder III" {
+                sync 11.1 "Ability" id="A941" source="Treno Catoblepas" before=8.0 after=15.0
+            }
+            event "treno-thunder-ii" 20.8 name="Thunder II"
+            event "treno-light" 34.0 name="Bedeviling Light"
+            event "treno-ray" 42.1 name="Ray of Lightning" {
+                sync 42.1 "Ability" id="AF19" source="Treno Catoblepas" before=8.0 after=15.0
+            }
+            event "treno-petribreath" 50.5 name="Petribreath"
+            event "treno-earthquake-second" 58.6 name="Earthquake"
+            event "treno-thunder-ii-second" 68.3 name="Thunder II"
+            event "treno-light-second" 81.5 name="Bedeviling Light"
+        }
+    }
+
+    phase "amdusias" {
+        // Front/back Concerto changes positioning but shares the subsequent schedule; either ID enters the same phase.
+        enter "Ability" id="B118" source="Amdusias"
+        enter "Ability" id="B11D" source="Amdusias"
+        event "amdusias-opening-concerto" 0.0 name="Thunderclap Concerto"
+        event "amdusias-opening-concerto-second" 12.4 name="Thunderclap Concerto" {
+            sync 12.4 "Ability" source="Amdusias" before=8.0 after=8.0 { field id "B118" "B11D"; }
+        }
+        event "amdusias-opening-bio" 28.8 name="Bio II"
+        event "amdusias-opening-gallop" 41.6 name="Galloping Thunder"
+        // One development log reaches the next Thunder IV; the reference supplies the otherwise censored later body.
+        loop "amdusias-rotation" start=55.7 every=85.6 {
+            event "amdusias-thunder-iv" 0.0 name="Thunder IV" {
+                sync 0.0 "Ability" id="B126" source="Amdusias" before=8.0 after=15.0
+            }
+            event "amdusias-shockbolt" 8.1 name="Shockbolt"
+            event "amdusias-concerto" 24.0 name="Thunderclap Concerto" {
+                sync 24.0 "Ability" source="Amdusias" before=8.0 after=15.0 { field id "B118" "B11D"; }
+            }
+            // Thunder has one packet per party member; emit one mechanic display.
+            event "amdusias-thunder" 28.0 name="Thunder"
+            event "amdusias-thunder-iii" 39.8 name="Thunder III"
+            event "amdusias-bio" 58.6 name="Bio II"
+            event "amdusias-gallop" 71.5 name="Galloping Thunder"
+        }
+    }
+
+    phase "griffin" {
+        enter "Ability" id="B0EB" source="Thundergust Griffin"
+        event "opening-thunderspark" 0.0 name="Thunderspark"
+        event "opening-high-volts" 11.7 name="High Volts" {
+            sync 11.7 "Ability" id="B0EC" source="Thundergust Griffin" before=8.0 after=8.0
+        }
+        // Roar owns the display; its simultaneous target packets and Thunderbolt follow-through do not need separate bars.
+        event "opening-roar-first" 23.0 name="Thundering Roar"
+        event "opening-roar-second" 33.8 name="Thundering Roar"
+        event "opening-golden-talons" 45.6 name="Golden Talons" {
+            sync 45.6 "Ability" id="B0F9" source="Thundergust Griffin" before=8.0 after=8.0
+        }
+        event "opening-fulgurous-fall" 62.0 name="Fulgurous Fall"
+        event "opening-electrogenetic-force" 65.6 name="Electrogenetic Force"
+        event "opening-roar-last" 72.1 name="Thundering Roar"
+
+        // The opener lacks Storm Surge; the later rotation begins at the second Thunderspark, not the first Golden Talons.
+        loop "late-rotation" start=81.8 every=89.3 {
+            event "rotation-thunderspark" 0.0 name="Thunderspark" {
+                sync 0.0 "Ability" id="B0EB" source="Thundergust Griffin" before=8.0 after=8.0
+            }
+            event "rotation-storm-surge" 12.4 name="Storm Surge" {
+                // This late-only signal can recover a delayed entry without confusing a repeated Roar packet.
+                sync 12.4 "Ability" id="B0F3" source="Thundergust Griffin" before=10.0 after=25.0
+            }
+            // Shock Storm supplies B0F4 after Storm Surge in all development traces; keep its forecast display-only.
+            event "rotation-electrifying-flight" 13.0 name="Electrifying Flight"
+            event "rotation-high-volts" 19.6 name="High Volts" {
+                // One High Volts per late cycle can recover a missed Storm Surge without accepting the next cycle's occurrence.
+                sync 19.6 "Ability" id="B0EC" source="Thundergust Griffin" before=8.0 after=25.0
+            }
+            event "rotation-roar-first" 31.0 name="Thundering Roar"
+            event "rotation-roar-second" 42.4 name="Thundering Roar"
+            event "rotation-golden-talons" 54.2 name="Golden Talons" {
+                // Keep a third recovery point when both earlier markers are absent; processed displays are never replayed.
+                sync 54.2 "Ability" id="B0F9" source="Thundergust Griffin" before=8.0 after=25.0
+            }
+            event "rotation-fulgurous-fall" 69.5 name="Fulgurous Fall"
+            event "rotation-electrogenetic-force" 73.1 name="Electrogenetic Force"
+            event "rotation-roar-last" 79.7 name="Thundering Roar"
+        }
+    }
+}

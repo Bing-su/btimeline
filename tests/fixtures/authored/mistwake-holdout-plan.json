@@ -1,0 +1,68 @@
+{
+  "role": "held-out full Mistwake; frozen before event inspection; no candidate revision",
+  "timeline": "timelines/mistwake.kdl",
+  "timeline_sha256": "c13eb162a03efa629d04062cf517cf1cc791e22a17ba78afc602509c44024fc6",
+  "forecast_lead_ms": 5000,
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "projection": "All casts to Ability; original nonempty actor names; 100ms duplicate-target waves; all three boss entries and HP=0 endpoints required",
+  "excluded_fingerprints": [
+    "735cd02eb7469ea4b1201701200bb0d06f28058aa974703c2bac75cc75dd3288",
+    "92c8eeedf0d69dabb542e86a0c2479aa5d1821fd57f936f665a1119227515abb",
+    "0bce3755432e324a300491e10a18d4ea9452d3d33150c98c14d38240a8ce1019",
+    "64d6dbb1aebfe134c7fc512a88db2c52db02b49a7e5b90d2360d76faea7a5769",
+    "80ca5c13a9227c651542331ac2ebc2847d4375c3ec7f982c04524eaf25afbc67",
+    "7dbb410f988ea07ddd4b98762f0b99d91470dfddd4b0d81b6b3d9972bc3df2a0",
+    "7e6f506d126dbc19d135816b79503490f50fa45e9a0bf0ece7e95c004f1b17bc",
+    "fa10fae4d92f2f7b755c131b15f726cf0a9ffbae4d0308a8d0539a8272a1934c",
+    "6474933da4b05f1707c93f3edccb792739e51b219e18616b488604b3a29edc4b"
+  ],
+  "discovery": {
+    "reports": [],
+    "encounter": 4549,
+    "difficulty": 10,
+    "gameZone": null,
+    "partition": null,
+    "region": null,
+    "firstPage": 3000,
+    "pages": 1
+  },
+  "inputs": [
+    {
+      "input": "logs/mistwake-authoring-holdout/C9xtnpMVNvcG627f_32.json",
+      "sha256": "2f70f10e5b16097423e38092555395873053c15178cf2cafc1b62ba079bae17b",
+      "report": "C9xtnpMVNvcG627f",
+      "fight": 32
+    },
+    {
+      "input": "logs/mistwake-authoring-holdout/8mVdQN6ZnHYkRCq3_5.json",
+      "sha256": "34d8853ce30628777b32d5a40560d4f108c53fb483ec6658c0f811d1392579bf",
+      "report": "8mVdQN6ZnHYkRCq3",
+      "fight": 5
+    },
+    {
+      "input": "logs/mistwake-authoring-holdout/XHQCwg9FGy4Axpm6_31.json",
+      "sha256": "7ba09360d7054ab0fc55011a8805bd7dadb47531f43d92204110fa0e435c7e36",
+      "report": "XHQCwg9FGy4Axpm6",
+      "fight": 31
+    },
+    {
+      "input": "logs/mistwake-authoring-holdout/zXaZtKj4NVc3PMJF_5.json",
+      "sha256": "5ec8bffc3ebd04d88278146e2cc7335ed1b627bfec74416759b1ce3394f4cda1",
+      "report": "zXaZtKj4NVc3PMJF",
+      "fight": 5
+    },
+    {
+      "input": "logs/mistwake-authoring-holdout/PJQGVwkfzjanhd4m_47.json",
+      "sha256": "12551550b366b96869924496cd0efc926e99b19d78c5fb780f81526713557e95",
+      "report": "PJQGVwkfzjanhd4m",
+      "fight": 47
+    },
+    {
+      "input": "logs/mistwake-authoring-holdout/kdjw64TZtRXAmCxM_32.json",
+      "sha256": "4492ec1702bacaef3031ac560781f774b68a110556fa29f2e62e5b910a932d5f",
+      "report": "kdjw64TZtRXAmCxM",
+      "fight": 32
+    }
+  ]
+}

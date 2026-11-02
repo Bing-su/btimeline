@@ -1,0 +1,78 @@
+{
+  "role": "development; includes existing Griffin development data and five new reports",
+  "timeline": "timelines/mistwake.kdl",
+  "timeline_sha256": "c13eb162a03efa629d04062cf517cf1cc791e22a17ba78afc602509c44024fc6",
+  "forecast_lead_ms": 5000,
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "inputs": [
+    {
+      "input": "logs/loop-mistwake/YQAawtmnD6FRVzPj_4.json",
+      "sha256": "1557e8b0e06a0cb2b1ed0a17998f157ea27bac2382f87170213cb6bdfc427b80"
+    },
+    {
+      "input": "logs/loop-mistwake/YQAawtmnD6FRVzPj_78.json",
+      "sha256": "93b9707471ffffad105b2590a722c8f4c050619319ccfbb26aa4d393ea5b8b04"
+    },
+    {
+      "input": "logs/loop-mistwake/YQAawtmnD6FRVzPj_79.json",
+      "sha256": "c55eba66ac5c3ea6ab6a944e34b3b108c2283798fda21467c324c9bacb7a9514"
+    },
+    {
+      "input": "logs/loop-mistwake/YQAawtmnD6FRVzPj_80.json",
+      "sha256": "4ccb4542e91871ca9a41eab8db6986ae289c5c75a7b74411ea9b3375f497008b"
+    },
+    {
+      "input": "logs/loop-mistwake/YQAawtmnD6FRVzPj_81.json",
+      "sha256": "82b31c085af0e76ff688032f850f25b150b3ab38f5e6e9c6883ed038de65050e"
+    },
+    {
+      "input": "logs/loop-mistwake/YQAawtmnD6FRVzPj_82.json",
+      "sha256": "c4c4b1f86d4751d20c99bf4ffc2585d916a6242e45cd3bbc5fdbb55251d41ca9"
+    },
+    {
+      "input": "logs/loop-mistwake/c6BadvCfAZyFqpQh_1.json",
+      "sha256": "79acfead5e46196ff07a76baa02098d3bebdb49f23f581f5f8c38413e2ca9f55"
+    },
+    {
+      "input": "logs/loop-mistwake/dN2P37qHWt1mFD6R_13.json",
+      "sha256": "ce820880f5013845ab08f25f789c28c1a9a8335061cb9af02d12758a51d9370c"
+    },
+    {
+      "input": "logs/mistwake-longer/FJ3LnT91abvQK4gp_1.json",
+      "sha256": "e401f4cdb138a9486e698fda162c9b3c30998c798dbe4d909bc52a4cca3f3593"
+    },
+    {
+      "input": "logs/mistwake-longer/Zh7y1DbzTpv3aPrF_26.json",
+      "sha256": "518df2a4fda634aaf11dbd30c59f3ec3522adaa5eb64e2a1246ec2734cce2fb3"
+    },
+    {
+      "input": "logs/mistwake-longer/nfx8gFT3b26kqyLM_1.json",
+      "sha256": "9e2d4bafeadb69112e0f6d7209a1d560d1d1fa17fcdc26ceb762ca5e82fa121f"
+    },
+    {
+      "input": "logs/mistwake-longer/nfx8gFT3b26kqyLM_11.json",
+      "sha256": "33c2ca67eb742e91c395bb80ed10b147eb61518240a19bbaf89e819a996b0426"
+    },
+    {
+      "input": "logs/mistwake-authoring-training/xjWywCpQvczfXJD7_9.json",
+      "sha256": "5910346035730811ccb3cfaf8aaefed58f9e8443af89a7b46194bff5571f54be"
+    },
+    {
+      "input": "logs/mistwake-authoring-training/NYtyfkL4ZrMaR8Db_32.json",
+      "sha256": "3b564597b79bf3162a678522c6ccc4e6cfc0b07b86b97fc8ae216235c1fa9b52"
+    },
+    {
+      "input": "logs/mistwake-authoring-training/wDPyd9vL4WqNTR6a_5.json",
+      "sha256": "8b657c26b6aa6c745d0d875151d7098fb3619c04efaa5b548077c724e2128ff1"
+    },
+    {
+      "input": "logs/mistwake-authoring-training/2K1GvNpQhc8XYM6P_19.json",
+      "sha256": "f18b5bb55f67c6fcfaf3e65a63ac2fc83f98f1bc779f918c77be85565615e34e"
+    },
+    {
+      "input": "logs/mistwake-authoring-training/XCWGRwgK41mLt73Z_2.json",
+      "sha256": "5fd05c278506f5879f412bdac143198694cc5fd21d388593655ac5deff244192"
+    }
+  ]
+}
