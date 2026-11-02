@@ -29,7 +29,9 @@ pub(super) fn metadata() -> (u16, Value) {
         "masterData":{"lang":"en","gameVersion":1,"logVersion":76,"actors":[],"abilities":[]},
         "fights":[{"id":1,"name":"Lindwurm II","encounterID":105,"difficulty":101,"kill":true,
             "fightPercentage":100,"bossPercentage":0,"lastPhase":0,"enemyNPCs":[],"enemyPets":[],
-            "startTime":10,"endTime":30,"inProgress":false,"phaseTransitions":null}]}),
+            "startTime":10,"endTime":30,"inProgress":false,"phaseTransitions":null,
+            "maps":[{"id":100},{"id":101},{"id":100}],"boundingBox":{"minX":0,"maxX":100,"minY":0,"maxY":100},
+            "dungeonPulls":[{"id":1,"encounterID":0,"name":"Boss pull","startTime":10,"endTime":30,"kill":false,"x":0,"y":0,"maps":[{"id":100}],"enemyNPCs":[]}]}]}),
     )
 }
 
@@ -105,6 +107,18 @@ async fn collects_two_pages_and_saves_raw_json() {
     assert!(data["report"]["phases"].is_null());
     assert_eq!(data["report"]["fights"][0]["fightPercentage"], 100);
     assert_eq!(data["report"]["fights"][0]["bossPercentage"], 0);
+    assert_eq!(
+        data["report"]["fights"][0]["maps"],
+        json!([{"id":100},{"id":101},{"id":100}])
+    );
+    assert_eq!(
+        data["report"]["fights"][0]["dungeonPulls"][0]["encounterID"],
+        0
+    );
+    assert_eq!(
+        data["report"]["fights"][0]["dungeonPulls"][0]["kill"],
+        false
+    );
     assert_eq!(data["collection"]["pageCount"], 2);
     assert_eq!(data["collection"]["eventCount"], 2);
     assert_eq!(data["collection"]["pageStartTimes"], json!([10.0, 20.0]));

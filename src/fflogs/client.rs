@@ -30,6 +30,10 @@ query TimelineMetadata($code: String!, $fightIDs: [Int]) {
       friendlyPets { id gameID instanceCount groupCount petOwner }
       friendlyPlayers lastPhase lastPhaseAsAbsoluteIndex lastPhaseIsIntermission
       phaseTransitions { id startTime }
+      hasEcho maps { id } boundingBox { minX maxX minY maxY }
+      dungeonPulls {
+        id name encounterID startTime endTime kill x y maps { id } enemyNPCs { id }
+      }
     }
     phases { encounterID separatesWipes phases { id name isIntermission } }
     masterData(translate: true) {

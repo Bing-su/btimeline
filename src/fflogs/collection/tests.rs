@@ -24,6 +24,7 @@ fn options() -> FFLogsCollectCommand {
         reports: vec![],
         encounter: Some(105),
         difficulty: Some(101),
+        game_zone: None,
         partition: None,
         region: None,
         page: 1,
@@ -127,15 +128,18 @@ fn fixture_plan() -> (DownloadPlan, Value) {
         serde_json::from_str(include_str!("../../../tests/fixtures/pull.json")).unwrap();
     let mut report = data["report"].clone();
     report["archiveStatus"] = json!({"isAccessible":true});
-    let fights = candidate_fights(&report, None, None).unwrap();
+    let fights = candidate_fights(&report, None, None, None).unwrap();
     (
         DownloadPlan {
-            schema_version: 1,
+            schema_version: 2,
+            selection_policy: POLICY.into(),
+            candidate_count: fights.len(),
             collected_at_unix_ms: 1,
             source: PlanSource {
                 reports: vec!["synthetic".into()],
                 encounter: None,
                 difficulty: None,
+                game_zone: None,
                 partition: None,
                 region: None,
                 first_page: 1,
@@ -216,5 +220,207 @@ fn plans_reject_duplicate_or_unsafe_identities() {
     plan.fights[0].report = "synthetic".into();
     plan.fights
         .push(serde_json::from_value(serde_json::to_value(&plan.fights[0]).unwrap()).unwrap());
+    plan.candidate_count = plan.fights.len();
     assert!(plan.validate().is_err());
+}
+
+#[rstest]
+#[case(json!({"id":1307,"name":"Hell on Rails"}), 1)]
+#[case(json!({"id":1308,"name":"Hell on Rails (Extreme)"}), 0)]
+#[case(Value::Null, 0)]
+fn game_zone_filter_distinguishes_normal_from_extreme_with_the_same_difficulty(
+    #[case] zone: Value,
+    #[case] expected: usize,
+) {
+    let mut data = metadata().1["data"]["reportData"]["report"].clone();
+    data["fights"][0]["gameZone"] = zone;
+    data["fights"][0]["difficulty"] = 100.into();
+    assert_eq!(
+        candidate_fights(&data, None, Some(100), Some(1307))
+            .unwrap()
+            .len(),
+        expected
+    );
+}
+
+#[rstest]
+#[case("combatTime", json!(-1))]
+#[case("combatTime", json!(100000))]
+#[case("fightPercentage", json!(101))]
+#[case("bossPercentage", json!(-1))]
+#[case("lastPhaseAsAbsoluteIndex", json!(-1))]
+#[case("gameZone", json!({"id":0,"name":"Invalid"}))]
+fn rejects_invalid_candidate_metadata(#[case] field: &str, #[case] value: Value) {
+    let mut data = metadata().1["data"]["reportData"]["report"].clone();
+    data["fights"][0][field] = value;
+    candidate_fights(&data, None, None, None).unwrap_err();
+}
+
+#[test]
+fn plan_v2_is_explicit_and_old_plans_are_rejected() {
+    let (mut plan, _) = fixture_plan();
+    insta::assert_snapshot!(serde_json::to_string_pretty(&plan).unwrap());
+    plan.schema_version = 1;
+    let mut legacy = serde_json::to_value(&plan).unwrap();
+    legacy.as_object_mut().unwrap().remove("selectionPolicy");
+    legacy.as_object_mut().unwrap().remove("candidateCount");
+    let legacy: DownloadPlan = serde_json::from_value(legacy).unwrap();
+    assert!(
+        legacy
+            .validate()
+            .unwrap_err()
+            .to_string()
+            .contains("regenerate with fflogs-collect")
+    );
+    plan.schema_version = 2;
+    plan.source.game_zone = Some(1307);
+    plan.validate().unwrap_err();
+}
+
+#[test]
+fn prioritization_retains_independent_reports_outcomes_and_short_controls() {
+    let mut candidates = Vec::new();
+    for report in ["alpha", "beta"] {
+        for (fight, kill, duration) in [
+            (1, true, 900),
+            (2, true, 500),
+            (3, false, 800),
+            (4, false, 400),
+            (5, true, 100),
+        ] {
+            let mut row: PlannedFight = serde_json::from_value(json!({"report":report,"fight":fight,"name":"Boss","encounter":1,"difficulty":100,"kill":kill,"startTime":0,"endTime":duration})).unwrap();
+            row.metadata.game_zone = Some(selection::GameZone {
+                id: 1307,
+                name: "Normal".into(),
+            });
+            candidates.push(row);
+        }
+    }
+    let selected = prioritize(candidates, 8);
+    assert_eq!(
+        selected
+            .iter()
+            .take(2)
+            .map(|fight| (fight.report.as_str(), fight.fight))
+            .collect::<Vec<_>>(),
+        [("alpha", 1), ("beta", 3)]
+    );
+    assert!(
+        selected
+            .iter()
+            .take(4)
+            .all(|fight| [1, 3].contains(&fight.fight))
+    );
+    assert!(
+        selected
+            .iter()
+            .skip(4)
+            .all(|fight| [4, 5].contains(&fight.fight))
+    );
+    assert_eq!(
+        selected
+            .iter()
+            .filter(|fight| fight.report == "alpha")
+            .count(),
+        4
+    );
+}
+
+proptest::proptest! {
+    #[test]
+    fn prioritization_is_order_independent_and_never_fabricates_fights(lengths in proptest::collection::vec(1_i64..10000, 1..40), limit in 0_usize..50) {
+        let candidates = |reverse: bool| {
+            let mut rows: Vec<PlannedFight> = lengths.iter().enumerate().map(|(index,duration)| serde_json::from_value(json!({"report":if index%2==0 {"alpha"}else{"beta"},"fight":index+1,"name":"Boss","encounter":1,"difficulty":100,"kill":index%3!=0,"startTime":0,"endTime":duration})).unwrap()).collect();
+            if reverse {rows.reverse();} rows
+        };
+        let identities = |rows: Vec<PlannedFight>| rows.into_iter().map(|fight| (fight.report,fight.fight)).collect::<Vec<_>>();
+        let selected = identities(prioritize(candidates(false),limit));
+        proptest::prop_assert_eq!(selected.len(),limit.min(lengths.len()));
+        proptest::prop_assert_eq!(&selected,&identities(prioritize(candidates(true),limit)));
+        proptest::prop_assert_eq!(selected.iter().collect::<BTreeSet<_>>().len(),selected.len());
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn game_zone_discovery_paginates_and_checks_direct_report_metadata() {
+    let server = server(token(), None).await;
+    mount_quota(&server).await;
+    for (page, more) in [(1, true), (2, false)] {
+        api("TimelineZoneReports").and(body_partial_json(json!({"variables":{"zone":1307,"page":page}})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data":{"rateLimitData":quota(2.0),"reportData":{"reports":{"data":[{"code":"example"}],"has_more_pages":more}}}})))
+            .expect(1).mount(&server).await;
+    }
+    let mut data = metadata().1;
+    data["data"]["reportData"]["report"]["fights"][0]["gameZone"] =
+        json!({"id":1307,"name":"Hell on Rails"});
+    data["data"]["rateLimitData"] = quota(3.0);
+    api("TimelineCandidates")
+        .respond_with(ResponseTemplate::new(200).set_body_json(data))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let mut command = options();
+    command.game_zone = Some(1307);
+    let plan = command
+        .collect(&authenticate(&server).with_budget(10, 100.0).unwrap())
+        .unwrap();
+    plan.validate().unwrap();
+    assert_eq!(plan.candidate_count, 1);
+    assert_eq!(plan.fights[0].metadata.zone_id(), Some(1307));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn changed_zone_is_rejected_before_fetching_any_events() {
+    let (mut plan, mut data) = fixture_plan();
+    plan.fights[0].metadata.game_zone = Some(selection::GameZone {
+        id: 1307,
+        name: "Normal".into(),
+    });
+    data["report"]["fights"][0]["gameZone"] = json!({"id":1308,"name":"Extreme"});
+    data["report"]["archiveStatus"] = json!({"isAccessible":true});
+    let server = server(token(), Some(report(data["report"].clone()))).await;
+    api("TimelineEvents")
+        .respond_with(ResponseTemplate::new(500))
+        .expect(0)
+        .mount(&server)
+        .await;
+    let directory = tempfile::tempdir().unwrap();
+    let result = download(
+        &plan,
+        Utf8Path::from_path(directory.path()).unwrap(),
+        1,
+        u64::MAX,
+        || Ok(authenticate(&server)),
+    )
+    .unwrap();
+    assert_eq!(result.downloaded, 0);
+    assert!(result.failures[0].error.contains("metadata differs"));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn fight_limit_is_applied_after_inspecting_all_report_candidates() {
+    let server = server(token(), None).await;
+    mount_quota(&server).await;
+    for (code, end) in [("alpha", 30), ("beta", 90)] {
+        let mut data = metadata().1;
+        data["data"]["rateLimitData"] = quota(2.0);
+        data["data"]["reportData"]["report"]["code"] = code.into();
+        data["data"]["reportData"]["report"]["fights"][0]["endTime"] = end.into();
+        api("TimelineCandidates")
+            .and(body_partial_json(json!({"variables":{"code":code}})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(data))
+            .expect(1)
+            .mount(&server)
+            .await;
+    }
+    let mut command = options();
+    command.reports = vec!["alpha".into(), "beta".into()];
+    command.max_fights = 1;
+    let plan = command
+        .collect(&authenticate(&server).with_budget(10, 100.0).unwrap())
+        .unwrap();
+    assert_eq!(plan.candidate_count, 2);
+    assert_eq!(plan.fights[0].report, "beta");
+    assert!(plan.truncated);
+    plan.validate().unwrap();
 }

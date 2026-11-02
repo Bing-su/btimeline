@@ -1,0 +1,44 @@
+---
+source: src/fflogs/collection/tests.rs
+expression: "serde_json::to_string_pretty(&plan).unwrap()"
+---
+{
+  "schemaVersion": 2,
+  "collectedAtUnixMs": 1,
+  "source": {
+    "reports": [
+      "synthetic"
+    ],
+    "encounter": null,
+    "difficulty": null,
+    "gameZone": null,
+    "partition": null,
+    "region": null,
+    "firstPage": 1,
+    "pages": 1
+  },
+  "selectionPolicy": "report-cohort-outcome-long-short-v1",
+  "candidateCount": 1,
+  "fights": [
+    {
+      "report": "synthetic",
+      "fight": 1,
+      "name": "Unknown Encounter",
+      "encounter": 99199,
+      "difficulty": 123,
+      "kill": true,
+      "startTime": 1000,
+      "endTime": 21000,
+      "gameZone": null,
+      "combatTime": null,
+      "fightPercentage": null,
+      "bossPercentage": null,
+      "lastPhase": null,
+      "lastPhaseAsAbsoluteIndex": null,
+      "lastPhaseIsIntermission": null,
+      "hasEcho": null
+    }
+  ],
+  "failures": [],
+  "truncated": false
+}

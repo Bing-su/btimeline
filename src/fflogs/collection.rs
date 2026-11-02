@@ -12,7 +12,10 @@ use serde_json::{Value, json};
 use usage_rs::{Args, Run};
 
 use super::client::{API_URL, Client, TOKEN_URL, validate_selection};
-use super::model::CollectedLog;
+use super::model::{CollectedLog, Fight};
+
+mod selection;
+use selection::{FightMetadata, POLICY, prioritize};
 
 const CANDIDATES: &str = r#"
 query TimelineCandidates($code: String!) {
@@ -21,7 +24,17 @@ query TimelineCandidates($code: String!) {
     code archiveStatus { isAccessible }
     fights(translate: true) {
       id name encounterID difficulty kill inProgress startTime endTime
+      gameZone { id name } combatTime fightPercentage bossPercentage
+      lastPhase lastPhaseAsAbsoluteIndex lastPhaseIsIntermission hasEcho
     }
+  } }
+}"#;
+
+const ZONE_REPORTS: &str = r#"
+query TimelineZoneReports($zone: Int!, $page: Int!) {
+  rateLimitData { limitPerHour pointsSpentThisHour pointsResetIn }
+  reportData { reports(gameZoneID: $zone, page: $page, limit: 100) {
+    data { code } has_more_pages
   } }
 }"#;
 
@@ -70,24 +83,28 @@ impl Access {
 
 #[derive(Args)]
 pub struct FFLogsCollectCommand {
-    /// Explicit report codes; omit to discover reports from encounter rankings.
+    /// Explicit report codes; omit to discover by game zone or encounter rankings.
     #[usage(arg)]
     reports: Vec<String>,
     #[usage(long)]
     encounter: Option<i64>,
     #[usage(long)]
     difficulty: Option<i64>,
+    /// In-game zone ID; also enables discovery for unranked normal trials.
+    #[usage(long)]
+    game_zone: Option<i64>,
     #[usage(long)]
     partition: Option<i64>,
     #[usage(long)]
     region: Option<String>,
-    /// First rankings page; later pages broaden the sample beyond the fastest kills.
+    /// First discovery page; later rankings pages broaden the sample beyond the fastest kills.
     #[usage(long, default = "1")]
     page: usize,
     #[usage(long, default = "1")]
     pages: usize,
     #[usage(long, default = "10")]
     max_reports: usize,
+    /// Maximum selected fights after all inspected reports have been compared.
     #[usage(long, default = "100")]
     max_fights: usize,
     /// New JSON plan path, e.g. out/r12s.download-plan.json.
@@ -119,6 +136,10 @@ struct DownloadPlan {
     schema_version: u32,
     collected_at_unix_ms: u64,
     source: PlanSource,
+    #[serde(default)]
+    selection_policy: String,
+    #[serde(default)]
+    candidate_count: usize,
     fights: Vec<PlannedFight>,
     failures: Vec<Failure>,
     truncated: bool,
@@ -130,13 +151,14 @@ struct PlanSource {
     reports: Vec<String>,
     encounter: Option<i64>,
     difficulty: Option<i64>,
+    game_zone: Option<i64>,
     partition: Option<i64>,
     region: Option<String>,
     first_page: usize,
     pages: usize,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PlannedFight {
     report: String,
@@ -147,6 +169,8 @@ struct PlannedFight {
     kill: bool,
     start_time: i64,
     end_time: i64,
+    #[serde(flatten)]
+    metadata: FightMetadata,
 }
 
 impl PlannedFight {
@@ -160,6 +184,7 @@ impl PlannedFight {
                 && self.end_time >= self.start_time,
             "Invalid planned fight"
         );
+        self.metadata.validate(self.end_time - self.start_time)?;
         Ok(())
     }
 
@@ -170,8 +195,12 @@ impl PlannedFight {
             .fights
             .first()
             .context("Missing downloaded fight")?;
+        self.verify_fight(&data.report.code, fight)
+    }
+
+    fn verify_fight(&self, report: &str, fight: &Fight) -> Result<()> {
         ensure!(
-            data.report.code == self.report
+            report == self.report
                 && fight.id == self.fight
                 && fight.encounter_id == self.encounter
                 && fight.difficulty == self.difficulty
@@ -180,7 +209,25 @@ impl PlannedFight {
                 && fight.kill == self.kill,
             "Downloaded fight differs from the plan"
         );
+        let metadata: FightMetadata = serde_json::from_value(serde_json::to_value(fight)?)?;
+        ensure!(
+            metadata == self.metadata,
+            "Downloaded fight metadata differs from the plan"
+        );
         Ok(())
+    }
+
+    // Reject a stale plan before spending requests on event pages, e.g. a changed game zone.
+    fn verify_metadata(&self, report: &Value) -> Result<()> {
+        let code = report["code"].as_str().context("Missing report code")?;
+        let [fight] = report["fights"]
+            .as_array()
+            .context("Missing report fights")?
+            .as_slice()
+        else {
+            anyhow::bail!("Expected one downloaded fight")
+        };
+        self.verify_fight(code, &serde_json::from_value(fight.clone())?)
     }
 }
 
@@ -194,12 +241,30 @@ struct Failure {
 impl DownloadPlan {
     fn validate(&self) -> Result<()> {
         ensure!(
-            self.schema_version == 1 && !self.fights.is_empty(),
-            "Unsupported or empty download plan"
+            self.schema_version == 2,
+            "Unsupported download plan version {}; regenerate with fflogs-collect",
+            self.schema_version
+        );
+        ensure!(!self.fights.is_empty(), "Empty download plan");
+        ensure!(
+            self.selection_policy == POLICY && self.candidate_count >= self.fights.len(),
+            "Invalid download selection evidence"
         );
         let mut identities = BTreeSet::new();
         for fight in &self.fights {
             fight.validate()?;
+            ensure!(
+                self.source.encounter.is_none_or(|id| id == fight.encounter)
+                    && self
+                        .source
+                        .difficulty
+                        .is_none_or(|id| id == fight.difficulty)
+                    && self
+                        .source
+                        .game_zone
+                        .is_none_or(|id| Some(id) == fight.metadata.zone_id()),
+                "Planned fight violates source filters"
+            );
             ensure!(
                 identities.insert((&fight.report, fight.fight)),
                 "Duplicate planned fight"
@@ -234,6 +299,7 @@ fn candidate_fights(
     report: &Value,
     encounter: Option<i64>,
     difficulty: Option<i64>,
+    game_zone: Option<i64>,
 ) -> Result<Vec<PlannedFight>> {
     let code = report["code"]
         .as_str()
@@ -267,6 +333,11 @@ fn candidate_fights(
         if difficulty.is_some_and(|selected| selected != level) {
             continue;
         }
+        let metadata: FightMetadata =
+            serde_json::from_value(fight.clone()).context("Invalid candidate metadata")?;
+        if game_zone.is_some_and(|id| Some(id) != metadata.zone_id()) {
+            continue;
+        }
         let planned = PlannedFight {
             report: code.into(),
             fight: fight["id"].as_i64().context("Invalid candidate fight ID")?,
@@ -283,6 +354,7 @@ fn candidate_fights(
                 .as_i64()
                 .context("Invalid candidate start")?,
             end_time: fight["endTime"].as_i64().context("Invalid candidate end")?,
+            metadata,
         };
         planned.validate()?;
         result.push(planned);
@@ -316,19 +388,47 @@ fn ranking_reports(data: &Value) -> Result<(Vec<String>, bool)> {
     ))
 }
 
+fn zone_reports(data: &Value) -> Result<(Vec<String>, bool)> {
+    let page = data
+        .pointer("/reportData/reports")
+        .context("Missing zone reports")?;
+    let reports = page["data"]
+        .as_array()
+        .context("Invalid zone reports")?
+        .iter()
+        .map(|row| {
+            let code = row["code"].as_str().context("Missing zone report code")?;
+            validate_selection(code, None)?;
+            Ok(code.to_owned())
+        })
+        .collect::<Result<_>>()?;
+    Ok((
+        reports,
+        page["has_more_pages"]
+            .as_bool()
+            .context("Missing zone page status")?,
+    ))
+}
+
 impl FFLogsCollectCommand {
     // Keep ranking pagination failures in the plan, e.g. resume after a quota limit.
     fn discover_reports(&self, client: &Client, plan: &mut DownloadPlan) -> Vec<String> {
         let mut reports = Vec::new();
         for page in self.page..self.page + self.pages {
-            let found = client
-                .request(
-                    RANKINGS,
-                    json!({"encounter":self.encounter,
+            let found = if let Some(zone) = self.game_zone {
+                client
+                    .request(ZONE_REPORTS, json!({"zone":zone,"page":page}))
+                    .and_then(|data| zone_reports(&data))
+            } else {
+                client
+                    .request(
+                        RANKINGS,
+                        json!({"encounter":self.encounter,
                 "difficulty":self.difficulty, "page":page, "partition":self.partition,
                 "region":self.region}),
-                )
-                .and_then(|data| ranking_reports(&data));
+                    )
+                    .and_then(|data| ranking_reports(&data))
+            };
             let more = match found {
                 Ok((codes, more)) => {
                     reports.extend(codes);
@@ -353,17 +453,20 @@ impl FFLogsCollectCommand {
 
     fn collect(&self, client: &Client) -> Result<DownloadPlan> {
         let mut plan = DownloadPlan {
-            schema_version: 1,
+            schema_version: 2,
             collected_at_unix_ms: now()?,
             source: PlanSource {
                 reports: self.reports.clone(),
                 encounter: self.encounter,
                 difficulty: self.difficulty,
+                game_zone: self.game_zone,
                 partition: self.partition,
                 region: self.region.clone(),
                 first_page: self.page,
                 pages: self.pages,
             },
+            selection_policy: POLICY.into(),
+            candidate_count: 0,
             fights: Vec::new(),
             failures: Vec::new(),
             truncated: false,
@@ -376,8 +479,7 @@ impl FFLogsCollectCommand {
         let mut seen = BTreeSet::new();
         reports.retain(|code| seen.insert(code.clone()));
         plan.truncated |= reports.len() > self.max_reports;
-        let report_count = reports.len().min(self.max_reports);
-        for (index, code) in reports.into_iter().take(self.max_reports).enumerate() {
+        for code in reports.into_iter().take(self.max_reports) {
             let candidates = client
                 .request(CANDIDATES, json!({"code":code}))
                 .and_then(|data| {
@@ -388,15 +490,11 @@ impl FFLogsCollectCommand {
                         report["code"].as_str() == Some(&code),
                         "Candidate report code mismatch"
                     );
-                    candidate_fights(report, self.encounter, self.difficulty)
+                    candidate_fights(report, self.encounter, self.difficulty, self.game_zone)
                 });
             let failed = candidates.is_err();
             match candidates {
-                Ok(fights) => {
-                    let remaining = self.max_fights - plan.fights.len();
-                    plan.truncated |= fights.len() > remaining;
-                    plan.fights.extend(fights.into_iter().take(remaining));
-                }
+                Ok(fights) => plan.fights.extend(fights),
                 Err(error) => {
                     plan.failures.push(Failure {
                         report: code,
@@ -408,11 +506,10 @@ impl FFLogsCollectCommand {
             if failed && client.check_budget().is_err() {
                 break;
             }
-            if plan.fights.len() == self.max_fights {
-                plan.truncated |= index + 1 < report_count;
-                break;
-            }
         }
+        plan.candidate_count = plan.fights.len();
+        plan.truncated |= plan.candidate_count > self.max_fights;
+        plan.fights = prioritize(plan.fights, self.max_fights);
         Ok(plan)
     }
 }
@@ -424,8 +521,8 @@ impl Run for FFLogsCollectCommand {
         self.access.validate()?;
         ensure!(!self.output.exists(), "Download plan already exists");
         ensure!(
-            !self.reports.is_empty() || self.encounter.is_some(),
-            "Supply report codes or --encounter for rankings discovery"
+            !self.reports.is_empty() || self.encounter.is_some() || self.game_zone.is_some(),
+            "Supply report codes, --game-zone, or --encounter"
         );
         ensure!(
             self.encounter
@@ -437,6 +534,15 @@ impl Run for FFLogsCollectCommand {
                     .partition
                     .is_none_or(|id| id > 0 && id <= i32::MAX as i64),
             "Invalid discovery selection"
+        );
+        ensure!(
+            self.game_zone
+                .is_none_or(|id| (1..=i64::from(i32::MAX)).contains(&id)),
+            "Invalid game zone"
+        );
+        ensure!(
+            self.game_zone.is_none() || (self.partition.is_none() && self.region.is_none()),
+            "--partition and --region apply only to rankings discovery"
         );
         ensure!(
             self.page > 0
@@ -460,7 +566,7 @@ impl Run for FFLogsCollectCommand {
             "Incomplete discovery; inspect {}",
             self.output
         );
-        Ok(())
+        plan.validate()
     }
 }
 
@@ -504,6 +610,7 @@ fn download(
                 )?),
             };
             let metadata = client.metadata(&fight.report, Some(fight.fight))?;
+            fight.verify_metadata(&metadata)?;
             let data = client.collect_from_report(
                 &fight.report,
                 fight.fight,
