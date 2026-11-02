@@ -73,6 +73,7 @@ const event = (row: Row, name: string) =>
 try {
   execFileSync(binary, ["validate", timeline]);
   let rawInputsChecked = 0;
+  const continuous = [];
   for (const trace of corpus.traces) {
     if (!fs.existsSync(trace.input)) continue;
     // Validate the compact development fixture against raw indices when local corpus files are available.
@@ -92,6 +93,75 @@ try {
       raw.events[trace.completion_event].timestamp - trace.origin_timestamp_ms,
       trace.end_ms,
     );
+    const completion = raw.events[trace.completion_event];
+    assert.equal(actors.get(completion.targetID), "Thundergust Griffin");
+    assert.equal(completion.targetResources.hitPoints, 0);
+    const origin = raw.events[0].timestamp;
+    const entry = trace.origin_timestamp_ms - origin;
+    const finishAt = completion.timestamp - origin;
+    // Include players, trash and prior bosses so preselecting major casts cannot hide a competing sync.
+    const casts: Observation[] = raw.events
+      .filter((item: any) => item.type === "cast")
+      .map((item: any) => {
+        const source = actors.get(item.sourceID);
+        assert.equal(typeof source, "string", `${trace.trace}: source ${item.sourceID}`);
+        return {
+          at_ms: item.timestamp - origin,
+          type: "Ability",
+          fields: { id: item.abilityGameID.toString(16).toUpperCase(), source },
+        };
+      });
+    const end = Math.max(finishAt, casts.at(-1)!.at_ms) + 30000;
+    const rows = replay(timeline, casts, end);
+    assert.deepEqual(clean(rows), [], trace.trace);
+    const phases = rows.filter((row) => row.action === "phase");
+    assert.equal(phases.length, 1, trace.trace);
+    assert.equal(phases[0].at_ms, entry, trace.trace);
+    assert(!rows.some((row) => row.action === "event" && row.at_ms < entry), trace.trace);
+    let maxQueryError = 0;
+    for (const sample of trace.samples as Sample[]) {
+      const at = entry + sample[0];
+      assert(rows.some((row) => event(row, names[sample[1]]) && Math.abs(row.at_ms - at) <= 1500));
+      if (sample[0] < 5000) continue;
+      const forecast = query(timeline, casts, end, at - 5000);
+      assert.deepEqual([...forecast.diagnostics, ...forecast.projection_diagnostics], []);
+      const error = Math.min(
+        ...forecast.events
+          .filter((row) => row.name === names[sample[1]])
+          .map((row) => Math.abs(row.at_ms - at)),
+      );
+      assert(error <= 1500, `${trace.trace}: full-cast forecast at ${at}`);
+      maxQueryError = Math.max(maxQueryError, error);
+    }
+    // HP=0 is evidence of the endpoint, not an observed ACT InCombat signal; test cancellation as an explicit assumption.
+    const stopped = replay(
+      timeline,
+      [...casts, { at_ms: finishAt, type: "InCombat", fields: { inGameCombat: "0" } }].sort(
+        (left, right) => left.at_ms - right.at_ms,
+      ),
+      end,
+    );
+    assert.deepEqual(clean(stopped), [], trace.trace);
+    assert.deepEqual(
+      stopped.filter((row) => row.action === "event" && row.at_ms < finishAt),
+      rows.filter((row) => row.action === "event" && row.at_ms < finishAt),
+      trace.trace,
+    );
+    assert(!stopped.some((row) => row.action === "event" && row.at_ms >= finishAt));
+    const extrapolated = rows.filter((row) => row.action === "event" && row.at_ms > finishAt);
+    assert(extrapolated.length > 0, `${trace.trace}: missing finish must leave predictions active`);
+    continuous.push({
+      trace: trace.trace,
+      cast_observations: casts.length,
+      pre_entry_casts: casts.filter((item) => item.at_ms < entry).length,
+      entry_ms: entry,
+      targets: trace.samples.length,
+      forecast_targets: trace.samples.filter((sample: Sample) => sample[0] >= 5000).length,
+      max_query_error_ms: maxQueryError,
+      synthetic_finish_ms: finishAt,
+      predictions_after_completion_without_finish: extrapolated.length,
+      status: "passed",
+    });
     rawInputsChecked++;
   }
   const reports = [];
@@ -317,6 +387,16 @@ try {
     fixture_sha256: sha256(fixture),
     role: corpus.role,
     raw_inputs_checked: rawInputsChecked,
+    continuous: {
+      projection:
+        "All raw FFLogs casts to Ability, original actor names; HP=0 is not a runtime stop signal",
+      finish_assumption:
+        "Synthetic InCombat=0 at Griffin HP=0; availability and timing in ACT unverified",
+      skipped_inputs: corpus.traces
+        .filter((trace: any) => !fs.existsSync(trace.input))
+        .map((trace: any) => trace.input),
+      traces: continuous,
+    },
     forecast_lead_ms: 5000,
     tolerance_ms: 1500,
     reports,
@@ -354,7 +434,7 @@ try {
     assert(representative?.stable_recovery_ms, `Fallback did not restore forecasts: ${scenario}`);
   }
   console.log(
-    `Verified ${reports.filter((row) => row.label === "authored").length} development checks and ${cases.length} control cases; evaluated ${recovery.length} perturbations with pre-recovery misses retained; report: ${output}`,
+    `Verified ${reports.filter((row) => row.label === "authored").length} development checks, ${continuous.length} full-cast traces and ${cases.length} control cases; evaluated ${recovery.length} perturbations with pre-recovery misses retained; report: ${output}`,
   );
 } finally {
   fs.rmSync(directory, { recursive: true, force: true });
