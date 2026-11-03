@@ -3904,3 +3904,67 @@ fn all_observations_at_a_timestamp_precede_scheduled_events() {
             .any(|r| r.action == "unobserved" && r.detail == "hit" && r.at_ms == 1000)
     );
 }
+
+#[rstest]
+#[case(r#"on "StartsUsing" id="AD09"; event "hit" 3.0 name="Hit";"#, true)]
+#[case(
+    r#"on "StartsUsing" id="AD09" at=2.0; event "hit" 3.0 name="Hit";"#,
+    false
+)]
+#[case(r#"event "hit" 3.0 name="Hit";"#, false)]
+#[case(r#"on "StartsUsing" id="AD09";"#, false)]
+#[case(
+    r#"on "StartsUsing" id="AD09"; event "hit" 3.0 name="Hit"; event "hit" 4.0 name="Duplicate";"#,
+    false
+)]
+fn validates_sequence_body_and_catalog_ownership(#[case] body: &str, #[case] valid: bool) {
+    let source = format!(
+        r#"timeline 1 "Example" {{ start "Ability" id="AD2B"; phase "solo" {{
+            enter "Ability" id="AD2B"
+            sequence "mana" {{ {body} }}
+        }} }}"#
+    );
+    let result = parse(&source);
+    assert_eq!(result.is_ok(), valid, "{result:?}");
+    if let Ok(timeline) = result {
+        let owner = &timeline.catalog.events.values().next().unwrap().owner;
+        assert_eq!(owner.phase.as_deref(), Some("solo"));
+        assert_eq!(owner.sequence.as_deref(), Some("mana"));
+        let error = replay(&timeline, &recording(0, serde_json::json!([])).unwrap())
+            .expect_err("sequence execution is pending");
+        assert!(error.to_string().contains("Replay of sequence mana"));
+    }
+}
+
+#[test]
+fn sequence_ids_are_phase_local() {
+    let phase = |id| {
+        format!(
+            r#"phase "{id}" {{
+                enter "Ability" id="{id}"
+                sequence "reaction" {{
+                    on "StartsUsing" id="AD09"
+                    event "{id}-hit" 3.0 name="Hit"
+                }}
+            }}"#
+        )
+    };
+    let timeline = format!(
+        "timeline 1 \"Example\" {{ start \"Ability\"; {}\n{} }}",
+        phase("one"),
+        phase("two")
+    );
+    assert_eq!(parse(&timeline).unwrap().catalog.events.len(), 2);
+    let duplicate = timeline.replace(
+        r#"event "one-hit" 3.0 name="Hit"
+                }"#,
+        r#"event "one-hit" 3.0 name="Hit"
+                }
+                sequence "reaction" {
+                    on "StartsUsing" id="AD08"
+                    event "other-hit" 3.0 name="Hit"
+                }"#,
+    );
+    let error = parse(&duplicate).expect_err("duplicate sequence in the same phase");
+    assert!(format!("{error:#}").contains("Duplicate sequence ID reaction"));
+}

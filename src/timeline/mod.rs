@@ -68,6 +68,14 @@ pub(crate) struct Phase {
     events: Vec<Event>,
     branches: Vec<Branch>,
     loops: Vec<Loop>,
+    sequences: Vec<Sequence>,
+}
+
+#[derive(Debug)]
+struct Sequence {
+    id: String,
+    starts: Vec<Signal>,
+    events: Vec<Event>,
 }
 
 #[derive(Debug)]

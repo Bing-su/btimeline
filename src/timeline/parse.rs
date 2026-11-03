@@ -243,6 +243,14 @@ fn signal_fields(node: &KdlNode, reserved: &[&str]) -> Result<BTreeMap<String, F
 }
 
 fn signal(node: &KdlNode, role: &str) -> Result<Signal> {
+    if role == "on" {
+        ensure!(
+            ["at", "before", "after", "from", "resume-at"]
+                .iter()
+                .all(|key| node.get(*key).is_none()),
+            "sequence on does not support windows, from or resume-at"
+        );
+    }
     let sync = role == "sync";
     let timed = matches!(role, "sync" | "enter" | "when" | "merge-when" | "until");
     let reserved: &[&str] = match role {
@@ -541,12 +549,24 @@ impl Validation {
         shape(node, 1, &[])?;
         let id = self.id(node)?;
         let mut enters = Vec::new();
+        let mut sequences = Vec::new();
+        let mut sequence_ids = BTreeSet::new();
         let mut body = Vec::new();
         for child in children(node) {
             if child.name().value() == "enter" {
                 let s = signal(child, "enter").with_context(|| location(source, child))?;
                 self.phase_refs.extend(s.from.iter().cloned());
                 enters.push(s);
+            } else if child.name().value() == "sequence" {
+                let sequence = self
+                    .sequence_node(child)
+                    .with_context(|| location(source, child))?;
+                ensure!(
+                    sequence_ids.insert(sequence.id.clone()),
+                    "Duplicate sequence ID {} in phase {id}",
+                    sequence.id
+                );
+                sequences.push(sequence);
             } else {
                 body.push(child.clone());
             }
@@ -569,7 +589,27 @@ impl Validation {
             events,
             branches,
             loops,
+            sequences,
         })
+    }
+
+    fn sequence_node(&mut self, node: &KdlNode) -> Result<super::Sequence> {
+        shape(node, 1, &[])?;
+        let id = arg_string(node, 0)?;
+        let mut starts = Vec::new();
+        let mut events = Vec::new();
+        for child in children(node) {
+            match child.name().value() {
+                "on" => starts.push(signal(child, "on")?),
+                "event" => events.push(self.event(child, 0, None)?),
+                name => bail!("Unknown sequence child {name}"),
+            }
+        }
+        ensure!(
+            !starts.is_empty() && !events.is_empty(),
+            "sequence requires on and event"
+        );
+        Ok(super::Sequence { id, starts, events })
     }
 
     fn branch(

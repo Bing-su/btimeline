@@ -203,6 +203,37 @@ sync 42.0 "Ability" source="The Tyrant" {
 
 신호 하나를 이벤트에 붙이는 것이 불편한 단순 행에만 단축 속성을 추가하는 설계는 아직 도입하지 않는다. 이벤트 ID와 로그 필드의 이름 충돌을 피하고, 모든 동기화에 동일한 `sync` 문법을 쓴다.
 
+## 신호로 시작하는 sequence · 구현 예정
+
+`sequence`는 활성 phase 안에서 관측 신호를 기준으로 시작하는 하위 일정이다. 파서와 구조 검사는 아래 구문을 지원한다. 재생과 미래 조회는 실행부가 연결되기 전까지 sequence가 있는 문서를 거부한다. 아래 실행 규칙은 구현 계약이다.
+
+```kdl
+phase "ultima-solo" {
+    enter "WasDefeated" target="Omega, the One" from="duo"
+
+    sequence "mana-screen" {
+        on "StartsUsing" id="AD09" source="Ultima, the Feared"
+        event "ultima-solo-mana-screen" 3.0 name="Ultima: Mana Screen"
+    }
+
+    sequence "energy-orb" {
+        on "StartsUsing" id="AD08" source="Ultima, the Feared"
+        event "ultima-solo-energy-orb" 3.0 name="Ultima: Energy Orb"
+    }
+}
+```
+
+| 항목      | 제안 규칙                                                                                                                                                                                           |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 작성 위치 | `phase` 직속에 둔다. 같은 phase의 sequence ID는 고유하다. 본문은 하나 이상의 `on`과 하나 이상의 `event`로 구성한다. 이벤트 ID는 문서 전체 고유 규칙을 따른다.                                       |
+| 시작      | 이미 활성인 부모 phase에서 `on`과 일치한 관측의 시각을 하위 시계 0으로 삼는다. 같은 관측이 같은 sequence의 여러 `on`과 일치해도 한 번 시작한다. 서로 다른 sequence는 각각 시작할 수 있다.           |
+| 재시작    | 같은 sequence의 새 관측은 기존 실행의 미실행 예약만 교체한다. 서로 다른 sequence의 일정과 부모 일정은 각각 유지한다.                                                                                |
+| 시계      | 본문 이벤트는 sequence 시작 기준이다. 본문 `sync`는 해당 실행의 시계만 보정한다. 부모 시계 보정과 형제 sequence의 보정은 이 실행을 이동시키지 않는다.                                               |
+| 신호 순서 | phase 진입·종료나 전투 수명주기에 소비된 관측은 `on`을 시작시키지 않는다. 같은 실행을 시작한 관측은 그 실행의 `sync`로 다시 사용하지 않는다. 복수 sync 후보의 경쟁에는 공통 모호성 규칙을 적용한다. |
+| 종료      | 모든 본문 이벤트가 처리되면 실행이 끝난다. 부모 phase 종료·전환, 전투 종료, 전멸, 구역 이탈은 그 phase의 미실행 하위 예약도 취소한다.                                                               |
+
+첫 범위는 신호로 시작하는 유한 일정이다. `on`에 window나 진입 오프셋을 두는 문법과 sequence 내부의 중첩·분기·반복은 별도 사례가 생기면 검토한다. 구문은 `timeline 1`의 확장이다. 이전 실행기는 새 노드를 거부할 수 있으므로 sequence 문서는 이를 지원하는 실행기를 사용한다.
+
 ## 브랜치와 합류
 
 `branch "id" open=초 close=초`는 소속 phase 또는 loop 회차의 `[open, close)`에서 선택 신호를 받는다. `open < close`이며 해당 구간의 시계 기준이다. 선택지는 둘 이상이다. 각 `option` 안에 `when "타입" 필드...`를 하나 이상 두며 여러 신호는 OR다. 조건이 없는 option은 오류다.

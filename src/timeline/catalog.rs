@@ -8,6 +8,8 @@ use super::{Branch, Event, Field, Loop, Signal, Timeline};
 #[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub(crate) struct Owner {
     pub phase: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sequence: Option<String>,
     pub loop_id: Option<String>,
     pub branch: Option<String>,
     pub option: Option<String>,
@@ -68,15 +70,22 @@ impl Catalog {
         let mut catalog = Self::default();
         catalog.body(&timeline.events, &[], &[], &Owner::default());
         for phase in &timeline.phases {
-            catalog.body(
-                &phase.events,
-                &phase.branches,
-                &phase.loops,
-                &Owner {
-                    phase: Some(phase.id.clone()),
-                    ..Owner::default()
-                },
-            );
+            let owner = Owner {
+                phase: Some(phase.id.clone()),
+                ..Owner::default()
+            };
+            catalog.body(&phase.events, &phase.branches, &phase.loops, &owner);
+            for sequence in &phase.sequences {
+                catalog.body(
+                    &sequence.events,
+                    &[],
+                    &[],
+                    &Owner {
+                        sequence: Some(sequence.id.clone()),
+                        ..owner.clone()
+                    },
+                );
+            }
         }
         catalog
     }

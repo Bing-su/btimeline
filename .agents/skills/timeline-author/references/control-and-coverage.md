@@ -19,6 +19,17 @@ Use this table when similar signals, divergent timing or multiple actors make a 
 
 For R12S Raptor and Serpentine, impact identifies a known offset in the selected path. For San d’Oria Kirin, the ADCD and Double Cast recovery schedules have separate signal anchors and lead-time evidence. Preserve that distinction until a shared offset is verified.
 
+### Choosing a signal-relative schedule
+
+The [sequence syntax](timeline-schema.md#신호로-시작하는-sequence--구현-예정) is parsed and validated. Execution is pending. Use the current KDL schema for executable timelines. When reviewing a candidate for migration, check what each signal should start, move, or cancel.
+
+| Observation                                                                       | Structure                                                                                                |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| A cast starts a short schedule while the current encounter stage stays active     | Consider a sequence. San d’Oria’s survivor casts are the first migration case.                           |
+| A helper effect is already predictable before its parent mechanic signal          | Keep the existing schedule or loop and verify the available lead. Malphas’s Puppet waves are an example. |
+| A boundary cancels the previous schedule and anchors a continuation or checkpoint | Use a phase transition. Queen Eternal and Lindwurm supply examples.                                      |
+| The next route depends on earlier choices                                         | Retain the selection history and merge rules. Varis’s Gunshield order is an example.                     |
+
 ### Moving from a waiting loop to a follow-up phase
 
 1. Use `until` if the signal should stop only the loop and preserve the phase’s other reservations. Use `enter from` if it should cancel the old schedule and anchor a new one. Check which pending displays must survive before moving them.

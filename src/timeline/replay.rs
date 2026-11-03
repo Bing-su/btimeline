@@ -1776,6 +1776,7 @@ impl<'a> Replay<'a> {
                         loop_id: Some(entry.definition.id.clone()),
                         branch: Some(branch.id.clone()),
                         option: Some(option.id.clone()),
+                        ..Owner::default()
                     },
                 );
                 if let Some(row) = self.out.last_mut() {
@@ -2220,6 +2221,19 @@ fn validate_nested_repeat(repeat: &Loop, end_ms: i64) -> Result<()> {
 }
 
 fn replay_until<'a>(timeline: &'a Timeline, input: &Recording, at_ms: i64) -> Result<Replay<'a>> {
+    // Until execution is wired up, do not report a successful replay that omits a sequence.
+    if let Some(sequence) = timeline
+        .phases
+        .iter()
+        .flat_map(|phase| &phase.sequences)
+        .next()
+    {
+        anyhow::bail!(
+            "Replay of sequence {} ({} on signals) is not supported yet",
+            sequence.id,
+            sequence.starts.len()
+        );
+    }
     validate_recording(input)?;
     validate_repeat_support(timeline, at_ms)?;
     let mut state = Replay {
