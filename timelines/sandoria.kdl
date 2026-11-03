@@ -8,9 +8,14 @@ timeline 1 "San d'Oria: The Second Walk" {
     wipe "ActorControl" command="4000000F"
     wipe "ActorControl" command="40000010"
     finish "InCombat" inGameCombat="0"
-    // Either defeat closes the joint schedule. Only Omega-first has an observed solo route.
+    // Either defeat closes the joint schedule and arms only the survivor.
     boss-complete "WasDefeated" target="Omega, the One" from="duo"
-    boss-complete "WasDefeated" target="Ultima, the Feared"
+    boss-complete "WasDefeated" target="Ultima, the Feared" from="duo"
+    boss-complete "WasDefeated" target="Omega, the One" from="omega-solo"
+    boss-complete "WasDefeated" target="Omega, the One" from="omega-solo-trajectory"
+    boss-complete "WasDefeated" target="Ultima, the Feared" from="ultima-solo"
+    boss-complete "WasDefeated" target="Ultima, the Feared" from="ultima-solo-mana"
+    boss-complete "WasDefeated" target="Ultima, the Feared" from="ultima-solo-orb"
     zone-exit "ChangeZone"
 
     phase "kirin" {
@@ -141,6 +146,15 @@ timeline 1 "San d'Oria: The Second Walk" {
         enter "StartsUsing" id="AD08" source="Ultima, the Feared" from="ultima-solo"
         enter "StartsUsing" id="AD08" source="Ultima, the Feared" from="ultima-solo-mana"
         event "ultima-solo-energy-orb" 3.0 name="Ultima: Energy Orb"
+    }
+
+    phase "omega-solo" {
+        enter "WasDefeated" target="Ultima, the Feared" from="duo"
+    }
+
+    phase "omega-solo-trajectory" {
+        enter "StartsUsing" id="AD23" source="Omega, the One" from="omega-solo"
+        event "omega-solo-trajectory-projection" 3.5 name="Omega: Trajectory Projection"
     }
 
     phase "kam" {

@@ -466,16 +466,29 @@ fn ultima_solo_forecasts_only_observed_new_casts(
 }
 
 #[test]
-fn ultima_first_defeat_does_not_arm_an_unsupported_omega_tail() {
-    let forecast = run(
-        "forecast",
-        vec![
-            signal(0, "Ability", "AD2B", "Omega, the One"),
-            json!({"at_ms":90000,"type":"WasDefeated","fields":{"target":"Ultima, the Feared"}}),
-            signal(95000, "StartsUsing", "AD09", "Ultima, the Feared"),
-        ],
-        95500,
-        5000,
+fn ultima_first_defeat_arms_omega_cast_and_cancels_on_omega_defeat() {
+    let mut observations = vec![
+        signal(0, "Ability", "AD2B", "Omega, the One"),
+        json!({"at_ms":90000,"type":"WasDefeated","fields":{"target":"Ultima, the Feared"}}),
+        signal(95000, "StartsUsing", "AD09", "Ultima, the Feared"),
+        signal(95159, "StartsUsing", "AD23", "Omega, the One"),
+        json!({"at_ms":95259,"type":"WasDefeated","fields":{"target":"Ultima, the Feared"}}),
+    ];
+    let waiting = run("forecast", observations.clone(), 95000, 5000);
+    assert_eq!(waiting["phase"], "omega-solo");
+    assert_eq!(waiting["events"], json!([]));
+    let forecast = run("forecast", observations.clone(), 95659, 5000);
+    let events = forecast["events"].as_array().unwrap();
+    assert_eq!(events.len(), 1, "{forecast}");
+    assert_eq!(events[0]["id"], "omega-solo-trajectory-projection");
+    assert_eq!(events[0]["at_ms"], 98659);
+    observations.push(json!({
+        "at_ms":97000,
+        "type":"WasDefeated",
+        "fields":{"target":"Omega, the One"}
+    }));
+    assert_eq!(
+        run("forecast", observations, 97500, 5000)["events"],
+        json!([])
     );
-    assert_eq!(forecast["events"], json!([]));
 }
