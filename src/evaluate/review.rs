@@ -265,7 +265,7 @@ fn compact(report: &Report, limit: usize, offset: usize) -> Result<Value> {
     let mut scopes = 0;
     for trace in &report.traces {
         ensure!(
-            ["evaluated", "excluded", "error"].contains(&trace.status.as_str()),
+            ["evaluated", "excluded", "error", "unverified"].contains(&trace.status.as_str()),
             "Invalid trace status"
         );
         for boss in &trace.bosses {

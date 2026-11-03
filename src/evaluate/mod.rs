@@ -30,7 +30,7 @@ pub struct EvaluateCommand {
     manifest: Utf8PathBuf,
     /// Encounter-specific projection facts and scope, not a runtime timeline dependency.
     #[usage(long)]
-    profile: Utf8PathBuf,
+    profile: Option<Utf8PathBuf>,
     /// New JSON report; never overwrite an existing result.
     #[usage(short = 'o', long)]
     output: Utf8PathBuf,
@@ -73,7 +73,7 @@ fn ensure_unchanged(path: &str, original: &[u8]) -> Result<()> {
 
 fn evaluate_input(
     item: &Input,
-    profile: &Profile,
+    profile: Option<&Profile>,
     model: &crate::timeline::Timeline,
     manifest: &Manifest,
     seen: &mut BTreeSet<String>,
@@ -87,6 +87,11 @@ fn evaluate_input(
     *stage = "input-inspection";
     // Reuse inspect's integrity validation; a malformed download is an error, not an exclusion.
     let log = crate::generate::validated_collected(Path::new(&item.input), &bytes)?;
+    let Some(profile) = profile else {
+        return Ok(
+            json!({"status":"unverified","input":item.input,"sha256":item.sha256,"passed":null,"review_required":true,"error":"No unambiguous single-phase entry and visible impact bindings in KDL"}),
+        );
+    };
     *stage = "input-validation";
     let projected = projection::project(&log, profile)?;
     let samples = projected
@@ -100,7 +105,10 @@ fn evaluate_input(
         })
         .collect::<Vec<_>>();
     let fingerprint = hash(&serde_json::to_vec(&samples)?);
-    if manifest.excluded_fingerprints.contains(&fingerprint) || !seen.insert(fingerprint.clone()) {
+    if samples.iter().any(|sample| !sample.is_empty())
+        && (manifest.excluded_fingerprints.contains(&fingerprint)
+            || !seen.insert(fingerprint.clone()))
+    {
         // Duplicate target sequences may contain new unselected casts; retain the audit without counting independence.
         let audit_only = projected
             .bosses
@@ -114,11 +122,28 @@ fn evaluate_input(
     }
     *stage = "timeline-evaluation";
     let mut result = score::score(model, &projected, manifest)?;
+    let has_forecast = projected.bosses.iter().any(|boss| {
+        boss.targets.iter().any(|target| {
+            target.at_ms - boss.entry_ms >= target.lead_ms.unwrap_or(manifest.forecast_lead_ms)
+        })
+    });
     let fields = result
         .as_object_mut()
         .context("Expected evaluation object")?;
+    let status = if profile.inferred && !has_forecast && fields.get("passed") == Some(&json!(true))
+    {
+        fields.insert("passed".into(), Value::Null);
+        fields.insert("review_required".into(), json!(true));
+        fields.insert(
+            "error".into(),
+            json!("No inferred targets with enough observed time for a forecast"),
+        );
+        "unverified"
+    } else {
+        "evaluated"
+    };
     let fight = log.report.fights.first().context("Missing fight")?;
-    fields.extend(json!({"status":"evaluated","input":item.input,"sha256":item.sha256,"trace":format!("{}/{}",log.report.code,fight.id),"fingerprint":fingerprint}).as_object().context("Trace fields")?.clone());
+    fields.extend(json!({"status":status,"input":item.input,"sha256":item.sha256,"trace":format!("{}/{}",log.report.code,fight.id),"fingerprint":fingerprint}).as_object().context("Trace fields")?.clone());
     Ok(result)
 }
 fn summary(traces: &[Value]) -> Value {
@@ -130,7 +155,33 @@ fn summary(traces: &[Value]) -> Value {
         .iter()
         .filter(|trace| trace.get("passed") == Some(&Value::Bool(true)))
         .count();
-    json!({"selected":traces.len(),"excluded":traces.len()-eligible.len(),"eligible":eligible.len(),"passed_traces":passed,"passed":!eligible.is_empty()&&passed==eligible.len()})
+    let unverified = eligible
+        .iter()
+        .filter(|trace| trace.get("status").and_then(Value::as_str) == Some("unverified"))
+        .count();
+    let mut result = json!({"selected":traces.len(),"excluded":traces.len()-eligible.len(),"eligible":eligible.len()-unverified,"passed_traces":passed,"passed":!eligible.is_empty()&&passed==eligible.len()});
+    if let Some(fields) = result.as_object_mut().filter(|_| unverified > 0) {
+        fields.insert("unverified".into(), json!(unverified));
+    }
+    result
+}
+
+impl Manifest {
+    fn validate_criteria(&self, explicit_profile: bool) -> Result<()> {
+        ensure!(
+            self.evidence_role != Some(coverage::EvidenceRole::HeldOut)
+                || (self.evaluator_sha256.is_some()
+                    && (!explicit_profile || self.profile_sha256.is_some())),
+            "Held-out coverage requires frozen profile and evaluator hashes when a profile is supplied, and a frozen evaluator otherwise"
+        );
+        ensure!(
+            (1..=crate::timeline::MAX_MS).contains(&self.forecast_lead_ms)
+                && (1..=crate::timeline::MAX_MS).contains(&self.horizon_ms)
+                && (0..=crate::timeline::MAX_MS).contains(&self.tolerance_ms),
+            "Invalid forecast criteria"
+        );
+        Ok(())
+    }
 }
 
 fn failure(item: &Input, stage: &str, error: anyhow::Error) -> Value {
@@ -152,25 +203,15 @@ impl Run for EvaluateCommand {
         );
         let manifest_bytes = fs::read(&self.manifest)?;
         let manifest: Manifest = serde_json::from_slice(&manifest_bytes)?;
-        ensure!(
-            manifest.evidence_role != Some(coverage::EvidenceRole::HeldOut)
-                || (manifest.profile_sha256.is_some() && manifest.evaluator_sha256.is_some()),
-            "Held-out coverage requires frozen profile and evaluator hashes"
-        );
-        ensure!(
-            (1..=crate::timeline::MAX_MS).contains(&manifest.forecast_lead_ms)
-                && (1..=crate::timeline::MAX_MS).contains(&manifest.horizon_ms)
-                && (0..=crate::timeline::MAX_MS).contains(&manifest.tolerance_ms),
-            "Invalid forecast criteria"
-        );
-        let profile_bytes = fs::read(&self.profile)?;
-        let profile_sha256 = hash(&profile_bytes);
+        manifest.validate_criteria(self.profile.is_some())?;
+        let profile_bytes = self.profile.as_ref().map(fs::read).transpose()?;
+        let profile_sha256 = profile_bytes.as_deref().map(hash);
         let evaluator_sha256 = hash(&fs::read(std::env::current_exe()?)?);
         ensure!(
             manifest
                 .profile_sha256
                 .as_ref()
-                .is_none_or(|expected| expected == &profile_sha256),
+                .is_none_or(|expected| Some(expected) == profile_sha256.as_ref()),
             "Projection profile changed since freeze"
         );
         ensure!(
@@ -180,32 +221,47 @@ impl Run for EvaluateCommand {
                 .is_none_or(|expected| expected == &evaluator_sha256),
             "Evaluator binary changed since freeze"
         );
-        let profile: Profile = serde_json::from_slice(&profile_bytes)?;
-        profile.validate()?;
         let timeline_bytes = fs::read(&manifest.timeline)?;
         ensure!(
             hash(&timeline_bytes) == manifest.timeline_sha256,
             "Candidate changed"
         );
         let model = crate::timeline::parse(std::str::from_utf8(&timeline_bytes)?)?;
-        profile.validate_bindings(&model)?;
+        let profile = if let Some(bytes) = &profile_bytes {
+            Some(serde_json::from_slice::<Profile>(bytes)?)
+        } else {
+            Profile::infer(&model)
+        };
+        if let Some(profile) = &profile {
+            profile.validate()?;
+            profile.validate_bindings(&model)?;
+        }
         let mut seen = BTreeSet::new();
         let traces = manifest
             .inputs
             .iter()
             .map(|item| {
                 let mut stage = "input-validation";
-                evaluate_input(item, &profile, &model, &manifest, &mut seen, &mut stage)
-                    .unwrap_or_else(|error| failure(item, stage, error))
+                evaluate_input(
+                    item,
+                    profile.as_ref(),
+                    &model,
+                    &manifest,
+                    &mut seen,
+                    &mut stage,
+                )
+                .unwrap_or_else(|error| failure(item, stage, error))
             })
             .collect::<Vec<_>>();
         // The run uses immutable in-memory inputs; bind the report to files that stayed unchanged, too.
         for (path, bytes) in [
             (self.manifest.as_str(), &manifest_bytes),
-            (self.profile.as_str(), &profile_bytes),
             (manifest.timeline.as_str(), &timeline_bytes),
         ] {
             ensure_unchanged(path, bytes)?;
+        }
+        if let Some((path, bytes)) = self.profile.as_ref().zip(profile_bytes.as_ref()) {
+            ensure_unchanged(path.as_str(), bytes)?;
         }
         let summary = summary(&traces);
         let passed = summary.get("passed") == Some(&Value::Bool(true));
@@ -213,14 +269,17 @@ impl Run for EvaluateCommand {
             "ACT equivalence and actual lifecycle signals".to_owned(),
             "UI visibility".to_owned(),
         ];
-        not_checked.extend(profile.not_checked);
+        if let Some(profile) = profile {
+            not_checked.extend(profile.not_checked);
+        }
         let review_required = traces
             .iter()
             .filter_map(|trace| trace.get("review_required").and_then(Value::as_bool))
             .reduce(|a, b| a || b);
         let report = json!({
             "version": 1, "manifest": self.manifest.as_str(), "manifest_sha256": hash(&manifest_bytes),
-            "timeline_sha256": manifest.timeline_sha256, "profile": self.profile.as_str(),
+            "timeline_sha256": manifest.timeline_sha256, "profile": self.profile.as_ref().map(|path| path.as_str()),
+            "projection": if self.profile.is_some() {"profile"} else {"inferred"},
             "profile_sha256": profile_sha256, "evaluator_sha256": evaluator_sha256,
             "bindings": { "profile_frozen": manifest.profile_sha256.is_some(), "evaluator_frozen": manifest.evaluator_sha256.is_some() },
             "role": manifest.role, "summary": summary, "review_required": review_required,

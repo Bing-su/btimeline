@@ -1,0 +1,14 @@
+timeline 1 "Doomtrain profile-free evaluation pilot" {
+    start "Ability" id="B25C" source="Doomtrain"
+    phase "train" {
+        enter "Ability" id="B25C" source="Doomtrain"
+        // Times come from n7TpPm3y9q6vcg4D/20. The pilot tracks all observed casts of four IDs.
+        event "turret-first" 46.3 name="Turret Crossing" { sync 46.3 "Ability" id="B23C" source="Doomtrain"; }
+        event "emission-a" 120.6 name="Head-On Emission" { sync 120.6 "Ability" id="B242" source="Doomtrain"; }
+        event "emission-b" 130.7 name="Head-On Emission" { sync 130.7 "Ability" id="B244" source="Doomtrain"; }
+        event "runaway" 176.1 name="Runaway Train" { sync 176.1 "Ability" id="B246" source="Doomtrain"; }
+        event "turret-second" 369.6 name="Turret Crossing" { sync 369.6 "Ability" id="B23C" source="Doomtrain"; }
+        event "emission-b-late" 377.6 name="Head-On Emission" { sync 377.6 "Ability" id="B244" source="Doomtrain"; }
+        event "emission-a-late" 390.7 name="Head-On Emission" { sync 390.7 "Ability" id="B242" source="Doomtrain"; }
+    }
+}

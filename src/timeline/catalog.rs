@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize, Serializer};
 
-use super::{Branch, Event, Loop, Timeline};
+use super::{Branch, Event, Field, Loop, Signal, Timeline};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub(crate) struct Owner {
@@ -33,6 +33,8 @@ pub(crate) struct EventDefinition {
     pub event: EventData,
     pub at_ms: i64,
     pub owner: Owner,
+    #[serde(skip)]
+    pub cast: Option<(String, String)>,
 }
 #[derive(Debug, Serialize)]
 pub(crate) struct BranchDefinition {
@@ -90,6 +92,7 @@ impl Catalog {
                     },
                     at_ms: event.at * 100,
                     owner: owner.clone(),
+                    cast: impact_cast(event),
                 },
             );
         }
@@ -146,5 +149,56 @@ impl Catalog {
                 },
             );
         }
+    }
+}
+
+fn impact_cast(event: &Event) -> Option<(String, String)> {
+    let mut impacts = event
+        .syncs
+        .iter()
+        .filter(|signal| signal.kind == "Ability" && signal.at == Some(event.at));
+    let binding = literal_cast(impacts.next()?)?;
+    impacts
+        .all(|signal| literal_cast(signal) == Some(binding))
+        .then(|| (binding.0.into(), binding.1.into()))
+}
+
+fn literal_cast(signal: &Signal) -> Option<(&str, &str)> {
+    if signal.kind != "Ability" || signal.fields.len() != 2 {
+        return None;
+    }
+    let field = |name| match signal.fields.get(name)? {
+        Field::Literal(values) => match values.as_slice() {
+            [value] => Some(value.as_str()),
+            _ => None,
+        },
+        Field::Regex(_) => None,
+    };
+    let id = field("id")?;
+    let number = i64::from_str_radix(id, 16).ok()?;
+    (number >= 0 && format!("{number:X}") == id).then_some((id, field("source")?))
+}
+
+impl Timeline {
+    pub(crate) fn single_cast_entry(&self) -> Option<(&str, &str, Vec<String>)> {
+        let [phase] = self.phases.as_slice() else {
+            return None;
+        };
+        let mut entries = phase.enters.iter().map(|signal| {
+            if signal.from.is_some() || signal.at.is_some() || signal.resume_at.is_some() {
+                return None;
+            }
+            literal_cast(signal)
+        });
+        let (first, source) = entries.next()??;
+        let mut ids = vec![first.into()];
+        for entry in entries {
+            let (id, other_source) = entry?;
+            if other_source != source {
+                return None;
+            }
+            ids.push(id.into());
+        }
+        Some((&phase.id, source, ids))
     }
 }

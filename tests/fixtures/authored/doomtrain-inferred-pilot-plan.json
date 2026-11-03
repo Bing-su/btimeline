@@ -1,0 +1,31 @@
+{
+  "timeline": "tests/fixtures/authored/doomtrain-inferred-pilot.kdl",
+  "timeline_sha256": "6eb1d66d43c6118d1068142aea8a3556f05061608b6d456e5cfbdbfa3de32411",
+  "role": "Profile-free pilot on previously collected reports not used to write this pilot",
+  "forecast_lead_ms": 5000,
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "inputs": [
+    {
+      "input": "logs/normal-doomtrain/wLXWQcp1YyJKaFNm_8.json",
+      "sha256": "467e13b14e2b69f496cf2f9ff892fc510e9805e6e06ce623eedf016f6b6d3b4f"
+    },
+    {
+      "input": "logs/normal-doomtrain/LRCYBQDdcn1NJ9Ta_20.json",
+      "sha256": "208680b0794614be685553ad7a9e21defcc579b8a8cc78b08c2cd9caa1849d61"
+    },
+    {
+      "input": "logs/normal-doomtrain/cad2G8YRmBZqFzWH_100.json",
+      "sha256": "f0ca5a09b8472557395909a780c1072b019d26bbd2aa9fa12fa3475e2f3c7419"
+    },
+    {
+      "input": "logs/normal-doomtrain/GAv16FHD7wp3f4C2_191.json",
+      "sha256": "b3c32318027e6bf50671d599087859e60482ea3e5e49fbec4b4d84fb00253f86"
+    },
+    {
+      "input": "logs/normal-doomtrain/DhxdcgTALF4wWpQ2_1.json",
+      "sha256": "562a36c6708ff060bba602d47c802d5a4a99747d4050d3c1230976f7d9d6cccb"
+    }
+  ],
+  "evidence_role": "development"
+}

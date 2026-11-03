@@ -40,6 +40,57 @@ fn command(directory: &Path) -> assert_cmd::Command {
     command
 }
 
+#[rstest::rstest]
+#[case(true)]
+#[case(false)]
+fn inferred_evaluation_requires_a_visible_impact_binding(#[case] bound: bool) {
+    let directory = tempfile::tempdir().unwrap();
+    let mut manifest = setup(directory.path());
+    let sync = if bound {
+        r#"{ sync 8.0 "Ability" id="B528" source="Synthetic Boss"; }"#
+    } else {
+        ""
+    };
+    let middle_sync = sync.replace("8.0", "4.0");
+    let timeline = format!(
+        r#"timeline 1 "Test" {{
+        start "Ability" id="B528" source="Synthetic Boss"
+        phase "boss" {{
+            enter "Ability" id="B528" source="Synthetic Boss"
+            event "first" 0.0 name="Unbound opening"
+            event "second" 4.0 name="Middle impact" {middle_sync}
+            event "third" 8.0 name="Bound impact" {sync}
+        }}
+    }}"#
+    );
+    fs::write(directory.path().join("timeline.kdl"), &timeline).unwrap();
+    manifest["timeline_sha256"] = json!(hash(timeline.as_bytes()));
+    save(directory.path(), &manifest);
+    let mut command = cargo_bin_cmd!("btimeline");
+    let assertion = command
+        .current_dir(directory.path())
+        .args(["evaluate", "manifest.json", "-o", "report.json"])
+        .assert();
+    if bound {
+        assertion.success();
+    } else {
+        assertion.failure();
+    }
+    let report: Value =
+        serde_json::from_slice(&fs::read(directory.path().join("report.json")).unwrap()).unwrap();
+    assert_eq!(report["projection"], "inferred");
+    assert_eq!(
+        report["traces"][0]["status"],
+        if bound { "evaluated" } else { "unverified" }
+    );
+    assert_eq!(report["summary"]["passed"], bound);
+    cargo_bin_cmd!("btimeline")
+        .current_dir(directory.path())
+        .args(["review", "report.json"])
+        .assert()
+        .success();
+}
+
 #[test]
 fn native_evaluation_matches_forecasts_binds_profile_and_preserves_reports() {
     let directory = tempfile::tempdir().expect("valid test fixture");

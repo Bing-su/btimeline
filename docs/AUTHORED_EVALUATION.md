@@ -12,6 +12,30 @@ cargo test evaluate
 
 명령은 입력·KDL을 한 번 읽고 기존 Rust 검증기·재생기·forecast를 직접 호출한다. cutoff마다 별도 프로세스를 실행하거나 정규화 임시 파일을 만들지 않는다. stdout은 `summary`·`review_required`·보고서 경로의 짧은 JSON이다. 원본 인덱스·개별 예고 오차·실행 진단은 `-o`의 전체 JSON에 보존한다. `summary.passed`는 선택 대상의 예고 판정이고 전체 시전의 해석 완료를 뜻하지 않는다.
 
+## Profile 없이 시작하기
+
+`--profile`을 생략하면 KDL 근거로 평가 가능한 범위를 추론한다. manifest에는 같은 KDL·원본 입력 해시와 공통 예고 기준을 둔다. 독립 보류 평가에는 평가기 해시도 고정한다.
+
+```sh
+target/debug/btimeline evaluate tests/fixtures/authored/griffin-native-regression-plan.json -o out/griffin-inferred-new.json
+target/debug/btimeline review out/griffin-inferred-new.json --limit 8
+```
+
+| 근거                                                    | 자동 평가 처리                                                                                                           |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 한 phase의 조건 없는 `enter Ability`와 단일 본체 시전자 | 첫 진입부터 기록 종료까지를 기본 범위로 사용한다. 본체가 모호하거나 HP 회복이 의심되는 입력은 기존 선별 정책을 적용한다. |
+| 표시와 같은 상대 시각에 명시한 본체 `Ability` sync      | 리터럴 ID와 시전자로 관측을 연결한다. 첫 진입 패킷은 예고 점수에서 뺀다.                                                 |
+| 이름만 같은 표시, 다른 시점의 sync, 모호한 alias        | 관측 연결을 추정하지 않는다. 대응 없는 표시와 미분류 시전은 검토에 남긴다.                                               |
+| 지원 범위를 식별할 수 없거나 조회할 예고가 없음         | `unverified`로 집계한다. 실제 재생 오류와 제어 진단은 실패로 유지한다.                                                   |
+
+보고서의 `projection: "inferred"`는 이 경로를 나타낸다. 통과는 평가한 대상에 한정되며, 다른 표시와 게임 진행까지 보증하는 값은 아니다. 최초 범위는 단일 phase다. 여러 phase의 진입 관계, 별도 평가 종료 조건, 기술마다 다른 예고 간격 등은 명시 profile이나 별도 근거가 필요하다.
+
+Griffin의 기존 원본 6개를 재실행해 적격 4개의 대상 29개를 평가했고 모두 통과했다. 같은 전투의 명시 profile은 76개 대상을 평가한다. 자동 평가가 덜 보는 범위를 확인할 수 있는 비교다.
+
+[Doomtrain 시험 KDL](../tests/fixtures/authored/doomtrain-inferred-pilot.kdl)은 `n7TpPm3y9q6vcg4D/20` 한 건에서 관측한 기술 ID 4개의 일정을 담는다. 작성에 쓰지 않은 [기존 수집 로그 5개](../tests/fixtures/authored/doomtrain-inferred-pilot-plan.json)를 같은 명령으로 평가했다. 1개가 통과했고, 4개에서 후반 Turret Crossing·Head-On Emission의 시각 오차 또는 대응 누락을 찾았다. 이 실험은 작성에 쓴 입력과 비교 입력을 구분했으며, 이전 작업에서 사용한 자료를 재사용했다.
+
+Varis의 여러 phase는 미확인으로 집계된다. Queen은 일부 기술이 연결되지만, 공통 5초 기준과 기록 전체 범위를 사용하면 기존 Castellation 발췌 평가와 결과가 다르다. 이 차이는 공통 기본값이 표현할 수 있는 범위의 예다.
+
 ## 입력과 판정
 
 | 입력      | 의미                                                                                                                                                                                                         |
@@ -31,7 +55,7 @@ cargo test evaluate
 
 `compare`에 FFLogs 파일을 직접 넣을 때의 `FFLogs.*` 의미는 바꾸지 않는다. `evaluate`는 아래 profile이 선언한 **검증용 가정**으로만 Ability/StartsUsing을 투영한다. HP=0을 WasDefeated·finish로 합성하지 않는다.
 
-새 독립 평가에서는 개발 보고서의 `profile_sha256`과 `evaluator_sha256`을 보류 manifest에 복사해 고정하고 `evidence_role: "held_out"`을 지정한다. 이 역할은 두 해시가 없으면 거부한다. 실행 파일의 실제 바이트 해시를 사용하므로 재빌드하면 바뀔 수 있다. 값이 다르면 로그를 평가하기 전에 거부한다. `evidence_role`은 `development`, `held_out`, `synthetic`, `unspecified` 중 하나이며 생략하면 `unspecified`다. 자유문 `role`이나 파일 이름으로 역할을 추정하지 않는다. 역할 선언·해시 고정 자체는 자료의 독립성을 증명하지 않는다. 기존 manifest는 계속 읽되 `bindings`에 동결 여부를 표시한다.
+새 독립 평가에서는 개발 보고서의 `evaluator_sha256`을 보류 manifest에 복사하고 `evidence_role: "held_out"`을 지정한다. 명시 profile을 사용하면 `profile_sha256`도 고정한다. 실행 파일의 실제 바이트 해시를 사용하므로 재빌드하면 바뀔 수 있다. 해시가 다르거나 고정한 profile을 생략하면 로그 평가 전에 거부한다. `evidence_role`은 `development`, `held_out`, `synthetic`, `unspecified` 중 하나이며 생략하면 `unspecified`다. 자유문 `role`이나 파일 이름으로 역할을 추정하지 않는다. 역할 선언·해시 고정 자체는 자료의 독립성을 증명하지 않는다. 기존 manifest는 계속 읽되 `bindings`에 동결 여부를 표시한다.
 
 ## Profile v1
 

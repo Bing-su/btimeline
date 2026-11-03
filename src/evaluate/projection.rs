@@ -30,6 +30,8 @@ pub(super) struct Profile {
     observations: ObservationScope,
     segments: Vec<SegmentRule>,
     pub not_checked: Vec<String>,
+    #[serde(skip)]
+    pub(super) inferred: bool,
 }
 #[derive(Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -37,6 +39,8 @@ enum ObservationScope {
     AllCasts,
     ScopedCasts,
     ScopedCastsAndStarts,
+    #[serde(skip)]
+    AllCastsAndStarts,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -97,6 +101,55 @@ pub(super) struct Projection {
     pub origin_timestamp_ms: i64,
     pub recording: Recording,
     pub bosses: Vec<Segment>,
+}
+
+impl Profile {
+    pub(super) fn infer(model: &crate::timeline::Timeline) -> Option<Self> {
+        let (phase, source, entry) = model.single_cast_entry()?;
+        let mut targets = BTreeMap::<String, TargetRule>::new();
+        for definition in model.catalog.events.values().filter(|definition| {
+            definition.event.visible && definition.owner.phase.as_deref() == Some(phase)
+        }) {
+            let Some((id, _)) = definition
+                .cast
+                .as_ref()
+                .filter(|(_, actor)| actor == source)
+            else {
+                continue;
+            };
+            let target = targets.entry(id.clone()).or_insert_with(|| TargetRule {
+                name: definition.event.name.clone(),
+                events: Vec::new(),
+                equivalents: Vec::new(),
+                source: None,
+                group: None,
+                lead_ms: None,
+            });
+            target.events.push(definition.event.id.clone());
+        }
+        if targets.is_empty() {
+            return None;
+        }
+        Some(Self {
+            version: 1,
+            observations: ObservationScope::AllCastsAndStarts,
+            segments: vec![SegmentRule {
+                phase: phase.into(),
+                encounter: None,
+                source: source.into(),
+                other_sources: Vec::new(),
+                entry,
+                completion: Completion::FightEnd,
+                max_duration_ms: None,
+                require_main_actor: true,
+                reject_health_reset: true,
+                targets,
+                ignored: BTreeMap::new(),
+            }],
+            not_checked: vec!["Displays without an unambiguous same-time boss Ability sync".into()],
+            inferred: true,
+        })
+    }
 }
 
 impl Profile {
@@ -227,6 +280,7 @@ fn project_segment(
     rule: &SegmentRule,
     actors: &BTreeMap<i64, &Actor>,
     origin: i64,
+    inferred: bool,
 ) -> Result<Segment> {
     let main = main_actors(log, rule)?;
     let source = |id: Option<i64>| id.and_then(|id| actors.get(&id)).map(|a| a.name.as_str());
@@ -287,6 +341,10 @@ fn project_segment(
         .enumerate()
         .filter(|(_, e)| e.kind == "cast" && e.timestamp >= start && e.timestamp <= end)
     {
+        // Entry opens the scope and cannot establish an advance warning.
+        if inferred && raw_index == entry_event {
+            continue;
+        }
         let id = ability(event)?;
         let Some((id_key, target)) = rule.targets.get_key_value(&id) else {
             continue;
@@ -311,7 +369,7 @@ fn project_segment(
         targets.push(target.project(raw_index, event.timestamp - origin, id));
     }
     ensure!(
-        !targets.is_empty(),
+        inferred || !targets.is_empty(),
         "No evaluation targets in declared scope"
     );
     let audit = audit_segment(log, rule, start..=end, origin)?;
@@ -373,7 +431,7 @@ pub(super) fn project(log: &CollectedLog, profile: &Profile) -> Result<Projectio
         .segments
         .iter()
         .filter(|r| r.encounter.is_none_or(|id| id == encounter))
-        .map(|rule| project_segment(log, rule, &actors, origin))
+        .map(|rule| project_segment(log, rule, &actors, origin, profile.inferred))
         .collect::<Result<Vec<_>>>()?;
     if bosses.is_empty() {
         return Err(exclude(
@@ -394,14 +452,19 @@ pub(super) fn project(log: &CollectedLog, profile: &Profile) -> Result<Projectio
         let at_ms = event.timestamp - origin;
         if event.kind != "cast"
             && !(event.kind == "begincast"
-                && profile.observations == ObservationScope::ScopedCastsAndStarts)
+                && matches!(
+                    profile.observations,
+                    ObservationScope::ScopedCastsAndStarts | ObservationScope::AllCastsAndStarts
+                ))
         {
             continue;
         }
-        if profile.observations != ObservationScope::AllCasts
-            && !bosses
-                .iter()
-                .any(|b| at_ms >= b.entry_ms && at_ms <= b.end_ms)
+        if !matches!(
+            profile.observations,
+            ObservationScope::AllCasts | ObservationScope::AllCastsAndStarts
+        ) && !bosses
+            .iter()
+            .any(|b| at_ms >= b.entry_ms && at_ms <= b.end_ms)
         {
             continue;
         }
