@@ -81,6 +81,7 @@ struct Branch {
 #[derive(Debug)]
 struct BranchOption {
     id: String,
+    fallback: bool,
     whens: Vec<Signal>,
     requires: Vec<(String, String)>,
     events: Vec<Event>,

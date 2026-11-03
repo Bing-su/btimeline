@@ -258,6 +258,10 @@ fn option_actions(
     let mut actions = Vec::new();
     let mut unresolved = Vec::new();
     for (option_index, option) in branch.options.iter().enumerate() {
+        // Recovery signals can also occur after the normal route was selected.
+        if option.fallback && state.selected.is_some() {
+            continue;
+        }
         if !matches_any(&option.whens, observation, time) {
             continue;
         }

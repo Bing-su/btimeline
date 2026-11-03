@@ -1,0 +1,437 @@
+{
+  "role": "Development regression for missing Eastwind wheel recovery",
+  "timeline": "timelines/sandoria.kdl",
+  "timeline_sha256": "62880e6a4d524104611cfc153478f679ae1e13c5d52053fc5e21e0d62da1fbc6",
+  "forecast_lead_ms": 5000,
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "eligibility": "Exactly one Boss actor per expected name; one FFLogs encounter; reject 75%-to-90% HP recovery and missing cast sources. End at recorded fight end capped from entry: kirin 230s, duo 238s, kam 325s, eald 357s; only these finite routes are evaluated. Wipes remain eligible. Deduplicate relative selected ID/time sequences. Duo scope also ends at first observed main-boss HP=0; no synthetic death observation is supplied.",
+  "target_policy": "Explicit selected primary IDs in sandoria_recording.ts; first Quake/Stonega III lead 2000ms because choices are visible only ~3s before resolution; other targets lead 5000ms. Added A916 Double Cast, A917/A918 joint hits and second Crystalline Resonance; Genbu and Eastwind Crimson Riddle retain 5000ms lead from distinct earlier controls. All changes made after reclassifying the initial holdouts.",
+  "inputs": [
+    {
+      "input": "logs/sandoria-authoring-development/MFCVjw7RNch6mxtZ_208.json",
+      "sha256": "37147f9ce99c3fc9619d53a58836f3d241e09fc39ed7161452b9708262671788",
+      "report": "MFCVjw7RNch6mxtZ",
+      "fight": 208
+    },
+    {
+      "input": "logs/sandoria-authoring-development/vxCKdkn9y4D8FRBQ_57.json",
+      "sha256": "6e4ca6a56b81f64db7a46359ecee50858d2940ca8cfc4bcb1cce133d08431dd5",
+      "report": "vxCKdkn9y4D8FRBQ",
+      "fight": 57
+    },
+    {
+      "input": "logs/sandoria-authoring-development/PAq8bNtxvXWG16QZ_70.json",
+      "sha256": "cf66300f9b203169afd391218e9e4a5cc1b812cf8040686889a1a00c01b73f75",
+      "report": "PAq8bNtxvXWG16QZ",
+      "fight": 70
+    },
+    {
+      "input": "logs/sandoria-authoring-development/vxCKdkn9y4D8FRBQ_59.json",
+      "sha256": "59c3b2d71fb792455c8318b9227801e05d284bec6ca28e4a01570be09b20d64e",
+      "report": "vxCKdkn9y4D8FRBQ",
+      "fight": 59
+    },
+    {
+      "input": "logs/sandoria-authoring-development/PAq8bNtxvXWG16QZ_72.json",
+      "sha256": "05249ea09596343ac8b5a9ad4ac6b920d5074f37ab08b786649f9ea2bd956b5a",
+      "report": "PAq8bNtxvXWG16QZ",
+      "fight": 72
+    },
+    {
+      "input": "logs/sandoria-authoring-development/MFCVjw7RNch6mxtZ_211.json",
+      "sha256": "45f0ce714577d035efbcd41dc713a9ba41b00bd63940107c0e96ca102f9cc98d",
+      "report": "MFCVjw7RNch6mxtZ",
+      "fight": 211
+    },
+    {
+      "input": "logs/sandoria-authoring-development/MFCVjw7RNch6mxtZ_206.json",
+      "sha256": "406e28d667b7dc8068dc55476465b1f4f1a37b52bfc6de44b7026e1d94b91e97",
+      "report": "MFCVjw7RNch6mxtZ",
+      "fight": 206
+    },
+    {
+      "input": "logs/sandoria-authoring-development/waxKy7T83zctVNGB_211.json",
+      "sha256": "cd6e1dd180555e1d32fcdf40ecbe7e31532b68011c00778e99f3a9cfbcaefa45",
+      "report": "waxKy7T83zctVNGB",
+      "fight": 211
+    },
+    {
+      "input": "logs/sandoria-authoring-development/PAq8bNtxvXWG16QZ_73.json",
+      "sha256": "a86379d51c6aaae784efaba356eb32c48fe96788209a55f06b33c5c960bc4712",
+      "report": "PAq8bNtxvXWG16QZ",
+      "fight": 73
+    },
+    {
+      "input": "logs/sandoria-authoring-development/vXgwtAWNJ3TBhHmy_7.json",
+      "sha256": "0d9c702ca9483386b2c0cff040958cd4b2bc9024218868a78d1822e48c195ea7",
+      "report": "vXgwtAWNJ3TBhHmy",
+      "fight": 7
+    },
+    {
+      "input": "logs/sandoria-authoring-development/waxKy7T83zctVNGB_206.json",
+      "sha256": "d90acb4866bb701faaaa0b38dca5ea87b4719569d8c6e6be38e217f06702c5a8",
+      "report": "waxKy7T83zctVNGB",
+      "fight": 206
+    },
+    {
+      "input": "logs/sandoria-authoring-development/PAq8bNtxvXWG16QZ_68.json",
+      "sha256": "c2aff20ed87e6ef8f56e4039dc138b90af3b99e2227e20451e28647e668b084b",
+      "report": "PAq8bNtxvXWG16QZ",
+      "fight": 68
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/HnxFmz3CVZkNW1Xp_50.json",
+      "sha256": "8af65dd17317718aeb31bf521bd72aa269b454b208de2af06efb0696104a4f6b",
+      "report": "HnxFmz3CVZkNW1Xp",
+      "fight": 50,
+      "encounter": 2070
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/aPVdHQmZJ9AbgwM6_24.json",
+      "sha256": "ae3666aae7da5c1496f0b9a70f0f063a32d0cd589e11cef29358626d124f93f3",
+      "report": "aPVdHQmZJ9AbgwM6",
+      "fight": 24,
+      "encounter": 2069
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/HnxFmz3CVZkNW1Xp_45.json",
+      "sha256": "1dd19123f19251bb6ca13fc890d0ee3b558de57e9c5f47ebbe0adb05424009ee",
+      "report": "HnxFmz3CVZkNW1Xp",
+      "fight": 45,
+      "encounter": 2067
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/HnxFmz3CVZkNW1Xp_47.json",
+      "sha256": "dc9fb561b04023f4c418b23616a5850990b62520c0ca8cc2912d21f847408ede",
+      "report": "HnxFmz3CVZkNW1Xp",
+      "fight": 47,
+      "encounter": 2068
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/Y3v4JFghpTjbnWwL_11.json",
+      "sha256": "762c84e9a869dd75289d2bdfc572fd19f2adcf3e1c54fc21ed056dc31fe7e6d8",
+      "report": "Y3v4JFghpTjbnWwL",
+      "fight": 11,
+      "encounter": 2070
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/HnxFmz3CVZkNW1Xp_49.json",
+      "sha256": "e0ea75695dc165cc75ab093009a9db7aec2da1b882e4300ceacbccd05d57bc45",
+      "report": "HnxFmz3CVZkNW1Xp",
+      "fight": 49,
+      "encounter": 2069
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/aPVdHQmZJ9AbgwM6_22.json",
+      "sha256": "2e56638c0426f6038382d53c2114476c97b78534577d3fa317fabfb349d95021",
+      "report": "aPVdHQmZJ9AbgwM6",
+      "fight": 22,
+      "encounter": 2068
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/Y3v4JFghpTjbnWwL_6.json",
+      "sha256": "e6ee85bdb40dcbeab8e061f01ea8f54c2d3c7aeba8bcd7fc11dee64b682b558a",
+      "report": "Y3v4JFghpTjbnWwL",
+      "fight": 6,
+      "encounter": 2067
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/Zdxv3yCMtJq6QVcP_36.json",
+      "sha256": "803d67b5be9d32837b80d9ecfd40d9bc29ed15492b54409048fadd87e1463110",
+      "report": "Zdxv3yCMtJq6QVcP",
+      "fight": 36,
+      "encounter": 2070
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/Mf29DAWxyrg1Tnpv_8.json",
+      "sha256": "d3c0256d1efe4466b27d3eae3861c83460e3d8210e2f9f8d2ab0aa8bee5bd56a",
+      "report": "Mf29DAWxyrg1Tnpv",
+      "fight": 8,
+      "encounter": 2069
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/Y3v4JFghpTjbnWwL_8.json",
+      "sha256": "e7f7093c6a072c9177b434b7f9f2a979cb3186179b8a5728dcfc4250aa40f1b3",
+      "report": "Y3v4JFghpTjbnWwL",
+      "fight": 8,
+      "encounter": 2068
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/Zdxv3yCMtJq6QVcP_31.json",
+      "sha256": "b03e674e06e56470dbda64b48ba7efa6d9588eb80112fd2789b40d1202382766",
+      "report": "Zdxv3yCMtJq6QVcP",
+      "fight": 31,
+      "encounter": 2067
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/aPVdHQmZJ9AbgwM6_25.json",
+      "sha256": "90b35e99a8576dcb7317a1e89753066b651abdd27a7b74a6142b14512dc1aa9c",
+      "report": "aPVdHQmZJ9AbgwM6",
+      "fight": 25,
+      "encounter": 2070
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/Y3v4JFghpTjbnWwL_10.json",
+      "sha256": "0346d6ef103eb68170daec8c5e3ee448724a4e088e1ae505afa18cb994c3ae52",
+      "report": "Y3v4JFghpTjbnWwL",
+      "fight": 10,
+      "encounter": 2069
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/Zdxv3yCMtJq6QVcP_33.json",
+      "sha256": "9315e7036aedd2757adb9f4de34fb5bdf47ff4968df9fce406ed4f17467dc5ee",
+      "report": "Zdxv3yCMtJq6QVcP",
+      "fight": 33,
+      "encounter": 2068
+    },
+    {
+      "input": "logs/sandoria-authoring-holdout/FqmhgXHZRdc6D7AK_14.json",
+      "sha256": "502b92dc3f48295f9ffae50b7d77fa08ef144804b7f80ee525efd10510112d50",
+      "report": "FqmhgXHZRdc6D7AK",
+      "fight": 14,
+      "encounter": 2067
+    },
+    {
+      "input": "logs/sandoria-authoring-fresh-holdout/ZaD3tGJp4wNhrTMB_35.json",
+      "sha256": "4a059e52f3ea86549f051cea2fea6fe327ce8cecb2f91659384d1137c1427d3f",
+      "report": "ZaD3tGJp4wNhrTMB",
+      "fight": 35,
+      "encounter": 2070
+    },
+    {
+      "input": "logs/sandoria-authoring-fresh-holdout/WyMPk36FTDGdxYjc_7.json",
+      "sha256": "3116c7f820233373357e75e6c7ff714c50445f6835297b999d3b3ef0436961bd",
+      "report": "WyMPk36FTDGdxYjc",
+      "fight": 7,
+      "encounter": 2069
+    },
+    {
+      "input": "logs/sandoria-authoring-fresh-holdout/WyMPk36FTDGdxYjc_3.json",
+      "sha256": "143108dabf0820c21ac635099a1d093fe3b427198784e333f898b017b709309f",
+      "report": "WyMPk36FTDGdxYjc",
+      "fight": 3,
+      "encounter": 2067
+    },
+    {
+      "input": "logs/sandoria-authoring-fresh-holdout/WyMPk36FTDGdxYjc_5.json",
+      "sha256": "c32ecc0f981fba4d88066d6a5b4177fc87beaee16bb64da55963ac8e184e1314",
+      "report": "WyMPk36FTDGdxYjc",
+      "fight": 5,
+      "encounter": 2068
+    },
+    {
+      "input": "logs/sandoria-authoring-fresh-holdout/WyMPk36FTDGdxYjc_8.json",
+      "sha256": "11616eefa4dbd8ef71dd11a48434758ebff5c5857cdb6706f2d99013f700efb3",
+      "report": "WyMPk36FTDGdxYjc",
+      "fight": 8,
+      "encounter": 2070
+    },
+    {
+      "input": "logs/sandoria-authoring-fresh-holdout/nzPvdGHqcmYVkxfa_7.json",
+      "sha256": "39d6714adc3a120c408437c82531b5aa94a2d2977536fc9878448c2543ffd350",
+      "report": "nzPvdGHqcmYVkxfa",
+      "fight": 7,
+      "encounter": 2069
+    },
+    {
+      "input": "logs/sandoria-authoring-fresh-holdout/ZaD3tGJp4wNhrTMB_32.json",
+      "sha256": "e47efd3e05efb8f60fecd1a2740a15e69df1c33ecd7458da43fc82a01ad7d1b1",
+      "report": "ZaD3tGJp4wNhrTMB",
+      "fight": 32,
+      "encounter": 2068
+    },
+    {
+      "input": "logs/sandoria-authoring-fresh-holdout/AfDpKaCkdXQWRJTB_3.json",
+      "sha256": "e528df773462bb4907682e4a64c995a22ad06fa594ff6ad4965248396daf750f",
+      "report": "AfDpKaCkdXQWRJTB",
+      "fight": 3,
+      "encounter": 2067
+    },
+    {
+      "input": "logs/sandoria-authoring-fresh-holdout/AfDpKaCkdXQWRJTB_8.json",
+      "sha256": "e67e104b07fac6b0231646f9358000b54e3eefbdf36727f43581934d46ca839b",
+      "report": "AfDpKaCkdXQWRJTB",
+      "fight": 8,
+      "encounter": 2070
+    },
+    {
+      "input": "logs/sandoria-authoring-fresh-holdout/ZaD3tGJp4wNhrTMB_34.json",
+      "sha256": "9fcfda8f71cf707b7dec0772dc46299c5b460a57d25a6492f9cc0ec368eb44a9",
+      "report": "ZaD3tGJp4wNhrTMB",
+      "fight": 34,
+      "encounter": 2069
+    },
+    {
+      "input": "logs/sandoria-authoring-fresh-holdout/8P6p7GHD3bgFcYMm_7.json",
+      "sha256": "dbc008527bbfb7e42f45f77e9187584ea126775c7905eac4e725758e071ff17b",
+      "report": "8P6p7GHD3bgFcYMm",
+      "fight": 7,
+      "encounter": 2068
+    },
+    {
+      "input": "logs/sandoria-authoring-fresh-holdout/ZaD3tGJp4wNhrTMB_30.json",
+      "sha256": "5ad678a132141592ea685cd0faaa51c19c59ac51402269f0ed3c6eac69a61e36",
+      "report": "ZaD3tGJp4wNhrTMB",
+      "fight": 30,
+      "encounter": 2067
+    },
+    {
+      "input": "logs/sandoria-authoring-fresh-holdout/8P6p7GHD3bgFcYMm_10.json",
+      "sha256": "c34f0e6b0d449a8ccc139939d7bcefe68fb8583797573d88aeddbf2304a71a57",
+      "report": "8P6p7GHD3bgFcYMm",
+      "fight": 10,
+      "encounter": 2070
+    },
+    {
+      "input": "logs/sandoria-authoring-fresh-holdout/8P6p7GHD3bgFcYMm_9.json",
+      "sha256": "87f5808b3d70e5e0900487329cf511d3ec1f670fbef791e8c9fd769dcc128fc4",
+      "report": "8P6p7GHD3bgFcYMm",
+      "fight": 9,
+      "encounter": 2069
+    },
+    {
+      "input": "logs/sandoria-authoring-fresh-holdout/AfDpKaCkdXQWRJTB_5.json",
+      "sha256": "e1f08e8475c42ceba202fd5f96f51d4b493be6b1269bf7ca7b3401099c2634b5",
+      "report": "AfDpKaCkdXQWRJTB",
+      "fight": 5,
+      "encounter": 2068
+    },
+    {
+      "input": "logs/sandoria-authoring-fresh-holdout/8P6p7GHD3bgFcYMm_5.json",
+      "sha256": "58ae944c51a258831d06fd06a5046207b1ab2b7250a0c880407b5b9371bd9027",
+      "report": "8P6p7GHD3bgFcYMm",
+      "fight": 5,
+      "encounter": 2067
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/LbWnM34CRBc6xHFd_7.json",
+      "sha256": "12879ad4dad97d9dd6f61e888d3a7aafadedb604e854bb36f4d99060fde0b67e"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/Y9BczK4fbPC7XLRA_8.json",
+      "sha256": "b42be3ec544155ce78a8b063c7c44a037357603da85e91f52a1ff3c2c98f7e11"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/ZzqnvApcPVYNDmH2_19.json",
+      "sha256": "e1806982ab7db5a58c70266ea33a8e3a68818108f3941f33244c78f21cd7fe8e"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/LWcQxMbhZr9NK68X_4.json",
+      "sha256": "7a862a8f79326c47171b61a8afe325ecab7c07f041cb82038f3504a3448af47e"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/YHWDtcLbNjahV67M_8.json",
+      "sha256": "c4d22c89790da4c93a35eedc850f47bdb1ac7a6ca95da60b64d904e8c7e712d6"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/caLP6Ym7rTAbZkhG_28.json",
+      "sha256": "9ff499e1644b837f405cc7b8ddf78e139e83b13fef48c5ed4d8b3f19123de054"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/Y9BczK4fbPC7XLRA_3.json",
+      "sha256": "bf4a16030677355a69304b2b2ee28321adf15e43a049900bf3bde52cb6cfa191"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/YHWDtcLbNjahV67M_5.json",
+      "sha256": "42cd899387be05e90655c0aceda947ae4f297d3592929bd459bff6f2c22c872b"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/LbWnM34CRBc6xHFd_8.json",
+      "sha256": "3286bcd178c1a39c09addf2d1872bffdc379785da480264c7bf183ff4a5c47e4"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/ZzqnvApcPVYNDmH2_21.json",
+      "sha256": "a9d66664ef00d8802fd12d6ca57623ed20187a184b2566decb837d46d291f678"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/caLP6Ym7rTAbZkhG_26.json",
+      "sha256": "6c37f679ec85855af210a39cd0d2e13ea202fae4505369c40855486a10139757"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/LWcQxMbhZr9NK68X_9.json",
+      "sha256": "d15147f8dc3e1e970bb53005d0d9ed818bcdcf0add24dbad55d2ea00b4bb4e1f"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/caLP6Ym7rTAbZkhG_24.json",
+      "sha256": "cba9df1b7084c21d129ade05fc3f6ee1ebde3fe9e052988aeef82073033a2af7"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/LbWnM34CRBc6xHFd_3.json",
+      "sha256": "8bf1da82771227f5fc45390b0f42a62103bb0c9775e26984dd0e350ce7452a4b"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/LWcQxMbhZr9NK68X_6.json",
+      "sha256": "6bb1dea7678746821b3aaddf2dcc6d8b224ce19e8072438a83c3a8246557b8a8"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/YHWDtcLbNjahV67M_7.json",
+      "sha256": "7aaa14c584e08e5fa5934611d496a852420d5f5c47e1843e10e7e5cad4dac95a"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/ZzqnvApcPVYNDmH2_22.json",
+      "sha256": "3c0c2bf7fc2b20a00622a2edac4d4c119e357077bac1b22523774b78b645b1e6"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/Y9BczK4fbPC7XLRA_5.json",
+      "sha256": "e6c939844f7e4553109cc6190a063e305be9b396d51a63180b5871d69cb90c56"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/YHWDtcLbNjahV67M_3.json",
+      "sha256": "e2785bc384cc9b13696592638eee57402df4892ea3aa3ed7ca019d719ac23c1a"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/LWcQxMbhZr9NK68X_8.json",
+      "sha256": "fd8cd226826509eac6d103749fb516156267570dc47281dfa3b347e90eda46ed"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/caLP6Ym7rTAbZkhG_29.json",
+      "sha256": "b49e5227953ce74f052a44dd0a24f466667c5d774a020f3ffee476fab80780c6"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/ZzqnvApcPVYNDmH2_17.json",
+      "sha256": "e51750cfd0d28f5d200ce81b4127c221c9063ea9ba90505c3ac35fed5a10cef4"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/LbWnM34CRBc6xHFd_5.json",
+      "sha256": "073bdd43597c414d9431a80bbadf50a72283ea8d65b0526b3361edaa684cf04b"
+    },
+    {
+      "input": "logs/sandoria-body-fresh-holdout/Y9BczK4fbPC7XLRA_7.json",
+      "sha256": "cdda5ba1aef381d6fef98fdc5c4d0dcd7b5e63a3bba12e0f8c97be67a6955eee"
+    },
+    {
+      "input": "logs/sandoria-kirin-followup-holdout/bBH61QKjfNnDVyzg_18.json",
+      "sha256": "9cb2636be1bd284186c421f2e9f5a0d63261dfea45af8531b7357fa60104856e"
+    },
+    {
+      "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+      "sha256": "b78227cd4b0326971a765aea9e05e45398315123aa0cd0e5eaed719db981a9ca"
+    },
+    {
+      "input": "logs/sandoria-kirin-followup-holdout/yPFpj3D9NC4Kq8bB_312.json",
+      "sha256": "15365da4ac741d9ff334809ff310037c56b0dc48601111986e6ccad82ce3613d"
+    },
+    {
+      "input": "logs/sandoria-kirin-followup-holdout/vnwPcLFD9A8k4mfJ_27.json",
+      "sha256": "d2fa44e9a4e2282da7f7298382f5d44a4b472260b244167242fab59143e8c45b"
+    },
+    {
+      "input": "logs/sandoria-kirin-followup-holdout/z1BXyNRgnxkLac2h_2.json",
+      "sha256": "c4815631f035a4fc57b530d63183c8b2210dbcf6886e5eaf0dd5174fcc4fedf8"
+    },
+    {
+      "input": "logs/sandoria-kirin-followup-holdout/cptvaKBRfn9YMrQ2_3.json",
+      "sha256": "e7aee61a63b97d86d3866500ec08dbeadfbcce2df421c33fb557b2ddaf917d3f"
+    },
+    {
+      "input": "logs/sandoria-kirin-followup-holdout/qbMpHmF1Wdh68YrD_44.json",
+      "sha256": "c149c3aef37a4d131124f87a38b01cbfd697ed1c3bbcec4ca85e540a85e4da79"
+    },
+    {
+      "input": "logs/sandoria-kirin-followup-holdout/VyQC4gPcwHftG9MW_30.json",
+      "sha256": "18e3b4447dfbedea9b48affbbf77719893d73f74e73e931dbc5723b6a184bb89"
+    }
+  ],
+  "evidence_role": "development"
+}

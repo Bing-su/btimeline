@@ -27,7 +27,8 @@
             "kirin-stonega-arms",
             "kirin-genbu-arms",
             "kirin-eastwind-arms",
-            "kirin-arms-return"
+            "kirin-arms-return",
+            "kirin-recovery-arms"
           ],
           "equivalents": [
             [
@@ -35,7 +36,8 @@
               "kirin-stonega-arms",
               "kirin-genbu-arms",
               "kirin-eastwind-arms",
-              "kirin-arms-return"
+              "kirin-arms-return",
+              "kirin-recovery-arms"
             ]
           ]
         },
@@ -68,7 +70,8 @@
             "kirin-quake-second",
             "kirin-quake-third",
             "kirin-quake-fourth",
-            "kirin-double-quake"
+            "kirin-double-quake",
+            "kirin-recovery-quake"
           ]
         },
         "B07C": {
@@ -79,7 +82,8 @@
             "kirin-quake-second",
             "kirin-quake-third",
             "kirin-quake-fourth",
-            "kirin-double-quake"
+            "kirin-double-quake",
+            "kirin-recovery-quake"
           ]
         },
         "AD92": {
@@ -132,12 +136,22 @@
           "name": "Stonega III",
           "group": "Stonega III",
           "lead_ms": 2000,
-          "events": ["kirin-stonega-first", "kirin-stonega-second", "kirin-double-stonega"]
+          "events": [
+            "kirin-stonega-first",
+            "kirin-stonega-second",
+            "kirin-double-stonega",
+            "kirin-recovery-stonega"
+          ]
         },
         "B07A": {
           "name": "Stonega III",
           "group": "Stonega III",
-          "events": ["kirin-stonega-first", "kirin-stonega-second", "kirin-double-stonega"]
+          "events": [
+            "kirin-stonega-first",
+            "kirin-stonega-second",
+            "kirin-double-stonega",
+            "kirin-recovery-stonega"
+          ]
         },
         "AD93": {
           "name": "Striking Right / Striking Left",
@@ -157,12 +171,17 @@
         "A916": {
           "name": "Double Cast",
           "group": "Double Cast",
-          "events": ["kirin-double-cast"]
+          "events": ["kirin-double-cast", "kirin-recovery-double-cast"]
         },
         "A917": {
           "name": "Stonega III",
           "group": "Stonega III",
-          "events": ["kirin-stonega-first", "kirin-stonega-second", "kirin-double-stonega"]
+          "events": [
+            "kirin-stonega-first",
+            "kirin-stonega-second",
+            "kirin-double-stonega",
+            "kirin-recovery-stonega"
+          ]
         },
         "A918": {
           "name": "Quake",
@@ -172,7 +191,8 @@
             "kirin-quake-second",
             "kirin-quake-third",
             "kirin-quake-fourth",
-            "kirin-double-quake"
+            "kirin-double-quake",
+            "kirin-recovery-quake"
           ]
         },
         "ADAE": {

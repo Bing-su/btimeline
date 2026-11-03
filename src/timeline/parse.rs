@@ -411,7 +411,12 @@ impl Validation {
         source: &str,
         options: &mut BTreeSet<String>,
     ) -> Result<BranchOption> {
-        shape(child, 1, &[])?;
+        shape(child, 1, &["fallback"])?;
+        let fallback = child
+            .get("fallback")
+            .map(|value| value.as_bool().context("fallback must be a boolean"))
+            .transpose()?
+            .unwrap_or(false);
         let option = arg_string(child, 0)?;
         ensure!(
             options.insert(option.clone()),
@@ -452,6 +457,7 @@ impl Validation {
         let loops = self.take_loops(&body)?;
         Ok(BranchOption {
             id: option,
+            fallback,
             whens,
             requires,
             events,

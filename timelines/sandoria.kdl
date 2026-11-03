@@ -51,6 +51,14 @@ timeline 1 "San d'Oria: The Second Walk" {
                 event "kirin-double-stonega" 27.1 name="Stonega III"
                 event "kirin-eastwind-arms" 34.6 name="Wrought Arms"
             }
+            // Double Cast identifies Eastwind even when its earlier wheel signal is missing.
+            option "eastwind-recovery" fallback=#true {
+                when "StartsUsing" id="A916" source="Faithbound Kirin"
+                event "kirin-recovery-double-cast" 3.0 name="Double Cast"
+                event "kirin-recovery-quake" 11.1 name="Quake"
+                event "kirin-recovery-stonega" 11.1 name="Stonega III"
+                event "kirin-recovery-arms" 18.5 name="Wrought Arms"
+            }
             merge {
                 when "StartsUsing" id="AD91" source="Faithbound Kirin" at=118.9 before=8.0 after=8.0
                 event "kirin-arms-return" 3.5 name="Wrought Arms"

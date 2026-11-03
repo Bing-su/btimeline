@@ -212,6 +212,7 @@ fn duo_forecasts_simultaneous_abilities_without_cross_boss_sync() {
 #[case("StartsUsing", "B079", 101000, 121500)]
 #[case("StartsUsing", "AD84", 78000, 122700)]
 #[case("Ability", "AD82", 90000, 124600)]
+#[case("StartsUsing", "A916", 106100, 124600)]
 fn each_shijin_route_predicts_common_arms_before_its_own_signal(
     #[case] kind: &str,
     #[case] id: &str,
@@ -239,6 +240,7 @@ fn each_shijin_route_predicts_common_arms_before_its_own_signal(
             "AFF5",
             "Faithbound Kirin",
         ));
+        observations.push(signal(106100, "StartsUsing", "A916", "Faithbound Kirin"));
     }
     let result = run("forecast", observations, arms - 5000, 6500);
     assert_eq!(result["diagnostics"], json!([]));
@@ -250,6 +252,29 @@ fn each_shijin_route_predicts_common_arms_before_its_own_signal(
             .iter()
             .any(|e| e["name"] == "Wrought Arms" && e["at_ms"] == arms)
     );
+}
+
+#[test]
+fn double_cast_recovers_the_paired_forecast_without_the_wheel_signal() {
+    let result = run(
+        "forecast",
+        vec![
+            signal(0, "Ability", "ADCA", "Faithbound Kirin"),
+            signal(106100, "StartsUsing", "A916", "Faithbound Kirin"),
+        ],
+        112200,
+        6500,
+    );
+    assert_eq!(result["diagnostics"], json!([]));
+    assert_eq!(result["projection_diagnostics"], json!([]));
+    let events = result["events"].as_array().expect("events");
+    for id in ["kirin-recovery-quake", "kirin-recovery-stonega"] {
+        assert!(
+            events
+                .iter()
+                .any(|event| event["id"] == id && event["at_ms"] == 117200)
+        );
+    }
 }
 
 #[test]

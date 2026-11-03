@@ -86,7 +86,7 @@ FFLogs HP=0은 구간 경계만 정하며 WasDefeated를 합성하지 않는다.
 ```sh
 cargo build
 target/debug/btimeline validate timelines/sandoria.kdl
-target/debug/btimeline evaluate --profile timelines/sandoria.evaluation.json tests/fixtures/authored/sandoria-warning-review-plan.json -o out/sandoria-authoring/warning-review-new.json
+target/debug/btimeline evaluate --profile timelines/sandoria.evaluation.json tests/fixtures/authored/sandoria-recovery-development-plan.json -o out/sandoria-recovery-development-new.json
 bun run --cwd scripts test
 cargo test --test authored_sandoria
 ```
@@ -95,7 +95,7 @@ cargo test --test authored_sandoria
 
 ## 이벤트 ID 평가가 드러낸 표시 24건 검토
 
-현재 KDL SHA-256은 `589afddf3467a6865e7057ee73fe88a0075283a6671839e35a5a83d0b965640b`다. 원래 개발·보류를 합친 44개 입력을 [경고 검토 계획](../tests/fixtures/authored/sandoria-warning-review-plan.json)에 개발 역할로 고정했다. 42개 적격 입력의 1차 재평가가 통과했고 원래 이름 누락/본체 불명확 제외 2개를 유지했다. 과거 manifest·validation은 덮어쓰지 않았다. 이 재평가는 독립 검증 표본으로 계산하지 않는다.
+경고 검토 당시 KDL SHA-256은 `589afddf3467a6865e7057ee73fe88a0075283a6671839e35a5a83d0b965640b`다. 원래 개발·보류를 합친 44개 입력을 [경고 검토 계획](../tests/fixtures/authored/sandoria-warning-review-plan.json)에 개발 역할로 고정했다. 42개 적격 입력의 1차 재평가가 통과했고 원래 이름 누락/본체 불명확 제외 2개를 유지했다. 과거 manifest·validation은 덮어쓰지 않았다. 이 재평가는 독립 검증 표본으로 계산하지 않는다.
 
 | 원인                                | 건수 | 근거와 처리                                                                                                                                   |
 | ----------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -138,3 +138,11 @@ out/btimeline-body-frozen evaluate tests/fixtures/authored/sandoria-kirin-follow
 ```
 
 실행 파일은 로컬 `out/`에 보존했다. 재빌드한 파일의 해시가 다르면 원래 동결 평가로 실행할 수 없으며 새 평가 계획으로 구분한다. 오프라인 원본 투영은 ACT·외부 실행기·실제 UI를 검증하지 않는다.
+
+## Eastwind 선택 신호 누락 복구
+
+AD82 없이 진행한 두 로그에서 Double Cast 시전 시작 A916을 확인했다. 원본 위치는 `NGytdwK3ZWTjn78C/16` #11658과 `z1BXyNRgnxkLac2h/2` #10176이다. Shijin 선택이 비어 있으면 이 신호부터 복구 일정을 시작한다. 이전에 AD82로 선택한 일정은 계속 진행한다.
+
+두 로그에서 선택 미해결 진단이 사라졌다. 동시 Quake·Stonega의 5초 전 조회 오차는 각각 68ms와 32ms였고, Wrought Arms는 31ms와 45ms였다. Riddle 표시와 Double Cast 자체의 5초 전 예고는 여전히 실패한다. 두 로그 모두 전체 판정은 실패로 남는다.
+
+복구에 사용한 로그를 포함한 [개발 회귀 계획](../tests/fixtures/authored/sandoria-recovery-development-plan.json)에서 76개 중 3개를 제외하고 적격 73개를 평가했다. 70개가 통과했고, 두 Eastwind 로그와 초기 진입 신호가 누락된 Eald 로그가 실패했다. 위 독립 평가 기록은 당시 후보의 결과다. 새 후보의 독립 보류 평가와 Eald의 초기 진입 신호 누락 복구가 남아 있다.
