@@ -1,10 +1,10 @@
 # 오프라인 타임라인 검증: 첫 구현
 
-최종 타임라인 KDL의 구조 검사와 lifecycle·phase·event·sync·branch·loop 재생을 구현했다. `compare`는 정규화 관측 JSON과 이 도구가 수집한 FFLogs 전투 파일을 받는다. [생성기](GENERATION.md)는 FFLogs JSON과 mode에서 lifecycle·공통 시전 일정·Ability 동기화를 생성한다. `compare`의 FFLogs 입력은 아래 원본 관측 계약을 유지하며 생성된 실행 조건을 검증하는 runtime 관측으로 자동 변환하지 않는다.
+최종 타임라인 KDL의 구조 검사와 lifecycle·phase·event·sync·branch·loop 재생을 구현했다. `compare`는 정규화 관측 JSON과 이 도구가 수집한 FFLogs 전투 파일을 받는다. [생성기](generation.md)는 FFLogs JSON과 mode에서 lifecycle·공통 시전 일정·Ability 동기화를 생성한다. `compare`의 FFLogs 입력은 아래 원본 관측 계약을 유지하며 생성된 실행 조건을 검증하는 runtime 관측으로 자동 변환하지 않는다.
 
-생성 evidence의 `automatic-draft-validation-v1`은 보고서 전체를 보류해 대표 경로·분기·지원된 반복을 재학습하는 구조 검사다. 반복의 실제 관측 순서와 다음 발생 전 종료 여부를 평가하며, 최종 KDL의 시각·window·미래 예고·실행을 검증한 결과와 구분한다. 지원 범위는 [생성 계약](GENERATION.md)의 독립 검증 항목을 따른다.
+생성 evidence의 `automatic-draft-validation-v1`은 보고서 전체를 보류해 대표 경로·분기·지원된 반복을 재학습하는 구조 검사다. 반복의 실제 관측 순서와 다음 발생 전 종료 여부를 평가하며, 최종 KDL의 시각·window·미래 예고·실행을 검증한 결과와 구분한다. 지원 범위는 [생성 계약](generation.md)의 독립 검증 항목을 따른다.
 
-사용 가능성은 [실용적인 품질 기준](GENERATION.md#실용적인-품질-기준)에 따라 주요 기믹의 사전 예고·제어 안전성·후속 신호를 통한 복구로 평가한다. 엄격한 관측 대응의 `unresolved`는 그 원인과 영향을 함께 해석하며, 실행기 규칙 위반·잘못된 제어와 구분한다. 현재 자동 검사는 이 실용성 평가 전체를 구현하지 않는다. 근사 표시를 허용해도 KDL 구조 검사와 명시된 실행 제약은 그대로 적용된다.
+사용 가능성은 [실용적인 품질 기준](generation.md#실용적인-품질-기준)에 따라 주요 기믹의 사전 예고·제어 안전성·후속 신호를 통한 복구로 평가한다. 엄격한 관측 대응의 `unresolved`는 그 원인과 영향을 함께 해석하며, 실행기 규칙 위반·잘못된 제어와 구분한다. 현재 자동 검사는 이 실용성 평가 전체를 구현하지 않는다. 근사 표시를 허용해도 KDL 구조 검사와 명시된 실행 제약은 그대로 적용된다.
 
 체크포인트 검증은 구간별 로그에서의 독립 진입·예고와, 연속 기록에서의 종료·예약 취소·재시작을 구분한다. 합성 기록에 종료나 전멸 신호를 추가해 실행 규칙을 점검할 수 있다. 실제 전투의 신호 시각과 순서를 확인하려면 해당 구간을 잇는 ACT 기록이 필요하다.
 
@@ -66,7 +66,7 @@ JSON 실행 행의 `event`에는 `id`, `name`, `visible`, `duration_ms`를 제�
 
 `btimeline evaluate MANIFEST --profile PROFILE -o REPORT`는 명시한 profile의 FFLogs 투영 가정으로 기존 재생·forecast를 실행한다. Mistwake·Clyteum·산도리아의 공통 TypeScript 평가기를 대체한다. 입력 누락/품질 제외와 실행 오류/예고 실패를 구분하고, 적격 입력이 없으면 통과하지 않는다. KDL·profile·manifest 해시와 원본 위치를 보고서에 연결한다.
 
-전체 판정·profile 필드·기존 결과와의 대조는 [작성 평가 계약](AUTHORED_EVALUATION.md)을 따른다. profile은 검증용 자료이고 KDL의 외부 실행 의존성이 아니다. FFLogs를 직접 넣은 `compare`의 신호 의미와 ACT/UI 미검증 경계는 유지한다.
+전체 판정·profile 필드·기존 결과와의 대조는 [작성 평가 계약](authored-evaluation.md)을 따른다. profile은 검증용 자료이고 KDL의 외부 실행 의존성이 아니다. FFLogs를 직접 넣은 `compare`의 신호 의미와 ACT/UI 미검증 경계는 유지한다.
 
 `review REPORT --limit 8`은 기존 결과를 다시 재생하지 않고 실패·미분류를 제한된 예시로 요약한다. `evidence INPUT --around-index N --limit 40`은 해당 원본 관측 주변의 FFLogs 시전만 조회한다. 두 명령은 생략 수와 근거 파일 해시를 제공하며, 잘린 출력이나 감사가 없는 과거 보고서에서 전체 커버리지를 추정하지 않는다.
 
@@ -109,7 +109,7 @@ JSON 실행 행의 `event`에는 `id`, `name`, `visible`, `duration_ms`를 제�
 
 예를 들어 수집 파일의 `cast`, `abilityGameID: 46376`, `sourceID: 10`이 masterData에서 `Synthetic Boss`를 가리키면 `FFLogs.cast`, `id="B528"`, `source="Synthetic Boss"`로 매칭할 수 있다. FFLogs [공식 API 문서](https://www.fflogs.com/v2-api-docs/ff/report.doc.html)는 이벤트와 masterData를 별도로 제공한다. 이 매핑은 ACT 신호와의 동등성을 뜻하지 않는다.
 
-실제 수집 파일로 확인한 범위와 입력 해시는 [FFLogs 입력 재생 확인](FFLOGS_REPLAY_VERIFICATION.md)에 기록한다.
+실제 수집 파일로 확인한 범위와 입력 해시는 [FFLogs 입력 재생 확인](../../../../docs/fflogs-replay-verification.md)에 기록한다.
 
 ## 결과와 한계
 
@@ -123,15 +123,15 @@ JSON 실행 행의 `event`에는 `id`, `name`, `visible`, `duration_ms`를 제�
 
 명령의 성공 종료는 입력 처리 완료를 뜻한다. 상태와 실행 기록, 미검사 범위를 함께 확인해야 한다.
 
-생성 과정에서는 학습에서 제외한 전멸 로그에 대해 [참조 접두부 정렬 검사](GENERATION.md#학습에서-제외한-전멸-로그-검사)를 근거에 기록한다. 이 분석용 대응은 `compare`의 runtime 재생과 별개다. FFLogs를 ACT 신호로 변환하거나 KDL 실행 조건의 관측을 합성하지 않는다.
+생성 과정에서는 학습에서 제외한 전멸 로그에 대해 [참조 접두부 정렬 검사](generation.md#미처치-로그의-참조-검사)를 근거에 기록한다. 이 분석용 대응은 `compare`의 runtime 재생과 별개다. FFLogs를 ACT 신호로 변환하거나 KDL 실행 조건의 관측을 합성하지 않는다.
 
-dungeon·alliance 생성기의 보스 시도 선택과 처치 경계도 분석용이다. 관측된 보스 진입부터 독립 정렬 검사를 수행하고 실제 보스 처치 이후를 오른쪽 검열로 검사하지만, `compare`에 처치·전멸 신호를 자동 주입하지 않는다. Clyteum의 완료된 시도만 cast→Ability로 투영한 재생은 실패한 시도의 재시작이나 ACT 동등성을 검증하지 않는다. 종료 신호가 없는 KDL의 처치 후 불필요한 표시는 [감사 결과](CLYTEUM_OMISSION_AUDIT.md)에 별도 집계한다.
+dungeon·alliance 생성기의 보스 시도 선택과 처치 경계도 분석용이다. 관측된 보스 진입부터 독립 정렬 검사를 수행하고 실제 보스 처치 이후를 오른쪽 검열로 검사하지만, `compare`에 처치·전멸 신호를 자동 주입하지 않는다. Clyteum의 완료된 시도만 cast→Ability로 투영한 재생은 실패한 시도의 재시작이나 ACT 동등성을 검증하지 않는다. 종료 신호가 없는 KDL의 처치 후 불필요한 표시는 [감사 결과](../../../../docs/clyteum-omission-audit.md)에 별도 집계한다.
 
-자동 생성 loop의 별도 개발 검증은 `bun scripts/replay_dungeon_loops.ts FIT.evidence.json OBSERVED.evidence.json target/debug/btimeline REPORT.json`으로 재현한다. 입력·KDL 해시와 관측 구조가 같은지 확인하고 원본 시도를 각각 cast→Ability로 투영해 실제 `compare`를 실행한다. 학습에서 빠진 trace는 holdout으로 표시한다. 이 도구는 각 원본 멤버에 가장 가까운 같은 신호의 표시를 측정하며 일대일 경로 대응 검사는 아니다. 구조 검증·원본 커버리지 감사와 함께 해석하며, 시도들을 분리한 결과를 보스 처치 취소·전멸·재시작의 검증으로 취급하지 않는다. [던전 반복 검증](DUNGEON_LOOP_VALIDATION.md)에 별도 결과를 기록한다.
+자동 생성 loop의 별도 개발 검증은 `bun scripts/replay_dungeon_loops.ts FIT.evidence.json OBSERVED.evidence.json target/debug/btimeline REPORT.json`으로 재현한다. 입력·KDL 해시와 관측 구조가 같은지 확인하고 원본 시도를 각각 cast→Ability로 투영해 실제 `compare`를 실행한다. 학습에서 빠진 trace는 holdout으로 표시한다. 이 도구는 각 원본 멤버에 가장 가까운 같은 신호의 표시를 측정하며 일대일 경로 대응 검사는 아니다. 구조 검증·원본 커버리지 감사와 함께 해석하며, 시도들을 분리한 결과를 보스 처치 취소·전멸·재시작의 검증으로 취급하지 않는다. [던전 반복 검증](../../../../docs/dungeon-loop-validation.md)에 별도 결과를 기록한다.
 
-이 비교에는 관측 코퍼스의 helper 표시 후보도 포함한다. `associated_helper_members`로 별도 집계하며, 학습 KDL이 해당 예고를 만들지 않으면 예측 없음으로 남긴다. helper를 실행용 sync로 채택하거나 원본 미분류를 해제하지 않는다. [helper 표시 검증](HELPER_DISPLAY_VALIDATION.md)에 본체·보조 발동의 보류 재생과 한계를 기록한다.
+이 비교에는 관측 코퍼스의 helper 표시 후보도 포함한다. `associated_helper_members`로 별도 집계하며, 학습 KDL이 해당 예고를 만들지 않으면 예측 없음으로 남긴다. helper를 실행용 sync로 채택하거나 원본 미분류를 해제하지 않는다. [helper 표시 검증](../../../../docs/helper-display-validation.md)에 본체·보조 발동의 보류 재생과 한계를 기록한다.
 
-자동 생성한 유한 블록 이력도 진입 신호만 둔 기록에서 후속 예고를 평가한다. [블록 이력 검증](BLOCK_HISTORY_VALIDATION.md)은 알려진 경로의 보류 pull과 별도 보고서, 미학습 순서를 구분한다. 일치하는 phase 진입이 없을 때 `compare`에 진단이 없더라도 원본 대응·예고가 빠질 수 있으므로 실행 오류 수만으로 전체 경로를 통과시키지 않는다.
+자동 생성한 유한 블록 이력도 진입 신호만 둔 기록에서 후속 예고를 평가한다. [블록 이력 검증](../../../../docs/block-history-validation.md)은 알려진 경로의 보류 pull과 별도 보고서, 미학습 순서를 구분한다. 일치하는 phase 진입이 없을 때 `compare`에 진단이 없더라도 원본 대응·예고가 빠질 수 있으므로 실행 오류 수만으로 전체 경로를 통과시키지 않는다.
 
 발생 그래프의 미분류 NPC 시전도 이 개발 투영에는 포함한다. 이름이 없는 경우 source 필드를 생략해 관측을 유지하며 가짜 이름이나 null 문자열을 만들지 않는다. 보고서의 `unclassified_casts`·`unnamed_sources`로 범위를 기록한다. 이 관측들의 미래 예측 커버리지나 모든 sync 경쟁이 검증됐다는 뜻은 아니다. 현재 학습된 loop 멤버의 최근접 표시 측정과 별개다.
 

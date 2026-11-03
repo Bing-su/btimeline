@@ -1,14 +1,14 @@
 # 타임라인 KDL 스키마 초안
 
-상태: **설계 초안, 구조 검사와 기본 재생의 첫 구현**. 이 문서는 사람이 편집하고 외부 실행기가 사용할 최종 타임라인의 계약이다. `mine`이 만드는 `process 1`은 관측 그래프이며 `timeline 1`과 다르다. 현재 구현 범위와 미검사 항목은 [오프라인 재생 안내](OFFLINE_REPLAY.md)에 정리한다. 생성·검증 구현과 실제 로그 비교 결과에 따라 초안을 변경할 수 있다.
+상태: **설계 초안, 구조 검사와 기본 재생의 첫 구현**. 이 문서는 사람이 편집하고 외부 실행기가 사용할 최종 타임라인의 계약이다. `mine`이 만드는 `process 1`은 관측 그래프이며 `timeline 1`과 다르다. 현재 구현 범위와 미검사 항목은 [오프라인 재생 안내](offline-replay.md)에 정리한다. 생성·검증 구현과 실제 로그 비교 결과에 따라 초안을 변경할 수 있다.
 
-FFLogs JSON과 mode에서 lifecycle·공통 시전 일정·동기화를 만드는 경로는 [생성 계약](GENERATION.md)에 정의한다. 최종 KDL 문법은 이 문서를 따르며 생성 근거는 실행 입력으로 요구하지 않는다.
+FFLogs JSON과 mode에서 lifecycle·공통 시전 일정·동기화를 만드는 경로는 [생성 계약](generation.md)에 정의한다. 최종 KDL 문법은 이 문서를 따르며 생성 근거는 실행 입력으로 요구하지 않는다.
 
 실제 전투에 연결하는 실시간 타임라인 실행기는 이 저장소에서 구현하지 않는다. 대신 KDL과 기록된 신호로 실행 의미를 확인하는 오프라인 재생기를 구현한다. 최종 KDL에는 실행에 필요한 시각, 신호, window, 전환, 분기, 반복과 초기화 규칙을 모두 담아, 외부 실행기가 별도 evidence 없이 KDL 하나로 동작할 수 있도록 설계한다. evidence는 생성 근거와 검토를 위한 선택적 자료이며 실행 조건으로 참조하지 않는다. 영어를 기준으로 작성하고, 다른 언어의 번역은 앞서 정한 대로 별도 제공한다.
 
-cactbot의 실제 신호와 전투 자료는 참고하지만 cactbot 파일과의 호환은 목표가 아니다. 최소한 cactbot이 사용하는 로그 타입과 필드를 표현할 수 있어야 한다. 이전 v2 계약과도 호환되지 않는다. 관련 조사: [생명주기](CACTBOT_LIFECYCLE_RESEARCH.md), [일반 토벌전 반복](CACTBOT_NORMAL_TRIAL_LOOPS.md).
+cactbot의 실제 신호와 전투 자료는 참고하지만 cactbot 파일과의 호환은 목표가 아니다. 최소한 cactbot이 사용하는 로그 타입과 필드를 표현할 수 있어야 한다. 이전 v2 계약과도 호환되지 않는다. 관련 조사: [생명주기](../../../../docs/cactbot-lifecycle-research.md), [일반 토벌전 반복](../../../../docs/cactbot-normal-trial-loops.md).
 
-시계 설계의 근거는 [분기·합류·탈출 후 동기화 조사](CACTBOT_CLOCK_RESEARCH.md)에 정리한다. 후속 sync는 유지하되 option·merge의 독립 시계 보정은 두지 않고, 가장 가까운 phase 또는 반복 회차의 시간축을 공유한다.
+시계 설계의 근거는 [분기·합류·탈출 후 동기화 조사](../../../../docs/cactbot-clock-research.md)에 정리한다. 후속 sync는 유지하되 option·merge의 독립 시계 보정은 두지 않고, 가장 가까운 phase 또는 반복 회차의 시간축을 공유한다.
 
 ## 기본 규칙
 
@@ -187,7 +187,7 @@ sync 42.0 "Ability" source="The Tyrant" {
 
 필요하면 `enter`에 `from="phase-id"`와 `at`, `before`, `after`를 지정한다. `from`은 현재 활성 phase에 대한 조건이며, window는 **그 phase의 상대 시계**를 사용한다. `at`이 있으면 `from`이 필수이고 window 생략 기본값은 `sync`와 같다. `from`만 지정할 수도 있다. `from`이 없으면 특정 이전 phase에 제한하지 않는다. 최초 진입이나 `boss-complete` 후 대기 중인 진입에는 활성 `from`이 없으므로 해당 제약 없는 신호가 필요하다.
 
-이전 선택에 따라 다음 선택의 시간 창이 달라지면 기믹 구간을 phase로 표현하고, 같은 대상 phase에 이전 구간별 `enter from`을 둘 수 있다. [Varis EX의 P3 발췌](../tests/fixtures/timeline/varis-choice-windows.kdl)는 Loaded 진입을 이전 Reinforced 시계의 52.8초 또는 Electrified 시계의 58.7초에 받는 예시다. [검증 범위](VARIS_ANTIVIRUS_VALIDATION.md)의 여섯 순서·창 경계 확인은 생성기의 선택 이력 학습 완료와 구분한다.
+이전 선택에 따라 다음 선택의 시간 창이 달라지면 기믹 구간을 phase로 표현하고, 같은 대상 phase에 이전 구간별 `enter from`을 둘 수 있다. [Varis EX의 P3 발췌](../../../../tests/fixtures/timeline/varis-choice-windows.kdl)는 Loaded 진입을 이전 Reinforced 시계의 52.8초 또는 Electrified 시계의 58.7초에 받는 예시다. [검증 범위](../../../../docs/varis-antivirus-validation.md)의 여섯 순서·창 경계 확인은 생성기의 선택 이력 학습 완료와 구분한다.
 
 타임라인은 유휴 상태로 시작한다. 같은 신호가 `start`와 첫 phase `enter`에 일치하면 두 시계를 같은 관측 시각에 시작한다. 여러 lifecycle 사건에 일치하면 `zone-exit`, `wipe`, `finish`, `boss-complete`, `start` 순으로 하나만 적용한다. `zone-exit`, `wipe`, `finish`는 같은 관측에서 새 phase나 option을 시작하지 않는다.
 
@@ -309,4 +309,4 @@ loop "rotation" start=30.0 every=20.0 {
 - [ ] 0.1초 반올림·동시 이벤트·충돌, FFLogs 미관측과 ACT 로그 타입 미지원·불일치를 구분한다.
 - [ ] 실제 독립 로그와 검증된 전투 자료를 비교하고, 외부 실행기를 사용할 수 있을 때 그 동작도 별도로 확인한다. 번역 리소스와 반복 필드의 구체 문법은 별도 계약으로 정한다.
 
-KDL과 기록된 신호를 받아 상태 전이·예정 이벤트·불일치를 확인하는 오프라인 재생기를 구현한다. 실제 전투에 연결하는 외부 실행기와는 별도이며, 재생 결과만으로 외부 실행기나 실제 게임과의 호환성을 확정하지 않는다. 구현 및 검증 범위는 [재설계 계획](PLAN.md#오프라인-재생-검증)에 정리한다.
+KDL과 기록된 신호를 받아 상태 전이·예정 이벤트·불일치를 확인하는 오프라인 재생기를 구현한다. 실제 전투에 연결하는 외부 실행기와는 별도이며, 재생 결과만으로 외부 실행기나 실제 게임과의 호환성을 확정하지 않는다. 구현 및 검증 범위는 [재설계 계획](../../../../docs/plan.md#오프라인-재생-검증)에 정리한다.

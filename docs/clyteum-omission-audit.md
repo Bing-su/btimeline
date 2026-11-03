@@ -105,4 +105,4 @@
 btimeline generate logs/clyteum/*.json --mode dungeon -o out/clyteum-entry-v2.kdl
 ```
 
-후속 우선순위는 실제 관측 가능한 보스 종료 신호, 대안·선택 이력·반복 경로의 통합, 실패 시도 전체의 재시작 검증이다. [분리 계획](PROGRESSION_AND_TIMING.md)에 따라 표시 구조와 시간 추정은 계속 구분한다.
+후속 우선순위는 실제 관측 가능한 보스 종료 신호, 대안·선택 이력·반복 경로의 통합, 실패 시도 전체의 재시작 검증이다. [분리 계획](progression-and-timing.md)에 따라 표시 구조와 시간 추정은 계속 구분한다.

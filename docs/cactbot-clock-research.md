@@ -1,6 +1,6 @@
 # cactbot 분기·합류·루프 이탈의 시간 보정 조사
 
-> 아래 조사는 이전 설계의 `on-exit`을 포함한다. 현재 문법에서 종료 신호 뒤 새 일정을 시작하는 방법은 [타임라인 스키마](TIMELINE_SCHEMA.md#반복)를 따른다.
+> 아래 조사는 이전 설계의 `on-exit`을 포함한다. 현재 문법에서 종료 신호 뒤 새 일정을 시작하는 방법은 [타임라인 스키마](../.agents/skills/timeline-author/references/timeline-schema.md#반복)를 따른다.
 
 조사일: 2026-11-01. 기준은 로컬 `/home/ks2515/workspace/cactbot`의 커밋 `e79ea7f16093be5b80cda0e2d5bc8eb899d6fb4b`이다. 조사 시 `git status --short` 출력은 비어 있었다. 링크는 해당 커밋의 소스 행으로 고정했다. 커밋된 타임라인을 게임 동작의 참조로 받아들이되, 작성자가 불확실하다고 명시한 부분은 그대로 제한한다.
 

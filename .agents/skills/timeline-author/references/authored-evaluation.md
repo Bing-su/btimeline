@@ -32,9 +32,9 @@ target/debug/btimeline review out/griffin-inferred-new.json --limit 8
 
 Griffin의 기존 원본 6개를 재실행해 적격 4개의 대상 21개를 평가했고 모두 통과했다. 같은 전투의 명시 profile은 76개 대상을 평가한다.
 
-산도리아의 기존 독립 검증 입력 43개를 자동 평가의 개발 회귀로 재사용했다. Kam 5개에서 자동 연결 대상 11개가 모두 통과했고, 37개는 미확인, 1개는 시전자 정보 부족으로 제외됐다. Kam의 초반과 후반 Proving Ground는 같은 ID를 공유하며 후반 표시만 명시 연결돼 있다. 따라서 해당 ID는 점수를 보류하고 미분류 시전으로 남겼다. 원본 [입력 목록](../tests/fixtures/authored/sandoria-adcd-independent-holdout-plan.json)을 다시 사용할 때는 기존 평가의 동결 profile·평가기 해시와 fingerprint 목록을 제거하고 개발 역할로 구분한다.
+산도리아의 기존 독립 검증 입력 43개를 자동 평가의 개발 회귀로 재사용했다. Kam 5개에서 자동 연결 대상 11개가 모두 통과했고, 37개는 미확인, 1개는 시전자 정보 부족으로 제외됐다. Kam의 초반과 후반 Proving Ground는 같은 ID를 공유하며 후반 표시만 명시 연결돼 있다. 따라서 해당 ID는 점수를 보류하고 미분류 시전으로 남겼다. 원본 [입력 목록](../../../../tests/fixtures/authored/sandoria-adcd-independent-holdout-plan.json)을 다시 사용할 때는 기존 평가의 동결 profile·평가기 해시와 fingerprint 목록을 제거하고 개발 역할로 구분한다.
 
-[Doomtrain 시험 KDL](../tests/fixtures/authored/doomtrain-inferred-pilot.kdl)은 `n7TpPm3y9q6vcg4D/20` 한 건에서 관측한 기술 ID 4개의 일정을 담는다. 작성에 쓰지 않은 [기존 수집 로그 5개](../tests/fixtures/authored/doomtrain-inferred-pilot-plan.json)를 같은 명령으로 평가했다. 1개가 통과했고, 4개에서 후반 Turret Crossing·Head-On Emission의 시각 오차 또는 대응 누락을 찾았다. 이 실험은 작성에 쓴 입력과 비교 입력을 구분했으며, 이전 작업에서 사용한 자료를 재사용했다.
+[Doomtrain 시험 KDL](../../../../tests/fixtures/authored/doomtrain-inferred-pilot.kdl)은 `n7TpPm3y9q6vcg4D/20` 한 건에서 관측한 기술 ID 4개의 일정을 담는다. 작성에 쓰지 않은 [기존 수집 로그 5개](../../../../tests/fixtures/authored/doomtrain-inferred-pilot-plan.json)를 같은 명령으로 평가했다. 1개가 통과했고, 4개에서 후반 Turret Crossing·Head-On Emission의 시각 오차 또는 대응 누락을 찾았다. 이 실험은 작성에 쓴 입력과 비교 입력을 구분했으며, 이전 작업에서 사용한 자료를 재사용했다.
 
 Doomtrain 시험 KDL을 Runaway Train에서 같은 보스의 두 phase로 분리해 기존 비교 로그 5개를 다시 재생했다. 첫 진입에 `resume-at=0.0`을 둔 뒤 5개 모두 진입과 전환이 일치했다. 1개는 예고까지 통과했고, 4개는 후반 예고의 시각 오차 또는 누락이 남았다.
 
@@ -65,7 +65,7 @@ Doomtrain 시험 KDL을 Runaway Train에서 같은 보스의 두 phase로 분리
 
 ## Profile v1
 
-알 수 없는 profile 필드는 오류다. 기술 ID는 대문자 16진수이며 예고 간격은 양의 밀리초다. 실제 예시는 [Mistwake](../timelines/mistwake.evaluation.json), [Clyteum](../timelines/clyteum.evaluation.json), [산도리아](../timelines/sandoria.evaluation.json)를 따른다.
+알 수 없는 profile 필드는 오류다. 기술 ID는 대문자 16진수이며 예고 간격은 양의 밀리초다. 실제 예시는 [Mistwake](../../../../timelines/mistwake.evaluation.json), [Clyteum](../../../../timelines/clyteum.evaluation.json), [산도리아](../../../../timelines/sandoria.evaluation.json)를 따른다.
 
 | 필드                  | 의미                                                                                                                                                         |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -175,7 +175,7 @@ Doomtrain 시험 KDL을 Runaway Train에서 같은 보스의 두 phase로 분리
 
 분기 집계는 기존 수동 기록과 일치하며 Genbu·Eastwind의 보류 미관측을 그대로 보존한다. 반복 집계도 타이머 실행과 대응한 기준점을 구별해 출력하며, 이전 수동 본문 검증 수치를 대체하지 않는다. 재현은 위 여섯 manifest에 대응하는 profile로 `evaluate` 후 `review`를 실행한다.
 
-이후 [산도리아 경고 검토](../timelines/sandoria.authoring.md#이벤트-id-평가가-드러낸-표시-24건-검토)에서 대안 기술·보조 시전자 누락을 보완해 24건을 발동 미관측 3건으로 줄였다. 변경 후 기존 개발·보류 자료는 합친 개발 계획에서 평가한다. 원래 보류 판정은 당시 후보의 이력으로 보존하며 현재 수정본의 독립 검증으로 재사용하지 않는다.
+이후 [산도리아 경고 검토](../../../../timelines/sandoria-authoring.md#이벤트-id-평가가-드러낸-표시-24건-검토)에서 대안 기술·보조 시전자 누락을 보완해 24건을 발동 미관측 3건으로 줄였다. 변경 후 기존 개발·보류 자료는 합친 개발 계획에서 평가한다. 원래 보류 판정은 당시 후보의 이력으로 보존하며 현재 수정본의 독립 검증으로 재사용하지 않는다.
 
 본문 검사 추가 후에도 세 전투의 기존 104개 입력에서 적격 84개 통과·제외 20개를 유지했다. 산도리아는 경고 검토 계획의 44개 입력·적격 42개로 포함한다. 다음 표는 **인접 실측 기준점 사이 작성된 표시**의 확인 수이며 종전 수동 전체 본문 수치와 범위가 다르다.
 
@@ -186,7 +186,7 @@ Doomtrain 시험 KDL을 Runaway Train에서 같은 보스의 두 phase로 분리
 
 Treno·Chort 등 다음 기준점이 없는 회차는 0회 완료와 미검증으로 남는다. 합성 테스트는 중간 표시 누락·순서 역전·선택 미관측을 구별하고, 동시 파동 순서와 마지막 회차 보류도 확인한다. 본문 집계는 토큰을 줄이는 진단이며 게임 밖 검증 경계를 바꾸지 않는다.
 
-[단독 Griffin 원본 평가](../timelines/mistwake-griffin.authoring.md)는 Rust로 이전하면서 과거 보류 6개 중 적격 4개·제외 2개, 76개 대상의 원본 인덱스와 재생·예고 오차를 그대로 유지했다. 새 독립 평가를 주장하지 않으며, 원본 평가 스크립트와 중복 검사 두 개를 제거했다.
+[단독 Griffin 원본 평가](../../../../timelines/mistwake-griffin-authoring.md)는 Rust로 이전하면서 과거 보류 6개 중 적격 4개·제외 2개, 76개 대상의 원본 인덱스와 재생·예고 오차를 그대로 유지했다. 새 독립 평가를 주장하지 않으며, 원본 평가 스크립트와 중복 검사 두 개를 제거했다.
 
 ## 타임라인 작성 토큰 절감
 

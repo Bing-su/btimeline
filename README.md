@@ -2,19 +2,19 @@
 
 FFLogs 전투 로그를 수집하고 타임라인을 작성하기 위한 도구입니다. 타임라인 생성 기능은 새 계약으로 다시 설계 중입니다.
 
-목표는 주요 기믹을 미리 알려주고 진행 차이가 생겨도 후속 신호로 복구되는 타임라인입니다. 원본의 완벽한 재현보다 사용에 필요한 예고와 안전한 제어를 우선합니다. 상세한 [품질 기준](docs/GENERATION.md#실용적인-품질-기준)과 현재 구현의 제한은 구분하며, 엄격한 대응 검사에서 미해결이 있다는 사실만으로 사용 불가를 뜻하지는 않습니다.
+목표는 주요 기믹을 미리 알려주고 진행 차이가 생겨도 후속 신호로 복구되는 타임라인입니다. 원본의 완벽한 재현보다 사용에 필요한 예고와 안전한 제어를 우선합니다. 상세한 [품질 기준](.agents/skills/timeline-author/references/generation.md#실용적인-품질-기준)과 현재 구현의 제한은 구분하며, 엄격한 대응 검사에서 미해결이 있다는 사실만으로 사용 불가를 뜻하지는 않습니다.
 
-로그 해석과 KDL 작성을 에이전트에 맡길 때는 저장소의 [timeline-author skill](.agents/skills/timeline-author/SKILL.md)을 사용합니다. 역할 분담·현행 CLI·작성 근거·독립 평가 절차는 [에이전트 작성 합의](docs/AGENT_TIMELINE_AUTHORING.md)에 정리했습니다. 예: `$timeline-author`와 함께 학습 로그, 대상 보스, mode와 출력 경로를 지정합니다. 이 skill은 기존 도구를 사용하는 작성 절차이며, `generate` 자체에 LLM 실행을 추가하지 않습니다.
+최종 타임라인은 에이전트가 FFLogs 관측을 해석해 작성합니다. [timeline-author 스킬](.agents/skills/timeline-author/SKILL.md)에 학습 로그, 대상 전투나 보스, mode와 출력 경로를 지정하세요. CLI는 관측 확인, 선택적 KDL 초안 생성, 구조 검사, 오프라인 재생과 독립 평가를 지원합니다. 역할 분담과 작성 절차는 [에이전트 작성 합의](.agents/skills/timeline-author/references/agent-timeline-authoring.md)에 정리했습니다.
 
-첫 작성 파일럿은 [Mistwake Griffin KDL](timelines/mistwake-griffin.kdl)입니다. [작성 기록](timelines/mistwake-griffin.authoring.md)에 기믹 요약·반복 해석·개발 재생 결과와 미검증 범위를 남겼습니다. 독립 로그·실제 ACT 검증을 마친 배포본은 아닙니다.
+첫 작성 파일럿인 [Mistwake Griffin KDL](timelines/mistwake-griffin.kdl)은 후보를 고정한 뒤 적격 독립 로그 4개로 평가했습니다. 기믹 해석, 검증 결과와 실제 ACT 실행을 포함한 미검증 범위는 [작성 기록](timelines/mistwake-griffin-authoring.md)에 정리했습니다.
 
-새 계약과 구현 순서는 [타임라인 스키마 초안](docs/TIMELINE_SCHEMA.md)과 [재설계 계획](docs/PLAN.md)을 참고하세요. cactbot 시작·리셋과 구간 전환의 근거는 [생명주기 조사](docs/CACTBOT_LIFECYCLE_RESEARCH.md)에 정리했습니다.
+새 계약과 구현 순서는 [타임라인 스키마 초안](.agents/skills/timeline-author/references/timeline-schema.md)과 [재설계 계획](docs/plan.md)을 참고하세요. cactbot 시작·리셋과 구간 전환의 근거는 [생명주기 조사](docs/cactbot-lifecycle-research.md)에 정리했습니다.
 
-[FFLogs 수집 안내](docs/FFLOGS_COLLECTION.md)는 게임 zone 탐색과 다운로드 계획 v3를 설명합니다. 기본은 긴 진행 우선 학습 자료 수집이며 `--purpose verification`으로 짧은 종료 등을 포함한 대조 자료를 수집합니다. v1·v2 계획은 다시 생성해야 하며 기존 원본 로그는 계속 사용할 수 있습니다.
+[FFLogs 수집 안내](docs/fflogs-collection.md)는 게임 zone 탐색과 다운로드 계획 v3를 설명합니다. 기본은 긴 진행 우선 학습 자료 수집이며 `--purpose verification`으로 짧은 종료 등을 포함한 대조 자료를 수집합니다. v1·v2 계획은 다시 생성해야 하며 기존 원본 로그는 계속 사용할 수 있습니다.
 
 ## 현재 사용 가능한 명령
 
-`btimeline forecast timeline.kdl recording.json --at-ms 10000 --horizon-ms 30000`으로 특정 시점까지의 관측에 따른 미래 표시 일정을 JSON으로 조회할 수 있습니다. 관측 기록의 후반은 실행에 사용하지 않으며, 아직 선택되지 않은 경로나 실제 UI 표시는 예측하지 않습니다. [조회 범위와 가정](docs/OFFLINE_REPLAY.md#미래-일정-조회)을 확인하세요.
+`btimeline forecast timeline.kdl recording.json --at-ms 10000 --horizon-ms 30000`으로 특정 시점까지의 관측에 따른 미래 표시 일정을 JSON으로 조회할 수 있습니다. 관측 기록의 후반은 실행에 사용하지 않으며, 아직 선택되지 않은 경로나 실제 UI 표시는 예측하지 않습니다. [조회 범위와 가정](.agents/skills/timeline-author/references/offline-replay.md#미래-일정-조회)을 확인하세요.
 
 | 명령                                                         | 용도                                             |
 | ------------------------------------------------------------ | ------------------------------------------------ |
@@ -24,9 +24,12 @@ FFLogs 전투 로그를 수집하고 타임라인을 작성하기 위한 도구�
 | `btimeline inspect LOG.json...`                              | 수집된 로그를 검사하고 전투별 요약 출력          |
 | `btimeline inspect LOG.json... --json`                       | 원본 근거와 정규화 관측을 JSON으로 출력          |
 | `btimeline mine LOG.json... -o process.kdl`                  | 관측된 활동 후보와 인접 관계를 KDL 그래프로 저장 |
-| `btimeline generate LOG.json... --mode raid -o timeline.kdl` | FFLogs 입력 검사·분석·KDL 생성                   |
+| `btimeline generate LOG.json... --mode raid -o timeline.kdl` | FFLogs 분석으로 선택적 KDL 초안 생성             |
 | `btimeline validate timeline.kdl`                            | 타임라인의 구조·참조·명확한 범위 검사            |
 | `btimeline compare timeline.kdl recording.json...`           | 정규화 관측 또는 수집 FFLogs의 오프라인 재생     |
+| `btimeline evaluate MANIFEST --profile PROFILE -o REPORT`    | 고정한 입력으로 작성 KDL의 예고와 실행 평가      |
+| `btimeline review REPORT`                                    | 평가 보고서의 문제와 미분류 관측 요약            |
+| `btimeline evidence INPUT --around-index N`                  | 원본 이벤트 인덱스 주변의 관측 조회              |
 
 각 명령에 `--help`를 붙여 사용법을 확인하세요. FFLogs 인증 정보는 환경 변수 `FFLOGS_CLIENT_ID`, `FFLOGS_CLIENT_SECRET` 또는 작업 디렉터리의 `.env`에서 읽습니다. 기존 환경 변수가 우선합니다.
 
@@ -70,9 +73,9 @@ FFLogs 전투 로그를 수집하고 타임라인을 작성하기 위한 도구�
 
 이 그래프는 시전·상태 변화·징표·연결을 대상으로 하는 **분석 초안**입니다. 간선이 기믹 분기 조건이나 가능한 전체 경로라는 뜻은 아닙니다. 조기 전멸 이후는 관측되지 않으며, 서로 다른 시각에 기록된 동시 신호나 누락된 패킷 때문에 그래프가 달라질 수 있습니다. 페이즈·전투 시작과 리셋 신호의 추론과 그 밖의 로그 타입은 아직 구현되지 않았습니다.
 
-`generate`는 FFLogs JSON 파일들을 직접 받아 검사·프로세스 분석·KDL 생성·구조 검증을 한 번에 수행합니다. 사용자는 `--mode raid|dungeon|alliance`를 지정합니다. lifecycle과 시각 기준은 mode 정책으로 생성하며 템플릿이나 중간 그래프 파일을 요구하지 않습니다. `mine`은 같은 분석 결과를 따로 확인하기 위한 선택적 명령입니다. 현재는 공통 시전 일정·동기화, raid의 한 국소 순서 분기와 dungeon·alliance의 보스별 phase를 생성합니다. 보스 내부 페이즈·상관 분기·가변 합류·반복 생성은 남아 있습니다. 자세한 범위와 mode 정책은 [생성 계약](docs/GENERATION.md)에 정의합니다.
+자동 초안의 지원 범위와 mode별 정책은 [생성 계약](.agents/skills/timeline-author/references/generation.md)을 참고하세요. 작성한 최종 KDL의 독립 로그 평가는 [공통 작성 평가](.agents/skills/timeline-author/references/authored-evaluation.md)를 따릅니다.
 
-`validate`는 구조와 작성 제약을 검사하고, `compare`는 lifecycle·phase·event·branch·loop를 재생합니다. 수집된 FFLogs 이벤트는 `FFLogs.*` 타입으로 표현하며 ACT 신호나 전투 시작을 추정하지 않습니다. 형식과 미검사 범위는 [오프라인 재생 안내](docs/OFFLINE_REPLAY.md)를 참고하세요.
+`validate`는 구조와 작성 제약을 검사하고, `compare`는 lifecycle·phase·event·branch·loop를 재생합니다. 수집된 FFLogs 이벤트는 `FFLogs.*` 타입으로 표현하며 ACT 신호나 전투 시작을 추정하지 않습니다. 형식과 미검사 범위는 [오프라인 재생 안내](.agents/skills/timeline-author/references/offline-replay.md)를 참고하세요.
 
 완료 로그가 3개 이상이면 생성기가 검증용 한 개를 자동으로 고릅니다. 그 로그를 뺀 임시 모델로 대응을 검사하고, 최종 KDL은 모든 완료 로그로 생성합니다. 선택·검사 결과와 미해결 관측은 근거에 남깁니다. 완료 로그가 2개면 독립 검증 자료 부족을 명시합니다. 이 분석은 최종 KDL의 실제 ACT 실행이나 일정 정확성 검증을 대체하지 않습니다.
 

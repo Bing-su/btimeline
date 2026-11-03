@@ -1,8 +1,8 @@
 # 일반 던전 반복 검증
 
-후속 [파동 대응 보완](WAVE_ALIGNMENT_VALIDATION.md)으로 Alexandria의 대표 생성본은 49→53개 정의가 됐다. loop는 여전히 0개이며 아래 단계별 49개 수치는 당시 결과다. Griffin·Chirurgeon의 반복 KDL과 재생 결과는 유지됐다.
+후속 [파동 대응 보완](wave-alignment-validation.md)으로 Alexandria의 대표 생성본은 49→53개 정의가 됐다. loop는 여전히 0개이며 아래 단계별 49개 수치는 당시 결과다. Griffin·Chirurgeon의 반복 KDL과 재생 결과는 유지됐다.
 
-**Chirurgeon General과 Thundergust Griffin의 시전 반복을 자동 생성한다.** 후속 [helper 표시 연결](HELPER_DISPLAY_VALIDATION.md)로 Griffin의 Shock Storm을 추가해, 전체 참조 본문이 관측된 8개 범위에서 표시 대응이 17/17이 됐다. 아래의 helper 누락·16/17 수치는 이전 단계 결과다. 나머지 7개 참조 보스의 반복은 아직 생성하지 못한다. 유한 로그의 공통 시전 복원과 반복 모델링은 구분한다. cactbot에 타임라인이 없는 Clyteum 대신 Alexandria·Mistwake·Meso Terminal을 검사했다. 비교 기준은 고정 커밋과 [9개 보스 반복 조사](CACTBOT_DUNGEON_LOOP_REFERENCE.md)에 기록했다.
+**Chirurgeon General과 Thundergust Griffin의 시전 반복을 자동 생성한다.** 후속 [helper 표시 연결](helper-display-validation.md)로 Griffin의 Shock Storm을 추가해, 전체 참조 본문이 관측된 8개 범위에서 표시 대응이 17/17이 됐다. 아래의 helper 누락·16/17 수치는 이전 단계 결과다. 나머지 7개 참조 보스의 반복은 아직 생성하지 못한다. 유한 로그의 공통 시전 복원과 반복 모델링은 구분한다. cactbot에 타임라인이 없는 Clyteum 대신 Alexandria·Mistwake·Meso Terminal을 검사했다. 비교 기준은 고정 커밋과 [9개 보스 반복 조사](cactbot-dungeon-loop-reference.md)에 기록했다.
 
 ## 조사 시작 시점의 입력과 생성 결과
 
@@ -106,7 +106,7 @@ Meso 본문의 세 참조 일치 기록에서 원본 파동 대응은 각각 **4
 
 보스 소속을 판정하기 전에 명단 밖 NPC 관측을 보존한다. 양수 actor ID의 NPC이며 `petOwner`가 없거나 null인 비근접 cast·begincast를 미분류로 남겼다. Player·보고된 소유자가 있는 NPC·Environment를 새로 포함하지 않고, 이름이 비면 `source=null`로 보존한다. 명단 밖 소유 NPC와 시전 외 관측의 분류는 아직 남아 있다.
 
-미분류 후보는 원본 발생 그래프와 `mine`에 남고 기존 실행용 공통 정렬·loop 학습에는 자동으로 넣지 않는다. 학습 뷰를 만들 때 batch 위치와 원본 event 인덱스를 보존하므로 같은 생성 실행의 원본 그래프와 표본 대응이 어긋나지 않는다. 같은 이름·능력·시각의 기존 적대 관측과 미분류 관측이 섞여도 학습에는 기존 멤버만 사용한다. [후보와 실행 적격성 계약](GENERATION.md#명단-밖-npc의-관측과-실행-적격성)에 근거 필드를 정의했다.
+미분류 후보는 원본 발생 그래프와 `mine`에 남고 기존 실행용 공통 정렬·loop 학습에는 자동으로 넣지 않는다. 학습 뷰를 만들 때 batch 위치와 원본 event 인덱스를 보존하므로 같은 생성 실행의 원본 그래프와 표본 대응이 어긋나지 않는다. 같은 이름·능력·시각의 기존 적대 관측과 미분류 관측이 섞여도 학습에는 기존 멤버만 사용한다. [후보와 실행 적격성 계약](../.agents/skills/timeline-author/references/generation.md#명단-밖-npc의-관측과-실행-적격성)에 근거 필드를 정의했다.
 
 | 재검증 코퍼스      | 전부 미분류인 cast 파동 노드 | KDL                                     |
 | ------------------ | ---------------------------: | --------------------------------------- |

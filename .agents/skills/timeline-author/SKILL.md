@@ -9,14 +9,14 @@ Interpret mechanics and write standalone KDL; use Rust tools to organize observa
 
 ## Contracts
 
-Read the scope and provenance sections of the [authoring agreement](../../../docs/AGENT_TIMELINE_AUTHORING.md) when establishing the task. Reuse already-read contracts; revisit relevant sections when semantics or input policy changes:
+Read the scope and provenance sections of the [authoring agreement](references/agent-timeline-authoring.md) when establishing the task. Reuse already-read contracts; revisit relevant sections when semantics or input policy changes:
 
-| Work                                             | Reference                                                          |
-| ------------------------------------------------ | ------------------------------------------------------------------ |
-| Write KDL or change controls                     | [Timeline schema](../../../docs/TIMELINE_SCHEMA.md)                |
-| Judge practical usefulness                       | [Quality criteria](../../../docs/GENERATION.md#실용적인-품질-기준) |
-| Interpret replay/forecast signals                | [Replay guide](../../../docs/OFFLINE_REPLAY.md)                    |
-| Configure projection, audit or frozen evaluation | [Authored evaluation](../../../docs/AUTHORED_EVALUATION.md)        |
+| Work                                             | Reference                                                       |
+| ------------------------------------------------ | --------------------------------------------------------------- |
+| Write KDL or change controls                     | [Timeline schema](references/timeline-schema.md)                |
+| Judge practical usefulness                       | [Quality criteria](references/generation.md#실용적인-품질-기준) |
+| Interpret replay/forecast signals                | [Replay guide](references/offline-replay.md)                    |
+| Configure projection, audit or frozen evaluation | [Authored evaluation](references/authored-evaluation.md)        |
 
 ## Workflow
 

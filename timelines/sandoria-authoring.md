@@ -15,6 +15,8 @@
 
 경고 검토 이전 후보는 `8568a2e`, SHA-256 `4175ef50f2da90edbbb423cfea23befd5c8f51aeeb11c539a4aa3b766596c2ca`다. [당시 새 보류 계획](../tests/fixtures/authored/sandoria-fresh-holdout-plan.json)의 5개 보고서·16개 입력은 그 후보 고정 뒤 평가했고 모두 통과했다. 아래 경고 검토에서는 이 자료도 개발 근거로 전환했다.
 
+최초 수집은 [다운로드 계획](../tests/fixtures/authored/sandoria-download-plan.json)의 `PAq8bNtxvXWG16QZ` 한 보고서에서 가져왔다. encounter 2067–2070은 각각 fight 68·70·72·73이다. 이 네 전투는 같은 보고서에서 수집했다.
+
 ## 원본 해석
 
 `#`는 `raw.events`의 0부터 시작하는 인덱스다. [검증 기록](sandoria.validation.json)에 표본 인덱스·시각·ID·예고 간격·오차를 보존한다. 관측에서 직접 작성했고 자동 초안을 최종 근거처럼 덮어쓰지 않았다. 네 초기 전투의 `mine` 출력은 `observation_graphs`의 명령·해시로 추적하며 최종 KDL 실행에 필요하지 않다.

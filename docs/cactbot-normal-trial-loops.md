@@ -42,9 +42,9 @@ ARR 경계 사례: [Shiva Hard의 trigger](https://github.com/OverlayPlugin/cact
 
 이 자료에서 추론하면 생성기나 스키마는 반복의 본문, 진입·탈출 신호, 선택 분기와 근거의 불확실성을 별도로 보존해야 한다. 주석의 추측이나 표시용 lookahead를 별도의 관측 회차로 승격해서는 안 된다.
 
-조사 당시 [타임라인 스키마 초안](TIMELINE_SCHEMA.md)의 반복 모델에서 다음 두 사례가 특히 중요했다.
+조사 당시 [타임라인 스키마 초안](../.agents/skills/timeline-author/references/timeline-schema.md)의 반복 모델에서 다음 두 사례가 특히 중요했다.
 
 1. Valigarmanda의 후반 반복은 앞에서 선택한 storm→ice 또는 ice→storm 경로와 연결된다. 당시 초안은 `loop`를 `phase` 안에만 둘 수 있어 선택지별 반복을 표현할 수 없었다.
 2. Queen Eternal의 Castellation 전환 신호는 대기 반복 시작보다 먼저 등장할 수 있도록 설정돼 있다. 당시 초안의 `until`은 반복 시작 전 신호를 처리하지 않았다. [전환과 대기 반복](https://github.com/OverlayPlugin/cactbot/blob/e79ea7f16093be5b80cda0e2d5bc8eb899d6fb4b/ui/raidboss/data/07-dt/trial/queen-eternal.txt#L49-L68)
 
-이후 스키마에 선택지별 loop와 반복 시작 전 탈출을 반영했다. [Queen Eternal 작성·검증](../timelines/queen-eternal-hold.authoring.md)에서는 `8EFF`로 대기 phase를 닫고 Castellation phase로 전환한다. 실측에서 반복 시작 전과 실행 중 전환을 모두 확인했고, 여러 회차 뒤 전환은 합성 재생으로 확인했다.
+이후 스키마에 선택지별 loop와 반복 시작 전 탈출을 반영했다. [Queen Eternal 작성·검증](../timelines/queen-eternal-hold-authoring.md)에서는 `8EFF`로 대기 phase를 닫고 Castellation phase로 전환한다. 실측에서 반복 시작 전과 실행 중 전환을 모두 확인했고, 여러 회차 뒤 전환은 합성 재생으로 확인했다.

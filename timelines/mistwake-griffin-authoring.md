@@ -127,7 +127,7 @@ HP=0은 원본 damage의 대상이 Griffin이고 `targetResources.hitPoints=0`�
 
 입력 무결성·원본 actor 이름·Griffin 진입·처치 근거와 기존 개발/선정 로그의 중복을 먼저 검사한다. 보고서 ID와 report/fight 중복 외에 `[상대 ms, 주요 능력 ID]` 열의 해시를 비교해 동일한 시전 기록의 복사를 거른다. 이는 이 자료 범위의 중복 검사이며 모든 변형 업로드의 독립성을 증명하지 않는다. 입력 적격 조건을 충족하지 못한 2개는 예고 성능의 분모에서 제외하되 사유와 원본 해시는 남겼다. 예고 실패·실행 오류를 입력 제외로 바꾸지 않으며, 적격 입력이 0개면 통과하지 않는다.
 
-[평가 결과](mistwake-griffin.holdout-result.json)에 당시 계획·KDL·원본 해시, 원본 기믹 인덱스, 재생·조회 오차, 제외 사유와 집계를 보존했다. 현재 원본 평가는 [공통 Rust 평가기](../docs/AUTHORED_EVALUATION.md)와 [Griffin profile](mistwake-griffin.evaluation.json)로 재현한다. 새 결과를 보고 후보를 고치면 이 코퍼스를 개발 자료로 전환한다.
+[평가 결과](mistwake-griffin.holdout-result.json)에 당시 계획·KDL·원본 해시, 원본 기믹 인덱스, 재생·조회 오차, 제외 사유와 집계를 보존했다. 현재 원본 평가는 [공통 Rust 평가기](../.agents/skills/timeline-author/references/authored-evaluation.md)와 [Griffin profile](mistwake-griffin.evaluation.json)로 재현한다. 새 결과를 보고 후보를 고치면 이 코퍼스를 개발 자료로 전환한다.
 
 후속 검사에서 입력 투영의 명시적인 `InputExclusion`만 제외하도록 제한했다. `inspect` 명령 실패·예상하지 못한 예외는 어느 단계에서 발생해도 도구 오류로 남아 전체 평가를 실패시킨다. 정상 재생 하나와 검사 명령 실패 하나를 함께 공급해, 실패한 검사를 제외하여 통과시키지 못하는 CLI 회귀 검사를 추가했다. 같은 원본으로 재현한 적격 네 로그의 결과·집계는 기존 기록과 동일하다. 제외 기록에는 `P9xGdw2Y3C7hMfH1/5`의 진입 `#17332`·마지막 대상 피해 `#21350`, `83DnJkLN7KTqWwPf/8`의 미상 sourceID=39 시전 `#10622`를 추가했다. 개발 fixture에 고정한 원본 해시 불일치는 제외로 완화하지 않는다.
 
