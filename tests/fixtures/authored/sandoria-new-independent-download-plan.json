@@ -1,0 +1,273 @@
+{
+  "schemaVersion": 3,
+  "purpose": "verification",
+  "collectedAtUnixMs": 1793675618511,
+  "source": {
+    "reports": [],
+    "encounter": null,
+    "difficulty": null,
+    "gameZone": 1304,
+    "partition": null,
+    "region": null,
+    "firstPage": 14,
+    "pages": 2
+  },
+  "selectionPolicy": "report-cohort-outcome-long-short-v1",
+  "candidateCount": 12,
+  "fights": [
+    {
+      "report": "gWqdV9bpfJBkXQMA",
+      "fight": 31,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 40614867,
+      "endTime": 40791692,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 176159,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "WbqLf1mGdt29DVH4",
+      "fight": 39,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 25635054,
+      "endTime": 25812341,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 176301,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "dqPYQjRybKFZaw9n",
+      "fight": 9,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 11637524,
+      "endTime": 11815505,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 177307,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "z91PYT34mhvw2CRq",
+      "fight": 21,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 22651942,
+      "endTime": 22832713,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 180106,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "LhxBa9yqHnr8fDJX",
+      "fight": 36,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 48297276,
+      "endTime": 48480131,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 181961,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "jCq84v6LVgtJDXFK",
+      "fight": 3,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 649694,
+      "endTime": 833633,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 183046,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "mDQ1xjHMvbzFAw7J",
+      "fight": 5,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 5194261,
+      "endTime": 5454017,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 259086,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "WjxwtrDCyR1T4Qng",
+      "fight": 3,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 186725,
+      "endTime": 448231,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 260793,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "PTdVgLQfFGCt2K4A",
+      "fight": 14,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 6074288,
+      "endTime": 6340921,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 265963,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "YaTNm27kvZPxCLc9",
+      "fight": 14,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 6074288,
+      "endTime": 6340921,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 265963,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "g3yMnLaDYrWkc2dz",
+      "fight": 31,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 23201943,
+      "endTime": 23469855,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 267912,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "cGvRpCg1aBnwtYy8",
+      "fight": 3,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 1034620,
+      "endTime": 1328988,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 293921,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    }
+  ],
+  "failures": [],
+  "truncated": true
+}

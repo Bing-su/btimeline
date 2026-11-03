@@ -194,3 +194,14 @@ Eastwind의 신호 제거 재생에서 Riddle과 Double Cast의 5초 전 예고 
 out/btimeline-eastwind-independent-frozen evaluate tests/fixtures/authored/sandoria-adcd-independent-holdout-plan.json --profile timelines/sandoria.evaluation.json -o out/sandoria-adcd-independent-holdout-new.json
 out/btimeline-eastwind-independent-frozen review out/sandoria-adcd-independent-holdout-new.json
 ```
+
+### Kirin의 빠른 처치와 느린 처치 재검증
+
+`417437f`의 KDL·profile·평가기 해시를 이벤트 다운로드 전에 고정했다. 산도리아 구역 탐색 14–15쪽에서 기존 로컬 보고서와 겹치는 코드를 빼고, 보고서당 1개씩 빠른 처치 6개와 느린 처치 6개를 선정했다. 기술열 지문이 중복된 1개를 제외한 원본 11개는 phase 진입과 예고를 모두 통과했다. [다운로드 계획](../tests/fixtures/authored/sandoria-new-independent-download-plan.json) · [평가 계획](../tests/fixtures/authored/sandoria-new-independent-evaluation-plan.json)
+
+| 원본에서 독립 신호로 분류한 경로 | 표본 | 전체 전투 길이    | Kirin 진입 기준 ADCD | 초기 선택 신호 제거 사본의 결과                                                          |
+| -------------------------------- | ---: | ----------------- | -------------------- | ---------------------------------------------------------------------------------------- |
+| Eastwind                         |    4 | 180.771–294.368초 | 90.872–91.637초      | AD82 제거 후 4개 모두 ADCD로 선택. 전환 후 첫 Crimson Riddle의 5초 전 예고 오차는 9–16ms |
+| Genbu                            |    1 | 261.506초         | 104.639초            | Moonbound Genbu의 AD84 시전 시작 제거 후 미해결 1개. Eastwind 오선택 0개                 |
+
+나머지 원본 6개는 Quake 또는 Stonega를 선택했다. 제거 사본은 합성 검사다. 이전 검증과 같이 Faithbound Kirin의 Double Cast 완료와 Moonbound Genbu의 AD84 시전 시작으로 원본 경로를 분류한 뒤, 각 경로의 초기 선택 패킷만 제거하고 `collection.eventCount`를 갱신해 재생했다. 새 Genbu 표본은 느린 처치 한 건이며, 89.3–93.3초 창에 들어오는 Genbu ADCD는 관측되지 않았다.
