@@ -28,7 +28,8 @@
             "kirin-genbu-arms",
             "kirin-eastwind-arms",
             "kirin-arms-return",
-            "kirin-recovery-arms"
+            "kirin-recovery-arms",
+            "kirin-early-recovery-arms"
           ],
           "equivalents": [
             [
@@ -37,7 +38,8 @@
               "kirin-genbu-arms",
               "kirin-eastwind-arms",
               "kirin-arms-return",
-              "kirin-recovery-arms"
+              "kirin-recovery-arms",
+              "kirin-early-recovery-arms"
             ]
           ]
         },
@@ -49,12 +51,24 @@
         "AFF4": {
           "name": "Crimson Riddle",
           "group": "Crimson Riddle",
-          "events": ["kirin-5", "kirin-6", "kirin-genbu-riddle", "kirin-eastwind-riddle"]
+          "events": [
+            "kirin-5",
+            "kirin-6",
+            "kirin-genbu-riddle",
+            "kirin-eastwind-riddle",
+            "kirin-early-recovery-riddle"
+          ]
         },
         "AFF5": {
           "name": "Crimson Riddle",
           "group": "Crimson Riddle",
-          "events": ["kirin-5", "kirin-6", "kirin-genbu-riddle", "kirin-eastwind-riddle"]
+          "events": [
+            "kirin-5",
+            "kirin-6",
+            "kirin-genbu-riddle",
+            "kirin-eastwind-riddle",
+            "kirin-early-recovery-riddle"
+          ]
         },
         "AD7E": {
           "name": "Summon Shijin",
@@ -71,7 +85,8 @@
             "kirin-quake-third",
             "kirin-quake-fourth",
             "kirin-double-quake",
-            "kirin-recovery-quake"
+            "kirin-recovery-quake",
+            "kirin-early-recovery-quake"
           ]
         },
         "B07C": {
@@ -83,7 +98,8 @@
             "kirin-quake-third",
             "kirin-quake-fourth",
             "kirin-double-quake",
-            "kirin-recovery-quake"
+            "kirin-recovery-quake",
+            "kirin-early-recovery-quake"
           ]
         },
         "AD92": {
@@ -140,7 +156,8 @@
             "kirin-stonega-first",
             "kirin-stonega-second",
             "kirin-double-stonega",
-            "kirin-recovery-stonega"
+            "kirin-recovery-stonega",
+            "kirin-early-recovery-stonega"
           ]
         },
         "B07A": {
@@ -150,7 +167,8 @@
             "kirin-stonega-first",
             "kirin-stonega-second",
             "kirin-double-stonega",
-            "kirin-recovery-stonega"
+            "kirin-recovery-stonega",
+            "kirin-early-recovery-stonega"
           ]
         },
         "AD93": {
@@ -171,7 +189,11 @@
         "A916": {
           "name": "Double Cast",
           "group": "Double Cast",
-          "events": ["kirin-double-cast", "kirin-recovery-double-cast"]
+          "events": [
+            "kirin-double-cast",
+            "kirin-recovery-double-cast",
+            "kirin-early-recovery-double-cast"
+          ]
         },
         "A917": {
           "name": "Stonega III",
@@ -180,7 +202,8 @@
             "kirin-stonega-first",
             "kirin-stonega-second",
             "kirin-double-stonega",
-            "kirin-recovery-stonega"
+            "kirin-recovery-stonega",
+            "kirin-early-recovery-stonega"
           ]
         },
         "A918": {
@@ -192,7 +215,8 @@
             "kirin-quake-third",
             "kirin-quake-fourth",
             "kirin-double-quake",
-            "kirin-recovery-quake"
+            "kirin-recovery-quake",
+            "kirin-early-recovery-quake"
           ]
         },
         "ADAE": {

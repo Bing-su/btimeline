@@ -212,6 +212,7 @@ fn duo_forecasts_simultaneous_abilities_without_cross_boss_sync() {
 #[case("StartsUsing", "B079", 101000, 121500)]
 #[case("StartsUsing", "AD84", 78000, 122700)]
 #[case("Ability", "AD82", 90000, 124600)]
+#[case("Ability", "ADCD", 91300, 124600)]
 #[case("StartsUsing", "A916", 106100, 124600)]
 fn each_shijin_route_predicts_common_arms_before_its_own_signal(
     #[case] kind: &str,
@@ -233,6 +234,7 @@ fn each_shijin_route_predicts_common_arms_before_its_own_signal(
         ),
     ];
     if id == "AD82" {
+        observations.push(signal(91300, "Ability", "ADCD", "Faithbound Kirin"));
         // Riddle also occurs on the longer Eastwind route; it must not override the earlier choice.
         observations.push(signal(
             select + 2900,
@@ -252,6 +254,27 @@ fn each_shijin_route_predicts_common_arms_before_its_own_signal(
             .iter()
             .any(|e| e["name"] == "Wrought Arms" && e["at_ms"] == arms)
     );
+}
+
+#[test]
+fn early_kirin_marker_only_selects_within_its_window() {
+    for (at, expected) in [(91300, true), (104500, false)] {
+        let result = run(
+            "forecast",
+            vec![
+                signal(0, "Ability", "ADCA", "Faithbound Kirin"),
+                signal(at, "Ability", "ADCD", "Faithbound Kirin"),
+            ],
+            at,
+            7000,
+        );
+        let expected_id = "kirin-early-recovery-riddle";
+        let events = result["events"].as_array().expect("events");
+        assert_eq!(
+            events.iter().any(|event| event["id"] == expected_id),
+            expected
+        );
+    }
 }
 
 #[test]

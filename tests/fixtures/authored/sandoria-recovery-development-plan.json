@@ -1,7 +1,7 @@
 {
   "role": "Development regression for missing Eald and Eastwind signals",
   "timeline": "timelines/sandoria.kdl",
-  "timeline_sha256": "454e00670af546a3574c4ba05d718b2cc73a1dd24335eeb3cf43c2d5005ce3e2",
+  "timeline_sha256": "c38860e75580cb547603e21ba50a6eb2528e26882eccb3ca20dcc45b8b69bd4c",
   "forecast_lead_ms": 5000,
   "horizon_ms": 6500,
   "tolerance_ms": 1500,

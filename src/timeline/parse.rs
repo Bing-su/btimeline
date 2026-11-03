@@ -104,6 +104,12 @@ fn literal_signals_overlap(left: &Signal, right: &Signal) -> bool {
     if left.kind != right.kind {
         return false;
     }
+    if let Some((a, b)) = left.at.zip(right.at)
+        && (left.after.is_some_and(|after| a + after < b - right.before)
+            || right.after.is_some_and(|after| b + after < a - left.before))
+    {
+        return false;
+    }
     let literals = |s: &Signal| s.fields.values().all(|v| matches!(v, Field::Literal(_)));
     if !literals(left) || !literals(right) {
         return false;
@@ -222,11 +228,11 @@ fn signal_fields(node: &KdlNode, reserved: &[&str]) -> Result<BTreeMap<String, F
 
 fn signal(node: &KdlNode, role: &str) -> Result<Signal> {
     let sync = role == "sync";
-    let timed = matches!(role, "sync" | "enter" | "merge-when" | "until");
+    let timed = matches!(role, "sync" | "enter" | "when" | "merge-when" | "until");
     let reserved: &[&str] = match role {
         "sync" => &["before", "after"],
         "enter" => &["from", "at", "before", "after", "resume-at"],
-        "merge-when" | "until" => &["at", "before", "after"],
+        "when" | "merge-when" | "until" => &["at", "before", "after"],
         _ => &[],
     };
     let names: Vec<_> = node

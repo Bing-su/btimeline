@@ -3684,6 +3684,16 @@ proptest! {
     "when \"Ability\" id=\"A001\";",
     false
 )]
+#[case::disjoint_windows(
+    "when \"Ability\" id=\"A\" at=2.0 before=1.0 after=1.0;",
+    "when \"Ability\" id=\"A\" at=5.0 before=1.0 after=1.0;",
+    false
+)]
+#[case::windows_touch_at_inclusive_boundary(
+    "when \"Ability\" id=\"A\" at=2.0 before=1.0 after=1.0;",
+    "when \"Ability\" id=\"A\" at=4.0 before=1.0 after=1.0;",
+    true
+)]
 fn unconditional_literal_option_overlap(
     #[case] left: &str,
     #[case] right: &str,

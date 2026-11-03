@@ -45,14 +45,23 @@ timeline 1 "San d'Oria: The Second Walk" {
             }
             // Riddle also appears on Genbu's route, so use distinct earlier controls instead of Riddle itself.
             option "eastwind" {
-                when "Ability" id="AD82" source="Faithbound Kirin"
+                when "Ability" id="AD82" source="Faithbound Kirin" at=90.0 before=4.0 after=4.0
                 event "kirin-eastwind-riddle" 7.9 name="Crimson Riddle"
                 event "kirin-double-cast" 19.1 name="Double Cast"
                 event "kirin-double-quake" 27.1 name="Quake"
                 event "kirin-double-stonega" 27.1 name="Stonega III"
                 event "kirin-eastwind-arms" 34.6 name="Wrought Arms"
             }
-            // Double Cast identifies Eastwind even when its earlier wheel signal is missing.
+            // Kirin uses ADCD before Riddle on both routes, but Genbu's copy comes much later.
+            option "eastwind-early-recovery" fallback=#true {
+                when "Ability" id="ADCD" source="Faithbound Kirin" at=91.3 before=2.0 after=2.0
+                event "kirin-early-recovery-riddle" 6.7 name="Crimson Riddle"
+                event "kirin-early-recovery-double-cast" 17.8 name="Double Cast"
+                event "kirin-early-recovery-quake" 25.9 name="Quake"
+                event "kirin-early-recovery-stonega" 25.9 name="Stonega III"
+                event "kirin-early-recovery-arms" 33.3 name="Wrought Arms"
+            }
+            // Double Cast identifies Eastwind when both earlier signals are missing.
             option "eastwind-recovery" fallback=#true {
                 when "StartsUsing" id="A916" source="Faithbound Kirin"
                 event "kirin-recovery-double-cast" 3.0 name="Double Cast"
