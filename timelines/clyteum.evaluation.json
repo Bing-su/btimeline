@@ -11,30 +11,59 @@
       "reject_health_reset": true,
       "targets": {
         "BF00": {
-          "name": "Eyes on Me"
+          "name": "Eyes on Me",
+          "events": [
+            "eye-opening-eyes",
+            "eye-opening-eyes-second",
+            "eye-opening-eyes-third",
+            "eye-eyes-first",
+            "eye-eyes-second"
+          ]
         },
         "C3FF": {
           "name": "Petrifying Beam",
-          "group": "beam"
+          "group": "beam",
+          "events": [
+            "eye-opening-beam-first",
+            "eye-opening-beam-second",
+            "eye-opening-beam-third",
+            "eye-beam"
+          ]
         },
         "C400": {
           "name": "Petrifying Beam",
-          "group": "beam"
+          "group": "beam",
+          "events": [
+            "eye-opening-beam-first",
+            "eye-opening-beam-second",
+            "eye-opening-beam-third",
+            "eye-beam"
+          ]
         },
         "BEFD": {
-          "name": "Motion Scanner"
+          "name": "Motion Scanner",
+          "events": ["eye-opening-scanner", "eye-opening-scanner-second", "eye-scanner"]
         },
         "BF01": {
-          "name": "Ballistic Missile"
+          "name": "Ballistic Missile",
+          "events": ["eye-opening-ballistic-first", "eye-opening-ballistic-second", "eye-ballistic"]
         },
         "BF05": {
-          "name": "Penetrator Missile"
+          "name": "Penetrator Missile",
+          "events": ["eye-opening-penetrator"]
         },
         "BF02": {
-          "name": "Surface Missile"
+          "name": "Surface Missile",
+          "events": [
+            "eye-opening-surface-first",
+            "eye-opening-surface-second",
+            "eye-surface-first",
+            "eye-surface-second"
+          ]
         },
         "BF03": {
-          "name": "Anti-Personnel Missile"
+          "name": "Anti-Personnel Missile",
+          "events": ["eye-opening-antipersonnel", "eye-antipersonnel"]
         }
       }
     },
@@ -47,41 +76,99 @@
       "reject_health_reset": true,
       "targets": {
         "BEF4": {
-          "name": "Ripples of Gloom"
+          "name": "Ripples of Gloom",
+          "events": [
+            "chort-opening-ripples",
+            "chort-opening-ripples-second",
+            "chort-opening-ripples-third",
+            "chort-ripples"
+          ]
         },
         "BEE4": {
           "name": "Mortifying Flesh",
-          "group": "mortifying"
+          "group": "mortifying",
+          "events": [
+            "chort-opening-mortifying",
+            "chort-opening-mortifying-followup",
+            "chort-opening-mortifying-second",
+            "chort-opening-mortifying-followup-second",
+            "chort-opening-mortifying-followup-third"
+          ]
         },
         "BEE5": {
           "name": "Mortifying Flesh",
-          "group": "mortifying"
+          "group": "mortifying",
+          "events": [
+            "chort-opening-mortifying",
+            "chort-opening-mortifying-followup",
+            "chort-opening-mortifying-second",
+            "chort-opening-mortifying-followup-second",
+            "chort-opening-mortifying-followup-third"
+          ]
         },
         "BEE6": {
           "name": "Mortifying Flesh",
-          "group": "mortifying"
+          "group": "mortifying",
+          "events": [
+            "chort-opening-mortifying",
+            "chort-opening-mortifying-followup",
+            "chort-opening-mortifying-second",
+            "chort-opening-mortifying-followup-second",
+            "chort-opening-mortifying-followup-third"
+          ]
         },
         "BEE7": {
           "name": "Mortifying Flesh",
-          "group": "mortifying"
+          "group": "mortifying",
+          "events": [
+            "chort-opening-mortifying",
+            "chort-opening-mortifying-followup",
+            "chort-opening-mortifying-second",
+            "chort-opening-mortifying-followup-second",
+            "chort-opening-mortifying-followup-third"
+          ]
         },
         "BEEC": {
-          "name": "Mortifying Flesh"
+          "name": "Mortifying Flesh",
+          "events": [
+            "chort-opening-mortifying",
+            "chort-opening-mortifying-followup",
+            "chort-opening-mortifying-second",
+            "chort-opening-mortifying-followup-second",
+            "chort-opening-mortifying-followup-third"
+          ]
         },
         "BEEE": {
-          "name": "Bodyweight Exorcism"
+          "name": "Bodyweight Exorcism",
+          "events": [
+            "chort-opening-body",
+            "chort-opening-body-sequence",
+            "chort-opening-body-second",
+            "chort-opening-body-sequence-second",
+            "chort-body-sequence"
+          ]
         },
         "C4B9": {
-          "name": "Basic Vomit"
+          "name": "Basic Vomit",
+          "events": ["chort-opening-vomit", "chort-opening-vomit-second", "chort-vomit"]
         },
         "BEEF": {
-          "name": "Bodyweight Exorcism"
+          "name": "Bodyweight Exorcism",
+          "events": [
+            "chort-opening-body",
+            "chort-opening-body-sequence",
+            "chort-opening-body-second",
+            "chort-opening-body-sequence-second",
+            "chort-body-sequence"
+          ]
         },
         "C4F1": {
-          "name": "Evil Emission"
+          "name": "Evil Emission",
+          "events": ["chort-opening-emission", "chort-emission"]
         },
         "BEF6": {
-          "name": "Profane Pressure"
+          "name": "Profane Pressure",
+          "events": ["chort-opening-pressure", "chort-pressure"]
         }
       }
     },
@@ -94,31 +181,55 @@
       "reject_health_reset": true,
       "targets": {
         "BF18": {
-          "name": "Rubbish Disposal"
+          "name": "Rubbish Disposal",
+          "events": [
+            "malphas-opening-rubbish",
+            "malphas-opening-rubbish-second",
+            "malphas-rubbish-first",
+            "malphas-rubbish-second"
+          ]
         },
         "C489": {
-          "name": "Void Dark"
+          "name": "Void Dark",
+          "events": [
+            "malphas-opening-void",
+            "malphas-void-first",
+            "malphas-void-second",
+            "malphas-void-third"
+          ]
         },
         "BF19": {
-          "name": "Scrap Meddle"
+          "name": "Scrap Meddle",
+          "events": [
+            "malphas-opening-scrap",
+            "malphas-opening-scrap-second",
+            "malphas-scrap-first",
+            "malphas-scrap-second"
+          ]
         },
         "BF1A": {
-          "name": "Puppet Strings"
+          "name": "Puppet Strings",
+          "events": ["malphas-opening-strings-first", "malphas-opening-strings-second"]
         },
         "BF21": {
-          "name": "Gluttonous Wire"
+          "name": "Gluttonous Wire",
+          "events": ["malphas-opening-wire"]
         },
         "BF1B": {
-          "name": "Puppet Pair"
+          "name": "Puppet Pair",
+          "events": ["malphas-pair"]
         },
         "BF23": {
-          "name": "String Up"
+          "name": "String Up",
+          "events": ["malphas-string-up"]
         },
         "C48B": {
-          "name": "Shadow Play"
+          "name": "Shadow Play",
+          "events": ["malphas-shadow"]
         },
         "BF1D": {
-          "name": "Puppet Mastery"
+          "name": "Puppet Mastery",
+          "events": ["malphas-mastery-first", "malphas-mastery-second"]
         }
       }
     }

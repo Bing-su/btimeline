@@ -720,6 +720,7 @@ pub(crate) fn parse(source: &str) -> Result<Timeline> {
         events: Vec::new(),
         phases: Vec::new(),
         event_count: 0,
+        catalog: super::Catalog::default(),
     };
     for node in children(root) {
         (|| -> Result<()> {
@@ -741,5 +742,6 @@ pub(crate) fn parse(source: &str) -> Result<Timeline> {
     }
     v.references()?;
     timeline.event_count = v.event_count;
+    timeline.catalog = super::Catalog::from_timeline(&timeline);
     Ok(timeline)
 }

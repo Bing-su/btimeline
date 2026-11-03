@@ -91,8 +91,8 @@ fn forecast_excludes_future_signals_and_unselected_paths() {
     assert_eq!(
         first["events"],
         json!([
-            {"id":"selected","name":"Selected","at_ms":4000,"lead_ms":2000,"duration_ms":0,"run":1},
-            {"id":"common","name":"Common","at_ms":5000,"lead_ms":3000,"duration_ms":2000,"run":1}
+            {"id":"selected","name":"Selected","at_ms":4000,"lead_ms":2000,"duration_ms":0,"run":1,"context":{"phase":"first","phase_instance":1,"branch":"choice","option":"left","loop_id":null,"iteration":null,"on_exit":false}},
+            {"id":"common","name":"Common","at_ms":5000,"lead_ms":3000,"duration_ms":2000,"run":1,"context":{"phase":"first","phase_instance":1,"branch":null,"option":null,"loop_id":null,"iteration":null,"on_exit":false}}
         ])
     );
 }

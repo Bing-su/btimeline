@@ -1,6 +1,6 @@
 ---
 source: tests/cli.rs
-assertion_line: 233
+assertion_line: 796
 expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][recording], \"not_checked\":\n    output[\"not_checked\"]\n})"
 ---
 {
@@ -18,13 +18,37 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
     {
       "action": "phase",
       "at_ms": 0,
+      "context": {
+        "branch": null,
+        "iteration": null,
+        "loop_id": null,
+        "on_exit": false,
+        "option": null,
+        "phase": "opening",
+        "phase_instance": 1
+      },
       "detail": "opening",
       "run": 1
     },
     {
       "action": "event",
       "at_ms": 1000,
+      "context": {
+        "branch": null,
+        "iteration": null,
+        "loop_id": null,
+        "on_exit": false,
+        "option": null,
+        "phase": "opening",
+        "phase_instance": 1
+      },
       "detail": "opening-hit: Opening hit (visible=true, duration=0.0s)",
+      "event": {
+        "duration_ms": 0,
+        "id": "opening-hit",
+        "name": "Opening hit",
+        "visible": true
+      },
       "run": 1
     },
     {
@@ -36,25 +60,79 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
     {
       "action": "event",
       "at_ms": 6000,
+      "context": {
+        "branch": null,
+        "iteration": null,
+        "loop_id": null,
+        "on_exit": false,
+        "option": null,
+        "phase": "opening",
+        "phase_instance": 1
+      },
       "detail": "after-sync: After sync (visible=true, duration=0.0s)",
+      "event": {
+        "duration_ms": 0,
+        "id": "after-sync",
+        "name": "After sync",
+        "visible": true
+      },
       "run": 1
     },
     {
       "action": "phase",
       "at_ms": 9000,
+      "context": {
+        "branch": null,
+        "iteration": null,
+        "loop_id": null,
+        "on_exit": false,
+        "option": null,
+        "phase": "second",
+        "phase_instance": 2
+      },
       "detail": "second",
       "run": 1
     },
     {
       "action": "event",
       "at_ms": 9000,
+      "context": {
+        "branch": null,
+        "iteration": null,
+        "loop_id": null,
+        "on_exit": false,
+        "option": null,
+        "phase": "second",
+        "phase_instance": 2
+      },
       "detail": "second-start: Second phase (visible=true, duration=0.0s)",
+      "event": {
+        "duration_ms": 0,
+        "id": "second-start",
+        "name": "Second phase",
+        "visible": true
+      },
       "run": 1
     },
     {
       "action": "event",
       "at_ms": 10000,
+      "context": {
+        "branch": null,
+        "iteration": null,
+        "loop_id": null,
+        "on_exit": false,
+        "option": null,
+        "phase": "second",
+        "phase_instance": 2
+      },
       "detail": "second-hit: Second hit (visible=true, duration=0.0s)",
+      "event": {
+        "duration_ms": 0,
+        "id": "second-hit",
+        "name": "Second hit",
+        "visible": true
+      },
       "run": 1
     },
     {
@@ -78,6 +156,15 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
     {
       "action": "phase",
       "at_ms": 10600,
+      "context": {
+        "branch": null,
+        "iteration": null,
+        "loop_id": null,
+        "on_exit": false,
+        "option": null,
+        "phase": "opening",
+        "phase_instance": 3
+      },
       "detail": "opening",
       "run": 2
     },

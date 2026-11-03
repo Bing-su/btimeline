@@ -9,6 +9,7 @@ use serde_json::{Value, json};
 use usage_rs::{Args, Run};
 
 use super::audit::Audit;
+mod coverage;
 
 #[derive(Args)]
 pub struct ReviewCommand {
@@ -29,6 +30,7 @@ struct Report {
     evaluator_sha256: Option<String>,
     bindings: Option<Value>,
     traces: Vec<Trace>,
+    evidence_role: Option<super::coverage::EvidenceRole>,
 }
 #[derive(Deserialize)]
 struct Trace {
@@ -43,12 +45,15 @@ struct Trace {
     diagnostics: Vec<Value>,
     #[serde(default)]
     bosses: Vec<Boss>,
+    coverage: Option<super::coverage::Coverage>,
 }
 #[derive(Deserialize)]
 struct Boss {
     phase: String,
     targets: Vec<Target>,
     audit: Option<Audit>,
+    #[serde(default)]
+    unmatched_displays: Vec<Value>,
 }
 #[derive(Deserialize)]
 struct ExclusionEvidence {
@@ -95,12 +100,20 @@ struct Phase {
     forecast_lead_ms: BTreeMap<i64, usize>,
     unknown_lead_forecasts: usize,
     failure_counts: BTreeMap<String, usize>,
+    unmatched_displays: usize,
+    duplicate_candidates: usize,
 }
 impl Phase {
     fn observe(&mut self, boss: &Boss) {
         self.inputs += 1;
         self.targets += boss.targets.len();
         self.failed_targets += boss.targets.iter().filter(|target| !target.passed).count();
+        self.unmatched_displays += boss.unmatched_displays.len();
+        self.duplicate_candidates += boss
+            .unmatched_displays
+            .iter()
+            .filter(|row| row.get("kind").and_then(Value::as_str) == Some("duplicate_candidate"))
+            .count();
         for forecast in boss
             .targets
             .iter()
@@ -214,8 +227,22 @@ fn first_issue(trace: &Trace) -> Option<Value> {
             json!({"input":trace.input,"phase":boss.phase,"raw_index":target.raw_index,"at_ms":target.at_ms,"id":target.id,"failed_targets":failed_targets,"failure_reasons":target.failure_reasons,"replay_error_ms":target.error_ms,"forecast_error_ms":target.forecast.as_ref().and_then(|f|f.error_ms),"diagnostic":target.forecast.as_ref().and_then(forecast_diagnostic)}),
         );
     }
-    let first = trace.diagnostics.first().map(brief_diagnostic);
-    (trace.passed != Some(true)).then(|| json!({"input":trace.input,"safe_entry":trace.safe_entry,"diagnostics":trace.diagnostics.len(),"first_diagnostic":first}))
+    if trace.passed != Some(true) {
+        let first = trace.diagnostics.first().map(brief_diagnostic);
+        return Some(
+            json!({"input":trace.input,"safe_entry":trace.safe_entry,"diagnostics":trace.diagnostics.len(),"first_diagnostic":first}),
+        );
+    }
+    if let Some((boss, display)) = trace.bosses.iter().find_map(|boss| {
+        boss.unmatched_displays
+            .first()
+            .map(|display| (boss, display))
+    }) {
+        return Some(
+            json!({"input":trace.input,"phase":boss.phase,"kind":"unmatched_display","unmatched_displays":boss.unmatched_displays.len(),"event_id":display.pointer("/display/event/id").and_then(Value::as_str).map(|id|id.chars().take(120).collect::<String>()),"at_ms":display.pointer("/display/at_ms")}),
+        );
+    }
+    None
 }
 
 fn compact(report: &Report, limit: usize, offset: usize) -> Result<Value> {
@@ -267,10 +294,17 @@ fn compact(report: &Report, limit: usize, offset: usize) -> Result<Value> {
     let mut issue_traces = report
         .traces
         .iter()
-        .filter(|trace| trace.status != "evaluated" || trace.passed != Some(true))
+        .filter(|trace| {
+            trace.status != "evaluated"
+                || trace.passed != Some(true)
+                || trace
+                    .bosses
+                    .iter()
+                    .any(|boss| !boss.unmatched_displays.is_empty())
+        })
         .collect::<Vec<_>>();
-    // Failed predictions and tool errors come before exclusions; retain manifest order inside each group.
-    issue_traces.sort_by_key(|trace| trace.status == "excluded");
+    // Show failures before review warnings and exclusions, e.g. an unmatched tail must not hide a tool error.
+    issue_traces.sort_by_key(|trace| (trace.status == "excluded", trace.passed == Some(true)));
     let issues = issue_traces
         .into_iter()
         .filter_map(first_issue)
@@ -309,7 +343,8 @@ fn compact(report: &Report, limit: usize, offset: usize) -> Result<Value> {
         "audit_status": audit_status, "unaudited_inputs": unaudited_inputs, "unclassified_groups": unknown.len(),
         "unclassified": unknown_rows, "omitted_unclassified": unknown.len() - unknown_rows.len(),
         "unclassified_offset": offset, "next_unclassified_offset": (next < unknown.len()).then_some(next),
-        "scope": "declared evaluation sources and intervals; other helpers and out-of-scope activity are not audited"
+        "scope": "declared evaluation sources and intervals; other helpers and out-of-scope activity are not audited",
+        "coverage":coverage::summarize(&report.traces,report.evidence_role.unwrap_or_default(),limit)?
     }))
 }
 impl Run for ReviewCommand {

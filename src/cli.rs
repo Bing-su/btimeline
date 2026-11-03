@@ -38,6 +38,9 @@ pub enum MainCommands {
 pub struct ValidateCommand {
     #[usage(arg)]
     timeline: Utf8PathBuf,
+    /// Print definition IDs and ownership for authoring profile bindings.
+    #[usage(long)]
+    json: bool,
 }
 
 impl Run for ValidateCommand {
@@ -47,6 +50,15 @@ impl Run for ValidateCommand {
         let text = std::fs::read_to_string(&self.timeline)?;
         let model = crate::timeline::parse(&text)
             .with_context(|| format!("Validating {}", self.timeline))?;
+        if self.json {
+            println!(
+                "{}",
+                serde_json::to_string(
+                    &serde_json::json!({"name":model.name,"catalog":model.catalog})
+                )?
+            );
+            return Ok(());
+        }
         println!(
             "Valid structure: {} ({} events)",
             model.name, model.event_count

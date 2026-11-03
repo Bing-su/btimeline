@@ -31,34 +31,39 @@ cargo test evaluate
 
 `compare`에 FFLogs 파일을 직접 넣을 때의 `FFLogs.*` 의미는 바꾸지 않는다. `evaluate`는 아래 profile이 선언한 **검증용 가정**으로만 Ability/StartsUsing을 투영한다. HP=0을 WasDefeated·finish로 합성하지 않는다.
 
-새 독립 평가에서는 개발 보고서의 `profile_sha256`과 `evaluator_sha256`을 보류 manifest에 복사해 고정한다. 실행 파일의 실제 바이트 해시를 사용하므로 재빌드하면 바뀔 수 있다. 값이 다르면 로그를 평가하기 전에 거부한다. 기존 manifest는 계속 읽되 `bindings`에 동결 여부를 표시한다. 버전 문자열만으로 같은 평가기라고 추정하지 않는다.
+새 독립 평가에서는 개발 보고서의 `profile_sha256`과 `evaluator_sha256`을 보류 manifest에 복사해 고정하고 `evidence_role: "held_out"`을 지정한다. 이 역할은 두 해시가 없으면 거부한다. 실행 파일의 실제 바이트 해시를 사용하므로 재빌드하면 바뀔 수 있다. 값이 다르면 로그를 평가하기 전에 거부한다. `evidence_role`은 `development`, `held_out`, `synthetic`, `unspecified` 중 하나이며 생략하면 `unspecified`다. 자유문 `role`이나 파일 이름으로 역할을 추정하지 않는다. 역할 선언·해시 고정 자체는 자료의 독립성을 증명하지 않는다. 기존 manifest는 계속 읽되 `bindings`에 동결 여부를 표시한다.
 
 ## Profile v1
 
 알 수 없는 profile 필드는 오류다. 기술 ID는 대문자 16진수이며 예고 간격은 양의 밀리초다. 실제 예시는 [Mistwake](../timelines/mistwake.evaluation.json), [Clyteum](../timelines/clyteum.evaluation.json), [산도리아](../timelines/sandoria.evaluation.json)를 따른다.
 
-| 필드                  | 의미                                                                                                                                               |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `version`             | 현재 1                                                                                                                                             |
-| `observations`        | `all_casts`: 모든 cast의 시전자 확인 후 마지막 구간까지 전달. `scoped_casts`: 평가 구간 안 cast. `scoped_casts_and_starts`: 구간 안 cast·begincast |
-| `segments`            | 실행/평가 순서의 구간. `phase`, `source`, `entry` ID 배열, `targets` 필요. 선택적 `encounter`로 한 FFLogs 전투에 적용할 구간 제한                  |
-| `completion`          | `defeat`: 처치 필수. `fight_end`: 완료/전멸 기록 끝. `first_defeat`: 첫 본체 처치 또는 기록 끝                                                     |
-| `max_duration_ms`     | 첫 대표 cast부터 유한 평가 상한. 기록·처치 끝과 비교해 이른 값 사용                                                                                |
-| `require_main_actor`  | 이름마다 Boss actor 하나 요구. 추가 공동 본체는 `other_sources`에 지정                                                                             |
-| `reject_health_reset` | 본체 HP가 75% 미만에서 90% 초과로 회복하면 제외. 명확한 본체 요구와 함께 사용                                                                      |
-| `targets`             | ID별 `name`, 선택적 `source`, `group`, `lead_ms`. 기본 시전자는 구간 source, 기본 예고는 manifest 값                                               |
-| `group`               | 100ms 이내 중복 대상 패킷을 요약할 공통 키. 생략하면 ID별. 동일 표시 이름이라고 자동으로 합치지 않음                                               |
-| `not_checked`         | 전투별 미검증 범위                                                                                                                                 |
-| `ignored`             | 구간별 ID → 관측에 근거한 제외 사유. 공백 사유와 targets와의 ID 중복은 오류. 감사 분류에만 쓰며 원본 관측·표시·제어를 제거하지 않음                |
+| 필드                  | 의미                                                                                                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `version`             | 현재 1                                                                                                                                                       |
+| `observations`        | `all_casts`: 모든 cast의 시전자 확인 후 마지막 구간까지 전달. `scoped_casts`: 평가 구간 안 cast. `scoped_casts_and_starts`: 구간 안 cast·begincast           |
+| `segments`            | 실행/평가 순서의 구간. `phase`, `source`, `entry` ID 배열, `targets` 필요. 선택적 `encounter`로 한 FFLogs 전투에 적용할 구간 제한                            |
+| `completion`          | `defeat`: 처치 필수. `fight_end`: 완료/전멸 기록 끝. `first_defeat`: 첫 본체 처치 또는 기록 끝                                                               |
+| `max_duration_ms`     | 첫 대표 cast부터 유한 평가 상한. 기록·처치 끝과 비교해 이른 값 사용                                                                                          |
+| `require_main_actor`  | 이름마다 Boss actor 하나 요구. 추가 공동 본체는 `other_sources`에 지정                                                                                       |
+| `reject_health_reset` | 본체 HP가 75% 미만에서 90% 초과로 회복하면 제외. 명확한 본체 요구와 함께 사용                                                                                |
+| `targets`             | 기술 ID별 `name`, 필수 `events` KDL 이벤트 ID 배열, 선택적 `source`, `group`, `lead_ms`, `equivalents`. 기본 시전자는 구간 source, 기본 예고는 manifest 값   |
+| `events`              | 이 기술의 가능한 실행 정의. 예: `['opening-hit', 'repeat-hit']`. 표시 가능한 같은 phase의 정의만 허용. 후보 집합은 다른 target과 같거나 완전히 분리되어야 함 |
+| `equivalents`         | 선택적 ID 배열들의 배열. 예: `[['predicted-hit', 'merged-hit']]`. 합류에서 교체되는 같은 예고만 명시하며 각 집합은 events의 서로 겹치지 않는 부분집합        |
+| `group`               | 100ms 이내 중복 대상 패킷을 요약할 공통 키. 생략하면 ID별. 동일 표시 이름이라고 자동으로 합치지 않음                                                         |
+| `not_checked`         | 전투별 미검증 범위                                                                                                                                           |
+| `ignored`             | 구간별 ID → 관측에 근거한 제외 사유. 공백 사유와 targets와의 ID 중복은 오류. 감사 분류에만 쓰며 원본 관측·표시·제어를 제거하지 않음                          |
 
-구간 선택·진입·처치 근거·대상 패킷 요약을 공통 코드가 처리한다. 전투 시간표·분기·반복 해석은 KDL 작성자가 결정한다. 기존 평가의 이름/가장 가까운 시각 대응은 보존했으며 이벤트별 일대일 대응은 아직 제공하지 않는다. Varis·Queen·Griffin의 특수 구간 해석/별도 평가와 cactbot 공식 TypeScript 연동은 이번 이전 범위 밖이다.
+`validate TIMELINE --json`의 `catalog.events`에서 ID와 소유 phase·분기·반복을 조회해 바인딩한다. 이름은 표시용이며 대응 판정에는 사용하지 않는다. 이전의 events 없는 profile은 거부하므로 새 배열을 추가해야 한다. 구간 선택·진입·처치 근거·대상 패킷 요약은 공통 코드가 처리하고 전투 시간표·분기·반복 해석은 작성자가 결정한다. Varis·Queen·Griffin의 특수 구간 해석/별도 평가와 cactbot 공식 TypeScript 연동은 별도 범위다.
+
+후보 ID 집합마다 시간순 일대일 대응으로 허용 오차 안의 대응 수를 먼저 최대화하고, 전체 대응 수와 총 오차를 순서대로 비교한다. 같은 실행 행을 두 관측에 재사용하지 않는다. 동시 패킷을 한 표시로 요약하려면 같은 `name`·`events`와 명시적인 공통 `group`을 사용한다. `matched_event`에는 실제 ID·시각·실행 문맥을 보존한다. 사전 조회는 실제 대응한 정의와 같은 전투 시도·phase 진입·반복 회차를 요구한다. 합류 교체가 있는 경우에만 `equivalents`의 정의 간 인계를 인정한다. 단순히 같은 표시 이름이거나 events에 함께 있다는 이유로 서로 대신하지 않는다.
 
 ## 감사와 짧은 조회
 
 | 도구·결과                         | 의미와 출력 상한                                                                                                                                                                                        |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `evaluate`의 구간별 `audit`       | 선언한 source·other_sources·target source의 cast를 대상·사유 있는 제외·미분류로 집계. 대상별 중복 패킷도 원본 cast 수에 포함. 미분류는 ID/시전자별 이름·발생 수·첫/마지막 원본 인덱스·시각을 보존       |
-| `review_required`                 | 미분류가 있으면 true. 얻은 감사가 없으면 null. 예고 점수나 입력 적격 판정을 바꾸지 않으며, 단독으로 CLI 실패를 만들지는 않음                                                                            |
+| `review_required`                 | 미분류 또는 대응하지 않은 표시가 있으면 true. 예고 점수나 입력 적격 판정을 바꾸지 않으며, 단독으로 CLI 실패를 만들지는 않음                                                                             |
+| `unmatched_displays`              | 대응되지 않은 표시를 `duplicate_candidate`(근처 관측의 후보), `unmatched_bound`(바인딩됐지만 근처 관측 없음), `unbound`로 분리. 기록 종료·누락 관측도 가능하므로 검토 근거로 사용                       |
 | 중복 로그의 감사                  | 대상열 fingerprint가 같아 제외하더라도 `evidence.audit_only`에 감사를 보존. 새 미분류 시전이 중복 처리에 묻히지 않으며 독립 표본 수는 늘리지 않음                                                       |
 | `review REPORT --limit 8`         | 재생 없이 phase별 대상·예고 수/간격/오차/실패 종류와 입력별 첫 문제, 미분류를 요약. 실제 실패를 제외 사례보다 먼저 표시. 각 목록 기본 8개·최대 50개. 전체 수와 생략 수 표시                             |
 | `evidence INPUT --around-index N` | 원본 배열의 N번째 관측 시각 ±5초 안 NPC cast·begincast. `--before-ms`, `--after-ms`, `--source`로 좁히며 기본 40행·최대 200행. 중심에 가까운 행을 먼저 선택한 뒤 원본 인덱스를 유지하며 시간순으로 표시 |
@@ -69,11 +74,26 @@ cargo test evaluate
 
 `evidence`의 `at_ms`는 fight.startTime 기준이며 `origin_timestamp_ms`와 열 이름을 함께 출력한다. `around-index`는 damage 등 시전이 아닌 원본 관측도 중심점으로 사용할 수 있다. 시간 범위를 지정하려면 around-index가 필요하다. 전체 일치 수와 생략 수를 확인하며, 생략된 관측이 없다고 추정하지 않는다. 원본 무결성은 inspect와 같은 경계에서 검사하며 ACT로 투영하지 않는다.
 
-`review`는 보고서의 집계와 trace가 일치하는지 확인한다. 감사가 없는 과거 보고서도 읽지만 `unavailable_or_partial`로 표시하며 기본 예고 간격을 추정하지 않는다. 각 목록의 예시만 자르므로 전체 JSON은 그대로 남는다. 경로/반복 회차별 실제 관측 수는 자동 추정하지 않는다. 원본 행이나 긴 진단의 문자 수는 실제 모델 토큰 사용량과 같은 단위가 아니다.
+`review`는 보고서의 집계와 trace가 일치하는지 확인한다. 감사가 없는 과거 보고서도 읽지만 `unavailable_or_partial`로 표시하며 기본 예고 간격을 추정하지 않는다. 각 목록의 예시만 자르므로 전체 JSON은 그대로 남는다. 원본 행이나 긴 진단의 문자 수는 실제 모델 토큰 사용량과 같은 단위가 아니다.
 
 미분류가 상한보다 많으면 `next_unclassified_offset`을 다음 호출의 `--unclassified-offset`으로 넘긴다. 이는 미분류 목록만 페이지로 나누며 phase·문제 목록의 상한과 우선순위는 유지한다. 생략 수는 페이지 앞뒤를 합한 수다. 같은 보고서 파일과 해시를 기준으로 조회한다.
 
 대상별 `failure_reasons`는 표시 누락/오차, 사전 조회 누락/오차/제어 상태, 현재 진단과 가상 미래 진단을 구별한다. 전체 조회의 `diagnostics`는 호환을 위해 합친 배열을 유지하되 `current_diagnostics`와 `projection_diagnostics`도 각각 보존한다. 한 대상에 원인이 여럿일 수 있어 원인별 합계와 실패 대상 수가 다를 수 있다.
+
+## 분기·반복 커버리지
+
+전체 보고서의 trace별 `coverage`와 짧은 `review.coverage`는 해당 manifest의 자료만 집계한다. 후보 phase의 선택지 중 관측 0개인 항목도 표시한다. 제외한 중복 입력은 표본을 늘리지 않는다.
+
+| 지표                                   | 의미와 한계                                                                                           |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `choices.signal_selections`            | 실제 관측이 선택한 분기 횟수. 첫 원본 인덱스와 입력을 연결하며 표시 타이머만으로 선택을 추정하지 않음 |
+| `emitted_iterations`                   | 타이머에 의해 실행된 반복 회차. 실제 관측 확인과 별개                                                 |
+| `matched_iterations`, `matched_events` | 허용 오차 안에서 target 관측과 일대일 대응한 회차·표시 수                                             |
+| `consecutive_anchor_pairs`             | 반복 본문 at=0의 같은 표시가 인접 모델 회차에서 각각 관측과 대응한 쌍. 첫 쌍의 두 원본 인덱스 보존    |
+| `signal_exits`                         | 원본 관측이 종료시킨 반복 횟수                                                                        |
+| `evidence_role`, `status`              | 선언한 개발·보류·합성 역할과 커버리지 자료의 제공 상태. 과거 보고서에 없으면 unavailable/partial      |
+
+기준점의 연속 대응은 **전체 반복 본문 검증이 아니다**. 본문 중간 기술·선택지 누락, 다른 manifest의 합성 테스트, 보고서 간 독립성은 따로 확인한다. 상위 선택지 안 반복의 조건은 `owner`에 보존하며 합성 입력과 실측 결과를 합쳐 독립 보류 검증으로 부르지 않는다.
 
 ## 기존 결과와의 대조
 
@@ -90,6 +110,17 @@ cargo test evaluate
 기존 보고서와 Rust 결과의 모든 평가 대상·조회·오차·fingerprint·제외 근거·집계를 의미 값으로 대조했다. 제외 메시지는 공통 표현으로 통일했으며 판정 근거는 유지한다. 이는 같은 입력에 대한 이전 동작 보존 검사이고 새로운 독립 평가를 주장하지 않는다. 기존 manifest와 작성 validation 기록은 변경하지 않는다.
 
 감사·조회 보강(`0f595aa`)에서도 같은 104개 입력의 예고 판정·오차·fingerprint·적격/제외 구분을 유지했다. 감사와 실패 이유·조회 상태·실제 예고 간격은 추가 메타데이터다. 예고가 통과해도 미분류 검토가 남았음을 별도로 확인할 수 있으며, 독립 평가 표본 수나 기존 KDL은 바꾸지 않았다.
+
+이벤트 ID·회차 기반 일대일 평가에서도 위 104개 입력의 대상별 예고/재생 오차·판정·fingerprint·적격/제외 구분을 이전 감사 보고서와 대조해 유지했다. 기존 manifest의 역할은 `unspecified`로 두고 KDL·과거 기록은 수정하지 않았다. 재평가는 새 독립 평가가 아니다. 산도리아에서는 대응 없는 표시가 개발 13건(바인딩 10·미바인딩 3), 보류 11건(6·5) 드러났으며 검토 경고로 남긴다. 관측 부재만으로 이 표시들이 모두 잘못됐다고 판정하지 않는다.
+
+| 산도리아 shijin 선택 | 개발 관측 | 기존 보류 관측 |
+| -------------------- | --------- | -------------- |
+| quake                | 1         | 3              |
+| stonega              | 2         | 1              |
+| genbu                | 2         | 0              |
+| eastwind             | 1         | 0              |
+
+분기 집계는 기존 수동 기록과 일치하며 Genbu·Eastwind의 보류 미관측을 그대로 보존한다. 반복 집계도 타이머 실행과 대응한 기준점을 구별해 출력하며, 이전 수동 본문 검증 수치를 대체하지 않는다. 재현은 위 여섯 manifest에 대응하는 profile로 `evaluate` 후 `review`를 실행한다.
 
 ## 타임라인 작성 토큰 절감
 

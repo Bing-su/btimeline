@@ -3,7 +3,19 @@ use std::collections::{BTreeMap, BTreeSet};
 use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
 
-use super::{Branch, BranchOption, Event, Loop, MAX_MS, Phase, Tick, Timeline};
+use super::{
+    Branch,
+    BranchOption,
+    Event,
+    EventData,
+    ExecutionContext,
+    Loop,
+    MAX_MS,
+    Owner,
+    Phase,
+    Tick,
+    Timeline,
+};
 
 pub(super) mod forecast;
 
@@ -73,6 +85,10 @@ pub(crate) struct Record {
     pub(crate) run: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) source_event_index: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) event: Option<EventData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) context: Option<ExecutionContext>,
     #[serde(skip)]
     event_order: Option<usize>,
 }
@@ -83,6 +99,8 @@ struct Clock {
     not_before: i64,
     zero_at: Option<i64>,
     processed: BTreeSet<usize>,
+    phase_instance: usize,
+    iteration: Option<u64>,
 }
 
 #[derive(Clone)]
@@ -151,6 +169,7 @@ struct LoopRef<'a> {
 
 #[derive(Clone, Default)]
 struct RepeatState {
+    phase_instance: usize,
     anchor: Option<Tick>,
     not_before: i64,
     zero_start: Option<i64>,
@@ -184,7 +203,8 @@ fn matches_any(signals: &[super::Signal], observation: &Observation, time: Tick)
         .any(|signal| signal.matches(&observation.kind, &observation.fields, time))
 }
 
-fn active_path(base_ms: i64, at: i64) -> ActivePath {
+fn active_path(parent: &Clock, at: i64) -> ActivePath {
+    let base_ms = parent.base_ms;
     let anchor = elapsed(base_ms, at);
     ActivePath {
         anchor,
@@ -192,6 +212,8 @@ fn active_path(base_ms: i64, at: i64) -> ActivePath {
             base_ms: base_ms + anchor * 100,
             not_before: at,
             zero_at: Some(at),
+            phase_instance: parent.phase_instance,
+            iteration: parent.iteration,
             ..Clock::default()
         },
     }
@@ -259,7 +281,7 @@ fn option_actions(
 }
 
 impl<'a> PhaseState<'a> {
-    fn new(definition: &'a Phase, at: i64) -> Self {
+    fn new(definition: &'a Phase, at: i64, phase_instance: usize) -> Self {
         let mut loops: Vec<_> = definition
             .loops
             .iter()
@@ -280,6 +302,7 @@ impl<'a> PhaseState<'a> {
         let repeats = loops
             .iter()
             .map(|repeat| RepeatState {
+                phase_instance,
                 anchor: repeat.owner.is_none().then_some(0),
                 not_before: at,
                 ..RepeatState::default()
@@ -289,6 +312,7 @@ impl<'a> PhaseState<'a> {
             definition,
             clock: Clock {
                 base_ms: at,
+                phase_instance,
                 ..Clock::default()
             },
             branches: definition
@@ -305,6 +329,7 @@ impl<'a> PhaseState<'a> {
         for (entry, state) in self.loops.iter().zip(&mut self.repeats) {
             if entry.owner == Some((branch, option)) {
                 *state = RepeatState {
+                    phase_instance: self.clock.phase_instance,
                     anchor: Some(anchor),
                     not_before: at,
                     zero_start: Some(at),
@@ -335,8 +360,42 @@ fn record(out: &mut Vec<Record>, at_ms: i64, action: &str, detail: impl Into<Str
         detail: detail.into(),
         run,
         source_event_index: None,
+        event: None,
+        context: None,
         event_order: None,
     });
+}
+
+fn execution_context(clock: &Clock, owner: Owner) -> ExecutionContext {
+    ExecutionContext {
+        owner,
+        phase_instance: clock.phase_instance,
+        iteration: clock.iteration,
+    }
+}
+
+fn branch_owner(phase: &str, branch: &str, option: Option<&str>) -> Owner {
+    Owner {
+        phase: Some(phase.into()),
+        branch: Some(branch.into()),
+        option: option.map(String::from),
+        ..Owner::default()
+    }
+}
+
+fn record_control(
+    out: &mut Vec<Record>,
+    at: i64,
+    action: &str,
+    detail: String,
+    run: usize,
+    clock: &Clock,
+    owner: Owner,
+) {
+    record(out, at, action, detail, run);
+    if let Some(row) = out.last_mut() {
+        row.context = Some(execution_context(clock, owner));
+    }
 }
 
 fn event_time(clock: &Clock, event: &Event) -> i64 {
@@ -383,6 +442,13 @@ fn emit(
         );
         if let Some(record) = out.last_mut() {
             record.event_order = Some(event.order);
+            record.event = Some(EventData {
+                id: event.id.clone(),
+                name: event.name.clone(),
+                visible: event.visible,
+                duration_ms: event.duration * 100,
+            });
+            record.context = Some(execution_context(clock, Owner::default()));
         }
     }
 }
@@ -610,6 +676,8 @@ fn prepare_repeat_boundary(phase: &mut PhaseState<'_>, id: &str, at: i64) {
     if state.current.is_none() && repeat_start(phase.clock.base_ms, definition, state) == Some(at) {
         state.current = Some(Clock {
             base_ms: at,
+            phase_instance: state.phase_instance,
+            iteration: Some(1),
             ..Clock::default()
         });
         return;
@@ -619,6 +687,7 @@ fn prepare_repeat_boundary(phase: &mut PhaseState<'_>, id: &str, at: i64) {
     };
     if clock.base_ms + definition.every * 100 == at {
         clock.base_ms = at;
+        clock.iteration = clock.iteration.map(|iteration| iteration + 1);
         clock.zero_at = None;
         clock.processed.clear();
     }
@@ -750,6 +819,8 @@ fn enter_repeat_after_jump_one(
     }
     let mut clock = Clock {
         base_ms: at - position * 100,
+        phase_instance: state.phase_instance,
+        iteration: Some(u64::try_from(completed)? + 1),
         not_before: at,
         ..Clock::default()
     };
@@ -831,6 +902,8 @@ fn activate_repeat(definition: &Loop, state: &mut RepeatState, phase_base: i64) 
     };
     state.current = Some(Clock {
         base_ms: phase_base + (anchor + definition.start) * 100,
+        phase_instance: state.phase_instance,
+        iteration: Some(1),
         not_before: state.not_before,
         zero_at: if definition.start == 0 {
             state.zero_start
@@ -1001,6 +1074,7 @@ fn advance_repeat(
             run,
         );
         clock.base_ms += period;
+        clock.iteration = clock.iteration.map(|iteration| iteration + 1);
         clock.zero_at = None;
         clock.processed.clear();
         boundary = clock.base_ms + period;
@@ -1121,6 +1195,7 @@ struct Replay<'a> {
     phase: Option<PhaseState<'a>>,
     history: BTreeMap<String, Option<String>>,
     run: usize,
+    phase_entries: usize,
     out: Vec<Record>,
 }
 
@@ -1347,16 +1422,37 @@ impl<'a> Replay<'a> {
         if state.exited || time < 0 || !matches_any(&definition.untils, observation, time) {
             return false;
         }
+        let iteration = state.current.as_ref().and_then(|clock| clock.iteration);
         state.exited = true;
         state.current = None;
-        state.exit = Some(active_path(phase.clock.base_ms, observation.at_ms));
-        record(
+        state.exit = Some(active_path(&phase.clock, observation.at_ms));
+        if let Some(exit) = &mut state.exit {
+            exit.clock.iteration = iteration;
+        }
+        record_control(
             &mut self.out,
             observation.at_ms,
             "until",
             definition.id.clone(),
             self.run,
+            &phase.clock,
+            Owner {
+                loop_id: Some(definition.id.clone()),
+                on_exit: true,
+                ..self
+                    .timeline
+                    .catalog
+                    .loops
+                    .iter()
+                    .find(|repeat| repeat.id == definition.id)
+                    .expect("parsed loop has catalog entry")
+                    .owner
+                    .clone()
+            },
         );
+        if let Some(context) = self.out.last_mut().and_then(|row| row.context.as_mut()) {
+            context.iteration = iteration;
+        }
         true
     }
 
@@ -1529,17 +1625,19 @@ impl<'a> Replay<'a> {
                     return true;
                 };
                 state.selected = Some(option_index);
-                let path = active_path(phase.clock.base_ms, observation.at_ms);
+                let path = active_path(&phase.clock, observation.at_ms);
                 let anchor = path.anchor;
                 state.option = Some(path);
                 self.history
                     .insert(branch.id.clone(), Some(choice.id.clone()));
-                record(
+                record_control(
                     &mut self.out,
                     observation.at_ms,
                     "option",
                     format!("{}/{}", branch.id, choice.id),
                     self.run,
+                    &phase.clock,
+                    branch_owner(&phase.definition.id, &branch.id, Some(&choice.id)),
                 );
                 phase.activate_option_loops(index, option_index, anchor, observation.at_ms);
             }
@@ -1555,13 +1653,15 @@ impl<'a> Replay<'a> {
                 }
                 state.closed = true;
                 state.option = None;
-                state.merge = Some(active_path(phase.clock.base_ms, observation.at_ms));
-                record(
+                state.merge = Some(active_path(&phase.clock, observation.at_ms));
+                record_control(
                     &mut self.out,
                     observation.at_ms,
                     "merge",
                     branch.id.clone(),
                     self.run,
+                    &phase.clock,
+                    branch_owner(&phase.definition.id, &branch.id, None),
                 );
                 phase.cancel_option_loops(index);
             }
@@ -1612,15 +1712,23 @@ impl<'a> Replay<'a> {
                     return false;
                 };
                 state.selected = Some(*option_index);
-                state.option = Some(active_path(clock.base_ms, observation.at_ms));
+                state.option = Some(active_path(clock, observation.at_ms));
                 self.history
                     .insert(branch.id.clone(), Some(option.id.clone()));
-                record(
+                record_control(
                     &mut self.out,
                     observation.at_ms,
                     "option",
                     format!("{}/{}", branch.id, option.id),
                     self.run,
+                    clock,
+                    Owner {
+                        phase: Some(phase.definition.id.clone()),
+                        loop_id: Some(entry.definition.id.clone()),
+                        branch: Some(branch.id.clone()),
+                        option: Some(option.id.clone()),
+                        ..Owner::default()
+                    },
                 );
             }
             BranchAction::RepeatMerge(_, _) => {
@@ -1635,13 +1743,20 @@ impl<'a> Replay<'a> {
                 }
                 state.closed = true;
                 state.option = None;
-                state.merge = Some(active_path(clock.base_ms, observation.at_ms));
-                record(
+                state.merge = Some(active_path(clock, observation.at_ms));
+                record_control(
                     &mut self.out,
                     observation.at_ms,
                     "merge",
                     branch.id.clone(),
                     self.run,
+                    clock,
+                    Owner {
+                        phase: Some(phase.definition.id.clone()),
+                        loop_id: Some(entry.definition.id.clone()),
+                        branch: Some(branch.id.clone()),
+                        ..Owner::default()
+                    },
                 );
             }
             BranchAction::RepeatConflict(_, _) => record(
@@ -1725,8 +1840,21 @@ impl<'a> Replay<'a> {
 
     fn enter_phase(&mut self, candidates: &[&'a Phase], at: i64) {
         if let [phase] = candidates {
-            self.phase = Some(PhaseState::new(phase, at));
-            record(&mut self.out, at, "phase", phase.id.clone(), self.run);
+            self.phase_entries += 1;
+            let state = PhaseState::new(phase, at, self.phase_entries);
+            record_control(
+                &mut self.out,
+                at,
+                "phase",
+                phase.id.clone(),
+                self.run,
+                &state.clock,
+                Owner {
+                    phase: Some(phase.id.clone()),
+                    ..Owner::default()
+                },
+            );
+            self.phase = Some(state);
         } else {
             record(
                 &mut self.out,
@@ -1952,6 +2080,15 @@ impl<'a> Replay<'a> {
     fn finish(mut self, end_ms: i64) -> Vec<Record> {
         self.settle(end_ms);
         self.record_unobserved(end_ms);
+        for row in &mut self.out {
+            // Attach definition ownership after execution so identity metadata cannot alter path scheduling.
+            if let Some((context, definition)) = row.context.as_mut().zip(
+                row.event_order
+                    .and_then(|order| self.timeline.catalog.events.get(&order)),
+            ) {
+                context.owner = definition.owner.clone();
+            }
+        }
         // Controls precede same-time events; authored events keep document order across paths.
         self.out.sort_by_key(|record| {
             (
@@ -2004,6 +2141,7 @@ fn replay_until<'a>(timeline: &'a Timeline, input: &Recording, at_ms: i64) -> Re
         phase: None,
         history: BTreeMap::new(),
         run: 0,
+        phase_entries: 0,
         out: Vec::new(),
     };
     let mut observations = input

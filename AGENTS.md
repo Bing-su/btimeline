@@ -2,12 +2,13 @@
 
 ## Contracts
 
-| When changing                                            | Read                                           |
-| -------------------------------------------------------- | ---------------------------------------------- |
-| Timeline syntax, validation, or execution semantics      | [Timeline schema](docs/TIMELINE_SCHEMA.md)     |
-| FFLogs-to-KDL generation or mode policies                | [Generation contract](docs/GENERATION.md)      |
-| Replay input, supported behavior, or verification claims | [Offline replay guide](docs/OFFLINE_REPLAY.md) |
-| FFLogs collection, mining, generation, or project goals  | [Implementation plan](docs/PLAN.md)            |
+| When changing                                            | Read                                               |
+| -------------------------------------------------------- | -------------------------------------------------- |
+| Timeline syntax, validation, or execution semantics      | [Timeline schema](docs/TIMELINE_SCHEMA.md)         |
+| FFLogs-to-KDL generation or mode policies                | [Generation contract](docs/GENERATION.md)          |
+| Replay input, supported behavior, or verification claims | [Offline replay guide](docs/OFFLINE_REPLAY.md)     |
+| Authored evaluation, evidence audit, or route coverage   | [Authored evaluation](docs/AUTHORED_EVALUATION.md) |
+| FFLogs collection, mining, generation, or project goals  | [Implementation plan](docs/PLAN.md)                |
 
 Final KDL must run in an external executor without evidence or FFLogs-only signals. Keep observations and uncertainty traceable, and report what replay could not verify.
 

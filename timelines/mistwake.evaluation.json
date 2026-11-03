@@ -9,22 +9,46 @@
       "completion": "defeat",
       "targets": {
         "A93F": {
-          "name": "Earthquake"
+          "name": "Earthquake",
+          "events": [
+            "treno-opening-earthquake",
+            "treno-opening-earthquake-second",
+            "treno-opening-earthquake-third",
+            "treno-earthquake",
+            "treno-earthquake-second"
+          ]
         },
         "A943": {
-          "name": "Thunder II"
+          "name": "Thunder II",
+          "events": [
+            "treno-opening-thunder-ii",
+            "treno-opening-thunder-ii-second",
+            "treno-opening-thunder-ii-third",
+            "treno-thunder-ii",
+            "treno-thunder-ii-second"
+          ]
         },
         "A942": {
-          "name": "Bedeviling Light"
+          "name": "Bedeviling Light",
+          "events": [
+            "treno-opening-light",
+            "treno-opening-light-second",
+            "treno-opening-light-third",
+            "treno-light",
+            "treno-light-second"
+          ]
         },
         "A941": {
-          "name": "Thunder III"
+          "name": "Thunder III",
+          "events": ["treno-opening-thunder-iii", "treno-thunder-iii"]
         },
         "AF19": {
-          "name": "Ray of Lightning"
+          "name": "Ray of Lightning",
+          "events": ["treno-opening-ray", "treno-ray"]
         },
         "A947": {
-          "name": "Petribreath"
+          "name": "Petribreath",
+          "events": ["treno-opening-petribreath", "treno-petribreath"]
         }
       }
     },
@@ -35,28 +59,44 @@
       "completion": "defeat",
       "targets": {
         "B118": {
-          "name": "Thunderclap Concerto"
+          "name": "Thunderclap Concerto",
+          "events": [
+            "amdusias-opening-concerto",
+            "amdusias-opening-concerto-second",
+            "amdusias-concerto"
+          ]
         },
         "B11D": {
-          "name": "Thunderclap Concerto"
+          "name": "Thunderclap Concerto",
+          "events": [
+            "amdusias-opening-concerto",
+            "amdusias-opening-concerto-second",
+            "amdusias-concerto"
+          ]
         },
         "B120": {
-          "name": "Bio II"
+          "name": "Bio II",
+          "events": ["amdusias-opening-bio", "amdusias-bio"]
         },
         "B122": {
-          "name": "Galloping Thunder"
+          "name": "Galloping Thunder",
+          "events": ["amdusias-opening-gallop", "amdusias-gallop"]
         },
         "B126": {
-          "name": "Thunder IV"
+          "name": "Thunder IV",
+          "events": ["amdusias-thunder-iv"]
         },
         "B12B": {
-          "name": "Shockbolt"
+          "name": "Shockbolt",
+          "events": ["amdusias-shockbolt"]
         },
         "B11F": {
-          "name": "Thunder"
+          "name": "Thunder",
+          "events": ["amdusias-thunder"]
         },
         "B129": {
-          "name": "Thunder III"
+          "name": "Thunder III",
+          "events": ["amdusias-thunder-iii"]
         }
       }
     },
@@ -67,29 +107,44 @@
       "completion": "defeat",
       "targets": {
         "B0EB": {
-          "name": "Thunderspark"
+          "name": "Thunderspark",
+          "events": ["opening-thunderspark", "rotation-thunderspark"]
         },
         "B0EC": {
-          "name": "High Volts"
+          "name": "High Volts",
+          "events": ["opening-high-volts", "rotation-high-volts"]
         },
         "B0EF": {
-          "name": "Thundering Roar"
+          "name": "Thundering Roar",
+          "events": [
+            "opening-roar-first",
+            "opening-roar-second",
+            "opening-roar-last",
+            "rotation-roar-first",
+            "rotation-roar-second",
+            "rotation-roar-last"
+          ]
         },
         "B0F3": {
-          "name": "Storm Surge"
+          "name": "Storm Surge",
+          "events": ["rotation-storm-surge"]
         },
         "B0F4": {
           "name": "Electrifying Flight",
-          "source": "Shock Storm"
+          "source": "Shock Storm",
+          "events": ["rotation-electrifying-flight"]
         },
         "B0F5": {
-          "name": "Fulgurous Fall"
+          "name": "Fulgurous Fall",
+          "events": ["opening-fulgurous-fall", "rotation-fulgurous-fall"]
         },
         "B0F8": {
-          "name": "Electrogenetic Force"
+          "name": "Electrogenetic Force",
+          "events": ["opening-electrogenetic-force", "rotation-electrogenetic-force"]
         },
         "B0F9": {
-          "name": "Golden Talons"
+          "name": "Golden Talons",
+          "events": ["opening-golden-talons", "rotation-golden-talons"]
         }
       }
     }

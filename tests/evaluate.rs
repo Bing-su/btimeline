@@ -17,7 +17,7 @@ fn setup(directory: &Path) -> Value {
     let raw = include_bytes!("fixtures/pull.json");
     fs::write(directory.join("timeline.kdl"), timeline).expect("valid test fixture");
     fs::write(directory.join("input.json"), raw).expect("valid test fixture");
-    fs::write(directory.join("profile.json"),serde_json::to_vec(&json!({"version":1,"observations":"all_casts","segments":[{"phase":"boss","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Hit"}}}],"not_checked":[]})).expect("valid test fixture")).expect("valid test fixture");
+    fs::write(directory.join("profile.json"),serde_json::to_vec(&json!({"version":1,"observations":"all_casts","segments":[{"phase":"boss","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Hit","events":["first","second","third"]}}}],"not_checked":[]})).expect("valid test fixture")).expect("valid test fixture");
     json!({"timeline":"timeline.kdl","timeline_sha256":hash(timeline),"role":"test","forecast_lead_ms":5000,"horizon_ms":6500,"tolerance_ms":1500,"inputs":[{"input":"input.json","sha256":hash(raw)}]})
 }
 fn save(directory: &Path, manifest: &Value) {
@@ -139,7 +139,8 @@ fn a_scope_with_no_matching_targets_is_an_error_instead_of_an_empty_pass() {
     let path = directory.path().join("profile.json");
     let mut profile: Value =
         serde_json::from_slice(&fs::read(&path).expect("profile")).expect("JSON");
-    profile["segments"][0]["targets"] = json!({"FFFF":{"name":"Never observed"}});
+    profile["segments"][0]["targets"] =
+        json!({"FFFF":{"name":"Never observed","events":["first"]}});
     fs::write(path, serde_json::to_vec(&profile).expect("JSON")).expect("profile");
     command(directory.path()).assert().failure();
     let report: Value =
@@ -230,6 +231,7 @@ fn unselected_casts_remain_auditable_and_evidence_and_review_are_bounded() {
 fn profile_and_evaluator_can_be_frozen_without_rewriting_historical_manifests() {
     let directory = tempfile::tempdir().expect("temporary directory");
     let mut manifest = setup(directory.path());
+    manifest["evidence_role"] = json!("held_out");
     let profile_path = directory.path().join("profile.json");
     let profile = fs::read(&profile_path).expect("profile");
     manifest["profile_sha256"] = json!(hash(&profile));
@@ -404,8 +406,9 @@ fn duplicate_target_sequences_do_not_discard_new_unclassified_observations() {
 fn review_prioritizes_failures_over_exclusions_and_clips_error_text() {
     let directory = tempfile::tempdir().expect("temporary directory");
     let report = json!({
-        "summary":{"selected":2,"excluded":1,"eligible":1,"passed_traces":0,"passed":false},
+        "summary":{"selected":3,"excluded":1,"eligible":2,"passed_traces":1,"passed":false},
         "traces":[
+            {"input":"warning","status":"evaluated","passed":true,"bosses":[{"phase":"boss","targets":[],"unmatched_displays":[{"kind":"unbound","display":{"event":{"id":"tail"},"at_ms":1000}}]}]},
             {"input":"missing","status":"excluded","passed":null,"error":"Missing"},
             {"input":"broken","status":"error","passed":false,"error":"오류".repeat(3000)}
         ]
@@ -430,7 +433,7 @@ fn review_prioritizes_failures_over_exclusions_and_clips_error_text() {
             .count(),
         400
     );
-    assert_eq!(review["review"]["omitted_issues"], 1);
+    assert_eq!(review["review"]["omitted_issues"], 2);
 }
 
 #[test]
@@ -474,4 +477,148 @@ fn unclassified_groups_can_be_paged_without_unbounded_output() {
         assert_eq!(result["review"]["omitted_unclassified"], 2);
         assert_eq!(result["review"]["next_unclassified_offset"], next);
     }
+}
+
+#[test]
+fn one_display_cannot_satisfy_two_packets_without_an_explicit_summary_group() {
+    for (collapsed, alias_group) in [(false, None), (false, Some("B528")), (true, None)] {
+        let directory = tempfile::tempdir().unwrap();
+        let mut manifest = setup(directory.path());
+        manifest["forecast_lead_ms"] = json!(1000);
+        let mut raw: Value = serde_json::from_slice(include_bytes!("fixtures/pull.json")).unwrap();
+        raw["events"][2]["timestamp"] = json!(6100);
+        raw["events"][2]["abilityGameID"] = json!(46377);
+        raw["report"]["masterData"]["abilities"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"gameID":46377,"name":"Other packet","type":"1"}));
+        let bytes = serde_json::to_vec(&raw).unwrap();
+        fs::write(directory.path().join("input.json"), &bytes).unwrap();
+        manifest["inputs"][0]["sha256"] = json!(hash(&bytes));
+        let timeline = b"timeline 1 \"Packets\" { start \"Ability\" id=\"B528\"; phase \"boss\" { enter \"Ability\" id=\"B528\"; event \"first\" 0.0 name=\"Hit\"; event \"second\" 4.0 name=\"Hit\"; }; }";
+        fs::write(directory.path().join("timeline.kdl"), timeline).unwrap();
+        manifest["timeline_sha256"] = json!(hash(timeline));
+        let mut rule = json!({"name":"Hit","events":["first","second"]});
+        if collapsed {
+            rule["group"] = json!("packet-wave");
+        }
+        let mut other = rule.clone();
+        if let Some(group) = alias_group {
+            other["group"] = json!(group);
+        }
+        let profile = json!({"version":1,"observations":"all_casts","segments":[{"phase":"boss","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":rule,"B529":other}}],"not_checked":[]});
+        fs::write(
+            directory.path().join("profile.json"),
+            serde_json::to_vec(&profile).unwrap(),
+        )
+        .unwrap();
+        save(directory.path(), &manifest);
+        let result = command(directory.path()).assert();
+        if collapsed {
+            result.success();
+        } else {
+            result.failure();
+        }
+        let report: Value =
+            serde_json::from_slice(&fs::read(directory.path().join("report.json")).unwrap())
+                .unwrap();
+        assert_eq!(report["summary"]["passed"], collapsed);
+        let targets = report["traces"][0]["bosses"][0]["targets"]
+            .as_array()
+            .unwrap();
+        assert_eq!(targets.len(), if collapsed { 2 } else { 3 });
+        assert_eq!(
+            targets
+                .iter()
+                .filter(|row| row["matched_event"].is_null())
+                .count(),
+            usize::from(!collapsed)
+        );
+    }
+}
+
+#[test]
+fn coverage_counts_signal_choices_and_matched_anchors_separately_from_timer_iterations() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut manifest = setup(directory.path());
+    manifest["evidence_role"] = json!("synthetic");
+    let timeline = br#"timeline 1 "Coverage" {
+        start "Ability" id="B528"
+        phase "boss" {
+            enter "Ability" id="B528"
+            loop "rotation" start=0.0 every=4.0 { event "pulse" 0.0 name="Hit"; }
+            branch "choice" open=1.0 close=2.0 {
+                option "left" { when "Ability" id="B529"; }
+                option "right" { when "Ability" id="B52A"; }
+            }
+        }
+    }"#;
+    fs::write(directory.path().join("timeline.kdl"), timeline).unwrap();
+    manifest["timeline_sha256"] = json!(hash(timeline));
+    let mut raw: Value = serde_json::from_slice(include_bytes!("fixtures/pull.json")).unwrap();
+    raw["events"].as_array_mut().unwrap().insert(
+        1,
+        json!({"timestamp":3100,"type":"cast","sourceID":10,"abilityGameID":46377,"fight":1}),
+    );
+    raw["report"]["masterData"]["abilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"gameID":46377,"name":"Left","type":"1"}));
+    raw["collection"]["eventCount"] = json!(4);
+    let bytes = serde_json::to_vec(&raw).unwrap();
+    fs::write(directory.path().join("input.json"), &bytes).unwrap();
+    manifest["inputs"][0]["sha256"] = json!(hash(&bytes));
+    let profile = json!({"version":1,"observations":"all_casts","segments":[{"phase":"boss","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Hit","events":["pulse"]}},"ignored":{"B529":"Choice marker, no displayed mechanic"}}],"not_checked":[]});
+    fs::write(
+        directory.path().join("profile.json"),
+        serde_json::to_vec(&profile).unwrap(),
+    )
+    .unwrap();
+    save(directory.path(), &manifest);
+    command(directory.path()).assert().success();
+    let report: Value =
+        serde_json::from_slice(&fs::read(directory.path().join("report.json")).unwrap()).unwrap();
+    let coverage = &report["traces"][0]["coverage"];
+    assert_eq!(
+        coverage["branches"][0]["options"][0]["selections"][0]["raw_index"],
+        1
+    );
+    assert_eq!(
+        coverage["branches"][0]["options"][1]["selections"],
+        json!([])
+    );
+    assert_eq!(coverage["loops"][0]["emitted_iterations"], 5);
+    assert_eq!(coverage["loops"][0]["matched_iterations"], 3);
+    assert_eq!(
+        coverage["loops"][0]["anchor_recurrences"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    let output = cargo_bin_cmd!("btimeline")
+        .current_dir(directory.path())
+        .args(["review", "report.json"])
+        .assert()
+        .success();
+    let review: Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
+    assert_eq!(review["review"]["coverage"]["evidence_role"], "synthetic");
+    assert_eq!(
+        review["review"]["coverage"]["choices"][1]["signal_selections"],
+        0
+    );
+    assert_eq!(
+        review["review"]["coverage"]["loops"][0]["consecutive_anchor_pairs"],
+        2
+    );
+}
+
+#[test]
+fn held_out_role_requires_frozen_scoring_sources() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut manifest = setup(directory.path());
+    manifest["evidence_role"] = json!("held_out");
+    save(directory.path(), &manifest);
+    command(directory.path()).assert().failure();
+    assert!(!directory.path().join("report.json").exists());
 }

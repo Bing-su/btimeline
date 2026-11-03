@@ -1,6 +1,8 @@
 //! Shared authored-timeline evaluation. Profiles describe observations, never executable game rules.
 mod audit;
+mod coverage;
 mod evidence;
+mod matching;
 mod projection;
 mod review;
 mod score;
@@ -38,6 +40,7 @@ struct Manifest {
     timeline: String,
     timeline_sha256: String,
     role: String,
+    evidence_role: Option<coverage::EvidenceRole>,
     forecast_lead_ms: i64,
     horizon_ms: i64,
     tolerance_ms: i64,
@@ -150,6 +153,11 @@ impl Run for EvaluateCommand {
         let manifest_bytes = fs::read(&self.manifest)?;
         let manifest: Manifest = serde_json::from_slice(&manifest_bytes)?;
         ensure!(
+            manifest.evidence_role != Some(coverage::EvidenceRole::HeldOut)
+                || (manifest.profile_sha256.is_some() && manifest.evaluator_sha256.is_some()),
+            "Held-out coverage requires frozen profile and evaluator hashes"
+        );
+        ensure!(
             (1..=crate::timeline::MAX_MS).contains(&manifest.forecast_lead_ms)
                 && (1..=crate::timeline::MAX_MS).contains(&manifest.horizon_ms)
                 && (0..=crate::timeline::MAX_MS).contains(&manifest.tolerance_ms),
@@ -180,6 +188,7 @@ impl Run for EvaluateCommand {
             "Candidate changed"
         );
         let model = crate::timeline::parse(std::str::from_utf8(&timeline_bytes)?)?;
+        profile.validate_bindings(&model)?;
         let mut seen = BTreeSet::new();
         let traces = manifest
             .inputs
@@ -215,6 +224,7 @@ impl Run for EvaluateCommand {
             "profile_sha256": profile_sha256, "evaluator_sha256": evaluator_sha256,
             "bindings": { "profile_frozen": manifest.profile_sha256.is_some(), "evaluator_frozen": manifest.evaluator_sha256.is_some() },
             "role": manifest.role, "summary": summary, "review_required": review_required,
+            "evidence_role": manifest.evidence_role.unwrap_or_default(),
             "traces": traces, "not_checked": not_checked
         });
         crate::output::write_new(&[(

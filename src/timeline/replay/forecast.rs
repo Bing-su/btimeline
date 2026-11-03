@@ -1,12 +1,8 @@
-use std::collections::BTreeMap;
-
 use anyhow::{Context, Result, ensure};
 use serde::Serialize;
 
 use super::{
-    Branch,
-    Event,
-    Loop,
+    ExecutionContext,
     MAX_MS,
     Record,
     Recording,
@@ -17,12 +13,13 @@ use super::{
 
 #[derive(Serialize)]
 pub(crate) struct Upcoming {
-    id: String,
+    pub(crate) id: String,
     pub(crate) name: String,
     pub(crate) at_ms: i64,
     lead_ms: i64,
     duration_ms: i64,
-    run: usize,
+    pub(crate) run: usize,
+    pub(crate) context: ExecutionContext,
 }
 
 #[derive(Serialize)]
@@ -38,28 +35,6 @@ pub(crate) struct Forecast {
     pub(crate) projection_diagnostics: Vec<Record>,
     assumptions: [&'static str; 2],
     not_checked: [&'static str; 3],
-}
-
-// Resolve event identities from the authored tree, e.g. selected options and on-exit displays use the same event order key.
-fn definitions<'a>(
-    events: &'a [Event],
-    branches: &'a [Branch],
-    loops: &'a [Loop],
-    out: &mut BTreeMap<usize, &'a Event>,
-) {
-    out.extend(events.iter().map(|event| (event.order, event)));
-    for branch in branches {
-        for option in &branch.options {
-            definitions(&option.events, &[], &option.loops, out);
-        }
-        if let Some(merge) = &branch.merge {
-            definitions(&merge.events, &[], &[], out);
-        }
-    }
-    for repeat in loops {
-        definitions(&repeat.events, &repeat.branches, &[], out);
-        definitions(&repeat.on_exit, &[], &[], out);
-    }
 }
 
 pub(crate) fn forecast(
@@ -97,27 +72,27 @@ pub(crate) fn forecast(
         .filter(|row| ["ambiguous", "violation", "unresolved"].contains(&row.action.as_str()))
         .cloned()
         .collect();
-    let mut metadata = BTreeMap::new();
-    definitions(&timeline.events, &[], &[], &mut metadata);
-    for phase in &timeline.phases {
-        definitions(&phase.events, &phase.branches, &phase.loops, &mut metadata);
-    }
     let rows = state.finish(until_ms);
     let events = rows
         .iter()
         .filter(|row| row.action == "event" && row.at_ms > at_ms)
         .map(|row| {
             let event = row
-                .event_order
-                .and_then(|order| metadata.get(&order))
+                .event
+                .as_ref()
                 .context("Missing forecast event definition")?;
+            let context = row
+                .context
+                .clone()
+                .context("Missing forecast event context")?;
             Ok((event.visible).then(|| Upcoming {
                 id: event.id.clone(),
                 name: event.name.clone(),
                 at_ms: row.at_ms,
                 lead_ms: row.at_ms - at_ms,
-                duration_ms: event.duration * 100,
+                duration_ms: event.duration_ms,
                 run: row.run,
+                context,
             }))
         })
         .collect::<Result<Vec<_>>>()?

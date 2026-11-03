@@ -68,6 +68,9 @@ struct SegmentRule {
 #[serde(deny_unknown_fields)]
 struct TargetRule {
     name: String,
+    events: Vec<String>,
+    #[serde(default)]
+    equivalents: Vec<Vec<String>>,
     source: Option<String>,
     group: Option<String>,
     lead_ms: Option<i64>,
@@ -78,6 +81,8 @@ pub(super) struct Target {
     pub id: String,
     pub name: String,
     pub lead_ms: Option<i64>,
+    pub event_ids: Vec<String>,
+    pub equivalents: Vec<Vec<String>>,
 }
 pub(super) struct Segment {
     pub phase: String,
@@ -143,14 +148,16 @@ impl Profile {
                 );
             }
             for target in segment.targets.values() {
-                ensure!(
-                    !target.name.is_empty()
-                        && target.lead_ms.is_none_or(|v| (1..=MAX_MS).contains(&v)),
-                    "Invalid target name or forecast lead"
-                );
+                target.validate()?;
             }
         }
         Ok(())
+    }
+
+    pub fn validate_bindings(&self, model: &crate::timeline::Timeline) -> Result<()> {
+        self.segments
+            .iter()
+            .try_for_each(|segment| segment.validate_bindings(model))
     }
 }
 pub(super) fn ability(event: &Event) -> Result<String> {
@@ -272,7 +279,7 @@ fn project_segment(
             .rposition(|e| e.timestamp <= end)
             .context("Empty scope")?
     };
-    let mut last = BTreeMap::<&str, i64>::new();
+    let mut last = BTreeMap::<(bool, &str), i64>::new();
     let mut targets = Vec::new();
     for (raw_index, event) in log
         .events
@@ -289,21 +296,19 @@ fn project_segment(
             continue;
         }
         // Alias packets share only explicitly declared groups, e.g. C3FF and C400 form one Beam wave.
-        let group = target.group.as_deref().unwrap_or(id_key);
+        // Keep explicit groups separate from implicit ability keys, e.g. group="B528" is not ID B528.
+        let group = (
+            target.group.is_some(),
+            target.group.as_deref().unwrap_or(id_key),
+        );
         if last
-            .get(group)
+            .get(&group)
             .is_some_and(|before| event.timestamp - before <= 100)
         {
             continue;
         }
         last.insert(group, event.timestamp);
-        targets.push(Target {
-            raw_index,
-            at_ms: event.timestamp - origin,
-            id,
-            name: target.name.clone(),
-            lead_ms: target.lead_ms,
-        });
+        targets.push(target.project(raw_index, event.timestamp - origin, id));
     }
     ensure!(
         !targets.is_empty(),
@@ -424,7 +429,7 @@ pub(super) fn project(log: &CollectedLog, profile: &Profile) -> Result<Projectio
                     ("id".into(), ability(event)?),
                     ("source".into(), source.into()),
                 ]),
-                source_event_index: None,
+                source_event_index: Some(raw_index),
             });
         }
     }
@@ -437,4 +442,95 @@ pub(super) fn project(log: &CollectedLog, profile: &Profile) -> Result<Projectio
         },
         bosses,
     })
+}
+
+impl TargetRule {
+    fn validate(&self) -> Result<()> {
+        let unique = self
+            .events
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>();
+        ensure!(
+            !self.name.is_empty()
+                && !self.events.is_empty()
+                && unique.len() == self.events.len()
+                && self.lead_ms.is_none_or(|v| (1..=MAX_MS).contains(&v)),
+            "Invalid target name, event IDs or forecast lead"
+        );
+        let mut seen = std::collections::BTreeSet::new();
+        for group in &self.equivalents {
+            ensure!(
+                group.len() >= 2
+                    && group
+                        .iter()
+                        .all(|event| self.events.contains(event) && seen.insert(event)),
+                "Equivalence groups must be disjoint subsets of declared event IDs"
+            );
+        }
+        Ok(())
+    }
+
+    fn project(&self, raw_index: usize, at_ms: i64, id: String) -> Target {
+        Target {
+            raw_index,
+            at_ms,
+            id,
+            name: self.name.clone(),
+            lead_ms: self.lead_ms,
+            event_ids: self
+                .events
+                .iter()
+                .cloned()
+                .collect::<std::collections::BTreeSet<_>>()
+                .into_iter()
+                .collect(),
+            equivalents: self.equivalents.clone(),
+        }
+    }
+}
+impl SegmentRule {
+    fn validate_bindings(&self, model: &crate::timeline::Timeline) -> Result<()> {
+        let definitions = model
+            .catalog
+            .events
+            .values()
+            .map(|event| (event.event.id.as_str(), event))
+            .collect::<BTreeMap<_, _>>();
+        let mut sets = Vec::<std::collections::BTreeSet<&str>>::new();
+        let mut groups = BTreeMap::new();
+        for (id, target) in &self.targets {
+            let events = target
+                .events
+                .iter()
+                .map(String::as_str)
+                .collect::<std::collections::BTreeSet<_>>();
+            for event in &events {
+                let definition = definitions
+                    .get(event)
+                    .with_context(|| format!("Unknown event binding {event} for {id}"))?;
+                ensure!(
+                    definition.event.visible
+                        && definition.owner.phase.as_deref() == Some(&self.phase),
+                    "Binding {event} must be visible and belong to phase {}",
+                    self.phase
+                );
+            }
+            ensure!(
+                sets.iter()
+                    .all(|previous| previous == &events || previous.is_disjoint(&events)),
+                "Overlapping event bindings must declare the same candidate set in {}",
+                self.phase
+            );
+            if let Some(group) = &target.group
+                && let Some(previous) = groups.insert(group, (&target.name, events.clone()))
+            {
+                ensure!(
+                    previous == (&target.name, events.clone()),
+                    "Collapsed group {group} must share name and event bindings"
+                );
+            }
+            sets.push(events);
+        }
+        Ok(())
+    }
 }

@@ -1,3 +1,4 @@
+mod catalog;
 mod fflogs;
 mod parse;
 mod replay;
@@ -6,6 +7,7 @@ mod tests;
 
 use std::collections::BTreeMap;
 
+pub(crate) use catalog::{Catalog, EventData, ExecutionContext, LoopDefinition, Owner};
 pub(crate) use fflogs::from_fflogs;
 pub(crate) use parse::parse;
 use regress::Regex;
@@ -110,4 +112,5 @@ pub(crate) struct Timeline {
     events: Vec<Event>,
     phases: Vec<Phase>,
     pub(crate) event_count: usize,
+    pub(crate) catalog: Catalog,
 }

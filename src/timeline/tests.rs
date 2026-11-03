@@ -10,6 +10,108 @@ fn recording(end_ms: i64, observations: serde_json::Value) -> Result<Recording> 
     )?)
 }
 
+#[test]
+fn occurrence_context_survives_sync_and_distinguishes_phase_reentry() {
+    let model = parse(
+        r#"timeline 1 "Identity" {
+        start "Begin"
+        phase "a" {
+            enter "Begin"
+            loop "rotation" start=0.0 every=4.0 {
+                event "pulse" 0.0 name="Pulse" { sync 0.0 "Pulse"; }
+            }
+        }
+        phase "b" { enter "Other"; event "other" 0.0 name="Other"; }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        14000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Begin","fields":{}}, {"at_ms":4000,"type":"Pulse","fields":{}},
+            {"at_ms":8000,"type":"Pulse","fields":{}}, {"at_ms":9000,"type":"Other","fields":{}},
+            {"at_ms":10000,"type":"Begin","fields":{}}, {"at_ms":14000,"type":"Pulse","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let rows = replay(&model, &input).unwrap();
+    let identities = rows
+        .iter()
+        .filter(|row| row.event.as_ref().is_some_and(|event| event.id == "pulse"))
+        .filter_map(|row| {
+            row.context
+                .as_ref()
+                .map(|context| (context.phase_instance, context.iteration))
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        identities,
+        vec![
+            (1, Some(1)),
+            (1, Some(2)),
+            (1, Some(3)),
+            (3, Some(1)),
+            (3, Some(2))
+        ]
+    );
+    let future = super::forecast(&model, &input, 10000, 5000).unwrap();
+    assert!(future.events.iter().any(|event| event.id == "pulse"
+        && event.context.phase_instance == 3
+        && event.context.iteration == Some(2)));
+}
+
+#[test]
+fn phase_jump_preserves_modeled_iteration_and_exit_retains_running_cycle() {
+    let model = parse(
+        r#"timeline 1 "Jump" {
+        start "Begin"
+        phase "a" {
+            enter "Begin"
+            event "advance" 20.0 name="Advance" visible=#false { sync 20.0 "Advance" before=25.0 after=25.0; }
+            loop "rotation" start=10.0 every=4.0 {
+                until "End" at=0.0 before=0.0
+                event "pulse" 0.0 name="Pulse"
+                on-exit { event "exit" 0.0 name="Exit"; }
+            }
+        }
+    }"#,
+    ).unwrap();
+    let input = recording(
+        5000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Begin","fields":{}},{"at_ms":1000,"type":"Advance","fields":{}},{"at_ms":4000,"type":"End","fields":{}}
+        ]),
+    ).unwrap();
+    let rows = replay(&model, &input).unwrap();
+    let pulse = rows
+        .iter()
+        .find(|row| row.event.as_ref().is_some_and(|event| event.id == "pulse"))
+        .expect("jumped loop emits");
+    assert_eq!(pulse.at_ms, 3000);
+    assert_eq!(
+        pulse.context.as_ref().expect("event context").iteration,
+        Some(4)
+    );
+    for row in rows.iter().filter(|row| {
+        row.action == "until" || row.event.as_ref().is_some_and(|event| event.id == "exit")
+    }) {
+        assert_eq!(
+            row.context.as_ref().expect("exit context").iteration,
+            Some(4)
+        );
+    }
+    let future = super::forecast(&model, &input, 1000, 7000).unwrap();
+    assert_eq!(
+        future
+            .events
+            .iter()
+            .filter(|event| event.id == "pulse")
+            .map(|event| event.context.iteration)
+            .collect::<Vec<_>>(),
+        vec![Some(4), Some(5)]
+    );
+}
+
 #[rstest]
 #[case::version("timeline 2 \"x\" {}")]
 #[case::precision("timeline 1 \"x\" { event \"e\" 0.01 name=\"x\"; }")]
