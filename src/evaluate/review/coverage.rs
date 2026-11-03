@@ -60,6 +60,8 @@ struct Repeat {
     incomplete_display_bodies: usize,
     unverified_iterations: usize,
     first_body_gap: Option<Value>,
+    outside_body_candidate_inputs: usize,
+    first_outside_body_candidate: Option<Value>,
 }
 
 impl Choice {
@@ -159,6 +161,11 @@ fn belongs_to_option(target: &Target, option: &OptionCoverage) -> bool {
 
 impl Repeat {
     fn observe(&mut self, input: &str, repeat: &LoopCoverage) -> Result<()> {
+        if let Some(candidate) = &repeat.outside_body_candidate {
+            self.outside_body_candidate_inputs += 1;
+            self.first_outside_body_candidate
+                .get_or_insert_with(|| json!({"input":input,"candidate":candidate}));
+        }
         for (sum, count) in [
             (&mut self.emitted_iterations, repeat.emitted_iterations),
             (&mut self.matched_iterations, repeat.matched_iterations),
@@ -287,6 +294,8 @@ pub(super) fn summarize(traces: &[Trace], role: EvidenceRole, limit: usize) -> R
                 incomplete_display_bodies: 0,
                 unverified_iterations: 0,
                 first_body_gap: None,
+                outside_body_candidate_inputs: 0,
+                first_outside_body_candidate: None,
             });
             row.observe(&trace.input, repeat)?;
         }

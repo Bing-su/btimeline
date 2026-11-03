@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use super::score::Support;
 use crate::timeline::{LoopDefinition, Owner, Record, Timeline};
 mod body;
+mod boundary;
 pub(super) use body::BodyCoverage;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
@@ -67,6 +68,7 @@ pub(super) struct LoopCoverage {
     pub anchor_recurrences: Vec<AnchorPair>,
     pub signal_exits: usize,
     pub body: Option<BodyCoverage>,
+    pub outside_body_candidate: Option<boundary::Candidate>,
 }
 #[derive(Deserialize, Serialize)]
 pub(super) struct Coverage {
@@ -229,6 +231,8 @@ fn loop_coverage(
         })
         .count();
     let anchor_recurrences = pairs.into_values().collect::<Vec<_>>();
+    let outside_body_candidate =
+        boundary::first_candidate(repeat, rows, support, &anchor_recurrences);
     let body = body::collect(
         model,
         &repeat.id,
@@ -246,5 +250,6 @@ fn loop_coverage(
         anchor_recurrences,
         signal_exits,
         body: Some(body),
+        outside_body_candidate,
     }
 }

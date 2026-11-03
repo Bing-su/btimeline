@@ -27,6 +27,12 @@ For R12S Raptor and Serpentine, impact identifies a known offset in the selected
 
 In [Queen Eternal](../../../../timelines/queen-eternal-hold.authoring.md), `8EFF` StartsUsing moves `hold` to `castellation`. The matching Ability corrects the follow-up clock. The return `8F00` syncs the follow-up without reopening `hold`.
 
+### Verifying a complete loop body
+
+1. Before writing nested branches, mark the start signal and the next observed start in multiple long logs. List the intervening major casts by source, ID, and relative time. Include the shared lead-in that repeats before a branch choice.
+2. Compare the body with phase-owned displays. Inspect `review.coverage.loops[].first_outside_body_candidate` and its raw indices. Keep a display outside the loop when its independent timing or cancellation is supported by the logs.
+3. Interrupt a replay mid-cycle with an applicable transition or wipe. Verify that pending displays owned by that body disappear. For a counted loop, also replay across the final boundary and check the next shared cue and the absence of an extra iteration.
+
 ### Splitting a long segment into phases
 
 | Observation                                                                    | Authoring decision                                                                                                      |

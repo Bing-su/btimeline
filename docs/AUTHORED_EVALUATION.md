@@ -146,6 +146,8 @@ Doomtrain 시험 KDL을 Runaway Train에서 같은 보스의 두 phase로 분리
 
 이전 보고서의 `exits_with_matched_on_exit`는 제거됐다. `signal_exits`는 `until`로 끝난 반복만 집계한다. 다음 phase로 전환해 시작한 후속 일정은 해당 phase의 진입과 예고 결과에서 확인한다.
 
+`review.coverage.loops[].first_outside_body_candidate`는 연속한 두 관측 회차에서 같은 이름의 phase 직속 표시가 상대 시각 500ms 이내로 반복된 첫 사례다. 표시 두 개와 경계 세 개의 원본 인덱스를 제공한다. 대응한 본문 시작 표시를 경계로 삼으며, 대응 경계가 없으면 같은 loop 안 분기의 기본 신호 선택을 사용한다. `outside_body_candidate_inputs`는 후보가 나온 입력 수다. 이 지표는 작성 범위를 점검하는 후보이며 예고 판정을 바꾸지 않는다.
+
 ## 기존 결과와의 대조
 
 | 대상               | 선정 | 제외 | 적격 통과 |
