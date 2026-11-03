@@ -107,13 +107,14 @@ fn inferred_evaluation_requires_one_observed_phase_and_impact_binding(
 }
 
 #[rstest::rstest]
-#[case(false, true, false, false, None, true)]
-#[case(false, false, false, false, None, false)]
-#[case(true, false, false, false, None, true)]
-#[case(true, false, true, false, None, true)]
-#[case(true, false, true, true, None, true)]
-#[case(true, false, false, false, Some(20), true)]
-#[case(true, false, false, false, Some(9), false)]
+#[case(false, true, false, false, None, true, false)]
+#[case(false, false, false, false, None, false, false)]
+#[case(true, false, false, false, None, true, false)]
+#[case(true, false, true, false, None, true, false)]
+#[case(true, false, true, true, None, true, false)]
+#[case(true, false, false, false, Some(20), true, false)]
+#[case(true, false, false, false, Some(9), false, false)]
+#[case(true, false, false, false, None, true, true)]
 fn inferred_sequential_phases_require_an_observed_boundary(
     #[case] same_source: bool,
     #[case] defeated: bool,
@@ -121,6 +122,7 @@ fn inferred_sequential_phases_require_an_observed_boundary(
     #[case] reuse: bool,
     #[case] competing_at: Option<i64>,
     #[case] passed: bool,
+    #[case] early: bool,
 ) {
     let directory = tempfile::tempdir().unwrap();
     let mut manifest = setup(directory.path());
@@ -188,6 +190,9 @@ fn inferred_sequential_phases_require_an_observed_boundary(
     }
     let kind = if same_source { "begincast" } else { "cast" };
     let transition = |timestamp| json!({"timestamp":timestamp,"type":kind,"sourceID":source_id,"abilityGameID":0xB530,"fight":1});
+    if early {
+        events.insert(1, transition(4000));
+    }
     events.extend([transition(10000), cast(16000, source_id, 0xB531)]);
     if repeated {
         events.push(transition(17000));

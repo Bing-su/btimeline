@@ -364,7 +364,7 @@ fn follow_transitions<'a>(
     actors: &'a BTreeMap<i64, &Actor>,
     root: PhaseEntry<'a>,
     limit: usize,
-    resolve_tie: &mut impl FnMut(&[PhaseEntry<'a>]) -> Result<Option<usize>>,
+    replay_choice: &mut impl FnMut(&[PhaseEntry<'a>]) -> Result<Option<usize>>,
 ) -> Result<Vec<PhaseEntry<'a>>> {
     let mut route = Vec::new();
     let mut current = root;
@@ -380,11 +380,11 @@ fn follow_transitions<'a>(
         let mut choices = rules
             .iter()
             .filter(|rule| rule.entry_from.as_deref() == Some(&current.0.phase))
-            .filter_map(|rule| {
+            .flat_map(|rule| {
                 find_entries(log, rule, actors)
                     .take_while(|(index, _)| *index < limit)
-                    .find(|(index, _)| *index > current.1)
-                    .map(|(index, event)| (rule, index, event))
+                    .filter(|(index, _)| *index > current.1)
+                    .map(move |(index, event)| (rule, index, event))
             })
             .collect::<Vec<_>>();
         choices.sort_by_key(|(_, index, _)| *index);
@@ -396,7 +396,7 @@ fn follow_transitions<'a>(
                 .0;
             // Distinct packets could both be valid before either changes the active phase.
             if tied.iter().all(|entry| entry.1 == first.1)
-                && let Some(index) = resolve_tie(tied)?
+                && let Some(index) = replay_choice(tied)?
             {
                 tied.get(index).copied()
             } else {
@@ -405,6 +405,23 @@ fn follow_transitions<'a>(
                     tied,
                 ));
             }
+        } else if choices.len() > 1
+            && let Some(index) = replay_choice(&choices)?
+            && let Some(selected) = choices.get(index)
+        {
+            // A later in-window cast may be the first effective transition.
+            let tied = choices
+                .iter()
+                .copied()
+                .filter(|entry| entry.2.timestamp == selected.2.timestamp)
+                .collect::<Vec<_>>();
+            if tied.iter().any(|entry| entry.1 != selected.1) {
+                return Err(phase_ambiguity(
+                    "Multiple phase transitions at the same time",
+                    &tied,
+                ));
+            }
+            Some(*selected)
         } else {
             choices.first().copied()
         };
@@ -467,8 +484,8 @@ fn inferred_segments(
         .chain(std::iter::once(log.events.len()));
     let mut candidates = Vec::new();
     let mut replay_rows: Option<Vec<Record>> = None;
-    let mut resolve_tie = |tied: &[PhaseEntry<'_>]| {
-        let (Some(model), Some(first)) = (model, tied.first()) else {
+    let mut replay_choice = |choices: &[PhaseEntry<'_>]| {
+        let Some(model) = model else {
             return Ok(None);
         };
         if replay_rows.is_none() {
@@ -483,19 +500,16 @@ fn inferred_segments(
             )?;
             replay_rows = Some(crate::timeline::replay(model, &recording)?);
         }
-        let mut rows = replay_rows
+        Ok(replay_rows
             .iter()
             .flatten()
-            .filter(|row| row.source_event_index == Some(first.1));
-        if rows.clone().any(|row| row.action == "ambiguous") {
-            return Ok(None);
-        }
-        let phase = rows
-            .find(|row| row.action == "phase")
-            .and_then(|row| row.context.as_ref()?.owner.phase.as_deref());
-        Ok(tied
-            .iter()
-            .position(|entry| Some(entry.0.phase.as_str()) == phase))
+            .filter(|row| row.action == "phase")
+            .find_map(|row| {
+                let phase = row.context.as_ref()?.owner.phase.as_deref()?;
+                choices.iter().position(|entry| {
+                    row.source_event_index == Some(entry.1) && entry.0.phase == phase
+                })
+            }))
     };
     for (root, limit) in roots.iter().copied().zip(limits) {
         candidates.extend(follow_transitions(
@@ -504,7 +518,7 @@ fn inferred_segments(
             actors,
             root,
             limit,
-            &mut resolve_tie,
+            &mut replay_choice,
         )?);
     }
     // Same-boss transitions use the explicit entry; switching bosses still requires defeat.
