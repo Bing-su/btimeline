@@ -1,0 +1,1019 @@
+{
+  "version": 1,
+  "commit": "ea9cb83",
+  "freeze": "tests/fixtures/authored/sandoria-adcd-independent-freeze.json",
+  "freeze_sha256": "cf172a6445f95ad9177283b9f854e956a0ef54d2343c10afec6241e576e2bb2c",
+  "original": {
+    "manifest": "tests/fixtures/authored/sandoria-adcd-independent-holdout-plan.json",
+    "manifest_sha256": "61e72d13fa1cfffa9f8f9125eb77dcc8b6f87d90fef8aca641e1bb3bda5341cc",
+    "report": "out/sandoria-adcd-independent-holdout.json",
+    "report_sha256": "b3e662ac3b2b9cac87f50a503cf2e5934c52334c33b260436b45d41dbbc099c3",
+    "summary": {
+      "eligible": 42,
+      "excluded": 1,
+      "passed": false,
+      "passed_traces": 36,
+      "selected": 43
+    },
+    "traces": [
+      {
+        "input": "logs/sandoria-adcd-independent/68xwVzQBnKkJ3CvZ_115.json",
+        "sha256": "b2c400da603a95cbd58961ddd8236be864b6df9974fc18d1a7d271a326ea7ce9",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/NthYWfqQJFxcCM9z_28.json",
+        "sha256": "7e79894052c09b1f2f6285c322e18cb05fa4f689ee211e30a12ebfc7299e2944",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/AJ3wfdVtpmZb4Fcn_112.json",
+        "sha256": "accb5b1fd3afab6231f7c11c628c3143584c72d6581f207c1e3b33d30ac66ed0",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/8W9nBFXmHRQcAYar_26.json",
+        "sha256": "06cf6049dfacb5bc54c2670ce48f15424c7d75d28f327909231a285168935579",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/9vz3FYk6j7wDJPt4_3.json",
+        "sha256": "cd2b2007137fa5262dbd9fdc333ea2291c2a9f39421df3a16d37a2fa38d9fda6",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/PF8HD6f1WyAtcxdh_47.json",
+        "sha256": "0393136c6d86df3b96976ae135b1e25393023821fb6be28d8b866593fde122d6",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/vC7DcF9m2tpgy6nP_39.json",
+        "sha256": "be15517b8bf38c24facc82ef047407d52b5a7c4ac3bd20abd6d98639fbc918b6",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/T4ZaPBLwACQdkqzr_47.json",
+        "sha256": "4cfd29ca11487350432730744d884f5156d9cfac09db1d340321c5e195485930",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 1
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/XMfzKxY4d61yTq7J_70.json",
+        "sha256": "9d827576382591fd7314d8d624adc186f5c23cf8bada7d0e829176c80090d048",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 1
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/CMWzt9a2BJ6qXDbR_4.json",
+        "sha256": "2a80190abbf132898e6e9b623fa7eee0217edcd2a156ba247bd63083fd17e33f",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/WygJNTcGLB82zx1v_3.json",
+        "sha256": "7bba42427314c8371101ba8dbb0f8cebc50910c81bfb1f092ee3fa880c7ad6b4",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/pgJnvQNKDht7kMTH_10.json",
+        "sha256": "9f39c17233f9aaf52e827f2c96fba7e45d707fff80a54a2f6fe2e939f2f83d6a",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/rbBqwTnJ4WchQvNA_5.json",
+        "sha256": "df3e62c6cb303da40039ae26ea1a04db5ef07ab55b01dff7a374e95e787e2a33",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/LCtjyTJZK4RkMQ86_3.json",
+        "sha256": "dfdfb369515188f632e29d20c01e389eacdfd68ef77666b0a3c532516c3d24ed",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/JZaczQrTkvCLmK2j_76.json",
+        "sha256": "8a2239f7fc3154b0c591816f3c17a0e7e719a51ae80181076454f387fa3c285f",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/ynzHCLXP1mpR3x9W_17.json",
+        "sha256": "e286468893696511977416253714e3d1ab2b7bb2d0a47a0c181b21de54329eb1",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/K8cQ7JP4TRjAwrmg_25.json",
+        "sha256": "3d49e2807549fdcea9c42104e49ba577975890f1ad47720c7879114d639271c2",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/8VMhvKA3TRm1BDzL_89.json",
+        "sha256": "ed1d3cb726015e4615fa9a201edc4af7a803818119168094e046f0e4bc1270e4",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/4ATy3fKz6XgcG1LV_3.json",
+        "sha256": "d0e070e4b1cfbc273e6febd8def8d8aae0a133de5dac422a9cca8614b6baabcf",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 1
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/cKXT2RtjxqPnzGW1_11.json",
+        "sha256": "9874725c442f2800c0335a8032ee4395cba4ca5c35ef068c532641eaaebad03b",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 1
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/zB3TtHCbdq4yRwZm_2.json",
+        "sha256": "61f5b947155f68d04a1a8ac6ee467b624e8a1fb8f063a43fe7df19e7505fed08",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 1
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/68xwVzQBnKkJ3CvZ_123.json",
+        "sha256": "6e90798a7d47cf18b339a59e086e1ca1f979ea70596c6134191993502315b883",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/fWXP4nVh9mTyqpRw_8.json",
+        "sha256": "e5058f7fb7bf3c1168e81efb5526a32c1458a3948274eb0023518282432da67d",
+        "encounter": 2070,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/hqrB7HXCKp94LdNj_7.json",
+        "sha256": "d5c8f9bce8bf3d2b47d206f09725f6ce01fa824f4ca62dd82878053d5e08a762",
+        "encounter": 2069,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 1
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/cW2pZXf1nHw69LDQ_12.json",
+        "sha256": "243e8217dd8415f0066a01e5adecf0d202b992020ceba5c33d9c9fb5cd943874",
+        "encounter": 2068,
+        "status": "evaluated",
+        "passed": false,
+        "failed_targets": 16,
+        "first_failure": {
+          "id": "AD12",
+          "name": "Ultima: Tractor Field",
+          "raw_index": 10177,
+          "at_ms": 100457,
+          "replay_error_ms": 18468,
+          "forecast_error_ms": null,
+          "reasons": ["display_timing", "forecast_missing"]
+        },
+        "unmatched_displays": 2
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/ctAGFTxzWX2jf8PC_3.json",
+        "sha256": "2f345f14cd26581818ea3c8938256582d5ba57b5aa09a3f850aa6cc46cd335f3",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/6fKzp3PFHZ49rJb7_8.json",
+        "sha256": "e4297e9bb5971cc815c64e063850282d6b5f3ccd8b28ab789dc9ac08a121eb1d",
+        "encounter": 2070,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/bz4YwArHDkJPhnjW_4.json",
+        "sha256": "421efb96db91bb151bb95955b09744daf3695582d5653bb74717333a97fa4634",
+        "encounter": 2069,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/JCahyQzP27pTc9rN_24.json",
+        "sha256": "041423cc0114582e0ea2350439edf0a4cf96c64b424c25d9815ee404eeef25da",
+        "encounter": 2068,
+        "status": "evaluated",
+        "passed": false,
+        "failed_targets": 15,
+        "first_failure": {
+          "id": "AD12",
+          "name": "Ultima: Tractor Field",
+          "raw_index": 10309,
+          "at_ms": 100154,
+          "replay_error_ms": 18546,
+          "forecast_error_ms": null,
+          "reasons": ["display_timing", "forecast_missing"]
+        },
+        "unmatched_displays": 2
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/KQMTzCWYX6w7y8ja_3.json",
+        "sha256": "e0f940d401df44d1640dd1f302ae32f83dbc46ce0adfadd8222f46a7d3ecc790",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/6fKzp3PFHZ49rJb7_5.json",
+        "sha256": "256b96f2167c876a77b4cb1e9dcdbdb96851fae2272fce428022920b518f34c5",
+        "encounter": 2068,
+        "status": "evaluated",
+        "passed": false,
+        "failed_targets": 16,
+        "first_failure": {
+          "id": "AD12",
+          "name": "Ultima: Tractor Field",
+          "raw_index": 11529,
+          "at_ms": 101136,
+          "replay_error_ms": 17484,
+          "forecast_error_ms": null,
+          "reasons": ["display_timing", "forecast_missing"]
+        },
+        "unmatched_displays": 2
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/cW2pZXf1nHw69LDQ_10.json",
+        "sha256": "6480173a928340882381a470b13ad127b5bbf47e6f63fee13b1a7c0f3a371c91",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/ctAGFTxzWX2jf8PC_8.json",
+        "sha256": "c715367e094c1c582741af063c14b6b4cb3fba7085d7c50c07bb0f8a73c80171",
+        "encounter": 2070,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 1
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/JCahyQzP27pTc9rN_26.json",
+        "sha256": "6e982727e75e627a2f5d500c6d41712d1b3f7e9236a948d0c68fb5189107589b",
+        "encounter": 2069,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/KQMTzCWYX6w7y8ja_5.json",
+        "sha256": "caa5126fc0c2b301f4c4340e3885757323b2835a5a210e3ecdc9cf11de0f1dd8",
+        "encounter": 2068,
+        "status": "evaluated",
+        "passed": false,
+        "failed_targets": 15,
+        "first_failure": {
+          "id": "AD12",
+          "name": "Ultima: Tractor Field",
+          "raw_index": 11658,
+          "at_ms": 100215,
+          "replay_error_ms": 18685,
+          "forecast_error_ms": null,
+          "reasons": ["display_timing", "forecast_missing"]
+        },
+        "unmatched_displays": 1
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/bz4YwArHDkJPhnjW_5.json",
+        "sha256": "cf39dc6da5d3c06b9156bbe02d927fab8846a09301467de06ecdefdf89f72665",
+        "encounter": 2070,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 1
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/JCahyQzP27pTc9rN_22.json",
+        "sha256": "2545b0e2628be503f68f52705b8990b2bf9a1a7425fcfe068ff8d84d49edbc22",
+        "encounter": 2067,
+        "status": "excluded",
+        "passed": null,
+        "error": "InputExclusion: Unknown cast source",
+        "exclusion_evidence": {
+          "raw_index": 7851,
+          "source_id": 323
+        },
+        "failed_targets": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/6fKzp3PFHZ49rJb7_3.json",
+        "sha256": "c7e37d9619be5e6682dda5dd8cf5d93bcbfacada3513b4a8d74d27022696cfa7",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 1
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/bz4YwArHDkJPhnjW_2.json",
+        "sha256": "9db05e8233d7a11808a4c10d7fc81f37565a736c49cd61c0051b50ed96743b6e",
+        "encounter": 2068,
+        "status": "evaluated",
+        "passed": false,
+        "failed_targets": 15,
+        "first_failure": {
+          "id": "AD12",
+          "name": "Ultima: Tractor Field",
+          "raw_index": 11082,
+          "at_ms": 100591,
+          "replay_error_ms": 18518,
+          "forecast_error_ms": null,
+          "reasons": ["display_timing", "forecast_missing"]
+        },
+        "unmatched_displays": 2
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/KQMTzCWYX6w7y8ja_7.json",
+        "sha256": "a86bef5517fdb07569de9c8c7950341517afc1f7acc678a0f4be37e546fb564f",
+        "encounter": 2069,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 1
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/ctAGFTxzWX2jf8PC_5.json",
+        "sha256": "ec0229d1c393f20360e39ce72b5c49745a73faf06b503326a6afcedab12630ea",
+        "encounter": 2068,
+        "status": "evaluated",
+        "passed": false,
+        "failed_targets": 16,
+        "first_failure": {
+          "id": "AD12",
+          "name": "Ultima: Tractor Field",
+          "raw_index": 11672,
+          "at_ms": 100485,
+          "replay_error_ms": 18502,
+          "forecast_error_ms": null,
+          "reasons": ["display_timing", "forecast_missing"]
+        },
+        "unmatched_displays": 2
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/cW2pZXf1nHw69LDQ_14.json",
+        "sha256": "71d9730dc3f8df6456244cad8e7033f84eeec7ffe6bf640420cd09238303edd2",
+        "encounter": 2069,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      },
+      {
+        "input": "logs/sandoria-adcd-independent/fWXP4nVh9mTyqpRw_3.json",
+        "sha256": "a46c724b2cdcfd44aa8ed69d99d0f274bfade92ed7eb1e2a743952072dc09138",
+        "encounter": 2067,
+        "status": "evaluated",
+        "passed": true,
+        "failed_targets": 0,
+        "unmatched_displays": 0
+      }
+    ]
+  },
+  "signal_removal": {
+    "evidence_role": "synthetic",
+    "report": "out/sandoria-adcd-independent-signal-removal.json",
+    "report_sha256": "cfe7220078dd7092454553f0a57a8020ca8f3a4e1228082ff6c37ade924c432b",
+    "manifest": "out/sandoria-adcd-independent-signal-removal-plan.json",
+    "manifest_sha256": "eb9040598f6cd6f257d3d59cca789d4273b919141c4f998a8833fb405f07179f",
+    "summary": {
+      "eligible": 16,
+      "excluded": 0,
+      "passed": false,
+      "passed_traces": 7,
+      "selected": 16
+    },
+    "samples": [
+      {
+        "original": "logs/sandoria-adcd-independent/68xwVzQBnKkJ3CvZ_115.json",
+        "input": "out/sandoria-adcd-independent-signal-removal/68xwVzQBnKkJ3CvZ_115.json",
+        "route": "eastwind",
+        "duration_ms": 269833,
+        "first_riddle_ms": 98244,
+        "removed_raw_indices": [11690],
+        "original_passed": true,
+        "original_choices": ["eastwind-early-recovery"],
+        "adcd_in_branch": [
+          {
+            "raw_index": 10235,
+            "relative_ms": 91564
+          }
+        ],
+        "removed_relative_ms": [109470],
+        "challenge_input_sha256": "fa512bbd6c16f4273309dec00d2b98a159140bce07b2340a0414ac689366cb56",
+        "challenge_passed": true,
+        "challenge_choices": ["eastwind-early-recovery"],
+        "challenge_diagnostics": [],
+        "forecast": [
+          {
+            "id": "AFF4",
+            "error_ms": 56,
+            "passed": true
+          },
+          {
+            "id": "A916",
+            "error_ms": 19,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "original": "logs/sandoria-adcd-independent/AJ3wfdVtpmZb4Fcn_112.json",
+        "input": "out/sandoria-adcd-independent-signal-removal/AJ3wfdVtpmZb4Fcn_112.json",
+        "route": "eastwind",
+        "duration_ms": 264595,
+        "first_riddle_ms": 98237,
+        "removed_raw_indices": [10547],
+        "original_passed": true,
+        "original_choices": ["eastwind-early-recovery"],
+        "adcd_in_branch": [
+          {
+            "raw_index": 9226,
+            "relative_ms": 91551
+          }
+        ],
+        "removed_relative_ms": [109467],
+        "challenge_input_sha256": "3ebe2565ee84d03696d66a6f89dc472ca79e9b00aa59f89c37f3e462d807224e",
+        "challenge_passed": true,
+        "challenge_choices": ["eastwind-early-recovery"],
+        "challenge_diagnostics": [],
+        "forecast": [
+          {
+            "id": "AFF5",
+            "error_ms": 63,
+            "passed": true
+          },
+          {
+            "id": "A916",
+            "error_ms": 22,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "original": "logs/sandoria-adcd-independent/8W9nBFXmHRQcAYar_26.json",
+        "input": "out/sandoria-adcd-independent-signal-removal/8W9nBFXmHRQcAYar_26.json",
+        "route": "genbu",
+        "duration_ms": 264122,
+        "first_riddle_ms": 112960,
+        "removed_raw_indices": [8122],
+        "original_passed": true,
+        "original_choices": ["genbu"],
+        "adcd_in_branch": [
+          {
+            "raw_index": 10183,
+            "relative_ms": 104818
+          }
+        ],
+        "removed_relative_ms": [78624],
+        "challenge_input_sha256": "33e56689cd052b4cd81ecb3b6e9b7af6f15f2cb29321de539e98d33dd733dc22",
+        "challenge_passed": false,
+        "challenge_choices": [],
+        "challenge_diagnostics": [
+          {
+            "action": "unresolved",
+            "detail": "shijin",
+            "at_ms": 127870
+          }
+        ],
+        "forecast": [
+          {
+            "id": "AFF4",
+            "error_ms": null,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "original": "logs/sandoria-adcd-independent/9vz3FYk6j7wDJPt4_3.json",
+        "input": "out/sandoria-adcd-independent-signal-removal/9vz3FYk6j7wDJPt4_3.json",
+        "route": "genbu",
+        "duration_ms": 259413,
+        "first_riddle_ms": 112433,
+        "removed_raw_indices": [8584],
+        "original_passed": true,
+        "original_choices": ["genbu"],
+        "adcd_in_branch": [
+          {
+            "raw_index": 10853,
+            "relative_ms": 104672
+          }
+        ],
+        "removed_relative_ms": [78519],
+        "challenge_input_sha256": "d8638f60e9e7b62b993b8bc05cfcaa142fc32189fe3b705a267e299126015c3e",
+        "challenge_passed": false,
+        "challenge_choices": [],
+        "challenge_diagnostics": [
+          {
+            "action": "unresolved",
+            "detail": "shijin",
+            "at_ms": 127781
+          }
+        ],
+        "forecast": [
+          {
+            "id": "AFF5",
+            "error_ms": null,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "original": "logs/sandoria-adcd-independent/PF8HD6f1WyAtcxdh_47.json",
+        "input": "out/sandoria-adcd-independent-signal-removal/PF8HD6f1WyAtcxdh_47.json",
+        "route": "genbu",
+        "duration_ms": 209634,
+        "first_riddle_ms": 112208,
+        "removed_raw_indices": [8066],
+        "original_passed": true,
+        "original_choices": ["genbu"],
+        "adcd_in_branch": [
+          {
+            "raw_index": 10301,
+            "relative_ms": 104504
+          }
+        ],
+        "removed_relative_ms": [78338],
+        "challenge_input_sha256": "b0a6ce17a033c188b87738205843cf6dd3c8f33568eadde92d41514cb0b92c1d",
+        "challenge_passed": false,
+        "challenge_choices": [],
+        "challenge_diagnostics": [
+          {
+            "action": "unresolved",
+            "detail": "shijin",
+            "at_ms": 127652
+          }
+        ],
+        "forecast": [
+          {
+            "id": "AFF5",
+            "error_ms": null,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "original": "logs/sandoria-adcd-independent/T4ZaPBLwACQdkqzr_47.json",
+        "input": "out/sandoria-adcd-independent-signal-removal/T4ZaPBLwACQdkqzr_47.json",
+        "route": "eastwind",
+        "duration_ms": 207734,
+        "first_riddle_ms": 97872,
+        "removed_raw_indices": [9891],
+        "original_passed": true,
+        "original_choices": ["eastwind"],
+        "adcd_in_branch": [
+          {
+            "raw_index": 10028,
+            "relative_ms": 91186
+          }
+        ],
+        "removed_relative_ms": [89938],
+        "challenge_input_sha256": "bdd9af5de89f08b2f6dd422694574d00daac1444f64fab929a405af2c2afeb55",
+        "challenge_passed": true,
+        "challenge_choices": ["eastwind-early-recovery"],
+        "challenge_diagnostics": [],
+        "forecast": [
+          {
+            "id": "AFF5",
+            "error_ms": 28,
+            "passed": true
+          },
+          {
+            "id": "A916",
+            "error_ms": 15,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "original": "logs/sandoria-adcd-independent/WygJNTcGLB82zx1v_3.json",
+        "input": "out/sandoria-adcd-independent-signal-removal/WygJNTcGLB82zx1v_3.json",
+        "route": "eastwind",
+        "duration_ms": 202074,
+        "first_riddle_ms": 98411,
+        "removed_raw_indices": [9376],
+        "original_passed": true,
+        "original_choices": ["eastwind"],
+        "adcd_in_branch": [
+          {
+            "raw_index": 9480,
+            "relative_ms": 91727
+          }
+        ],
+        "removed_relative_ms": [90481],
+        "challenge_input_sha256": "fc4d6e408087dfc450df1cbbc37dd4576a14af03f60a6cee9d97b3d869aabd1a",
+        "challenge_passed": true,
+        "challenge_choices": ["eastwind-early-recovery"],
+        "challenge_diagnostics": [],
+        "forecast": [
+          {
+            "id": "AFF4",
+            "error_ms": 11,
+            "passed": true
+          },
+          {
+            "id": "A916",
+            "error_ms": 46,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "original": "logs/sandoria-adcd-independent/rbBqwTnJ4WchQvNA_5.json",
+        "input": "out/sandoria-adcd-independent-signal-removal/rbBqwTnJ4WchQvNA_5.json",
+        "route": "genbu",
+        "duration_ms": 201939,
+        "first_riddle_ms": 113073,
+        "removed_raw_indices": [8407],
+        "original_passed": true,
+        "original_choices": ["genbu"],
+        "adcd_in_branch": [
+          {
+            "raw_index": 10742,
+            "relative_ms": 104641
+          }
+        ],
+        "removed_relative_ms": [78469],
+        "challenge_input_sha256": "0caf2fefd4f39cfeb7ce6a2b2da4be9e6cd0feb33e3414fd5fcc2cd92878e937",
+        "challenge_passed": false,
+        "challenge_choices": [],
+        "challenge_diagnostics": [
+          {
+            "action": "unresolved",
+            "detail": "shijin",
+            "at_ms": 128002
+          }
+        ],
+        "forecast": [
+          {
+            "id": "AFF5",
+            "error_ms": null,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "original": "logs/sandoria-adcd-independent/LCtjyTJZK4RkMQ86_3.json",
+        "input": "out/sandoria-adcd-independent-signal-removal/LCtjyTJZK4RkMQ86_3.json",
+        "route": "genbu",
+        "duration_ms": 199607,
+        "first_riddle_ms": 111845,
+        "removed_raw_indices": [9175],
+        "original_passed": true,
+        "original_choices": ["genbu"],
+        "adcd_in_branch": [
+          {
+            "raw_index": 11478,
+            "relative_ms": 104039
+          }
+        ],
+        "removed_relative_ms": [77822],
+        "challenge_input_sha256": "fbc398f9acdbbba1b8f02c36c111c5462bcf8e274fc35f8f0879c2cc6edd1c92",
+        "challenge_passed": false,
+        "challenge_choices": [],
+        "challenge_diagnostics": [
+          {
+            "action": "unresolved",
+            "detail": "shijin",
+            "at_ms": 127574
+          }
+        ],
+        "forecast": [
+          {
+            "id": "AFF5",
+            "error_ms": null,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "original": "logs/sandoria-adcd-independent/K8cQ7JP4TRjAwrmg_25.json",
+        "input": "out/sandoria-adcd-independent-signal-removal/K8cQ7JP4TRjAwrmg_25.json",
+        "route": "genbu",
+        "duration_ms": 192073,
+        "first_riddle_ms": 112673,
+        "removed_raw_indices": [7672],
+        "original_passed": true,
+        "original_choices": ["genbu"],
+        "adcd_in_branch": [
+          {
+            "raw_index": 9607,
+            "relative_ms": 104691
+          }
+        ],
+        "removed_relative_ms": [78525],
+        "challenge_input_sha256": "000ba98e2f00e31c96a62caa31fe2dea06a9fc05df55e7776695ccd7db59cfaa",
+        "challenge_passed": false,
+        "challenge_choices": [],
+        "challenge_diagnostics": [
+          {
+            "action": "unresolved",
+            "detail": "shijin",
+            "at_ms": 128231
+          }
+        ],
+        "forecast": [
+          {
+            "id": "AFF5",
+            "error_ms": null,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "original": "logs/sandoria-adcd-independent/8VMhvKA3TRm1BDzL_89.json",
+        "input": "out/sandoria-adcd-independent-signal-removal/8VMhvKA3TRm1BDzL_89.json",
+        "route": "eastwind",
+        "duration_ms": 189026,
+        "first_riddle_ms": 98601,
+        "removed_raw_indices": [],
+        "original_passed": true,
+        "original_choices": ["eastwind-early-recovery"],
+        "adcd_in_branch": [
+          {
+            "raw_index": 10899,
+            "relative_ms": 91925
+          }
+        ],
+        "removed_relative_ms": [],
+        "challenge_input_sha256": "c2afe855682c818c0dca24be69c421d1ba1b14bef57055856fd54d06273ce8d3",
+        "challenge_passed": true,
+        "challenge_choices": ["eastwind-early-recovery"],
+        "challenge_diagnostics": [],
+        "forecast": [
+          {
+            "id": "AFF5",
+            "error_ms": 1,
+            "passed": true
+          },
+          {
+            "id": "A916",
+            "error_ms": 33,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "original": "logs/sandoria-adcd-independent/cKXT2RtjxqPnzGW1_11.json",
+        "input": "out/sandoria-adcd-independent-signal-removal/cKXT2RtjxqPnzGW1_11.json",
+        "route": "genbu",
+        "duration_ms": 179384,
+        "first_riddle_ms": 112907,
+        "removed_raw_indices": [8730],
+        "original_passed": true,
+        "original_choices": ["genbu"],
+        "adcd_in_branch": [
+          {
+            "raw_index": 10715,
+            "relative_ms": 105100
+          }
+        ],
+        "removed_relative_ms": [78920],
+        "challenge_input_sha256": "db50a3f17021bc3914010a3f67ae7dad56905a5428e3d2ce5f341e6a917035cd",
+        "challenge_passed": false,
+        "challenge_choices": [],
+        "challenge_diagnostics": [
+          {
+            "action": "unresolved",
+            "detail": "shijin",
+            "at_ms": 128368
+          }
+        ],
+        "forecast": [
+          {
+            "id": "AFF4",
+            "error_ms": null,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "original": "logs/sandoria-adcd-independent/68xwVzQBnKkJ3CvZ_123.json",
+        "input": "out/sandoria-adcd-independent-signal-removal/68xwVzQBnKkJ3CvZ_123.json",
+        "route": "eastwind",
+        "duration_ms": 195816,
+        "first_riddle_ms": 98344,
+        "removed_raw_indices": [11656],
+        "original_passed": true,
+        "original_choices": ["eastwind-early-recovery"],
+        "adcd_in_branch": [
+          {
+            "raw_index": 10262,
+            "relative_ms": 91695
+          }
+        ],
+        "removed_relative_ms": [109612],
+        "challenge_input_sha256": "eeb0cdccd790aa5687067ea93126ea2822da041431f4d6bd926fcb71bb961afc",
+        "challenge_passed": true,
+        "challenge_choices": ["eastwind-early-recovery"],
+        "challenge_diagnostics": [],
+        "forecast": [
+          {
+            "id": "AFF4",
+            "error_ms": 56,
+            "passed": true
+          },
+          {
+            "id": "A916",
+            "error_ms": 21,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "original": "logs/sandoria-adcd-independent/KQMTzCWYX6w7y8ja_3.json",
+        "input": "out/sandoria-adcd-independent-signal-removal/KQMTzCWYX6w7y8ja_3.json",
+        "route": "eastwind",
+        "duration_ms": 157990,
+        "first_riddle_ms": 98402,
+        "removed_raw_indices": [10250],
+        "original_passed": true,
+        "original_choices": ["eastwind"],
+        "adcd_in_branch": [
+          {
+            "raw_index": 10370,
+            "relative_ms": 91713
+          }
+        ],
+        "removed_relative_ms": [90462],
+        "challenge_input_sha256": "8cd227ff552eee42924b9a1d310595a6735e7841e9476703a8effa5a4a26b345",
+        "challenge_passed": true,
+        "challenge_choices": ["eastwind-early-recovery"],
+        "challenge_diagnostics": [],
+        "forecast": [
+          {
+            "id": "AFF4",
+            "error_ms": 2,
+            "passed": true
+          },
+          {
+            "id": "A916",
+            "error_ms": 59,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "original": "logs/sandoria-adcd-independent/6fKzp3PFHZ49rJb7_3.json",
+        "input": "out/sandoria-adcd-independent-signal-removal/6fKzp3PFHZ49rJb7_3.json",
+        "route": "genbu",
+        "duration_ms": 160903,
+        "first_riddle_ms": 112553,
+        "removed_raw_indices": [9312],
+        "original_passed": true,
+        "original_choices": ["genbu"],
+        "adcd_in_branch": [
+          {
+            "raw_index": 11699,
+            "relative_ms": 104812
+          }
+        ],
+        "removed_relative_ms": [78614],
+        "challenge_input_sha256": "d6eec12d895fa104db3fea97c9304b5b6c10fc044c7b7520f49eb5292531ca11",
+        "challenge_passed": false,
+        "challenge_choices": [],
+        "challenge_diagnostics": [
+          {
+            "action": "unresolved",
+            "detail": "shijin",
+            "at_ms": 127733
+          }
+        ],
+        "forecast": [
+          {
+            "id": "AFF4",
+            "error_ms": null,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "original": "logs/sandoria-adcd-independent/fWXP4nVh9mTyqpRw_3.json",
+        "input": "out/sandoria-adcd-independent-signal-removal/fWXP4nVh9mTyqpRw_3.json",
+        "route": "genbu",
+        "duration_ms": 266579,
+        "first_riddle_ms": 112305,
+        "removed_raw_indices": [10205],
+        "original_passed": true,
+        "original_choices": ["genbu"],
+        "adcd_in_branch": [
+          {
+            "raw_index": 13158,
+            "relative_ms": 104563
+          }
+        ],
+        "removed_relative_ms": [78388],
+        "challenge_input_sha256": "5f69b9e7369a3446ca1173b6d15d675f877e6eadf341e6056f0248ce529d88ef",
+        "challenge_passed": false,
+        "challenge_choices": [],
+        "challenge_diagnostics": [
+          {
+            "action": "unresolved",
+            "detail": "shijin",
+            "at_ms": 127775
+          }
+        ],
+        "forecast": [
+          {
+            "id": "AFF5",
+            "error_ms": null,
+            "passed": false
+          }
+        ]
+      }
+    ]
+  }
+}

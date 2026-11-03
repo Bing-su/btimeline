@@ -1,0 +1,274 @@
+{
+  "commit": "ea9cb83",
+  "evidence_role": "held_out",
+  "timeline": "timelines/sandoria.kdl",
+  "profile": "timelines/sandoria.evaluation.json",
+  "evaluator": "out/btimeline-eastwind-independent-frozen",
+  "forecast_lead_ms": 5000,
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "selection": "Select all metadata candidates after excluding previously used reports and possible metadata duplicates. Freeze before reading fresh events.",
+  "selected": [
+    {
+      "report": "68xwVzQBnKkJ3CvZ",
+      "fight": 115,
+      "encounter": 2067
+    },
+    {
+      "report": "NthYWfqQJFxcCM9z",
+      "fight": 28,
+      "encounter": 2067
+    },
+    {
+      "report": "AJ3wfdVtpmZb4Fcn",
+      "fight": 112,
+      "encounter": 2067
+    },
+    {
+      "report": "8W9nBFXmHRQcAYar",
+      "fight": 26,
+      "encounter": 2067
+    },
+    {
+      "report": "9vz3FYk6j7wDJPt4",
+      "fight": 3,
+      "encounter": 2067
+    },
+    {
+      "report": "PF8HD6f1WyAtcxdh",
+      "fight": 47,
+      "encounter": 2067
+    },
+    {
+      "report": "vC7DcF9m2tpgy6nP",
+      "fight": 39,
+      "encounter": 2067
+    },
+    {
+      "report": "T4ZaPBLwACQdkqzr",
+      "fight": 47,
+      "encounter": 2067
+    },
+    {
+      "report": "XMfzKxY4d61yTq7J",
+      "fight": 70,
+      "encounter": 2067
+    },
+    {
+      "report": "CMWzt9a2BJ6qXDbR",
+      "fight": 4,
+      "encounter": 2067
+    },
+    {
+      "report": "WygJNTcGLB82zx1v",
+      "fight": 3,
+      "encounter": 2067
+    },
+    {
+      "report": "pgJnvQNKDht7kMTH",
+      "fight": 10,
+      "encounter": 2067
+    },
+    {
+      "report": "rbBqwTnJ4WchQvNA",
+      "fight": 5,
+      "encounter": 2067
+    },
+    {
+      "report": "LCtjyTJZK4RkMQ86",
+      "fight": 3,
+      "encounter": 2067
+    },
+    {
+      "report": "JZaczQrTkvCLmK2j",
+      "fight": 76,
+      "encounter": 2067
+    },
+    {
+      "report": "ynzHCLXP1mpR3x9W",
+      "fight": 17,
+      "encounter": 2067
+    },
+    {
+      "report": "K8cQ7JP4TRjAwrmg",
+      "fight": 25,
+      "encounter": 2067
+    },
+    {
+      "report": "8VMhvKA3TRm1BDzL",
+      "fight": 89,
+      "encounter": 2067
+    },
+    {
+      "report": "4ATy3fKz6XgcG1LV",
+      "fight": 3,
+      "encounter": 2067
+    },
+    {
+      "report": "cKXT2RtjxqPnzGW1",
+      "fight": 11,
+      "encounter": 2067
+    },
+    {
+      "report": "zB3TtHCbdq4yRwZm",
+      "fight": 2,
+      "encounter": 2067
+    },
+    {
+      "report": "68xwVzQBnKkJ3CvZ",
+      "fight": 123,
+      "encounter": 2067
+    },
+    {
+      "report": "fWXP4nVh9mTyqpRw",
+      "fight": 8,
+      "encounter": 2070
+    },
+    {
+      "report": "hqrB7HXCKp94LdNj",
+      "fight": 7,
+      "encounter": 2069
+    },
+    {
+      "report": "cW2pZXf1nHw69LDQ",
+      "fight": 12,
+      "encounter": 2068
+    },
+    {
+      "report": "ctAGFTxzWX2jf8PC",
+      "fight": 3,
+      "encounter": 2067
+    },
+    {
+      "report": "6fKzp3PFHZ49rJb7",
+      "fight": 8,
+      "encounter": 2070
+    },
+    {
+      "report": "bz4YwArHDkJPhnjW",
+      "fight": 4,
+      "encounter": 2069
+    },
+    {
+      "report": "JCahyQzP27pTc9rN",
+      "fight": 24,
+      "encounter": 2068
+    },
+    {
+      "report": "KQMTzCWYX6w7y8ja",
+      "fight": 3,
+      "encounter": 2067
+    },
+    {
+      "report": "6fKzp3PFHZ49rJb7",
+      "fight": 5,
+      "encounter": 2068
+    },
+    {
+      "report": "cW2pZXf1nHw69LDQ",
+      "fight": 10,
+      "encounter": 2067
+    },
+    {
+      "report": "ctAGFTxzWX2jf8PC",
+      "fight": 8,
+      "encounter": 2070
+    },
+    {
+      "report": "JCahyQzP27pTc9rN",
+      "fight": 26,
+      "encounter": 2069
+    },
+    {
+      "report": "KQMTzCWYX6w7y8ja",
+      "fight": 5,
+      "encounter": 2068
+    },
+    {
+      "report": "bz4YwArHDkJPhnjW",
+      "fight": 5,
+      "encounter": 2070
+    },
+    {
+      "report": "JCahyQzP27pTc9rN",
+      "fight": 22,
+      "encounter": 2067
+    },
+    {
+      "report": "6fKzp3PFHZ49rJb7",
+      "fight": 3,
+      "encounter": 2067
+    },
+    {
+      "report": "bz4YwArHDkJPhnjW",
+      "fight": 2,
+      "encounter": 2068
+    },
+    {
+      "report": "KQMTzCWYX6w7y8ja",
+      "fight": 7,
+      "encounter": 2069
+    },
+    {
+      "report": "ctAGFTxzWX2jf8PC",
+      "fight": 5,
+      "encounter": 2068
+    },
+    {
+      "report": "cW2pZXf1nHw69LDQ",
+      "fight": 14,
+      "encounter": 2069
+    },
+    {
+      "report": "fWXP4nVh9mTyqpRw",
+      "fight": 3,
+      "encounter": 2067
+    }
+  ],
+  "omitted": [
+    {
+      "report": "trwK7AMaycTv6Bd1",
+      "fight": 112,
+      "reason": "matching duration, combat time and outcome metadata"
+    },
+    {
+      "report": "w18NTV3KqvHXczjF",
+      "fight": 4,
+      "reason": "matching duration, combat time and outcome metadata"
+    },
+    {
+      "report": "hqrB7HXCKp94LdNj",
+      "fight": 8,
+      "reason": "matching duration, combat time and outcome metadata"
+    },
+    {
+      "report": "fWXP4nVh9mTyqpRw",
+      "fight": 7,
+      "reason": "matching duration, combat time and outcome metadata"
+    },
+    {
+      "report": "hqrB7HXCKp94LdNj",
+      "fight": 3,
+      "reason": "matching duration, combat time and outcome metadata"
+    }
+  ],
+  "checks": [
+    "Evaluate unmodified logs with the existing profile and gates.",
+    "Identify Eastwind by boss A916 and Genbu by Moonbound Genbu AD84 starts, independently of ADCD. If both markers occur, omit from the route challenge.",
+    "Replay separately with the boss AD82 signal removed on Eastwind and the Genbu AD84 signal removed on Genbu. Record early recovery selections, five-second Eastwind forecasts and any false Eastwind selection on Genbu.",
+    "Compare observed phase-relative ADCD timings and fight lengths. Results apply to sampled timings."
+  ],
+  "timeline_sha256": "c38860e75580cb547603e21ba50a6eb2528e26882eccb3ca20dcc45b8b69bd4c",
+  "profile_sha256": "17a258b93aea88d4c2d243c7b3aff1d160f1b28e82664cd1198627cbe8f1fabc",
+  "evaluator_sha256": "7b6815d7fd1ada43c1d979cb088f0487603e71a7a7551316861a8ee39945d2db",
+  "plans": [
+    {
+      "path": "tests/fixtures/authored/sandoria-adcd-independent-kirin-download-plan.json",
+      "sha256": "8e66b46047601c4b69d1ae29e2740f4ea8bd0ae9ea84bef98040815b2947c726"
+    },
+    {
+      "path": "tests/fixtures/authored/sandoria-adcd-independent-zone-download-plan.json",
+      "sha256": "6c71a6d2c772a74f80e5268783717549df0b63789f2614328463dccef03d6b65"
+    }
+  ]
+}

@@ -1,0 +1,260 @@
+{
+  "timeline": "timelines/sandoria.kdl",
+  "timeline_sha256": "c38860e75580cb547603e21ba50a6eb2528e26882eccb3ca20dcc45b8b69bd4c",
+  "profile_sha256": "17a258b93aea88d4c2d243c7b3aff1d160f1b28e82664cd1198627cbe8f1fabc",
+  "evaluator_sha256": "7b6815d7fd1ada43c1d979cb088f0487603e71a7a7551316861a8ee39945d2db",
+  "forecast_lead_ms": 5000,
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "evidence_role": "held_out",
+  "role": "Independent Sandoria validation and Kirin pace comparison at ea9cb83",
+  "excluded_fingerprints": [
+    "699fa921fa6680163e0ea59a257ec32099273867407aa28d6e0c44ada6b93d47",
+    "d43214180454924ae4700e26cd0d4a87f58149ba88f7690d0f7db559661a7cba",
+    "727d4a87a9864fa3bc5a30770fc71c716db03043bc713855a3139601e752970f",
+    "43dbc56f9a8c46787f0b53e478ee2454a69c715da536a0bd7b1a2906639c0bb1",
+    "5fd4ac0396422e12f45973a4147d5495cd5b4e498f1b3bd7997ddce551faf77b",
+    "6b4029aa8627f794f89c72470d5a5b3b15e296360b1db81d2e94dd7194008717",
+    "123bfb892d84b3b4ed7d6b0766ab3ef85e3ec238f8d93852d7f7b5cea55f1948",
+    "24f7cd24f6ffe659b7f638c9a780cec0252a2db5f8b55e41a99d9305ba297969",
+    "2760d7443a9a67285647b285c193cf73e4ff091e1ef90929354fd3cbe8150b7d",
+    "83ea5f9d969adc0a95171ca07f3aa39edce3a60d91a9dc6972051b0a91d49b4d",
+    "a5a49b5f8459503a0a8f1e00e0149aabe79916b57f59161835d8eb27e4c0d7ee",
+    "f8354974cbfb6eaaf94fe91ca0ba670f59ab2f7e8fa31f6d28f9accb6abe21f6",
+    "1ab76bfa1b93b8336e128501056bd76c5ccc3b7ec93617e218d5c33801ce7d6c",
+    "77b9ad07a0ccfbe76a12abd3d5167f71888c1c1c3e230524a4ccfc6aa5fd3c78",
+    "10e044edb0d913ed6e190c1288ca54518fbe38d71d901d21900e2f2463eac4a7",
+    "e2f6b44dc7bc32d8fdeb28290671291844ba1e60dd5195b554e453b2efa1d5dc",
+    "43e50cfb781aff2a17e6501e5f70b3434eb04e80f45628bbb48b4248f3aad009",
+    "56295635fd173edebf6e319f77872d09ac33333cc0f962f5e394a6f436a42caa",
+    "22efd5cefcb7024ca2e53c61bf197ac648cb7ad6238ddaf3010da47f2d05ee2e",
+    "b1164f5fa53b2f569f55fdde69e938e25e3e2dfebd4651b956ac355770be4b56",
+    "7d4453dcede18985d8e77edfae0cf3349f5208ef924d45a0f81070c8e1e332af",
+    "5cb0220d4569479ceb3aef1140dd7e05aa0adc7ccb38550d5bb566d40f72a0d4",
+    "62cfd243272908ff01f3e73aadf4cee47deb249bf096537d129be0200db5417e",
+    "26077fe3cad537aefec6b68cc7fa968b5970376aef695382c27a99b062a4ca42",
+    "7f8f1b9f5bec980f0f1a8598f839ac3c0ca84e42e2b579ae2fc1ea1e6a22a96c",
+    "8aa021d97f3f2494d3cb0a320391b5f112531916057417c18862afa9eed87077",
+    "d8d49f44f4b3030ab104115cab4f7772aeef492990226d93a082101f5428b82d",
+    "839e30dba29349e1f738e484d27ab3fd0bacafc883f24c1cb973e9f5d754e3fc",
+    "a0a89ef28b7b6b13e4067ede8d7f19791aa6cbb5dca6f7a0fc0cf1246728b5ed",
+    "6131d46cfd00493f2910277a2f4c92120cd31803f645e45b27473d4aa68ce53a",
+    "1681d2a5555063a92c7dd75d6a4713d4ac07e2cbad4b54dcc8757a1dbaf6da38",
+    "873fdc46b577898c043d393b0a13e0e94abc227a4db3e30ca65c908228402bec",
+    "a7e5e4a501d1c515571534c52841a3fd51c9d4eadf2b6589194d6550e437b2e7",
+    "ac42aef954eddaa5eb766efe2b88101de889466b67a2567d5b06d4552c2c7470",
+    "8edcf0706a427ac57545dc30f37360a7103b041bd2393b3c484db6b3050a5e4b",
+    "7431c4b3099f543d7666147d62ad9cef35a0bd8dd14aaf1879e5a4a41e933389",
+    "a18d7762101eec70662ee081004b1546b1c9cbedbe3d378f9892d90efebfa880",
+    "5d583315fd6de055ae006b6d25c6c105291678f7637a07fea9af4fa8e47ef2b6",
+    "741a72c828c42a062b1008cd72a8cef1791ff8bb88d444f7d9ab5bbe210eeed9",
+    "e187c93924f327bd328d40f639fe0431a457a3427c23e9a2ae0a253ec070ab61",
+    "91eabfb6c1fd4a832710da4733d02f6b505680d4848c4acab9cf24a321941b6a",
+    "c288455699eb6936145e02025ae3a796fbda4ae1b574502f644a25372b676149",
+    "488c88abfd56228dcff78894a0139b89950a4583c25d942800799e8355c7cdc3",
+    "55f229e520e40e3f48c8d128e5ea9fec791f2ae314d14f668149ddb32a89bdba",
+    "dcc2aa37a843849f079146018e53887836be1a83a756565796175717b3498ee3",
+    "b2a218ef3c0899424bcf7cd0f559ac821bc8f2fd09fb1b37095528bc4e0758cf",
+    "e3df7e0ae49dff8ceacc95c38c990121d24c839bb6ff51cf785bb5e74370c961",
+    "93d11fe4c5e96e05504db1e89703f1867b8c7d9bd21d5e64574b1114f313b6b7",
+    "6015cca84e85aef8738beefa0e292eaf896fb3d72be74d1500f9208c6586d5d2",
+    "7fe37d09b61fcdef690b687d2950d828c7ce88f8fd136c5411644a11bf01a523",
+    "517f16ac9476cb403f9c0df58deca69928db157dc2379e16c311cfed4db52ed6",
+    "63cbc8739e9ab9f8a585e0e82b1aed7eaf7f7b6c9771f8fc9402b494874243bc",
+    "a5bb1e2f9609009c7643bf6a4d0f5a1ec6113188ac44de124db5985b271f47da",
+    "3a4cfb4254966dc455e278e30399f84f4345b8071dce017619c0f65dd8f45207",
+    "0f2b3364a9d0ae57a34770e18597d8f5b1fa70c68693257907a589923edf0293",
+    "1b26bec06fa4bb1793444b2044a292dcc064759fafc269228f7f34768d7240bd",
+    "80f053e8110aad7b01971c61833c3391d43d17ace5cad84afb32089c9d5fdff3",
+    "4ee43de78d6d22d02feb42c32610ddfb35437ce16c031610cf1eb5e63966c264",
+    "31cf5e30f5de945215d5a6c320f7df21707d8634259db2ac62ef3ac3698ce52a",
+    "58ce474cfe573142b0f9b8520e627db8ca3b6def06db461cb79508ebab655fc9",
+    "cb439201818d36ca03271a6c7ec3fcb357ade21001f8d7cafa19b47f268c85c0",
+    "919827518805d62bb41cc1d1516ca7343a81bcd11a292996e3083c938a7c8d39",
+    "ea5367b104b6b79bd190474f68edd6c7b87e793102d94a5fae74b53c7f5f8c89",
+    "ca784de2038b3eb8f507651da0a4d63b5690a63d035167382e31af47caed250a",
+    "85a724fcf277737610df73395d34075e1327d8f7f28b4782211501c8f6638dd6",
+    "d6f697d0c9c837b4879ac47d6ff75508e217d0c08b69aadf75b7a0cdedc3d478",
+    "66fcc08a4a76587878c67c89dad3e140d663f6b336b5e215bbc64973b083b826",
+    "63a8836ec9096b2a8a0bd09fcf68411af224f996abecc6f55c166fa4fd66cc03",
+    "39dd376cae3e781061bd0a8bd7574981865faf608bf85111f8da5f42d5d43b4d",
+    "34580e967b9a317c1be81ddd349d241fa07866c0dd93f49cb1d268ce5d405d19",
+    "8d7fb152335c14bce12d52ba616a9e9f0b90f6ddb9f27dca93dd5df5a1ede63e",
+    "f04343e22e337c952e3d18166d0cd3abf5ec80985d9a44345d7e44ce386c5d3f",
+    "4abdc7344188c7ead4411165a26603bacf7b502f3728c9aac87195f6565cfe27"
+  ],
+  "inputs": [
+    {
+      "input": "logs/sandoria-adcd-independent/68xwVzQBnKkJ3CvZ_115.json",
+      "sha256": "b2c400da603a95cbd58961ddd8236be864b6df9974fc18d1a7d271a326ea7ce9"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/NthYWfqQJFxcCM9z_28.json",
+      "sha256": "7e79894052c09b1f2f6285c322e18cb05fa4f689ee211e30a12ebfc7299e2944"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/AJ3wfdVtpmZb4Fcn_112.json",
+      "sha256": "accb5b1fd3afab6231f7c11c628c3143584c72d6581f207c1e3b33d30ac66ed0"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/8W9nBFXmHRQcAYar_26.json",
+      "sha256": "06cf6049dfacb5bc54c2670ce48f15424c7d75d28f327909231a285168935579"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/9vz3FYk6j7wDJPt4_3.json",
+      "sha256": "cd2b2007137fa5262dbd9fdc333ea2291c2a9f39421df3a16d37a2fa38d9fda6"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/PF8HD6f1WyAtcxdh_47.json",
+      "sha256": "0393136c6d86df3b96976ae135b1e25393023821fb6be28d8b866593fde122d6"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/vC7DcF9m2tpgy6nP_39.json",
+      "sha256": "be15517b8bf38c24facc82ef047407d52b5a7c4ac3bd20abd6d98639fbc918b6"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/T4ZaPBLwACQdkqzr_47.json",
+      "sha256": "4cfd29ca11487350432730744d884f5156d9cfac09db1d340321c5e195485930"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/XMfzKxY4d61yTq7J_70.json",
+      "sha256": "9d827576382591fd7314d8d624adc186f5c23cf8bada7d0e829176c80090d048"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/CMWzt9a2BJ6qXDbR_4.json",
+      "sha256": "2a80190abbf132898e6e9b623fa7eee0217edcd2a156ba247bd63083fd17e33f"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/WygJNTcGLB82zx1v_3.json",
+      "sha256": "7bba42427314c8371101ba8dbb0f8cebc50910c81bfb1f092ee3fa880c7ad6b4"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/pgJnvQNKDht7kMTH_10.json",
+      "sha256": "9f39c17233f9aaf52e827f2c96fba7e45d707fff80a54a2f6fe2e939f2f83d6a"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/rbBqwTnJ4WchQvNA_5.json",
+      "sha256": "df3e62c6cb303da40039ae26ea1a04db5ef07ab55b01dff7a374e95e787e2a33"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/LCtjyTJZK4RkMQ86_3.json",
+      "sha256": "dfdfb369515188f632e29d20c01e389eacdfd68ef77666b0a3c532516c3d24ed"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/JZaczQrTkvCLmK2j_76.json",
+      "sha256": "8a2239f7fc3154b0c591816f3c17a0e7e719a51ae80181076454f387fa3c285f"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/ynzHCLXP1mpR3x9W_17.json",
+      "sha256": "e286468893696511977416253714e3d1ab2b7bb2d0a47a0c181b21de54329eb1"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/K8cQ7JP4TRjAwrmg_25.json",
+      "sha256": "3d49e2807549fdcea9c42104e49ba577975890f1ad47720c7879114d639271c2"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/8VMhvKA3TRm1BDzL_89.json",
+      "sha256": "ed1d3cb726015e4615fa9a201edc4af7a803818119168094e046f0e4bc1270e4"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/4ATy3fKz6XgcG1LV_3.json",
+      "sha256": "d0e070e4b1cfbc273e6febd8def8d8aae0a133de5dac422a9cca8614b6baabcf"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/cKXT2RtjxqPnzGW1_11.json",
+      "sha256": "9874725c442f2800c0335a8032ee4395cba4ca5c35ef068c532641eaaebad03b"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/zB3TtHCbdq4yRwZm_2.json",
+      "sha256": "61f5b947155f68d04a1a8ac6ee467b624e8a1fb8f063a43fe7df19e7505fed08"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/68xwVzQBnKkJ3CvZ_123.json",
+      "sha256": "6e90798a7d47cf18b339a59e086e1ca1f979ea70596c6134191993502315b883"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/fWXP4nVh9mTyqpRw_8.json",
+      "sha256": "e5058f7fb7bf3c1168e81efb5526a32c1458a3948274eb0023518282432da67d"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/hqrB7HXCKp94LdNj_7.json",
+      "sha256": "d5c8f9bce8bf3d2b47d206f09725f6ce01fa824f4ca62dd82878053d5e08a762"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/cW2pZXf1nHw69LDQ_12.json",
+      "sha256": "243e8217dd8415f0066a01e5adecf0d202b992020ceba5c33d9c9fb5cd943874"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/ctAGFTxzWX2jf8PC_3.json",
+      "sha256": "2f345f14cd26581818ea3c8938256582d5ba57b5aa09a3f850aa6cc46cd335f3"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/6fKzp3PFHZ49rJb7_8.json",
+      "sha256": "e4297e9bb5971cc815c64e063850282d6b5f3ccd8b28ab789dc9ac08a121eb1d"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/bz4YwArHDkJPhnjW_4.json",
+      "sha256": "421efb96db91bb151bb95955b09744daf3695582d5653bb74717333a97fa4634"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/JCahyQzP27pTc9rN_24.json",
+      "sha256": "041423cc0114582e0ea2350439edf0a4cf96c64b424c25d9815ee404eeef25da"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/KQMTzCWYX6w7y8ja_3.json",
+      "sha256": "e0f940d401df44d1640dd1f302ae32f83dbc46ce0adfadd8222f46a7d3ecc790"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/6fKzp3PFHZ49rJb7_5.json",
+      "sha256": "256b96f2167c876a77b4cb1e9dcdbdb96851fae2272fce428022920b518f34c5"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/cW2pZXf1nHw69LDQ_10.json",
+      "sha256": "6480173a928340882381a470b13ad127b5bbf47e6f63fee13b1a7c0f3a371c91"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/ctAGFTxzWX2jf8PC_8.json",
+      "sha256": "c715367e094c1c582741af063c14b6b4cb3fba7085d7c50c07bb0f8a73c80171"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/JCahyQzP27pTc9rN_26.json",
+      "sha256": "6e982727e75e627a2f5d500c6d41712d1b3f7e9236a948d0c68fb5189107589b"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/KQMTzCWYX6w7y8ja_5.json",
+      "sha256": "caa5126fc0c2b301f4c4340e3885757323b2835a5a210e3ecdc9cf11de0f1dd8"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/bz4YwArHDkJPhnjW_5.json",
+      "sha256": "cf39dc6da5d3c06b9156bbe02d927fab8846a09301467de06ecdefdf89f72665"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/JCahyQzP27pTc9rN_22.json",
+      "sha256": "2545b0e2628be503f68f52705b8990b2bf9a1a7425fcfe068ff8d84d49edbc22"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/6fKzp3PFHZ49rJb7_3.json",
+      "sha256": "c7e37d9619be5e6682dda5dd8cf5d93bcbfacada3513b4a8d74d27022696cfa7"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/bz4YwArHDkJPhnjW_2.json",
+      "sha256": "9db05e8233d7a11808a4c10d7fc81f37565a736c49cd61c0051b50ed96743b6e"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/KQMTzCWYX6w7y8ja_7.json",
+      "sha256": "a86bef5517fdb07569de9c8c7950341517afc1f7acc678a0f4be37e546fb564f"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/ctAGFTxzWX2jf8PC_5.json",
+      "sha256": "ec0229d1c393f20360e39ce72b5c49745a73faf06b503326a6afcedab12630ea"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/cW2pZXf1nHw69LDQ_14.json",
+      "sha256": "71d9730dc3f8df6456244cad8e7033f84eeec7ffe6bf640420cd09238303edd2"
+    },
+    {
+      "input": "logs/sandoria-adcd-independent/fWXP4nVh9mTyqpRw_3.json",
+      "sha256": "a46c724b2cdcfd44aa8ed69d99d0f274bfade92ed7eb1e2a743952072dc09138"
+    }
+  ]
+}

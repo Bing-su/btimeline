@@ -1,0 +1,462 @@
+{
+  "schemaVersion": 3,
+  "purpose": "verification",
+  "collectedAtUnixMs": 1793669502637,
+  "source": {
+    "reports": [],
+    "encounter": null,
+    "difficulty": null,
+    "gameZone": 1304,
+    "partition": null,
+    "region": null,
+    "firstPage": 12,
+    "pages": 2
+  },
+  "selectionPolicy": "report-cohort-outcome-long-short-v1",
+  "candidateCount": 31,
+  "fights": [
+    {
+      "report": "fWXP4nVh9mTyqpRw",
+      "fight": 8,
+      "name": "Eald'narche",
+      "encounter": 2070,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 2244953,
+      "endTime": 2679958,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 434606,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "hqrB7HXCKp94LdNj",
+      "fight": 7,
+      "name": "Kam'lanaut",
+      "encounter": 2069,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 1040263,
+      "endTime": 1376674,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 335740,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "cW2pZXf1nHw69LDQ",
+      "fight": 12,
+      "name": "Omega, the One / Ultima, the Feared",
+      "encounter": 2068,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 8070262,
+      "endTime": 8281604,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 210720,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "ctAGFTxzWX2jf8PC",
+      "fight": 3,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 277542,
+      "endTime": 449637,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 171341,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "6fKzp3PFHZ49rJb7",
+      "fight": 8,
+      "name": "Eald'narche",
+      "encounter": 2070,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 1085057,
+      "endTime": 1384379,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 298389,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "bz4YwArHDkJPhnjW",
+      "fight": 4,
+      "name": "Kam'lanaut",
+      "encounter": 2069,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 440029,
+      "endTime": 692989,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 252290,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "JCahyQzP27pTc9rN",
+      "fight": 24,
+      "name": "Omega, the One / Ultima, the Feared",
+      "encounter": 2068,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 10864203,
+      "endTime": 11071802,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 207152,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "KQMTzCWYX6w7y8ja",
+      "fight": 3,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 148791,
+      "endTime": 306781,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 156832,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "6fKzp3PFHZ49rJb7",
+      "fight": 5,
+      "name": "Omega, the One / Ultima, the Feared",
+      "encounter": 2068,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 429906,
+      "endTime": 637943,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 207638,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "cW2pZXf1nHw69LDQ",
+      "fight": 10,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 7770872,
+      "endTime": 7932562,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 161066,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "ctAGFTxzWX2jf8PC",
+      "fight": 8,
+      "name": "Eald'narche",
+      "encounter": 2070,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 1231956,
+      "endTime": 1525798,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 293842,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "JCahyQzP27pTc9rN",
+      "fight": 26,
+      "name": "Kam'lanaut",
+      "encounter": 2069,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 11185628,
+      "endTime": 11431876,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 245620,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "KQMTzCWYX6w7y8ja",
+      "fight": 5,
+      "name": "Omega, the One / Ultima, the Feared",
+      "encounter": 2068,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 435988,
+      "endTime": 634697,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 198086,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "bz4YwArHDkJPhnjW",
+      "fight": 5,
+      "name": "Eald'narche",
+      "encounter": 2070,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 746022,
+      "endTime": 1023045,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 276355,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "JCahyQzP27pTc9rN",
+      "fight": 22,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 10574498,
+      "endTime": 10735179,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 159384,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "6fKzp3PFHZ49rJb7",
+      "fight": 3,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 127340,
+      "endTime": 288243,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 160275,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "bz4YwArHDkJPhnjW",
+      "fight": 2,
+      "name": "Omega, the One / Ultima, the Feared",
+      "encounter": 2068,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 125045,
+      "endTime": 320788,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 194853,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "KQMTzCWYX6w7y8ja",
+      "fight": 7,
+      "name": "Kam'lanaut",
+      "encounter": 2069,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 747643,
+      "endTime": 992151,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 243931,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "ctAGFTxzWX2jf8PC",
+      "fight": 5,
+      "name": "Omega, the One / Ultima, the Feared",
+      "encounter": 2068,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 581625,
+      "endTime": 785139,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 202756,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "cW2pZXf1nHw69LDQ",
+      "fight": 14,
+      "name": "Kam'lanaut",
+      "encounter": 2069,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 8408950,
+      "endTime": 8670478,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 260677,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    },
+    {
+      "report": "fWXP4nVh9mTyqpRw",
+      "fight": 3,
+      "name": "Faithbound Kirin",
+      "encounter": 2067,
+      "difficulty": 100,
+      "kill": true,
+      "startTime": 1023608,
+      "endTime": 1290187,
+      "gameZone": {
+        "id": 1304,
+        "name": "San d'Oria"
+      },
+      "combatTime": 265905,
+      "fightPercentage": 0.01,
+      "bossPercentage": 0.01,
+      "lastPhase": 0,
+      "lastPhaseAsAbsoluteIndex": 0,
+      "lastPhaseIsIntermission": false,
+      "hasEcho": false
+    }
+  ],
+  "failures": [],
+  "truncated": true
+}

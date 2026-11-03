@@ -164,3 +164,33 @@ Eastwind 복구만 적용한 `59b41c3`에서는 76개 중 3개를 제외하고 �
 두 실패 로그 모두 기존 5초 예고 기준을 통과했다. Riddle 예고 오차는 30ms와 36ms, Double Cast는 70ms와 2ms였다. ADCD에 의미를 부여하는 근거는 이 자료의 시각 차이이며, 새 후보와 다른 진행 속도에서의 구분은 독립 검증이 필요하다.
 
 전체 개발 회귀에서 76개 선정 중 3개를 제외했고 적격 73개가 모두 통과했다.
+
+## ADCD 복구 후보의 새 독립 검증
+
+`ea9cb83`의 KDL·profile·평가기·판정 기준과 입력 선정을 이벤트 다운로드 전에 고정했다. Kirin 탐색 8–11쪽과 산도리아 구역 탐색 12–13쪽에서 이전에 사용한 보고서와 메타데이터상 중복 가능성이 있는 입력을 걸러, 새 보고서 29개의 전투 43개를 선정했다. 원본 평가에는 이전 개발의 기술열 fingerprint 제외 목록도 적용했다. [고정 기록](../tests/fixtures/authored/sandoria-adcd-independent-freeze.json) · [평가 계획](../tests/fixtures/authored/sandoria-adcd-independent-holdout-plan.json)
+
+| 전투             | 선정 | 제외 | 적격 통과 | 실패 |
+| ---------------- | ---: | ---: | --------: | ---: |
+| Faithbound Kirin |   28 |    1 |        27 |    0 |
+| Omega·Ultima     |    6 |    0 |         0 |    6 |
+| Kam'lanaut       |    5 |    0 |         5 |    0 |
+| Eald'narche      |    4 |    0 |         4 |    0 |
+| 합계             |   43 |    1 |        36 |    6 |
+
+Kirin 제외 1건은 시전자 이름을 해석할 수 없는 원본 패킷이다. Omega·Ultima의 6건은 첫 실패가 Ultima의 Tractor Field였으며, 예정 표시가 관측보다 17.484–18.685초 늦었다. 이 결과를 실패로 보존했다. 원본별 첫 실패와 제외 근거는 [검증 결과](sandoria.adcd-independent-validation.json)에 있다.
+
+ADCD와 독립적으로 Kirin의 Double Cast로 Eastwind, Moonbound Genbu의 AD84 시전 시작으로 Genbu를 분류했다. 아래 ADCD 시각은 Kirin phase 진입 기준이고 전투 길이는 기록 전체 기준이다.
+
+| 경로     |            표본 | 전투 길이         | 선택 범위 안 ADCD | 원본 결과                | 초기 선택 신호 제거 재생                           |
+| -------- | --------------: | ----------------- | ----------------- | ------------------------ | -------------------------------------------------- |
+| Eastwind | 7개, 보고서 6개 | 157.990–269.833초 | 91.186–91.925초   | 7개 통과, ADCD 복구 4개  | AD82 제거 후 7개 모두 ADCD로 복구 및 5초 예고 통과 |
+| Genbu    | 9개, 보고서 9개 | 160.903–266.579초 | 104.039–105.100초 | 9개 모두 Genbu 선택·통과 | AD84 제거 후 9개 모두 미해결, Eastwind 오선택 0개  |
+
+Eastwind의 신호 제거 재생에서 Riddle과 Double Cast의 5초 전 예고 오차는 1–63ms였다. 사본에서 제거한 원본 인덱스와 변환 후 입력 해시는 검증 결과에 보존했다. 이 사본은 합성 검사로 구분한다.
+
+이번 표본은 전투 길이가 넓게 달라도 선택 시각의 분리가 유지됐다. Genbu의 가장 이른 ADCD는 Eastwind 창의 상한 93.3초보다 약 10.7초 늦었다. 현재 구분은 시각에 의존하므로, AD84가 없고 Genbu ADCD가 89.3–93.3초 안에 들어오는 진행에서는 Eastwind로 선택될 수 있다. 해당 시각대의 Genbu와 ACT·실제 UI는 검증 범위에 남아 있다.
+
+```sh
+out/btimeline-eastwind-independent-frozen evaluate tests/fixtures/authored/sandoria-adcd-independent-holdout-plan.json --profile timelines/sandoria.evaluation.json -o out/sandoria-adcd-independent-holdout-new.json
+out/btimeline-eastwind-independent-frozen review out/sandoria-adcd-independent-holdout-new.json
+```
