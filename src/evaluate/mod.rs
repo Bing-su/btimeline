@@ -162,6 +162,10 @@ fn evaluate_input(
         "evaluated"
     };
     let fight = log.report.fights.first().context("Missing fight")?;
+    fields.insert(
+        "fight_duration_ms".into(),
+        json!(fight.end_time - fight.start_time),
+    );
     fields.extend(json!({"status":status,"input":item.input,"sha256":item.sha256,"trace":format!("{}/{}",log.report.code,fight.id),"fingerprint":fingerprint}).as_object().context("Trace fields")?.clone());
     Ok(result)
 }

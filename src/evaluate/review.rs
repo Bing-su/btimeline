@@ -35,6 +35,8 @@ struct Report {
 #[derive(Deserialize)]
 struct Trace {
     input: String,
+    trace: Option<String>,
+    fight_duration_ms: Option<i64>,
     status: String,
     passed: Option<bool>,
     stage: Option<String>,
@@ -53,6 +55,8 @@ struct Trace {
 #[derive(Deserialize)]
 struct Boss {
     phase: String,
+    entry_ms: Option<i64>,
+    end_ms: Option<i64>,
     targets: Vec<Target>,
     audit: Option<Audit>,
     #[serde(default)]
@@ -79,6 +83,9 @@ struct Target {
     raw_index: usize,
     at_ms: i64,
     id: String,
+    #[serde(default)]
+    event_ids: Vec<String>,
+    matched_event: Option<Value>,
     error_ms: Option<i64>,
     forecast: Option<Forecast>,
     passed: bool,

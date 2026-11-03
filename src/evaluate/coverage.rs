@@ -28,6 +28,8 @@ pub(super) struct Selection {
 #[derive(Deserialize, Serialize)]
 pub(super) struct OptionCoverage {
     pub id: String,
+    #[serde(default)]
+    pub event_ids: BTreeSet<String>,
     pub selections: Vec<Selection>,
 }
 #[derive(Deserialize, Serialize)]
@@ -85,6 +87,18 @@ pub(super) fn collect(
                 .iter()
                 .map(|option| OptionCoverage {
                     id: option.clone(),
+                    event_ids: model
+                        .catalog
+                        .events
+                        .values()
+                        .filter(|event| {
+                            event.event.visible
+                                && event.owner.phase == branch.owner.phase
+                                && event.owner.branch.as_deref() == Some(&branch.id)
+                                && event.owner.option.as_deref() == Some(option)
+                        })
+                        .map(|event| event.event.id.clone())
+                        .collect(),
                     selections: rows
                         .iter()
                         .filter(|row| row.action == "option")
