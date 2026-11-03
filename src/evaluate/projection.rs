@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::fflogs::model::{Actor, CollectedLog, Event};
-use crate::timeline::{CastEntry, MAX_MS, Observation, Recording};
+use crate::timeline::{CastEntry, MAX_MS, Observation, Record, Recording, Timeline};
 
 #[derive(Debug)]
 pub(super) struct InputExclusion {
@@ -364,6 +364,7 @@ fn follow_transitions<'a>(
     actors: &'a BTreeMap<i64, &Actor>,
     root: PhaseEntry<'a>,
     limit: usize,
+    resolve_tie: &mut impl FnMut(&[PhaseEntry<'a>]) -> Result<Option<usize>>,
 ) -> Result<Vec<PhaseEntry<'a>>> {
     let mut route = Vec::new();
     let mut current = root;
@@ -387,15 +388,26 @@ fn follow_transitions<'a>(
             })
             .collect::<Vec<_>>();
         choices.sort_by_key(|(_, index, _)| *index);
-        if let [first, second, ..] = choices.as_slice()
+        let next = if let [first, second, ..] = choices.as_slice()
             && first.2.timestamp == second.2.timestamp
         {
-            return Err(phase_ambiguity(
-                "Multiple phase transitions at the same time",
-                &choices,
-            ));
-        }
-        let next = choices.first().copied();
+            let tied = choices
+                .split_at(choices.partition_point(|entry| entry.2.timestamp == first.2.timestamp))
+                .0;
+            // Distinct packets could both be valid before either changes the active phase.
+            if tied.iter().all(|entry| entry.1 == first.1)
+                && let Some(index) = resolve_tie(tied)?
+            {
+                tied.get(index).copied()
+            } else {
+                return Err(phase_ambiguity(
+                    "Multiple phase transitions at the same time",
+                    tied,
+                ));
+            }
+        } else {
+            choices.first().copied()
+        };
         if let Some(next) = next
             && next.2.timestamp == current.2.timestamp
         {
@@ -425,6 +437,7 @@ fn inferred_segments(
     rules: &[SegmentRule],
     actors: &BTreeMap<i64, &Actor>,
     origin: i64,
+    model: Option<&Timeline>,
 ) -> Result<Vec<Segment>> {
     let mut roots = rules
         .iter()
@@ -453,8 +466,46 @@ fn inferred_segments(
         .map(|(_, index, _)| *index)
         .chain(std::iter::once(log.events.len()));
     let mut candidates = Vec::new();
+    let mut replay_rows: Option<Vec<Record>> = None;
+    let mut resolve_tie = |tied: &[PhaseEntry<'_>]| {
+        let (Some(model), Some(first)) = (model, tied.first()) else {
+            return Ok(None);
+        };
+        if replay_rows.is_none() {
+            let end = log.events.last().context("Empty events")?.timestamp - origin;
+            let recording = recording(
+                log,
+                actors,
+                origin,
+                end,
+                &ObservationScope::AllCastsAndStarts,
+                |_| true,
+            )?;
+            replay_rows = Some(crate::timeline::replay(model, &recording)?);
+        }
+        let mut rows = replay_rows
+            .iter()
+            .flatten()
+            .filter(|row| row.source_event_index == Some(first.1));
+        if rows.clone().any(|row| row.action == "ambiguous") {
+            return Ok(None);
+        }
+        let phase = rows
+            .find(|row| row.action == "phase")
+            .and_then(|row| row.context.as_ref()?.owner.phase.as_deref());
+        Ok(tied
+            .iter()
+            .position(|entry| Some(entry.0.phase.as_str()) == phase))
+    };
     for (root, limit) in roots.iter().copied().zip(limits) {
-        candidates.extend(follow_transitions(log, rules, actors, root, limit)?);
+        candidates.extend(follow_transitions(
+            log,
+            rules,
+            actors,
+            root,
+            limit,
+            &mut resolve_tie,
+        )?);
     }
     // Same-boss transitions use the explicit entry; switching bosses still requires defeat.
     let next_entries = candidates
@@ -628,7 +679,11 @@ fn audit_segment(
     )
 }
 
-pub(super) fn project(log: &CollectedLog, profile: &Profile) -> Result<Projection> {
+pub(super) fn project(
+    log: &CollectedLog,
+    profile: &Profile,
+    model: Option<&Timeline>,
+) -> Result<Projection> {
     let origin = log.events.first().context("Empty events")?.timestamp;
     let actors = log
         .report
@@ -644,7 +699,7 @@ pub(super) fn project(log: &CollectedLog, profile: &Profile) -> Result<Projectio
         .context("Missing fight")?
         .encounter_id;
     let bosses = if profile.inferred {
-        inferred_segments(log, &profile.segments, &actors, origin)?
+        inferred_segments(log, &profile.segments, &actors, origin, model)?
     } else {
         profile
             .segments
@@ -667,24 +722,49 @@ pub(super) fn project(log: &CollectedLog, profile: &Profile) -> Result<Projectio
         return Err(exclude("Overlapping boss attempts", json!({})));
     }
     let end_ms = bosses.last().context("Missing scope")?.end_ms;
+    let recording = recording(
+        log,
+        &actors,
+        origin,
+        end_ms,
+        &profile.observations,
+        |at_ms| {
+            bosses
+                .iter()
+                .any(|b| at_ms >= b.entry_ms && at_ms <= b.end_ms)
+        },
+    )?;
+    Ok(Projection {
+        origin_timestamp_ms: origin,
+        recording,
+        bosses,
+    })
+}
+
+fn recording(
+    log: &CollectedLog,
+    actors: &BTreeMap<i64, &Actor>,
+    origin: i64,
+    end_ms: i64,
+    scope: &ObservationScope,
+    in_scope: impl Fn(i64) -> bool,
+) -> Result<Recording> {
     let mut observations = Vec::new();
     for (raw_index, event) in log.events.iter().enumerate() {
         let at_ms = event.timestamp - origin;
         if event.kind != "cast"
             && !(event.kind == "begincast"
                 && matches!(
-                    profile.observations,
+                    scope,
                     ObservationScope::ScopedCastsAndStarts | ObservationScope::AllCastsAndStarts
                 ))
         {
             continue;
         }
         if !matches!(
-            profile.observations,
+            scope,
             ObservationScope::AllCasts | ObservationScope::AllCastsAndStarts
-        ) && !bosses
-            .iter()
-            .any(|b| at_ms >= b.entry_ms && at_ms <= b.end_ms)
+        ) && !in_scope(at_ms)
         {
             continue;
         }
@@ -716,14 +796,10 @@ pub(super) fn project(log: &CollectedLog, profile: &Profile) -> Result<Projectio
             });
         }
     }
-    Ok(Projection {
-        origin_timestamp_ms: origin,
-        recording: Recording {
-            version: 1,
-            end_ms,
-            observations,
-        },
-        bosses,
+    Ok(Recording {
+        version: 1,
+        end_ms,
+        observations,
     })
 }
 

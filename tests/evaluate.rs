@@ -107,16 +107,19 @@ fn inferred_evaluation_requires_one_observed_phase_and_impact_binding(
 }
 
 #[rstest::rstest]
-#[case(false, true, false, false, true)]
-#[case(false, false, false, false, false)]
-#[case(true, false, false, false, true)]
-#[case(true, false, true, false, true)]
-#[case(true, false, true, true, true)]
+#[case(false, true, false, false, None, true)]
+#[case(false, false, false, false, None, false)]
+#[case(true, false, false, false, None, true)]
+#[case(true, false, true, false, None, true)]
+#[case(true, false, true, true, None, true)]
+#[case(true, false, false, false, Some(20), true)]
+#[case(true, false, false, false, Some(9), false)]
 fn inferred_sequential_phases_require_an_observed_boundary(
     #[case] same_source: bool,
     #[case] defeated: bool,
     #[case] repeated: bool,
     #[case] reuse: bool,
+    #[case] competing_at: Option<i64>,
     #[case] passed: bool,
 ) {
     let directory = tempfile::tempdir().unwrap();
@@ -144,6 +147,13 @@ fn inferred_sequential_phases_require_an_observed_boundary(
             11,
         )
     };
+    let competitor = competing_at.map_or_else(String::new, |at| {
+        format!(
+            r#"phase "competitor" {{
+            enter "StartsUsing" id="B530" source="Synthetic Boss" from="first" at={at}.0
+        }}"#
+        )
+    });
     let timeline = format!(
         r#"timeline 1 "Two phases" {{
             start "Ability" id="B528" source="Synthetic Boss"
@@ -156,6 +166,7 @@ fn inferred_sequential_phases_require_an_observed_boundary(
                 event "first-impact" 6.0 name="First impact" {{ sync 6.0 "Ability" id="B529" source="Synthetic Boss"; }}
             }}
             {third}
+            {competitor}
         }}"#
     );
     let mut raw: Value = serde_json::from_slice(include_bytes!("fixtures/pull.json")).unwrap();
@@ -226,7 +237,14 @@ fn inferred_sequential_phases_require_an_observed_boundary(
     } else {
         result.failure();
         assert_eq!(trace["status"], "unverified");
-        assert_eq!(trace["evidence"]["entry_candidates"][0]["phase"], "first");
+        assert_eq!(
+            trace["evidence"]["entry_candidates"][0]["phase"],
+            if competing_at.is_some() {
+                "second"
+            } else {
+                "first"
+            }
+        );
     }
 }
 

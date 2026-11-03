@@ -93,7 +93,7 @@ fn evaluate_input(
         );
     };
     *stage = "input-validation";
-    let projected = projection::project(&log, profile)?;
+    let projected = projection::project(&log, profile, Some(model))?;
     let samples = projected
         .bosses
         .iter()

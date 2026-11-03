@@ -33,7 +33,7 @@ fn griffin_keeps_control_noise_and_requires_the_observed_defeat() {
             cast(500, 1, 0xb0f9)
         ]),
     );
-    let result = projection::project(&raw, &p).unwrap();
+    let result = projection::project(&raw, &p, None).unwrap();
     assert_eq!(result.recording.observations.len(), 5);
     assert_eq!(result.bosses[0].end_ms, 400);
     assert_eq!(
@@ -46,7 +46,7 @@ fn griffin_keeps_control_noise_and_requires_the_observed_defeat() {
     );
     raw.events.remove(5);
     assert!(
-        projection::project(&raw, &p)
+        projection::project(&raw, &p, None)
             .err()
             .unwrap()
             .downcast_ref::<InputExclusion>()
@@ -103,7 +103,7 @@ fn mistwake_preserves_helper_targets_waves_and_observations() {
         ]),
     );
     let p = profile("mistwake");
-    let result = projection::project(&input, &p).expect("valid test fixture");
+    let result = projection::project(&input, &p, None).expect("valid test fixture");
     assert_eq!(result.recording.observations.len(), 8);
     assert_eq!(
         result
@@ -118,7 +118,7 @@ fn mistwake_preserves_helper_targets_waves_and_observations() {
     let mut incomplete = input;
     incomplete.events.remove(7);
     assert!(
-        projection::project(&incomplete, &p)
+        projection::project(&incomplete, &p, None)
             .err()
             .unwrap()
             .downcast_ref::<InputExclusion>()
@@ -147,7 +147,7 @@ fn clyteum_aliases_scoped_unknowns_and_resets_match_previous_projector() {
         ]),
     );
     let p = profile("clyteum");
-    let result = projection::project(&input, &p).expect("valid test fixture");
+    let result = projection::project(&input, &p, None).expect("valid test fixture");
     assert_eq!(result.recording.observations.len(), 7);
     assert_eq!(result.bosses[0].targets[1].name, "Petrifying Beam");
     assert_eq!(result.bosses[0].targets.len(), 2);
@@ -157,7 +157,7 @@ fn clyteum_aliases_scoped_unknowns_and_resets_match_previous_projector() {
         serde_json::from_value(cast(250, 4, 1)).expect("valid test fixture"),
     );
     assert!(
-        projection::project(&broken, &p)
+        projection::project(&broken, &p, None)
             .err()
             .unwrap()
             .to_string()
@@ -173,7 +173,7 @@ fn clyteum_aliases_scoped_unknowns_and_resets_match_previous_projector() {
         serde_json::from_value(health(260, 1, 95)).expect("valid test fixture"),
     );
     assert!(
-        projection::project(&broken, &p)
+        projection::project(&broken, &p, None)
             .err()
             .unwrap()
             .to_string()
@@ -191,7 +191,7 @@ fn sandoria_keeps_simultaneous_targets_and_starts_and_bounds_the_joint_scope() {
         ]),
     );
     let p = profile("sandoria");
-    let result = projection::project(&input, &p).expect("valid test fixture");
+    let result = projection::project(&input, &p, None).expect("valid test fixture");
     assert_eq!(result.bosses.len(), 1);
     assert_eq!(result.bosses[0].end_ms, 238000);
     assert_eq!(result.bosses[0].targets.len(), 3);
@@ -200,7 +200,7 @@ fn sandoria_keeps_simultaneous_targets_and_starts_and_bounds_the_joint_scope() {
         5,
         serde_json::from_value(health(15000, 1, 0)).expect("valid test fixture"),
     );
-    let result = projection::project(&input, &p).expect("valid test fixture");
+    let result = projection::project(&input, &p, None).expect("valid test fixture");
     assert_eq!(result.bosses[0].end_ms, 15000);
     assert!(
         !result
@@ -218,7 +218,7 @@ fn sandoria_keeps_simultaneous_targets_and_starts_and_bounds_the_joint_scope() {
             cast(103100, 1, 0xb07c)
         ]),
     );
-    let result = projection::project(&kirin, &p).expect("valid test fixture");
+    let result = projection::project(&kirin, &p, None).expect("valid test fixture");
     assert_eq!(
         result.bosses[0]
             .targets
@@ -253,7 +253,7 @@ fn future_observations_do_not_repair_a_five_second_forecast() {
     let raw: CollectedLog = serde_json::from_str(include_str!("../../tests/fixtures/pull.json"))
         .expect("valid test fixture");
     let model:Timeline=crate::timeline::parse("timeline 1 \"Test\" { start \"Ability\" id=\"B528\"; phase \"boss\" { enter \"Ability\" id=\"B528\"; event \"first\" 0.0 name=\"Hit\"; event \"second\" 10.0 name=\"Hit\" { sync 10.0 \"Ability\" id=\"B528\" before=3.0 after=1.0; }; }; }").expect("valid test fixture");
-    let projected = projection::project(&raw, &p).expect("valid test fixture");
+    let projected = projection::project(&raw, &p, None).expect("valid test fixture");
     let manifest:Manifest=serde_json::from_value(json!({"timeline":"unused","timeline_sha256":"unused","role":"test","forecast_lead_ms":5000,"horizon_ms":6500,"tolerance_ms":1500,"inputs":[]})).expect("valid test fixture");
     let result = score::score(&model, &projected, &manifest).expect("valid test fixture");
     // Its own future sync repairs execution at impact, but cannot retroactively repair the earlier warning.
@@ -296,7 +296,7 @@ fn hypothetical_unresolved_diagnostics_are_kept_separate_from_current_failures()
     }"#,
     )
     .expect("timeline");
-    let projected = projection::project(&raw, &p).expect("projection");
+    let projected = projection::project(&raw, &p, None).expect("projection");
     let manifest: Manifest = serde_json::from_value(json!({"timeline":"unused","timeline_sha256":"unused","role":"test","forecast_lead_ms":5000,"horizon_ms":6500,"tolerance_ms":1500,"inputs":[]})).expect("manifest");
     let result = score::score(&model, &projected, &manifest).expect("score");
     let target = &result["bosses"][0]["targets"][2];
@@ -334,7 +334,7 @@ fn a_same_name_future_bar_cannot_stand_in_for_a_different_event_identity() {
     )
     .expect("timeline");
     p.validate_bindings(&model).expect("bindings");
-    let projected = projection::project(&raw, &p).expect("projection");
+    let projected = projection::project(&raw, &p, None).expect("projection");
     let manifest: Manifest = serde_json::from_value(json!({"timeline":"unused","timeline_sha256":"unused","role":"test","forecast_lead_ms":5000,"horizon_ms":6500,"tolerance_ms":1500,"inputs":[]})).expect("manifest");
     let result = score::score(&model, &projected, &manifest).expect("score");
     let target = &result["bosses"][0]["targets"][1];
@@ -374,7 +374,7 @@ fn option_to_merge_replacement_requires_an_explicit_equivalence_group() {
         }
         let p: Profile = serde_json::from_value(config).expect("profile");
         p.validate_bindings(&model).expect("bindings");
-        let projected = projection::project(&raw, &p).expect("projection");
+        let projected = projection::project(&raw, &p, None).expect("projection");
         let manifest: Manifest = serde_json::from_value(json!({"timeline":"unused","timeline_sha256":"unused","role":"test","forecast_lead_ms":5000,"horizon_ms":6500,"tolerance_ms":1500,"inputs":[]})).expect("manifest");
         let result = score::score(&model, &projected, &manifest).expect("score");
         let target = &result["bosses"][0]["targets"][1];
@@ -424,7 +424,7 @@ fn sandoria_scores_variant_casts_and_helper_bury_without_counting_duplicate_arms
             cast(220000, 2, 0xadbf)
         ]),
     );
-    let result = projection::project(&raw, &p).unwrap();
+    let result = projection::project(&raw, &p, None).unwrap();
     assert_eq!(
         result.bosses[0]
             .targets
@@ -438,7 +438,7 @@ fn sandoria_scores_variant_casts_and_helper_bury_without_counting_duplicate_arms
         &["Eald'narche"],
         json!([cast(0, 1, 0xad51), cast(13100, 1, 0xad4c)]),
     );
-    let result = projection::project(&raw, &p).unwrap();
+    let result = projection::project(&raw, &p, None).unwrap();
     assert_eq!(result.bosses[0].targets.len(), 2);
     assert_eq!(result.bosses[0].targets[1].id, "AD4C");
 }
