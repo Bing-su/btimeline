@@ -106,6 +106,7 @@ struct Clock {
     resume_after: Option<Tick>,
     phase_instance: usize,
     iteration: Option<u64>,
+    sequence_instance: Option<usize>,
 }
 
 #[derive(Clone)]
@@ -165,6 +166,8 @@ struct PhaseState<'a> {
     branches: Vec<BranchState>,
     loops: Vec<LoopRef<'a>>,
     repeats: Vec<RepeatState>,
+    sequences: Vec<Option<Clock>>,
+    sequence_entries: usize,
 }
 
 struct LoopRef<'a> {
@@ -199,6 +202,7 @@ enum SyncOwner<'a> {
     Fight,
     Phase(&'a str),
     Repeat(&'a str),
+    Sequence(usize, &'a str),
 }
 
 fn matches_any(signals: &[super::Signal], observation: &Observation, time: Tick) -> bool {
@@ -379,6 +383,82 @@ impl<'a> PhaseState<'a> {
                 .collect(),
             loops,
             repeats,
+            sequences: vec![None; definition.sequences.len()],
+            sequence_entries: 0,
+        }
+    }
+
+    fn start_sequences(&mut self, observation: &Observation, out: &mut Vec<Record>, run: usize) {
+        let at = observation.at_ms;
+        for (sequence, active) in self.definition.sequences.iter().zip(&mut self.sequences) {
+            if !matches_any(&sequence.starts, observation, 0) {
+                continue;
+            }
+            self.sequence_entries += 1;
+            // Replacing this slot cancels only this sequence's pending displays.
+            let clock = Clock {
+                base_ms: at,
+                not_before: at,
+                phase_instance: self.clock.phase_instance,
+                sequence_instance: Some(self.sequence_entries),
+                ..Clock::default()
+            };
+            record_control(
+                out,
+                at,
+                "sequence",
+                sequence.id.clone(),
+                run,
+                &clock,
+                Owner {
+                    phase: Some(self.definition.id.clone()),
+                    sequence: Some(sequence.id.clone()),
+                    ..Owner::default()
+                },
+            );
+            *active = Some(clock);
+        }
+    }
+
+    fn sequence_sync_targets(&self, observation: &Observation) -> Vec<(SyncOwner<'a>, Tick)> {
+        self.definition
+            .sequences
+            .iter()
+            .zip(&self.sequences)
+            .enumerate()
+            .flat_map(|(index, (sequence, active))| {
+                active
+                    .as_ref()
+                    .filter(|_| !matches_any(&sequence.starts, observation, 0))
+                    .into_iter()
+                    .flat_map(move |clock| sync_targets(&sequence.events, clock, observation))
+                    .map(move |target| (SyncOwner::Sequence(index, sequence.id.as_str()), target))
+            })
+            .collect()
+    }
+
+    fn advance_sequences(&mut self, at: i64, inclusive: bool, out: &mut Vec<Record>, run: usize) {
+        for (sequence, active) in self.definition.sequences.iter().zip(&mut self.sequences) {
+            let Some(clock) = active else { continue };
+            emit(&sequence.events, clock, at, inclusive, out, run);
+            if clock.processed.len() == sequence.events.len() {
+                *active = None;
+            }
+        }
+    }
+
+    fn correct_sequence(
+        &mut self,
+        index: usize,
+        at: i64,
+        target: Tick,
+        out: &mut Vec<Record>,
+        run: usize,
+    ) {
+        let sequence = self.definition.sequences.get(index);
+        let clock = self.sequences.get_mut(index).and_then(Option::as_mut);
+        if let Some((sequence, clock)) = sequence.zip(clock) {
+            correct(&sequence.events, clock, at, target, out, run);
         }
     }
 
@@ -430,6 +510,7 @@ fn execution_context(clock: &Clock, owner: Owner) -> ExecutionContext {
         owner,
         phase_instance: clock.phase_instance,
         iteration: clock.iteration,
+        sequence_instance: clock.sequence_instance,
     }
 }
 
@@ -1312,6 +1393,7 @@ impl<'a> Replay<'a> {
                 &mut self.out,
                 self.run,
             );
+            phase.advance_sequences(at, inclusive, &mut self.out, self.run);
             advance_paths(phase, at, inclusive, &mut self.out, self.run);
             advance_repeats(
                 phase,
@@ -1965,6 +2047,7 @@ impl<'a> Replay<'a> {
             );
             targets.extend(branch_sync_targets(phase, observation));
             targets.extend(repeat_sync_targets(phase, observation));
+            targets.extend(phase.sequence_sync_targets(observation));
         }
         if targets.len() > 1 {
             record(
@@ -2020,6 +2103,9 @@ impl<'a> Replay<'a> {
                     );
                 }
             }
+            (SyncOwner::Sequence(index, _), Some(phase), _) => {
+                phase.correct_sequence(*index, at, *target, &mut self.out, self.run);
+            }
             _ => {}
         }
         record(
@@ -2030,7 +2116,7 @@ impl<'a> Replay<'a> {
                 "{} -> {:.1}s",
                 match owner {
                     SyncOwner::Fight => "fight",
-                    SyncOwner::Phase(id) | SyncOwner::Repeat(id) => id,
+                    SyncOwner::Phase(id) | SyncOwner::Repeat(id) | SyncOwner::Sequence(_, id) => id,
                 },
                 *target as f64 / 10.0
             ),
@@ -2060,6 +2146,9 @@ impl<'a> Replay<'a> {
         }
         if lifecycle.is_none() && !enter && self.fight.is_some() {
             self.observe_control(observation)?;
+            if let Some(phase) = &mut self.phase {
+                phase.start_sequences(observation, &mut self.out, self.run);
+            }
         }
         for record in self.out.iter_mut().skip(first_signal_record) {
             if record.at_ms == at {
@@ -2145,6 +2234,15 @@ impl<'a> Replay<'a> {
                 self.run,
                 &mut self.out,
             );
+            for (sequence, clock) in phase
+                .definition
+                .sequences
+                .iter()
+                .zip(&phase.sequences)
+                .filter_map(|(sequence, clock)| clock.as_ref().map(|clock| (sequence, clock)))
+            {
+                unobserved(&sequence.events, clock, end_ms, self.run, &mut self.out);
+            }
             unobserved_paths(phase, end_ms, self.run, &mut self.out);
             unobserved_repeat(phase, end_ms, &mut self.out, self.run);
         }
@@ -2221,19 +2319,6 @@ fn validate_nested_repeat(repeat: &Loop, end_ms: i64) -> Result<()> {
 }
 
 fn replay_until<'a>(timeline: &'a Timeline, input: &Recording, at_ms: i64) -> Result<Replay<'a>> {
-    // Until execution is wired up, do not report a successful replay that omits a sequence.
-    if let Some(sequence) = timeline
-        .phases
-        .iter()
-        .flat_map(|phase| &phase.sequences)
-        .next()
-    {
-        anyhow::bail!(
-            "Replay of sequence {} ({} on signals) is not supported yet",
-            sequence.id,
-            sequence.starts.len()
-        );
-    }
     validate_recording(input)?;
     validate_repeat_support(timeline, at_ms)?;
     let mut state = Replay {

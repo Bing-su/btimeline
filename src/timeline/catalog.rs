@@ -20,6 +20,8 @@ pub(crate) struct ExecutionContext {
     pub owner: Owner,
     pub phase_instance: usize,
     pub iteration: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sequence_instance: Option<usize>,
 }
 #[derive(Clone, Debug, Serialize)]
 pub(crate) struct EventData {

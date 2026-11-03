@@ -18,7 +18,7 @@
 
 ## 다음 구현 · sequence
 
-활성 phase 안에서 신호를 받아 독립된 짧은 일정을 여는 [`sequence` 문법](../.agents/skills/timeline-author/references/timeline-schema.md#신호로-시작하는-sequence--구현-예정)을 추가한다. 파서·검증기·재생·미래 조회에 실행 의미를 연결한 뒤 산도리아의 기술별 phase 세 개를 sequence로 옮긴다. 생존자별 phase와 첫 처치 경계는 유지한다. [재생 완료 조건](../.agents/skills/timeline-author/references/offline-replay.md#sequence-재생--구현-예정)에 따라 같은 일정의 재시작, 다른 일정의 동시 실행, 하위 시계 보정과 부모 종료를 확인한다.
+활성 phase 안에서 신호를 받아 독립된 짧은 일정을 여는 [`sequence` 문법](../.agents/skills/timeline-author/references/timeline-schema.md#신호로-시작하는-sequence)을 추가한다. 파서·검증기·재생·미래 조회에서 실행을 지원한다. 작성 평가에서 실행 식별자를 연결한 뒤 산도리아의 기술별 phase 세 개를 sequence로 옮긴다. 생존자별 phase와 첫 처치 경계는 유지한다. [재생 완료 조건](../.agents/skills/timeline-author/references/offline-replay.md#sequence-재생)에 따라 같은 일정의 재시작, 다른 일정의 동시 실행, 하위 시계 보정과 부모 종료를 확인한다.
 
 ## 남은 검증
 

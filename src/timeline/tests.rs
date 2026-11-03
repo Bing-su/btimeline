@@ -3930,9 +3930,6 @@ fn validates_sequence_body_and_catalog_ownership(#[case] body: &str, #[case] val
         let owner = &timeline.catalog.events.values().next().unwrap().owner;
         assert_eq!(owner.phase.as_deref(), Some("solo"));
         assert_eq!(owner.sequence.as_deref(), Some("mana"));
-        let error = replay(&timeline, &recording(0, serde_json::json!([])).unwrap())
-            .expect_err("sequence execution is pending");
-        assert!(error.to_string().contains("Replay of sequence mana"));
     }
 }
 
@@ -3967,4 +3964,168 @@ fn sequence_ids_are_phase_local() {
     );
     let error = parse(&duplicate).expect_err("duplicate sequence in the same phase");
     assert!(format!("{error:#}").contains("Duplicate sequence ID reaction"));
+}
+
+const SEQUENCE_EXAMPLE: &str = r#"
+timeline 1 "Independent sequences" {
+    start "Start"
+    wipe "Stop"
+    phase "solo" {
+        enter "Start"
+        event "parent" 5.0 name="Parent"
+        sequence "one" {
+            on "One"
+            on "One" source="Boss"
+            event "first" 1.0 name="First"
+            event "second" 3.0 name="Second" {
+                sync 1.0 "Adjust" before=2.0 after=2.0
+                sync 1.0 "One" before=2.0 after=2.0
+            }
+        }
+        sequence "two" {
+            on "Two"
+            event "other" 3.0 name="Other"
+        }
+    }
+    phase "next" {
+        enter "Change" from="solo" at=5.0 before=0.0 after=0.0
+        sequence "forbidden" {
+            on "Change"
+            event "must-not-start" 0.0 name="Must not start"
+        }
+    }
+}
+"#;
+
+#[test]
+fn sequence_restarts_keep_siblings_and_have_distinct_execution_identity() {
+    let model = parse(SEQUENCE_EXAMPLE).unwrap();
+    let input = recording(
+        6000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":125,"type":"One","fields":{"source":"Boss"}},
+            {"at_ms":500,"type":"Two","fields":{}},
+            {"at_ms":1500,"type":"One","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let before = super::forecast(&model, &input, 124, 5000).unwrap();
+    assert_eq!(
+        before
+            .events
+            .iter()
+            .map(|event| event.id.as_str())
+            .collect::<Vec<_>>(),
+        ["parent"]
+    );
+    let forecast = super::forecast(&model, &input, 1499, 4000).unwrap();
+    assert!(
+        forecast
+            .events
+            .iter()
+            .any(|event| event.id == "second" && event.at_ms == 3125)
+    );
+    let rows = replay(&model, &input).unwrap();
+    assert!(!rows.iter().any(|row| row.action == "sync"));
+    let sequence_starts = rows.iter().filter(|row| row.action == "sequence").count();
+    assert_eq!(sequence_starts, 3);
+    let events = rows
+        .iter()
+        .filter_map(|row| {
+            let event = row.event.as_ref()?;
+            Some((
+                event.id.as_str(),
+                row.at_ms,
+                row.context.as_ref().unwrap().sequence_instance,
+            ))
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        events,
+        [
+            ("first", 1125, Some(1)),
+            ("first", 2500, Some(3)),
+            ("other", 3500, Some(2)),
+            ("second", 4500, Some(3)),
+            ("parent", 5000, None),
+        ]
+    );
+}
+
+#[rstest]
+#[case("Change", 5000, Some("next"))]
+#[case("Stop", 4800, None)]
+fn sequence_sync_is_local_and_parent_controls_cancel_pending_events(
+    #[case] terminal: &str,
+    #[case] at_ms: i64,
+    #[case] final_phase: Option<&str>,
+) {
+    let model = parse(SEQUENCE_EXAMPLE).unwrap();
+    let input = recording(
+        6500,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"One","fields":{}},
+            {"at_ms":1600,"type":"Two","fields":{}},
+            {"at_ms":2700,"type":"Adjust","fields":{}},
+            {"at_ms":4000,"type":"One","fields":{}},
+            {"at_ms":at_ms,"type":terminal,"fields":{}}
+        ]),
+    )
+    .unwrap();
+    let forecast = super::forecast(&model, &input, 3000, 3000).unwrap();
+    assert_eq!(
+        forecast
+            .events
+            .iter()
+            .map(|event| (event.id.as_str(), event.at_ms))
+            .collect::<Vec<_>>(),
+        [("other", 4600), ("second", 4700), ("parent", 5000)]
+    );
+    let forecast = super::forecast(&model, &input, at_ms, 1000).unwrap();
+    assert_eq!(forecast.phase.as_deref(), final_phase);
+    assert!(forecast.events.is_empty());
+    let rows = replay(&model, &input).unwrap();
+    assert!(
+        !rows
+            .iter()
+            .any(|row| row.at_ms >= at_ms && row.event.is_some())
+    );
+    assert!(
+        !rows
+            .iter()
+            .any(|row| row.action == "sequence" && row.at_ms == at_ms)
+    );
+}
+
+#[test]
+fn simultaneous_sequence_and_parent_sync_candidates_are_ambiguous() {
+    let source = SEQUENCE_EXAMPLE.replace(
+        r#"event "parent" 5.0 name="Parent""#,
+        r#"event "parent" 5.0 name="Parent" {
+            sync 2.0 "Adjust" before=2.0 after=2.0
+        }"#,
+    );
+    let model = parse(&source).unwrap();
+    let input = recording(
+        6000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1000,"type":"One","fields":{}},
+            {"at_ms":2700,"type":"Adjust","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let forecast = super::forecast(&model, &input, 3000, 3000).unwrap();
+    assert_eq!(forecast.diagnostics.len(), 1);
+    assert_eq!(forecast.diagnostics[0].action, "ambiguous");
+    assert_eq!(
+        forecast
+            .events
+            .iter()
+            .map(|event| (event.id.as_str(), event.at_ms))
+            .collect::<Vec<_>>(),
+        [("second", 4000), ("parent", 5000)]
+    );
 }

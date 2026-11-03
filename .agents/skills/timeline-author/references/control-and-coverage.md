@@ -21,7 +21,7 @@ For R12S Raptor and Serpentine, impact identifies a known offset in the selected
 
 ### Choosing a signal-relative schedule
 
-The [sequence syntax](timeline-schema.md#신호로-시작하는-sequence--구현-예정) is parsed and validated. Execution is pending. Use the current KDL schema for executable timelines. When reviewing a candidate for migration, check what each signal should start, move, or cancel.
+The [sequence syntax](timeline-schema.md#신호로-시작하는-sequence) is supported by validation and replay. Check external executor support before migrating a timeline. When reviewing a candidate for migration, check what each signal should start, move, or cancel.
 
 | Observation                                                                       | Structure                                                                                                |
 | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
