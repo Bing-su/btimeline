@@ -210,30 +210,57 @@ timeline 1 "AAC Heavyweight M4 (Savage) — Lindwurm" {
         event pre-checkpoint-dramatic-lysis-lindwurm-b4d4-01 347.9 name="Dramatic Lysis"
         event pre-checkpoint-fourth-wall-fusion-lindwurm-b4d5-01 347.9 name="Fourth-Wall Fusion"
         event pre-checkpoint-burst-lindwurm-b49f-03 348.4 name=Burst
-        event pre-checkpoint-raptor-knuckles-lindwurm-b4d0-01 353.5 name="Raptor Knuckles"
-        event pre-checkpoint-raptor-knuckles-lindwurm-b9c7-01 354.3 name="Raptor Knuckles"
-        event pre-checkpoint-raptor-knuckles-lindwurm-b4cf-01 358.1 name="Raptor Knuckles"
-        event pre-checkpoint-raptor-knuckles-lindwurm-b9c7-02 358.8 name="Raptor Knuckles"
+        // Select each occurrence independently. Both hits share the first cast family.
+        branch "pre-tail-pair-1" open=351.5 close=355.5 {
+            option "raptor" {
+                when "StartsUsing" id="B9C7" source="Lindwurm"
+                event "pre-tail-1-raptor-first" 0.8 name="Raptor Knuckles"
+                event "pre-tail-1-raptor-second" 5.3 name="Raptor Knuckles"
+            }
+            option "serpentine" {
+                when "StartsUsing" id="B9BC" source="Lindwurm"
+                event "pre-tail-1-serpentine-first" 1.0 name="Serpentine Scourge"
+                event "pre-tail-1-serpentine-second" 5.6 name="Serpentine Scourge"
+            }
+        }
         event pre-checkpoint-slaughtershed-lindwurm-b4c6-02 365.7 name=Slaughtershed
         event pre-checkpoint-slaughtershed-lindwurm-adc9-02 368.2 name=Slaughtershed
         event pre-checkpoint-unknown-b4ce-lindwurm-b4ce-02 369.8 name=unknown_b4ce
         event pre-checkpoint-dramatic-lysis-lindwurm-b4d4-02 376.9 name="Dramatic Lysis"
         event pre-checkpoint-fourth-wall-fusion-lindwurm-b4d5-02 376.9 name="Fourth-Wall Fusion"
         event pre-checkpoint-burst-lindwurm-b49f-04 377.3 name=Burst
-        event pre-checkpoint-raptor-knuckles-lindwurm-b4d0-02 382.4 name="Raptor Knuckles"
-        event pre-checkpoint-raptor-knuckles-lindwurm-b9c7-03 383.2 name="Raptor Knuckles"
-        event pre-checkpoint-raptor-knuckles-lindwurm-b4cf-02 387.0 name="Raptor Knuckles"
-        event pre-checkpoint-raptor-knuckles-lindwurm-b9c7-04 387.8 name="Raptor Knuckles"
+        // Select each occurrence independently. Both hits share the first cast family.
+        branch "pre-tail-pair-2" open=380.4 close=384.4 {
+            option "raptor" {
+                when "StartsUsing" id="B9C7" source="Lindwurm"
+                event "pre-tail-2-raptor-first" 0.8 name="Raptor Knuckles"
+                event "pre-tail-2-raptor-second" 5.3 name="Raptor Knuckles"
+            }
+            option "serpentine" {
+                when "StartsUsing" id="B9BC" source="Lindwurm"
+                event "pre-tail-2-serpentine-first" 1.0 name="Serpentine Scourge"
+                event "pre-tail-2-serpentine-second" 5.6 name="Serpentine Scourge"
+            }
+        }
         event pre-checkpoint-slaughtershed-lindwurm-b4c6-03 394.6 name=Slaughtershed
         event pre-checkpoint-slaughtershed-lindwurm-adc9-03 397.1 name=Slaughtershed
         event pre-checkpoint-unknown-b4ce-lindwurm-b4ce-03 398.7 name=unknown_b4ce
         event pre-checkpoint-dramatic-lysis-lindwurm-b4d4-03 405.8 name="Dramatic Lysis"
         event pre-checkpoint-fourth-wall-fusion-lindwurm-b4d5-03 405.8 name="Fourth-Wall Fusion"
         event pre-checkpoint-burst-lindwurm-b49f-05 406.2 name=Burst
-        event pre-checkpoint-raptor-knuckles-lindwurm-b4d0-03 411.3 name="Raptor Knuckles"
-        event pre-checkpoint-raptor-knuckles-lindwurm-b9c7-05 412.1 name="Raptor Knuckles"
-        event pre-checkpoint-raptor-knuckles-lindwurm-b4cf-03 415.9 name="Raptor Knuckles"
-        event pre-checkpoint-raptor-knuckles-lindwurm-b9c7-06 416.6 name="Raptor Knuckles"
+        // Select each occurrence independently. Both hits share the first cast family.
+        branch "pre-tail-pair-3" open=409.3 close=413.3 {
+            option "raptor" {
+                when "StartsUsing" id="B9C7" source="Lindwurm"
+                event "pre-tail-3-raptor-first" 0.8 name="Raptor Knuckles"
+                event "pre-tail-3-raptor-second" 5.3 name="Raptor Knuckles"
+            }
+            option "serpentine" {
+                when "StartsUsing" id="B9BC" source="Lindwurm"
+                event "pre-tail-3-serpentine-first" 1.0 name="Serpentine Scourge"
+                event "pre-tail-3-serpentine-second" 5.6 name="Serpentine Scourge"
+            }
+        }
         event pre-checkpoint-refreshing-overkill-lindwurm-b538 435.1 name="Refreshing Overkill" {
             sync 435.1 Ability id=B538 source=Lindwurm before=2.5 after=2.5
         }

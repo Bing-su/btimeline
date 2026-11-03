@@ -29,6 +29,30 @@
         "B538": {
           "name": "Refreshing Overkill",
           "events": ["pre-checkpoint-refreshing-overkill-lindwurm-b538"]
+        },
+        "B9C7": {
+          "name": "Raptor Knuckles",
+          "lead_ms": 500,
+          "events": [
+            "pre-tail-1-raptor-first",
+            "pre-tail-1-raptor-second",
+            "pre-tail-2-raptor-first",
+            "pre-tail-2-raptor-second",
+            "pre-tail-3-raptor-first",
+            "pre-tail-3-raptor-second"
+          ]
+        },
+        "B9BC": {
+          "name": "Serpentine Scourge",
+          "lead_ms": 500,
+          "events": [
+            "pre-tail-1-serpentine-first",
+            "pre-tail-1-serpentine-second",
+            "pre-tail-2-serpentine-first",
+            "pre-tail-2-serpentine-second",
+            "pre-tail-3-serpentine-first",
+            "pre-tail-3-serpentine-second"
+          ]
         }
       }
     },
