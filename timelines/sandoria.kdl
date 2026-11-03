@@ -12,10 +12,7 @@ timeline 1 "San d'Oria: The Second Walk" {
     boss-complete "WasDefeated" target="Omega, the One" from="duo"
     boss-complete "WasDefeated" target="Ultima, the Feared" from="duo"
     boss-complete "WasDefeated" target="Omega, the One" from="omega-solo"
-    boss-complete "WasDefeated" target="Omega, the One" from="omega-solo-trajectory"
     boss-complete "WasDefeated" target="Ultima, the Feared" from="ultima-solo"
-    boss-complete "WasDefeated" target="Ultima, the Feared" from="ultima-solo-mana"
-    boss-complete "WasDefeated" target="Ultima, the Feared" from="ultima-solo-orb"
     zone-exit "ChangeZone"
 
     phase "kirin" {
@@ -133,28 +130,25 @@ timeline 1 "San d'Oria: The Second Walk" {
 
     phase "ultima-solo" {
         enter "WasDefeated" target="Omega, the One" from="duo"
-    }
 
-    // The first new cast varies with the defeat timing; observe its start before committing to an effect.
-    phase "ultima-solo-mana" {
-        enter "StartsUsing" id="AD09" source="Ultima, the Feared" from="ultima-solo"
-        enter "StartsUsing" id="AD09" source="Ultima, the Feared" from="ultima-solo-orb"
-        event "ultima-solo-mana-screen" 3.0 name="Ultima: Mana Screen"
-    }
-
-    phase "ultima-solo-orb" {
-        enter "StartsUsing" id="AD08" source="Ultima, the Feared" from="ultima-solo"
-        enter "StartsUsing" id="AD08" source="Ultima, the Feared" from="ultima-solo-mana"
-        event "ultima-solo-energy-orb" 3.0 name="Ultima: Energy Orb"
+        // The first new cast varies with defeat timing, so each effect waits for its own start.
+        sequence "mana-screen" {
+            on "StartsUsing" id="AD09" source="Ultima, the Feared"
+            event "ultima-solo-mana-screen" 3.0 name="Ultima: Mana Screen"
+        }
+        sequence "energy-orb" {
+            on "StartsUsing" id="AD08" source="Ultima, the Feared"
+            event "ultima-solo-energy-orb" 3.0 name="Ultima: Energy Orb"
+        }
     }
 
     phase "omega-solo" {
         enter "WasDefeated" target="Ultima, the Feared" from="duo"
-    }
 
-    phase "omega-solo-trajectory" {
-        enter "StartsUsing" id="AD23" source="Omega, the One" from="omega-solo"
-        event "omega-solo-trajectory-projection" 3.5 name="Omega: Trajectory Projection"
+        sequence "trajectory-projection" {
+            on "StartsUsing" id="AD23" source="Omega, the One"
+            event "omega-solo-trajectory-projection" 3.5 name="Omega: Trajectory Projection"
+        }
     }
 
     phase "kam" {

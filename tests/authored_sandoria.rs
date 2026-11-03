@@ -466,6 +466,41 @@ fn ultima_solo_forecasts_only_observed_new_casts(
 }
 
 #[test]
+fn ultima_can_forecast_two_consecutive_mana_screens_in_one_phase() {
+    let observations = vec![
+        signal(0, "Ability", "AD2B", "Omega, the One"),
+        json!({"at_ms":90000,"type":"WasDefeated","fields":{"target":"Omega, the One"}}),
+        signal(95000, "StartsUsing", "AD09", "Ultima, the Feared"),
+        signal(100000, "StartsUsing", "AD09", "Ultima, the Feared"),
+    ];
+    let forecast = run("forecast", observations.clone(), 100000, 4000);
+    assert_eq!(forecast["events"][0]["id"], "ultima-solo-mana-screen");
+    assert_eq!(forecast["events"][0]["at_ms"], 103000);
+    assert_eq!(forecast["events"][0]["context"]["sequence_instance"], 2);
+    let rows = run("compare", observations, 100000, 4000);
+    let executions = rows
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|row| row["event"]["id"] == "ultima-solo-mana-screen")
+        .map(|row| {
+            (
+                &row["at_ms"],
+                &row["context"]["phase"],
+                &row["context"]["sequence_instance"],
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        executions,
+        [
+            (&json!(98000), &json!("ultima-solo"), &json!(1)),
+            (&json!(103000), &json!("ultima-solo"), &json!(2)),
+        ]
+    );
+}
+
+#[test]
 fn ultima_first_defeat_arms_omega_cast_and_cancels_on_omega_defeat() {
     let mut observations = vec![
         signal(0, "Ability", "AD2B", "Omega, the One"),

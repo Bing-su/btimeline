@@ -16,9 +16,9 @@
 | 산도리아 단독 생존 일정 | 두 처치 순서를 표현한다. 처치 뒤 새 시전에서 Ultima의 Mana Screen·Energy Orb와 Omega의 Trajectory Projection을 예고하고 생존자 처치로 예약을 닫는다. [산도리아](../timelines/sandoria-authoring.md)                         |
 | Clyteum 보조 공격       | Puppet Strings의 대안과 Pair·Mastery의 동시 효과를 예고하며 Malphas 효과 패킷을 평가에 연결한다. 자기 대상 패킷의 별도 플레이어 효과는 확인되지 않았다. [Clyteum](../timelines/clyteum-authoring.md)                        |
 
-## 다음 구현 · sequence
+## Sequence 실행과 산도리아 전환
 
-활성 phase 안에서 신호를 받아 독립된 짧은 일정을 여는 [`sequence` 문법](../.agents/skills/timeline-author/references/timeline-schema.md#신호로-시작하는-sequence)을 추가한다. 파서·검증기·재생·미래 조회에서 실행을 지원한다. 작성 평가에서 실행 식별자를 연결한 뒤 산도리아의 기술별 phase 세 개를 sequence로 옮긴다. 생존자별 phase와 첫 처치 경계는 유지한다. [재생 완료 조건](../.agents/skills/timeline-author/references/offline-replay.md#sequence-재생)에 따라 같은 일정의 재시작, 다른 일정의 동시 실행, 하위 시계 보정과 부모 종료를 확인한다.
+활성 phase 안에서 신호를 받아 독립된 짧은 일정을 여는 [`sequence` 문법](../.agents/skills/timeline-author/references/timeline-schema.md#신호로-시작하는-sequence)을 파서·검증·재생·미래 조회에 연결했다. 작성 평가는 대응한 실행과 같은 sequence 인스턴스의 예고만 인정한다. 산도리아의 기술별 phase 세 개는 sequence로 옮겼으며, 생존자별 phase와 첫 처치 경계는 유지했다. [재생 사례](../.agents/skills/timeline-author/references/offline-replay.md#sequence-재생) · [산도리아 전환 기록](../timelines/sandoria-authoring.md#sequence로-단독-일정-재작성)
 
 ## 남은 검증
 
