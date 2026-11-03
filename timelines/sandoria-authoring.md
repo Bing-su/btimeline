@@ -30,7 +30,7 @@
 | 공통 합류          | 선택별로 두 번째 Wrought Arms를 미리 예고하고, 해당 AD91 시전 시작에서 합류해 3.5초 뒤 표시. Ability에서 합류하면 반올림으로 아직 실행되지 않은 option 표시를 취소할 수 있어 시전 시작을 사용                                                                         |
 | Kirin 대안         | Striking Left/Right와 Wringer/Synchronized Strike 순서 대안은 `/`로 표현. 공통 Mighty Grip·Deadly Hold·Bury까지 이어지며 위치·안전 지점을 추정하지 않음                                                                                                               |
 | 두 보스 동시 진행  | PA/70 #12117 Omega Multi-Missile과 #12124 Ultima Citadel Siege는 89ms 차이. `Omega:`/`Ultima:` 표시를 같은 phase에 함께 두고 일방의 sync로 다른 보스 시계를 이동시키지 않음                                                                                           |
-| 공동 일정 종료     | Hnx/47 #22737에서 Omega HP=0, 그 뒤 #23468의 Ultima Mana Screen은 기존 공동 일정과 다른 시각. 공동 구간은 첫 보스 처치까지로 한정하고 생존 보스의 단독 후반은 작성하지 않음. 실제 KDL은 WasDefeated target으로 공동 예약을 취소                                       |
+| 공동 일정 종료     | Hnx/47 #22737에서 Omega HP=0, 그 뒤 #23468의 Ultima Mana Screen은 기존 공동 일정과 다른 시각. 공동 구간은 첫 보스 처치까지로 한정한다. KDL은 WasDefeated target으로 공동 예약을 취소하고 아래 단독 구간으로 이어진다                                                  |
 | Kam 동시·대안      | PA/72 #19944 Illumed Facet·#19945 Empyreal Banish III는 동시 발동이므로 별도 표시. Elemental Blade와 Great Wheel ID 대안은 공통 이름/진행으로 요약                                                                                                                    |
 | Kam 이른 진행      | `Mf29DAWxyrg1Tnpv/8` #11417 Scrivening 시작 → #12008 발동. 직전 간격이 약 3.7초 짧아 기존 Ability window를 벗어남. 6초 시전의 시작으로 보정해 5초 전 조회 이전에 복구. 단순 window 확대만으로 첫 발동 예고를 통과시키지 않음                                          |
 | Kam 후반           | `aPVdHQmZJ9AbgwM6/24` #33705 두 번째 Palisade 뒤 #34266 Crystalline Resonance도 평가 범위에 들어오므로 표시 추가                                                                                                                                                      |
@@ -53,17 +53,27 @@
 
 예상 이름별 main Boss actor 하나를 요구하고, Omega·Ultima는 같은 시도 안의 두 actor로 다룬다. HP가 75% 미만에서 90% 초과로 회복하면 재도전/큰 회복 가능성으로 제외한다. 범위 안 모든 cast·begincast를 Ability·StartsUsing으로 투영하고 이름 없는 시전자는 제외 근거다. 명시적 주요 ID 목록과 100ms 같은 이름 패킷 요약은 현재 `sandoria.evaluation.json`에 있다. 초기 평가의 TypeScript 투영은 당시 커밋에 보존한다. 모든 공격이나 선택 목록 밖의 새 기믹까지 평가했다는 뜻은 아니다.
 
-FFLogs HP=0은 구간 경계만 정하며 WasDefeated를 합성하지 않는다. WasDefeated의 취소는 별도 합성 입력으로 검사하므로 실제 ACT 검증으로 세지 않는다. 첫 처치 뒤 단독 생존 보스의 예고는 범위 밖이다. KDL은 작성한 유한 경로 뒤 새 일정을 만들지 않는다.
+공통 평가 프로필의 공동 구간은 FFLogs HP=0까지다. 아래 단독 구간은 처치 신호를 주입한 별도 재생으로 평가했다.
 
-기존 개발 로그 세 건에서 Omega의 HP=0 직후 Ultima의 단독 시전을 확인했다. 시각은 HP=0 관측 기준이다.
+## Omega 처치 뒤 Ultima 단독 예고
 
-| 개발 입력              | Omega HP=0 | Ultima `AD09` 시전 시작 | Ultima `AD08` 시전 시작 |
-| ---------------------- | ---------- | ----------------------- | ----------------------- |
-| `MFCVjw7RNch6mxtZ/208` | #24090     | #24503, +5.153초        | #24866, +10.261초       |
-| `PAq8bNtxvXWG16QZ/70`  | #24483     | #24972, +5.163초        | 이후 시전 시작 미관측   |
-| `vxCKdkn9y4D8FRBQ/57`  | #24922     | #25432, +5.160초        | #25957, +10.315초       |
+[확장 개발 계획](../tests/fixtures/authored/sandoria-expanded-development-plan.json)의 공동 전투 일곱 건에서 원본 해시와 첫 처치 순서를 확인했다. 모두 Omega가 먼저 쓰러졌다. 관측된 Ultima의 새 주요 시전은 `AD09` Mana Screen과 `AD08` Energy Orb다. 첫 순서가 달라지고 일부 시전은 처치 전에 시작하므로 처치 시각만으로 첫 기술을 정하지 않는다.
 
-이 표본은 Omega가 먼저 쓰러지는 경로를 지지한다. 첫 처치에 맞춰 예고를 시작하려면 실제 처치 신호와 단독 일정의 진입 시계를 확인해야 한다. 보류 결과와 기존 평가 프로필은 이 조사에 사용하지 않았다.
+| 개발 입력              | Omega HP=0 | 처치 뒤 시작해 완료된 시전의 원본 인덱스                                              |
+| ---------------------- | ---------- | ------------------------------------------------------------------------------------- |
+| `MFCVjw7RNch6mxtZ/208` | #24090     | Mana Screen #24503 → #24726                                                           |
+| `vxCKdkn9y4D8FRBQ/57`  | #24922     | Mana Screen #25432 → #25741                                                           |
+| `PAq8bNtxvXWG16QZ/70`  | #24483     | Mana Screen #24972 시작 후 완료 미관측                                                |
+| `HnxFmz3CVZkNW1Xp/47`  | #22737     | Mana Screen #23263 → #23468, Energy Orb #23650 → #23856                               |
+| `aPVdHQmZJ9AbgwM6/22`  | #23364     | Mana Screen #24125 → #24388. 진행 중이던 Energy Orb #23105 → #23394는 제외            |
+| `Y3v4JFghpTjbnWwL/8`   | #22646     | 진행 중이던 Energy Orb #22609 → #22793만 완료. Mana Screen #23530 시작 후 완료 미관측 |
+| `Zdxv3yCMtJq6QVcP/33`  | #22439     | Energy Orb #22769 → #23027                                                            |
+
+Omega의 `WasDefeated`는 공동 예고를 닫고 대기 phase를 연다. 이후 Ultima의 새 `StartsUsing`에 맞춰 3.0초 뒤 발동을 표시한다. 관측된 두 기술의 교대 경로를 따른다. 같은 기술의 연속 시전은 일곱 입력에서 관측하지 못했다. 별도 개발 계획까지 합친 공동 전투 17건에서도 Omega가 먼저 쓰러졌으며, Ultima가 먼저 쓰러진 뒤의 Omega 단독 일정은 자료가 필요하다. Ultima 처치는 남은 예약을 취소한다.
+
+개발 재생에는 원본 시작·완료 시각을 사용하고, 두 보스의 `WasDefeated`만 해당 HP=0 시각에 합성했다. 처치 뒤 시작해 완료된 여섯 시전은 실제 시전 시작부터 완료까지 2.974–2.987초였다. 시작 0.5초 뒤 조회에서 여섯 예고가 모두 대응했고 최대 오차는 26ms였다. 처치 전에 시작한 Energy Orb 두 건은 새 예고 대상에서 제외했고, 완료 전 처치된 시전은 성공으로 세지 않았다. `cargo test --test authored_sandoria`에서 합성한 두 초기 순서(서로 다른 pull의 시각을 조합), 공동 예약 취소, 진행 중 효과의 재진입 방지, 중복 Omega 처치와 Ultima 처치 뒤 취소를 확인한다.
+
+수정 KDL SHA-256은 `d49f072c9718866a89460eb73eaacb0b408bbe5a2975b2783c4d80710ec465b0`이다. 기존 공동 프로필·동결 manifest는 해당 후보의 기록으로 보존한다. 실제 ACT 처치와 시전의 순서 및 수정 후보의 독립 평가는 검증 과제로 남는다.
 
 ## 고정 수정 후보의 평가
 
@@ -98,12 +108,11 @@ FFLogs HP=0은 구간 경계만 정하며 WasDefeated를 합성하지 않는다.
 ```sh
 cargo build
 target/debug/btimeline validate timelines/sandoria.kdl
-target/debug/btimeline evaluate --profile timelines/sandoria.evaluation.json tests/fixtures/authored/sandoria-recovery-development-plan.json -o out/sandoria-recovery-development-new.json
 bun run --cwd scripts test
 cargo test --test authored_sandoria
 ```
 
-보고서는 새 경로에만 쓴다. 초기 후보는 `784924f` 체크아웃에서 초기 계획으로 재현한다. 수정에 보류 결과를 사용하면 해당 입력을 개발 자료로 전환한다. 실제 ACT 신호/시전자 이름·종료 동등성, 실제 UI, 단독 생존 보스 후반·표의 경로 이후·helper 개별 공격·대상/위치는 미검증이다.
+보고서는 새 경로에만 쓴다. 초기 후보는 `784924f` 체크아웃에서 초기 계획으로 재현한다. `sandoria-recovery-development-plan.json`은 단독 예고 추가 전인 `61677e1`의 KDL과 프로필로 실행한다. 수정에 보류 결과를 사용하면 해당 입력을 개발 자료로 전환한다. 실제 ACT 신호/시전자 이름·종료 동등성, 실제 UI, 단독 생존 보스 후반·표의 경로 이후·helper 개별 공격·대상/위치는 미검증이다.
 
 ## 이벤트 ID 평가가 드러낸 표시 24건 검토
 

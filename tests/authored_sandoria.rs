@@ -387,3 +387,95 @@ fn joint_schedule_cancels_only_on_a_named_boss_defeat(#[case] target: &str, #[ca
         cancels
     );
 }
+
+#[rstest::rstest]
+#[case(
+    "AD09",
+    5153,
+    "ultima-solo-mana-screen",
+    "AD08",
+    10261,
+    "ultima-solo-energy-orb"
+)]
+#[case(
+    "AD08",
+    4365,
+    "ultima-solo-energy-orb",
+    "AD09",
+    9813,
+    "ultima-solo-mana-screen"
+)]
+fn ultima_solo_forecasts_only_observed_new_casts(
+    #[case] first_id: &str,
+    #[case] first_start: u64,
+    #[case] first_event: &str,
+    #[case] second_id: &str,
+    #[case] second_start: u64,
+    #[case] second_event: &str,
+) {
+    let boundary = 90000;
+    let ultima = "Ultima, the Feared";
+    let mut observations = vec![
+        signal(0, "Ability", "AD2B", "Omega, the One"),
+        signal(boundary - 357, "StartsUsing", "AD08", ultima),
+        json!({"at_ms":boundary,"type":"WasDefeated","fields":{"target":"Omega, the One"}}),
+        signal(boundary + 2628, "Ability", "AD08", ultima),
+    ];
+    // The cast already in progress has no newly observed start after the handoff.
+    let waiting = run("forecast", observations.clone(), boundary + 2700, 5000);
+    assert_eq!(waiting["phase"], "ultima-solo");
+    assert_eq!(waiting["events"], json!([]));
+    observations.push(signal(
+        boundary + first_start,
+        "StartsUsing",
+        first_id,
+        ultima,
+    ));
+    observations.push(signal(
+        boundary + second_start,
+        "StartsUsing",
+        second_id,
+        ultima,
+    ));
+    observations.push(json!({
+        "at_ms":boundary + second_start + 100,
+        "type":"WasDefeated",
+        "fields":{"target":"Omega, the One"}
+    }));
+    for (at, id) in [(first_start, first_event), (second_start, second_event)] {
+        let forecast = run("forecast", observations.clone(), boundary + at + 500, 7000);
+        let events = forecast["events"].as_array().unwrap();
+        assert_eq!(events.len(), 1, "{forecast}");
+        assert_eq!(events[0]["id"], id);
+        assert_eq!(events[0]["at_ms"], boundary + at + 3000);
+    }
+    observations.push(json!({
+        "at_ms":boundary + second_start + 1000,
+        "type":"WasDefeated",
+        "fields":{"target":ultima}
+    }));
+    assert_eq!(
+        run(
+            "forecast",
+            observations,
+            boundary + second_start + 1500,
+            4000
+        )["events"],
+        json!([])
+    );
+}
+
+#[test]
+fn ultima_first_defeat_does_not_arm_an_unsupported_omega_tail() {
+    let forecast = run(
+        "forecast",
+        vec![
+            signal(0, "Ability", "AD2B", "Omega, the One"),
+            json!({"at_ms":90000,"type":"WasDefeated","fields":{"target":"Ultima, the Feared"}}),
+            signal(95000, "StartsUsing", "AD09", "Ultima, the Feared"),
+        ],
+        95500,
+        5000,
+    );
+    assert_eq!(forecast["events"], json!([]));
+}
