@@ -24,11 +24,11 @@ pub(super) fn exclude(message: &'static str, evidence: Value) -> anyhow::Error {
 }
 
 #[derive(Debug)]
-pub(super) struct UnverifiedScope(pub Value);
+pub(super) struct UnverifiedScope(pub &'static str, pub Value);
 
 impl std::fmt::Display for UnverifiedScope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Expected exactly one phase with an observed literal cast entry")
+        f.write_str(self.0)
     }
 }
 
@@ -335,23 +335,46 @@ fn find_entry<'a>(
     })
 }
 
-fn inferred_segment<'a>(
+fn inferred_segments(
     log: &CollectedLog,
-    rules: &'a [SegmentRule],
+    rules: &[SegmentRule],
     actors: &BTreeMap<i64, &Actor>,
-) -> Result<&'a SegmentRule> {
-    let candidates = rules
+    origin: i64,
+) -> Result<Vec<Segment>> {
+    let mut candidates = rules
         .iter()
-        .filter_map(|rule| find_entry(log, rule, actors).map(|(index, _)| (rule, index)))
+        .filter_map(|rule| {
+            find_entry(log, rule, actors).map(|(index, event)| (rule, index, event.timestamp))
+        })
         .collect::<Vec<_>>();
-    if let [(rule, _)] = candidates.as_slice() {
-        return Ok(rule);
+    candidates.sort_by_key(|(_, index, _)| *index);
+    let sources = candidates
+        .iter()
+        .map(|(rule, _, _)| &rule.source)
+        .collect::<BTreeSet<_>>();
+    if candidates.is_empty() || sources.len() != candidates.len() {
+        let evidence = candidates.iter().map(|(rule, index, _)| {
+            json!({"phase":rule.phase,"source":rule.source,"raw_index":index})
+        }).collect::<Vec<_>>();
+        return Err(UnverifiedScope(
+            "Expected observed entries from distinct phase sources",
+            json!({"entry_candidates":evidence}),
+        )
+        .into());
     }
-    let evidence = candidates
+    // A later boss's entry provides a deadline, never a substitute for observed defeat.
+    let next_entries = candidates
         .iter()
-        .map(|(rule, index)| json!({"phase":rule.phase,"source":rule.source,"raw_index":index}))
-        .collect::<Vec<_>>();
-    Err(UnverifiedScope(json!({"entry_candidates":evidence})).into())
+        .skip(1)
+        .map(|(_, _, timestamp)| Some(*timestamp))
+        .chain(std::iter::once(None));
+    candidates
+        .iter()
+        .zip(next_entries)
+        .map(|((rule, _, _), next_entry)| {
+            project_segment(log, rule, actors, origin, true, next_entry)
+        })
+        .collect()
 }
 
 fn project_segment(
@@ -360,6 +383,7 @@ fn project_segment(
     actors: &BTreeMap<i64, &Actor>,
     origin: i64,
     inferred: bool,
+    next_entry: Option<i64>,
 ) -> Result<Segment> {
     let main = main_actors(log, rule)?;
     let source = |id: Option<i64>| id.and_then(|id| actors.get(&id)).map(|a| a.name.as_str());
@@ -376,15 +400,24 @@ fn project_segment(
             }
     });
     let fight = log.report.fights.first().context("Missing fight")?;
-    let end = match rule.completion {
-        Completion::Defeat => defeat.map(|(_, e)| e.timestamp).ok_or_else(|| {
-            exclude(
-                "Missing observed boss completion",
-                json!({"source":rule.source,"entry_event":entry_event}),
-            )
-        })?,
-        Completion::FightEnd => fight.end_time,
-        Completion::FirstDefeat => defeat.map_or(fight.end_time, |(_, e)| e.timestamp),
+    let end = if let Some(next) = next_entry {
+        defeat.filter(|(_, event)| event.timestamp < next && start < next)
+            .map(|(_, event)| event.timestamp)
+            .ok_or_else(|| UnverifiedScope(
+                "Missing observed phase defeat before the next entry",
+                json!({"entry_candidates":[{"phase":rule.phase,"source":rule.source,"raw_index":entry_event}]}),
+            ))?
+    } else {
+        match rule.completion {
+            Completion::Defeat => defeat.map(|(_, e)| e.timestamp).ok_or_else(|| {
+                exclude(
+                    "Missing observed boss completion",
+                    json!({"source":rule.source,"entry_event":entry_event}),
+                )
+            })?,
+            Completion::FightEnd => fight.end_time,
+            Completion::FirstDefeat => defeat.map_or(fight.end_time, |(_, e)| e.timestamp),
+        }
     };
     let end = rule
         .max_duration_ms
@@ -498,14 +531,13 @@ pub(super) fn project(log: &CollectedLog, profile: &Profile) -> Result<Projectio
         .context("Missing fight")?
         .encounter_id;
     let bosses = if profile.inferred {
-        let rule = inferred_segment(log, &profile.segments, &actors)?;
-        vec![project_segment(log, rule, &actors, origin, true)?]
+        inferred_segments(log, &profile.segments, &actors, origin)?
     } else {
         profile
             .segments
             .iter()
             .filter(|r| r.encounter.is_none_or(|id| id == encounter))
-            .map(|rule| project_segment(log, rule, &actors, origin, false))
+            .map(|rule| project_segment(log, rule, &actors, origin, false, None))
             .collect::<Result<Vec<_>>>()?
     };
     if bosses.is_empty() {

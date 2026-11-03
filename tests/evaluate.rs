@@ -107,6 +107,73 @@ fn inferred_evaluation_requires_one_observed_phase_and_impact_binding(
 }
 
 #[test]
+fn inferred_sequential_phases_require_defeat_before_the_next_entry() {
+    for defeated in [true, false] {
+        let directory = tempfile::tempdir().unwrap();
+        let mut manifest = setup(directory.path());
+        let timeline = br#"timeline 1 "Two bosses" {
+            start "Ability" id="B528" source="Synthetic Boss"
+            phase "second" {
+                enter "Ability" id="B530" source="Other Boss"
+                event "second-impact" 6.0 name="Second impact" { sync 6.0 "Ability" id="B531" source="Other Boss"; }
+            }
+            phase "first" {
+                enter "Ability" id="B528" source="Synthetic Boss"
+                event "first-impact" 6.0 name="First impact" { sync 6.0 "Ability" id="B529" source="Synthetic Boss"; }
+            }
+        }"#;
+        let mut raw: Value = serde_json::from_slice(include_bytes!("fixtures/pull.json")).unwrap();
+        raw["report"]["masterData"]["actors"]
+            .as_array_mut()
+            .unwrap()
+            .push(
+                json!({"id":11,"name":"Other Boss","gameID":99002,"type":"NPC","subType":"Boss"}),
+            );
+        raw["report"]["masterData"]["abilities"]
+            .as_array_mut()
+            .unwrap()
+            .extend(
+                [0xB529, 0xB530, 0xB531]
+                    .map(|id| json!({"gameID":id,"name":format!("Ability {id:X}"),"type":"1"})),
+            );
+        let cast = |timestamp, source, id| json!({"timestamp":timestamp,"type":"cast","sourceID":source,"abilityGameID":id,"fight":1});
+        let mut events = vec![cast(2000, 10, 0xB528), cast(8000, 10, 0xB529)];
+        if defeated {
+            events.push(json!({"timestamp":9000,"type":"damage","sourceID":10,"targetID":10,"abilityGameID":0xB529,"fight":1,"targetResources":{"hitPoints":0,"maxHitPoints":100}}));
+        }
+        events.extend([cast(10000, 11, 0xB530), cast(16000, 11, 0xB531)]);
+        raw["collection"]["eventCount"] = json!(events.len());
+        raw["events"] = json!(events);
+        let bytes = serde_json::to_vec(&raw).unwrap();
+        fs::write(directory.path().join("timeline.kdl"), timeline).unwrap();
+        fs::write(directory.path().join("input.json"), &bytes).unwrap();
+        manifest["timeline_sha256"] = json!(hash(timeline));
+        manifest["inputs"][0]["sha256"] = json!(hash(&bytes));
+        save(directory.path(), &manifest);
+        let result = cargo_bin_cmd!("btimeline")
+            .current_dir(directory.path())
+            .args(["evaluate", "manifest.json", "-o", "report.json"])
+            .assert();
+        let report: Value =
+            serde_json::from_slice(&fs::read(directory.path().join("report.json")).unwrap())
+                .unwrap();
+        let trace = &report["traces"][0];
+        if defeated {
+            assert_eq!(trace["passed"], true, "{trace}");
+            result.success();
+            assert_eq!(trace["bosses"][0]["phase"], "first");
+            assert_eq!(trace["bosses"][0]["end_ms"], 7000);
+            assert_eq!(trace["bosses"][1]["phase"], "second");
+            assert_eq!(trace["passed"], true);
+        } else {
+            result.failure();
+            assert_eq!(trace["status"], "unverified");
+            assert_eq!(trace["evidence"]["entry_candidates"][0]["phase"], "first");
+        }
+    }
+}
+
+#[test]
 fn native_evaluation_matches_forecasts_binds_profile_and_preserves_reports() {
     let directory = tempfile::tempdir().expect("valid test fixture");
     let manifest = setup(directory.path());

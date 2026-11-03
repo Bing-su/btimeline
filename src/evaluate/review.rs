@@ -46,6 +46,8 @@ struct Trace {
     #[serde(default)]
     bosses: Vec<Boss>,
     coverage: Option<super::coverage::Coverage>,
+    #[serde(default)]
+    unverified_phases: Vec<String>,
 }
 #[derive(Deserialize)]
 struct Boss {
@@ -226,6 +228,22 @@ fn first_issue(trace: &Trace) -> Option<Value> {
                 json!({"phase":entry.phase.chars().take(120).collect::<String>(),"raw_index":entry.raw_index})
             }).collect::<Vec<_>>();
             fields.insert("entry_candidates".into(), json!(examples));
+        }
+        if let Some(fields) = issue
+            .as_object_mut()
+            .filter(|_| !trace.unverified_phases.is_empty())
+        {
+            let phases = trace
+                .unverified_phases
+                .iter()
+                .take(3)
+                .map(|phase| phase.chars().take(120).collect::<String>())
+                .collect::<Vec<_>>();
+            fields.insert(
+                "unverified_phase_count".into(),
+                json!(trace.unverified_phases.len()),
+            );
+            fields.insert("unverified_phases".into(), json!(phases));
         }
         return Some(issue);
     }

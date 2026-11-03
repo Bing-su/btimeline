@@ -131,21 +131,31 @@ fn evaluate_input(
     }
     *stage = "timeline-evaluation";
     let mut result = score::score(model, &projected, manifest)?;
-    let has_forecast = projected.bosses.iter().any(|boss| {
-        boss.targets.iter().any(|target| {
-            target.at_ms - boss.entry_ms >= target.lead_ms.unwrap_or(manifest.forecast_lead_ms)
+    let unverified_phases = projected
+        .bosses
+        .iter()
+        .filter(|boss| {
+            !boss.targets.iter().any(|target| {
+                target.at_ms - boss.entry_ms >= target.lead_ms.unwrap_or(manifest.forecast_lead_ms)
+            })
         })
-    });
+        .map(|boss| &boss.phase)
+        .collect::<Vec<_>>();
     let fields = result
         .as_object_mut()
         .context("Expected evaluation object")?;
-    let status = if profile.inferred && !has_forecast && fields.get("passed") == Some(&json!(true))
+    if profile.inferred && !unverified_phases.is_empty() {
+        fields.insert("unverified_phases".into(), json!(unverified_phases));
+        fields.insert("review_required".into(), json!(true));
+    }
+    let status = if profile.inferred
+        && !unverified_phases.is_empty()
+        && fields.get("passed") == Some(&json!(true))
     {
         fields.insert("passed".into(), Value::Null);
-        fields.insert("review_required".into(), json!(true));
         fields.insert(
             "error".into(),
-            json!("No inferred targets with enough observed time for a forecast"),
+            json!("At least one phase has no inferred targets with enough observed time for a forecast"),
         );
         "unverified"
     } else {
@@ -195,7 +205,7 @@ impl Manifest {
 
 fn failure(item: &Input, stage: &str, error: anyhow::Error) -> Value {
     if let Some(scope) = error.downcast_ref::<UnverifiedScope>() {
-        json!({"status":"unverified","input":item.input,"sha256":item.sha256,"stage":stage,"error":scope.to_string(),"passed":null,"review_required":true,"evidence":scope.0})
+        json!({"status":"unverified","input":item.input,"sha256":item.sha256,"stage":stage,"error":scope.to_string(),"passed":null,"review_required":true,"evidence":scope.1})
     } else if let Some(exclusion) = error.downcast_ref::<InputExclusion>() {
         json!({"status":"excluded","input":item.input,"sha256":item.sha256,"stage":stage,"error":format!("InputExclusion: {exclusion}"),"passed":null,"evidence":exclusion.evidence,"review_required":exclusion.evidence.get("review_required")})
     } else {
