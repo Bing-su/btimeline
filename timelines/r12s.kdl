@@ -220,22 +220,15 @@ timeline 1 "AAC Heavyweight M4 (Savage) — Lindwurm" {
             branch "pre-tail-pair" open=0.0 close=4.0 {
                 option "raptor" {
                     when "StartsUsing" id="B9C7" source="Lindwurm"
+                    when "Ability" id="B9C7" source="Lindwurm" resume-at=0.8
                     event "pre-tail-raptor-first" 0.8 name="Raptor Knuckles"
                     event "pre-tail-raptor-second" 5.3 name="Raptor Knuckles"
                 }
                 option "serpentine" {
                     when "StartsUsing" id="B9BC" source="Lindwurm"
+                    when "Ability" id="B9BC" source="Lindwurm" resume-at=1.0
                     event "pre-tail-serpentine-first" 1.0 name="Serpentine Scourge"
                     event "pre-tail-serpentine-second" 5.6 name="Serpentine Scourge"
-                }
-                // If the first cast-start packet is missing, its impact still identifies the follow-up.
-                option "raptor-recovery" fallback=#true {
-                    when "Ability" id="B9C7" source="Lindwurm"
-                    event "pre-tail-raptor-recovery-second" 4.5 name="Raptor Knuckles"
-                }
-                option "serpentine-recovery" fallback=#true {
-                    when "Ability" id="B9BC" source="Lindwurm"
-                    event "pre-tail-serpentine-recovery-second" 4.6 name="Serpentine Scourge"
                 }
             }
         }

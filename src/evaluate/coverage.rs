@@ -24,6 +24,8 @@ pub(super) struct Selection {
     pub run: usize,
     pub phase_instance: usize,
     pub iteration: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resume_at_ms: Option<i64>,
 }
 #[derive(Deserialize, Serialize)]
 pub(super) struct OptionCoverage {
@@ -123,6 +125,7 @@ pub(super) fn collect(
                                 run: row.run,
                                 phase_instance: context.phase_instance,
                                 iteration: context.iteration,
+                                resume_at_ms: row.resume_at_ms,
                             })
                         })
                         .collect(),

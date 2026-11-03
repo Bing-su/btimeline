@@ -15,6 +15,7 @@ struct Choice {
     signal_kind: Option<&'static str>,
     owner: Owner,
     signal_selections: usize,
+    resumed_selections: usize,
     #[serde(skip)]
     inputs: BTreeSet<String>,
     input_count: usize,
@@ -74,6 +75,11 @@ impl Choice {
             .signal_selections
             .checked_add(option.selections.len())
             .context("Coverage count overflow")?;
+        self.resumed_selections += option
+            .selections
+            .iter()
+            .filter(|selection| selection.resume_at_ms.is_some())
+            .count();
         if !option.selections.is_empty() && self.inputs.insert(input.clone()) {
             self.input_count = self.inputs.len();
             if let Some((report, _)) = trace.trace.as_deref().and_then(|id| id.split_once('/')) {
@@ -255,6 +261,7 @@ pub(super) fn summarize(traces: &[Trace], role: EvidenceRole, limit: usize) -> R
                         signal_kind,
                         owner: branch.owner.clone(),
                         signal_selections: 0,
+                        resumed_selections: 0,
                         inputs: BTreeSet::new(),
                         input_count: 0,
                         reports: BTreeSet::new(),

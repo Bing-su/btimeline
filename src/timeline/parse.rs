@@ -233,7 +233,8 @@ fn signal(node: &KdlNode, role: &str) -> Result<Signal> {
         "sync" => &["before", "after"],
         "enter" => &["from", "at", "before", "after", "resume-at"],
         "boss-complete" => &["from"],
-        "when" | "merge-when" | "until" => &["at", "before", "after"],
+        "when" => &["at", "before", "after", "resume-at"],
+        "merge-when" | "until" => &["at", "before", "after"],
         _ => &[],
     };
     let names: Vec<_> = node
@@ -277,7 +278,7 @@ fn signal(node: &KdlNode, role: &str) -> Result<Signal> {
     if role == "enter" && at.is_some() {
         ensure!(from.is_some(), "enter with at requires from");
     }
-    let resume_at = if role == "enter" {
+    let resume_at = if matches!(role, "enter" | "when") {
         property_time(node, "resume-at")?
     } else {
         None
@@ -472,6 +473,10 @@ impl Validation {
         ensure!(!whens.is_empty(), "option requires at least one when");
         let events = self.body(&body, "option", every.is_some(), close - 1, every, source)?;
         let loops = self.take_loops(&body)?;
+        ensure!(
+            loops.is_empty() || whens.iter().all(|signal| signal.resume_at.is_none()),
+            "option resume-at requires a body without loops"
+        );
         Ok(BranchOption {
             id: option,
             fallback,

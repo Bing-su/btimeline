@@ -33,20 +33,12 @@
         "B9C7": {
           "name": "Raptor Knuckles",
           "lead_ms": 500,
-          "events": [
-            "pre-tail-raptor-first",
-            "pre-tail-raptor-second",
-            "pre-tail-raptor-recovery-second"
-          ]
+          "events": ["pre-tail-raptor-first", "pre-tail-raptor-second"]
         },
         "B9BC": {
           "name": "Serpentine Scourge",
           "lead_ms": 500,
-          "events": [
-            "pre-tail-serpentine-first",
-            "pre-tail-serpentine-second",
-            "pre-tail-serpentine-recovery-second"
-          ]
+          "events": ["pre-tail-serpentine-first", "pre-tail-serpentine-second"]
         }
       }
     },

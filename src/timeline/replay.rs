@@ -89,6 +89,8 @@ pub(crate) struct Record {
     pub(crate) event: Option<EventData>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) context: Option<ExecutionContext>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) resume_at_ms: Option<i64>,
     #[serde(skip)]
     pub(crate) unresolved_branch: bool,
     #[serde(skip)]
@@ -101,6 +103,7 @@ struct Clock {
     not_before: i64,
     zero_at: Option<i64>,
     processed: BTreeSet<usize>,
+    resume_after: Option<Tick>,
     phase_instance: usize,
     iteration: Option<u64>,
 }
@@ -184,10 +187,10 @@ struct RepeatState {
 }
 
 enum BranchAction {
-    Select(usize, usize),
+    Select(usize, usize, Option<Tick>),
     Merge(usize),
     Conflict(usize),
-    RepeatSelect(usize, usize, usize),
+    RepeatSelect(usize, usize, usize, Option<Tick>),
     RepeatMerge(usize, usize),
     RepeatConflict(usize, usize),
 }
@@ -219,6 +222,30 @@ fn active_path(parent: &Clock, at: i64) -> ActivePath {
             ..Clock::default()
         },
     }
+}
+
+fn option_path(
+    parent: &Clock,
+    at: i64,
+    option: &BranchOption,
+    resume_at: Option<Tick>,
+) -> ActivePath {
+    let mut path = active_path(parent, at);
+    if let Some(offset) = resume_at {
+        // Move only this path's anchor and consume displays through the entry point.
+        path.anchor -= offset;
+        path.clock.base_ms -= offset * 100;
+        path.clock.resume_after = Some(offset);
+        path.clock.processed.extend(
+            option
+                .events
+                .iter()
+                .enumerate()
+                .filter(|(_, event)| event.at <= offset)
+                .map(|(index, _)| index),
+        );
+    }
+    path
 }
 
 fn repeat_start(base_ms: i64, repeat: &Loop, state: &RepeatState) -> Option<i64> {
@@ -264,7 +291,16 @@ fn option_actions(
         if option.fallback && state.selected.is_some() {
             continue;
         }
-        if !matches_any(&option.whens, observation, time) {
+        let offsets = option
+            .whens
+            .iter()
+            .filter(|signal| {
+                (state.selected.is_none() || signal.resume_at.is_none())
+                    && signal.matches(&observation.kind, &observation.fields, time)
+            })
+            .map(|signal| signal.resume_at)
+            .collect::<BTreeSet<_>>();
+        if offsets.is_empty() {
             continue;
         }
         let (missing, mismatch) = requirement_status(option, history);
@@ -276,7 +312,11 @@ fn option_actions(
             continue;
         }
         match state.selected {
-            None => actions.push(BranchAction::Select(index, option_index)),
+            None => actions.extend(
+                offsets
+                    .into_iter()
+                    .map(|offset| BranchAction::Select(index, option_index, offset)),
+            ),
             Some(selected) if selected != option_index => {
                 actions.push(BranchAction::Conflict(index))
             }
@@ -366,6 +406,7 @@ fn record(out: &mut Vec<Record>, at_ms: i64, action: &str, detail: impl Into<Str
         detail: detail.into(),
         run,
         source_event_index: None,
+        resume_at_ms: None,
         unresolved_branch: false,
         event: None,
         context: None,
@@ -518,6 +559,7 @@ fn sync_targets(events: &[Event], clock: &Clock, observation: &Observation) -> B
     let time = elapsed(clock.base_ms, observation.at_ms);
     events
         .iter()
+        .filter(|event| clock.resume_after.is_none_or(|offset| event.at > offset))
         .flat_map(|e| &e.syncs)
         .filter(|s| s.matches(&observation.kind, &observation.fields, time))
         .filter_map(|s| s.at)
@@ -1244,9 +1286,9 @@ fn nested_actions_for_loop(
         let (choices, missing) =
             option_actions(branch, branch_state, index, time, observation, history);
         actions.extend(choices.into_iter().filter_map(|choice| match choice {
-            BranchAction::Select(_, option) => {
-                Some(BranchAction::RepeatSelect(loop_index, index, option))
-            }
+            BranchAction::Select(_, option, offset) => Some(BranchAction::RepeatSelect(
+                loop_index, index, option, offset,
+            )),
             BranchAction::Conflict(_) => Some(BranchAction::RepeatConflict(loop_index, index)),
             _ => None,
         }));
@@ -1613,10 +1655,19 @@ impl<'a> Replay<'a> {
         ) {
             return self.nested_branch_observation(action, observation);
         }
+        self.phase_branch_observation(action, observation)
+    }
+
+    fn phase_branch_observation(
+        &mut self,
+        action: &BranchAction,
+        observation: &Observation,
+    ) -> bool {
         let phase = self.phase.as_mut().expect("branch actions require a phase");
-        let (index, option) = match action {
-            BranchAction::Select(index, option) => (*index, Some(*option)),
-            BranchAction::Merge(index) | BranchAction::Conflict(index) => (*index, None),
+        let index = match *action {
+            BranchAction::Select(index, _, _)
+            | BranchAction::Merge(index)
+            | BranchAction::Conflict(index) => index,
             _ => return true,
         };
         let (Some(branch), Some(state)) = (
@@ -1626,13 +1677,13 @@ impl<'a> Replay<'a> {
             return true;
         };
         match action {
-            BranchAction::Select(_, _) => {
-                let option_index = option.expect("selection has an option");
+            BranchAction::Select(_, option_index, offset) => {
+                let option_index = *option_index;
                 let Some(choice) = branch.options.get(option_index) else {
                     return true;
                 };
                 state.selected = Some(option_index);
-                let path = active_path(&phase.clock, observation.at_ms);
+                let path = option_path(&phase.clock, observation.at_ms, choice, *offset);
                 let anchor = path.anchor;
                 state.option = Some(path);
                 self.history
@@ -1646,6 +1697,9 @@ impl<'a> Replay<'a> {
                     &phase.clock,
                     branch_owner(&phase.definition.id, &branch.id, Some(&choice.id)),
                 );
+                if let Some(row) = self.out.last_mut() {
+                    row.resume_at_ms = offset.map(|value| value * 100);
+                }
                 phase.activate_option_loops(index, option_index, anchor, observation.at_ms);
             }
             BranchAction::Merge(_) => {
@@ -1690,7 +1744,7 @@ impl<'a> Replay<'a> {
         observation: &Observation,
     ) -> bool {
         let (loop_index, branch_index) = match action {
-            BranchAction::RepeatSelect(loop_index, branch_index, _)
+            BranchAction::RepeatSelect(loop_index, branch_index, _, _)
             | BranchAction::RepeatMerge(loop_index, branch_index)
             | BranchAction::RepeatConflict(loop_index, branch_index) => {
                 (*loop_index, *branch_index)
@@ -1714,12 +1768,12 @@ impl<'a> Replay<'a> {
             return false;
         };
         match action {
-            BranchAction::RepeatSelect(_, _, option_index) => {
+            BranchAction::RepeatSelect(_, _, option_index, offset) => {
                 let Some(option) = branch.options.get(*option_index) else {
                     return false;
                 };
                 state.selected = Some(*option_index);
-                state.option = Some(active_path(clock, observation.at_ms));
+                state.option = Some(option_path(clock, observation.at_ms, option, *offset));
                 self.history
                     .insert(branch.id.clone(), Some(option.id.clone()));
                 record_control(
@@ -1737,6 +1791,9 @@ impl<'a> Replay<'a> {
                         ..Owner::default()
                     },
                 );
+                if let Some(row) = self.out.last_mut() {
+                    row.resume_at_ms = offset.map(|value| value * 100);
+                }
             }
             BranchAction::RepeatMerge(_, _) => {
                 if state.selected.is_none() && !state.closed {

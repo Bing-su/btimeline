@@ -11,6 +11,85 @@ fn recording(end_ms: i64, observations: serde_json::Value) -> Result<Recording> 
 }
 
 #[rstest]
+#[case(false)]
+#[case(true)]
+fn option_resume_skips_past_displays_without_shifting_parent(#[case] in_loop: bool) {
+    let branch = r#"branch "route" open=0.0 close=4.0 {
+        option "a" {
+            when "Select"
+            when "Impact" resume-at=0.8
+            event "first" 0.8 name="First" { sync 0.8 "OldSync"; }
+            event "second" 5.3 name="Second"
+        }
+        option "b" { when "Other"; when "OtherImpact" resume-at=0.8; }
+    }"#;
+    let body = if in_loop {
+        format!(r#"loop "round" start=0.0 every=10.0 {{ {branch} }}"#)
+    } else {
+        branch.to_owned()
+    };
+    let model = parse(&format!(
+        r#"timeline 1 "Resume" {{
+            start "Pull"
+            phase "boss" {{ enter "Pull"; event "parent" 6.0 name="Parent"; {body} }}
+        }}"#
+    ))
+    .unwrap();
+    let input = recording(
+        9500,
+        serde_json::json!([
+            {"at_ms":0,"type":"Pull","fields":{}},
+            {"at_ms":2800,"type":"Impact","fields":{}},
+            {"at_ms":3100,"type":"OldSync","fields":{}},
+            {"at_ms":3200,"type":"OtherImpact","fields":{}},
+            {"at_ms":3300,"type":"Impact","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let rows = replay(&model, &input).unwrap();
+    let selection = rows.iter().find(|row| row.action == "option").unwrap();
+    assert_eq!(selection.resume_at_ms, Some(800));
+    assert_eq!(rows.iter().filter(|row| row.action == "option").count(), 1);
+    assert!(
+        !rows
+            .iter()
+            .any(|row| matches!(row.action.as_str(), "ambiguous" | "sync"))
+    );
+    let displays = rows
+        .iter()
+        .filter_map(|row| Some((row.event.as_ref()?.id.as_str(), row.at_ms)))
+        .collect::<Vec<_>>();
+    assert_eq!(displays, [("parent", 6000), ("second", 7300)]);
+}
+
+#[test]
+fn competing_offsets_for_one_option_are_ambiguous() {
+    let model = parse(
+        r#"timeline 1 "Conflict" {
+        start "Pull"
+        phase "boss" {
+            enter "Pull"
+            branch "route" open=0.0 close=4.0 {
+                option "a" { when "Signal"; when "Signal" resume-at=0.8; }
+                option "b" { when "Other"; }
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        2000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Pull","fields":{}}, {"at_ms":1000,"type":"Signal","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let rows = replay(&model, &input).unwrap();
+    assert!(rows.iter().any(|row| row.action == "ambiguous"));
+    assert!(!rows.iter().any(|row| row.action == "option"));
+}
+
+#[rstest]
 #[case(false, 5000)]
 #[case(true, 3000)]
 fn scoped_completion_and_checkpoint_restart(#[case] same_packet: bool, #[case] post_at: i64) {
