@@ -50,7 +50,9 @@ btimeline forecast timeline.kdl recording.json --at-ms 10000 --horizon-ms 30000
 
 ## 실행 식별자
 
-JSON 실행 행의 `event`에는 `id`, `name`, `visible`, `duration_ms`를 제공한다. `detail` 문자열을 파싱해 이벤트를 식별하지 않는다. 이벤트와 phase·option·merge·until 제어 행의 `context`는 정적인 `phase`, `loop_id`, `branch`, `option`와 동적인 `phase_instance`, `iteration`을 제공한다. 해당하지 않는 소유자는 null이다. 분기 옵션 안 반복은 상위 선택지 소유를 유지한다.
+JSON 실행 행의 `event`에는 `id`, `name`, `visible`, `duration_ms`를 제공한다. `detail` 문자열을 파싱해 이벤트를 식별하지 않는다. 이벤트와 phase·option·merge·until 제어 행의 `context`는 정적인 `phase`, `loop_id`, `branch`, `option`과 동적인 `phase_instance`, `iteration`을 제공한다. 해당하지 않는 소유자는 null이다. 분기 옵션 안 반복은 상위 선택지 소유를 유지한다.
+
+이전 JSON의 `context.on_exit`는 제거됐다. 반복 뒤의 새 일정은 `phase` 행과 후속 표시의 `context.phase_instance`로 추적한다. `until` 행은 현재 phase에서 반복만 닫았음을 나타낸다.
 
 | 식별 값          | 의미                                                                                                                      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------- |

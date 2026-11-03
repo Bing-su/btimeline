@@ -142,6 +142,8 @@ Doomtrain 시험 KDL을 Runaway Train에서 같은 보스의 두 phase로 분리
 
 짧은 조회는 위 body 지표와 `first_body_gap`을 집계한다. `body_coverage_inputs`가 해당 loop의 본문 점검 자료 수이며 과거 보고서에 body가 없으면 0이다. 다른 manifest의 합성 테스트와 보고서 간 독립성은 따로 확인한다. 상위 선택지 안 반복의 조건은 `owner`에 보존하며 합성 입력과 실측 결과를 합쳐 독립 보류 검증으로 부르지 않는다.
 
+이전 보고서의 `exits_with_matched_on_exit`는 제거됐다. `signal_exits`는 `until`로 끝난 반복만 집계한다. 다음 phase로 전환해 시작한 후속 일정은 해당 phase의 진입과 예고 결과에서 확인한다.
+
 ## 기존 결과와의 대조
 
 | 대상               | 선정 | 제외 | 적격 통과 |

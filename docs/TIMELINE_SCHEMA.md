@@ -244,7 +244,16 @@ loop "hold" start=30.0 every=20.0 {
 
 탈출 신호를 기준으로 새로운 일정이 시작되면 해당 신호를 다음 phase의 `enter from`에 둔다. 이전 phase에 예약한 표시도 함께 취소된다. 같은 phase의 공통 일정을 유지해야 할 때는 반복에 `until`을 둔다.
 
-이전 KDL의 `on-exit` 본문은 새 phase의 이벤트로 옮긴다. 이전 phase의 공통 예약을 유지해야 한다면 해당 표시의 소유 범위도 함께 검토한다.
+이전 KDL의 `on-exit` 본문은 새 phase의 이벤트로 옮긴다. 기존 `until`과 같은 신호로 전환한다면 `enter from`에 관측 조건을 옮기고, 필요한 경우 이전 phase 기준으로 진입 창을 지정한다. 후속 이벤트는 신호를 0초로 삼는다. 이전 phase의 공통 예약을 유지해야 한다면 해당 표시의 소유 범위도 함께 검토한다.
+
+```kdl
+phase "follow-up" {
+    enter "StartsUsing" id="8EFF" source="Queen Eternal" from="hold"
+    event "shift" 5.0 name="Virtual Shift" {
+        sync 5.0 "Ability" id="8EFF" source="Queen Eternal"
+    }
+}
+```
 
 반복 안 `sync`가 일치하면 현재 회차의 시작점을 보정하고, **이후 회차도 보정된 시작점에서 `every` 간격으로** 예정한다. 부모 phase 시간축과 `until` window는 이 회차 보정으로 움직이지 않는다. 이미 처리한 회차와 이벤트는 재실행하지 않는다. 같은 관측이 loop 탈출과 반복 이벤트 sync 양쪽에 일치하면 탈출을 우선한다. 서로 다른 loop가 감시 중인 탈출 조건에 한 관측이 일치하면 어느 쪽도 탈출시키지 않고 ambiguous를 보고한다. 상위 구간 종료 시 반복의 후속 이벤트를 취소한다.
 
