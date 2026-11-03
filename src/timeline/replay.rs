@@ -180,7 +180,6 @@ struct RepeatState {
     zero_start: Option<i64>,
     current: Option<Clock>,
     exited: bool,
-    exit: Option<ActivePath>,
     unresolved: bool,
     blocked: bool,
     branches: Vec<BranchState>,
@@ -267,7 +266,6 @@ fn last_iteration(repeat: &Loop, clock: &Clock) -> bool {
 }
 
 fn exhaust_repeat(state: &mut RepeatState) {
-    // Only an observed until signal creates an on-exit path.
     state.exited = true;
     state.current = None;
     state.branches.clear();
@@ -654,7 +652,6 @@ fn repeat_sync_targets<'a>(
         .enumerate()
         .flat_map(|(index, (entry, state))| {
             repeat_sync_targets_one(
-                phase,
                 entry.definition,
                 state,
                 observation,
@@ -665,7 +662,6 @@ fn repeat_sync_targets<'a>(
 }
 
 fn repeat_sync_targets_one<'a>(
-    phase: &PhaseState<'a>,
     repeat: &'a Loop,
     state: &RepeatState,
     observation: &Observation,
@@ -675,18 +671,6 @@ fn repeat_sync_targets_one<'a>(
         return Vec::new();
     }
     let mut targets = Vec::new();
-    if let Some(path) = &state.exit {
-        targets.extend(
-            sync_targets(&repeat.on_exit, &path.clock, observation)
-                .into_iter()
-                .map(|t| {
-                    (
-                        SyncOwner::Phase(phase.definition.id.as_str()),
-                        path.anchor + t,
-                    )
-                }),
-        );
-    }
     let at = observation.at_ms;
     let boundary = !state.exited
         && !state.blocked
@@ -940,18 +924,6 @@ fn correct_phase(
         run,
     );
     correct_paths(phase, at, target, out, run);
-    for (entry, state) in phase.loops.iter().zip(&mut phase.repeats) {
-        if let Some(path) = &mut state.exit {
-            correct(
-                &entry.definition.on_exit,
-                &mut path.clock,
-                at,
-                target - path.anchor,
-                out,
-                run,
-            );
-        }
-    }
     Ok(())
 }
 
@@ -1123,16 +1095,6 @@ fn advance_repeat(
     run: usize,
     history: &mut BTreeMap<String, Option<String>>,
 ) {
-    if let Some(path) = &mut state.exit {
-        emit(
-            &definition.on_exit,
-            &mut path.clock,
-            at,
-            inclusive,
-            out,
-            run,
-        );
-    }
     if state.exited {
         return;
     }
@@ -1272,9 +1234,6 @@ fn unobserved_repeat_one(
                 unobserved(events, &path.clock, at, run, out);
             }
         }
-    }
-    if let Some(path) = &state.exit {
-        unobserved(&definition.on_exit, &path.clock, at, run, out);
     }
 }
 
@@ -1513,12 +1472,7 @@ impl<'a> Replay<'a> {
             return false;
         }
         let iteration = state.current.as_ref().and_then(|clock| clock.iteration);
-        state.exited = true;
-        state.current = None;
-        state.exit = Some(active_path(&phase.clock, observation.at_ms));
-        if let Some(exit) = &mut state.exit {
-            exit.clock.iteration = iteration;
-        }
+        exhaust_repeat(state);
         record_control(
             &mut self.out,
             observation.at_ms,
@@ -1528,7 +1482,6 @@ impl<'a> Replay<'a> {
             &phase.clock,
             Owner {
                 loop_id: Some(definition.id.clone()),
-                on_exit: true,
                 ..self
                     .timeline
                     .catalog
@@ -1823,7 +1776,6 @@ impl<'a> Replay<'a> {
                         loop_id: Some(entry.definition.id.clone()),
                         branch: Some(branch.id.clone()),
                         option: Some(option.id.clone()),
-                        ..Owner::default()
                     },
                 );
                 if let Some(row) = self.out.last_mut() {

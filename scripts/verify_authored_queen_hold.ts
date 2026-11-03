@@ -58,15 +58,13 @@ try {
       const diagnostics = rows.filter((row: any) =>
         ["ambiguous", "unresolved", "violation"].includes(row.action),
       );
-      const exits = rows.filter((row: any) => row.action === "until");
       const phases = rows.filter((row: any) => row.action === "phase");
       const safeExit =
-        exits.length === 1 &&
-        exits[0].at_ms === projected.exit_ms &&
-        exits[0].detail === "castellation-hold" &&
-        phases.length === 1 &&
+        phases.length === 2 &&
         phases[0].at_ms === 0 &&
         phases[0].detail === "hold" &&
+        phases[1].at_ms === projected.exit_ms &&
+        phases[1].detail === "castellation" &&
         !rows.some(
           (row: any) =>
             row.action === "event" &&
@@ -108,7 +106,7 @@ try {
           );
           queryDiagnostics = [...forecast.diagnostics, ...forecast.projection_diagnostics];
           safeQuery =
-            forecast.phase === "hold" &&
+            forecast.phase === (at < projected.exit_ms ? "hold" : "castellation") &&
             forecast.status === "active" &&
             forecast.observations_used ===
               observations.filter((item: any) => item.at_ms <= at).length &&

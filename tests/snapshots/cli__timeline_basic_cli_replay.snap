@@ -1,6 +1,5 @@
 ---
 source: tests/cli.rs
-assertion_line: 796
 expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][recording], \"not_checked\":\n    output[\"not_checked\"]\n})"
 ---
 {
@@ -22,7 +21,6 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "branch": null,
         "iteration": null,
         "loop_id": null,
-        "on_exit": false,
         "option": null,
         "phase": "opening",
         "phase_instance": 1
@@ -37,7 +35,6 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "branch": null,
         "iteration": null,
         "loop_id": null,
-        "on_exit": false,
         "option": null,
         "phase": "opening",
         "phase_instance": 1
@@ -64,7 +61,6 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "branch": null,
         "iteration": null,
         "loop_id": null,
-        "on_exit": false,
         "option": null,
         "phase": "opening",
         "phase_instance": 1
@@ -85,7 +81,6 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "branch": null,
         "iteration": null,
         "loop_id": null,
-        "on_exit": false,
         "option": null,
         "phase": "second",
         "phase_instance": 2
@@ -100,7 +95,6 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "branch": null,
         "iteration": null,
         "loop_id": null,
-        "on_exit": false,
         "option": null,
         "phase": "second",
         "phase_instance": 2
@@ -121,7 +115,6 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "branch": null,
         "iteration": null,
         "loop_id": null,
-        "on_exit": false,
         "option": null,
         "phase": "second",
         "phase_instance": 2
@@ -160,7 +153,6 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "branch": null,
         "iteration": null,
         "loop_id": null,
-        "on_exit": false,
         "option": null,
         "phase": "opening",
         "phase_instance": 3

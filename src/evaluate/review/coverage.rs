@@ -59,7 +59,6 @@ struct Repeat {
     complete_display_bodies: usize,
     incomplete_display_bodies: usize,
     unverified_iterations: usize,
-    exits_with_matched_on_exit: usize,
     first_body_gap: Option<Value>,
 }
 
@@ -190,10 +189,6 @@ impl Repeat {
                     body.incomplete_display_bodies,
                 ),
                 (&mut self.unverified_iterations, body.unverified_iterations),
-                (
-                    &mut self.exits_with_matched_on_exit,
-                    body.exits_with_matched_on_exit,
-                ),
             ] {
                 *sum = sum
                     .checked_add(count)
@@ -291,7 +286,6 @@ pub(super) fn summarize(traces: &[Trace], role: EvidenceRole, limit: usize) -> R
                 complete_display_bodies: 0,
                 incomplete_display_bodies: 0,
                 unverified_iterations: 0,
-                exits_with_matched_on_exit: 0,
                 first_body_gap: None,
             });
             row.observe(&trace.input, repeat)?;
@@ -326,7 +320,7 @@ mod tests {
             serde_json::from_value::<Trace>(json!({
                 "input":input,"trace":format!("{input}/1"),"status":"evaluated",
                 "fight_duration_ms":duration,
-                "coverage":{"branches":[{"id":"fork","owner":{"phase":"boss","on_exit":false},
+                "coverage":{"branches":[{"id":"fork","owner":{"phase":"boss"},
                     "options":[option("left"),option("right"),option("unseen")]}],"loops":[]},
                 "bosses":[{"phase":"boss","entry_ms":0,"end_ms":100,"targets":[
                     {"raw_index":3,"at_ms":30,"id":"A","event_ids":["common",selected],

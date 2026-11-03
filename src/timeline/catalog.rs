@@ -11,7 +11,6 @@ pub(crate) struct Owner {
     pub loop_id: Option<String>,
     pub branch: Option<String>,
     pub option: Option<String>,
-    pub on_exit: bool,
 }
 #[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Serialize)]
 pub(crate) struct ExecutionContext {
@@ -149,15 +148,6 @@ impl Catalog {
                 ..owner.clone()
             };
             self.body(&repeat.events, &repeat.branches, &[], &next);
-            self.body(
-                &repeat.on_exit,
-                &[],
-                &[],
-                &Owner {
-                    on_exit: true,
-                    ..next
-                },
-            );
         }
     }
 }

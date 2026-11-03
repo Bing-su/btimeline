@@ -169,9 +169,9 @@ fn loop_coverage(
     support: &[&Support<'_>],
 ) -> LoopCoverage {
     let body = |row: &Record| {
-        row.context.as_ref().is_some_and(|context| {
-            context.owner.loop_id.as_deref() == Some(&repeat.id) && !context.owner.on_exit
-        })
+        row.context
+            .as_ref()
+            .is_some_and(|context| context.owner.loop_id.as_deref() == Some(&repeat.id))
     };
     let key = |row: &Record| {
         row.context.as_ref().and_then(|context| {

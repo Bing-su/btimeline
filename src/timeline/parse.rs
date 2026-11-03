@@ -646,25 +646,14 @@ impl Validation {
             .transpose()?;
         let mut body = Vec::new();
         let mut untils = Vec::new();
-        let mut exits = 0;
-        let mut on_exit = Vec::new();
         for child in children(node) {
             match child.name().value() {
                 "until" => {
                     untils.push(signal(child, "until")?);
                 }
-                "on-exit" => {
-                    shape(child, 0, &[])?;
-                    exits += 1;
-                    on_exit = self.body(children(child), "on-exit", false, 0, None, source)?;
-                }
                 _ => body.push(child.clone()),
             }
         }
-        ensure!(
-            exits <= 1 && (exits == 0 || !untils.is_empty()),
-            "on-exit requires until and may occur only once"
-        );
         let events = self.body(&body, "loop", true, 0, Some(every), source)?;
         let branches = body
             .iter()
@@ -686,7 +675,6 @@ impl Validation {
                 untils,
                 events,
                 branches,
-                on_exit,
             },
         );
         Ok(())

@@ -1,14 +1,14 @@
 {
-  "role": "held-out first Castellation hold; frozen before event inspection",
+  "role": "held-out first Castellation hold; frozen before event inspection; phase migration regression",
   "timeline": "timelines/queen-eternal-hold.kdl",
-  "timeline_sha256": "00ae9d849f05139ffca88439f8aef45ff3f59905dde79785ec5af2f6068c2c82",
+  "timeline_sha256": "a0ad109c72154d82150bce26f0c06957f8cb40fc04d1569ed88ff61a6c08f4b5",
   "horizon_ms": 6500,
   "tolerance_ms": 1500,
   "lead_ms": {
     "exit_shift": 3000,
     "other": 5000
   },
-  "scope": "first Ability 8F00 through post-until return 8F00; actual StartsUsing 8EFF required",
+  "scope": "first Ability 8F00 through Castellation phase and return 8F00; actual StartsUsing 8EFF required",
   "excluded_fingerprints": [
     "5129656086adaac6d98d2b6e50172f3d982d58aac231c2ae17a442403b8126ad",
     "591b692df330d01e488e3400fabeb22b146f529dfac2e0643b071123d7ad02ad",

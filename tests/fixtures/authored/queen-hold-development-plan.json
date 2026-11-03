@@ -1,7 +1,7 @@
 {
-  "role": "development",
+  "role": "development; phase migration regression",
   "timeline": "timelines/queen-eternal-hold.kdl",
-  "timeline_sha256": "00ae9d849f05139ffca88439f8aef45ff3f59905dde79785ec5af2f6068c2c82",
+  "timeline_sha256": "a0ad109c72154d82150bce26f0c06957f8cb40fc04d1569ed88ff61a6c08f4b5",
   "horizon_ms": 6500,
   "tolerance_ms": 1500,
   "lead_ms": {
@@ -65,5 +65,6 @@
       "input": "logs/queen-hold-long-training/JnNP38fbVctXRHrY_30.json",
       "sha256": "9321c556a177a0e9611f5c0ce1ff27f80969f472887aa27fe87ef7537a93d244"
     }
-  ]
+  ],
+  "scope": "first Ability 8F00 through Castellation phase and return 8F00; actual StartsUsing 8EFF required"
 }

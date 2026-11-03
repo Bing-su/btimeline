@@ -28,7 +28,6 @@ fn counted_loop_finishes_without_running_signal_exit(
                 until "Stop" at=0.0
                 event "pulse" 0.0 name="Pulse"
                 event "tail" 1.5 name="Tail"
-                on-exit { event "exit" 0.0 name="Exit"; }
             }
             loop "next" start=6.0 every=2.0 count=1 {
                 event "next-event" 0.0 name="Next"
@@ -56,10 +55,7 @@ fn counted_loop_finishes_without_running_signal_exit(
         displays("tail").last().copied(),
         Some(if signal_exit { 3500 } else { 5500 })
     );
-    assert_eq!(
-        displays("exit"),
-        if signal_exit { vec![stop_at] } else { vec![] }
-    );
+    assert_eq!(rows.iter().any(|row| row.action == "until"), signal_exit);
     assert_eq!(displays("next-event"), [6000]);
     assert!(!rows.iter().any(|row| row.action == "violation"));
 }
@@ -341,7 +337,6 @@ fn phase_jump_preserves_modeled_iteration_and_exit_retains_running_cycle() {
             loop "rotation" start=10.0 every=4.0 {
                 until "End" at=0.0 before=0.0
                 event "pulse" 0.0 name="Pulse"
-                on-exit { event "exit" 0.0 name="Exit"; }
             }
         }
     }"#,
@@ -362,9 +357,7 @@ fn phase_jump_preserves_modeled_iteration_and_exit_retains_running_cycle() {
         pulse.context.as_ref().expect("event context").iteration,
         Some(4)
     );
-    for row in rows.iter().filter(|row| {
-        row.action == "until" || row.event.as_ref().is_some_and(|event| event.id == "exit")
-    }) {
+    for row in rows.iter().filter(|row| row.action == "until") {
         assert_eq!(
             row.context.as_ref().expect("exit context").iteration,
             Some(4)
@@ -1758,7 +1751,6 @@ fn option_loop_preserves_exit_and_body() {
                     loop "hold" start=1.0 every=5.0 {
                         until "End" at=2.0 before=1.0
                         event "pulse" 1.0 name="Pulse"
-                        on-exit { event "end" 1.0 name="End"; }
                     }
                 }
                 option "b" { when "B"; }
@@ -1773,7 +1765,6 @@ fn option_loop_preserves_exit_and_body() {
     assert_eq!((hold.start, hold.every), (10, 50));
     assert_eq!(hold.untils.len(), 1);
     assert_eq!(hold.events.first().unwrap().id, "pulse");
-    assert_eq!(hold.on_exit.first().unwrap().id, "end");
     replay(&model, &recording(0, serde_json::json!([])).unwrap()).unwrap();
 }
 
@@ -1790,7 +1781,6 @@ fn selected_option_loop_uses_phase_anchor_and_merge_cancels_it() {
                     loop "left-loop" start=0.0 every=1.0 {
                         until "End" at=2.0 before=0.0
                         event "left-pulse" 0.0 name="Left"
-                        on-exit { event "left-exit" 0.0 name="Exit"; }
                     }
                 }
                 option "right" {
@@ -1825,9 +1815,11 @@ fn selected_option_loop_uses_phase_anchor_and_merge_cancels_it() {
             .iter()
             .any(|r| r.action == "event" && r.detail.starts_with("shared:") && r.at_ms == 3000)
     );
-    assert!(!output.iter().any(|r| r.detail.starts_with("right-pulse")
-        || r.detail.starts_with("left-exit")
-        || r.action == "until"));
+    assert!(
+        !output
+            .iter()
+            .any(|r| r.detail.starts_with("right-pulse") || r.action == "until")
+    );
 }
 
 #[test]
@@ -1916,7 +1908,7 @@ fn same_timestamp_sync_can_delay_new_option_zero_events() {
 }
 
 #[test]
-fn rounded_up_exit_and_merge_fire_zero_events_at_their_signals() {
+fn rounded_up_merge_fires_zero_event_at_its_signal() {
     let model = parse(
         r#"timeline 1 "x" {
         start "Start"
@@ -1927,7 +1919,6 @@ fn rounded_up_exit_and_merge_fire_zero_events_at_their_signals() {
                     when "Left"
                     loop "hold" start=2.0 every=1.0 {
                         until "End" at=0.0 before=0.0
-                        on-exit { event "exit-zero" 0.0 name="Exit"; }
                     }
                 }
                 option "right" { when "Right"; }
@@ -1951,65 +1942,7 @@ fn rounded_up_exit_and_merge_fire_zero_events_at_their_signals() {
     assert!(
         output
             .iter()
-            .any(|r| r.action == "event" && r.detail.starts_with("exit-zero:") && r.at_ms == 1051)
-    );
-    assert!(
-        output
-            .iter()
             .any(|r| r.action == "event" && r.detail.starts_with("merge-zero:") && r.at_ms == 2051)
-    );
-}
-
-#[test]
-fn option_loop_can_exit_before_start_and_sync_its_exit_path() {
-    let model = parse(r#"timeline 1 "x" {
-        start "Start"
-        phase "p" {
-            enter "Start"
-            event "phase-hit" 4.0 name="Phase"
-            branch "choice" open=0.0 close=3.0 {
-                option "left" {
-                    when "Left"
-                    loop "hold" start=4.0 every=2.0 {
-                        until "End" at=1.0 before=0.0
-                        event "pulse" 0.0 name="Pulse"
-                        on-exit { event "exit-hit" 1.0 name="Exit" { sync 1.0 "Sync" before=1.0 after=1.0; }; }
-                    }
-                }
-                option "right" { when "Right"; }
-            }
-        }
-    }"#).unwrap();
-    let input = recording(
-        5000,
-        serde_json::json!([
-            {"at_ms":0,"type":"Start","fields":{}},
-            {"at_ms":1000,"type":"Left","fields":{}},
-            {"at_ms":2000,"type":"End","fields":{}},
-            {"at_ms":2500,"type":"Sync","fields":{}}
-        ]),
-    )
-    .unwrap();
-    let output = replay(&model, &input).unwrap();
-    assert!(
-        output
-            .iter()
-            .any(|r| r.action == "until" && r.detail == "hold" && r.at_ms == 2000)
-    );
-    assert!(
-        output
-            .iter()
-            .any(|r| r.action == "event" && r.detail.starts_with("exit-hit:") && r.at_ms == 2500)
-    );
-    assert!(
-        output
-            .iter()
-            .any(|r| r.action == "event" && r.detail.starts_with("phase-hit:") && r.at_ms == 3500)
-    );
-    assert!(
-        !output
-            .iter()
-            .any(|r| r.action == "event" && r.detail.starts_with("pulse:"))
     );
 }
 
@@ -2190,61 +2123,11 @@ fn phase_sync_can_skip_an_option_loop_start_without_losing_its_anchor() {
     assert_eq!(pulses, [1500, 3500]);
 }
 
-#[test]
-fn merge_cancels_option_loop_exit_events() {
-    let model = parse(
-        r#"timeline 1 "x" {
-        start "Start"
-        phase "p" {
-            enter "Start"
-            branch "choice" open=0.0 close=3.0 {
-                option "left" {
-                    when "Left"
-                    loop "hold" start=0.0 every=2.0 {
-                        until "End" at=1.0 before=0.0
-                        on-exit { event "later" 3.0 name="Later"; }
-                    }
-                }
-                option "right" { when "Right"; }
-                merge { when "Merge"; }
-            }
-        }
-    }"#,
-    )
-    .unwrap();
-    let input = recording(
-        6000,
-        serde_json::json!([
-            {"at_ms":0,"type":"Start","fields":{}},
-            {"at_ms":1000,"type":"Left","fields":{}},
-            {"at_ms":2000,"type":"End","fields":{}},
-            {"at_ms":3000,"type":"Merge","fields":{}}
-        ]),
-    )
-    .unwrap();
-    let output = replay(&model, &input).unwrap();
-    assert!(
-        output
-            .iter()
-            .any(|r| r.action == "until" && r.detail == "hold")
-    );
-    assert!(
-        output
-            .iter()
-            .any(|r| r.action == "merge" && r.detail == "choice")
-    );
-    assert!(!output.iter().any(|r| r.detail.starts_with("later")));
-}
-
 #[rstest]
-#[case::before_start(1000, vec![], 2000)]
-#[case::on_start(2000, vec![], 3000)]
-#[case::after_two_pulses(4500, vec![2000, 3000, 4000], 5500)]
-fn simple_loop_repeats_and_exits(
-    #[case] until_ms: i64,
-    #[case] pulses: Vec<i64>,
-    #[case] exit_ms: i64,
-) {
+#[case::before_start(1000, vec![])]
+#[case::on_start(2000, vec![])]
+#[case::after_two_pulses(4500, vec![2000, 3000, 4000])]
+fn simple_loop_repeats_and_exits(#[case] until_ms: i64, #[case] pulses: Vec<i64>) {
     let model = parse(
         r#"timeline 1 "x" {
         start "Start"
@@ -2253,7 +2136,6 @@ fn simple_loop_repeats_and_exits(
             loop "rotation" start=2.0 every=1.0 {
                 until "End" at=1.0 before=1.0
                 event "pulse" 0.0 name="Pulse"
-                on-exit { event "after" 1.0 name="After"; }
             }
         }
     }"#,
@@ -2278,11 +2160,6 @@ fn simple_loop_repeats_and_exits(
         output
             .iter()
             .any(|r| r.action == "until" && r.detail == "rotation")
-    );
-    assert!(
-        output
-            .iter()
-            .any(|r| r.action == "event" && r.detail.starts_with("after:") && r.at_ms == exit_ms)
     );
 }
 
@@ -2468,7 +2345,6 @@ fn watching_and_exiting_a_future_loop_does_not_count_as_running() {
             loop "waiting" start=3.0 every=1.0 {
                 until "Skip" at=1.0 before=0.0
                 event "never" 0.0 name="Never"
-                on-exit { event "after" 1.0 name="After"; }
             }
         }
     }"#,
@@ -2483,11 +2359,6 @@ fn watching_and_exiting_a_future_loop_does_not_count_as_running() {
     )
     .unwrap();
     let output = replay(&model, &input).unwrap();
-    assert!(
-        output
-            .iter()
-            .any(|r| r.action == "event" && r.detail.starts_with("after:") && r.at_ms == 2000)
-    );
     assert!(
         !output
             .iter()
@@ -2570,49 +2441,6 @@ fn second_loop_sync_moves_only_its_iterations() {
         output
             .iter()
             .any(|r| r.action == "until" && r.detail == "second" && r.at_ms == 5000)
-    );
-    assert!(!output.iter().any(|r| r.action == "violation"));
-}
-
-#[test]
-fn exit_sync_corrects_all_active_exit_paths() {
-    let model = parse(
-        r#"timeline 1 "x" {
-        start "Start"
-        phase "p" {
-            enter "Start"
-            loop "first" start=10.0 every=2.0 {
-                until "EndFirst" at=1.0 before=0.0
-                on-exit { event "a" 3.0 name="A" { sync 3.0 "Sync" before=2.0 after=2.0; }; }
-            }
-            loop "second" start=12.0 every=2.0 {
-                until "EndSecond" at=2.0 before=0.0
-                on-exit { event "b" 3.0 name="B"; }
-            }
-        }
-    }"#,
-    )
-    .unwrap();
-    let input = recording(
-        6000,
-        serde_json::json!([
-            {"at_ms":0,"type":"Start","fields":{}},
-            {"at_ms":1000,"type":"EndFirst","fields":{}},
-            {"at_ms":2000,"type":"EndSecond","fields":{}},
-            {"at_ms":3000,"type":"Sync","fields":{}}
-        ]),
-    )
-    .unwrap();
-    let output = replay(&model, &input).unwrap();
-    assert!(
-        output
-            .iter()
-            .any(|r| r.action == "event" && r.detail.starts_with("a:") && r.at_ms == 3000)
-    );
-    assert!(
-        output
-            .iter()
-            .any(|r| r.action == "event" && r.detail.starts_with("b:") && r.at_ms == 4000)
     );
     assert!(!output.iter().any(|r| r.action == "violation"));
 }
@@ -2790,7 +2618,6 @@ fn loop_and_branch_can_run_in_the_same_phase() {
             loop "l" start=0.0 every=2.0 {
                 until "Stop" at=3.0 before=0.0
                 event "pulse" 0.0 name="Pulse"
-                on-exit { event "after" 1.0 name="After"; }
             }
         }
     }"#,
@@ -2815,11 +2642,6 @@ fn loop_and_branch_can_run_in_the_same_phase() {
         output
             .iter()
             .any(|r| r.action == "event" && r.detail.starts_with("chosen:") && r.at_ms == 3000)
-    );
-    assert!(
-        output
-            .iter()
-            .any(|r| r.action == "event" && r.detail.starts_with("after:") && r.at_ms == 4000)
     );
     assert_eq!(
         output
@@ -3047,52 +2869,6 @@ fn loop_exit_has_priority_over_iteration_sync() {
         !output
             .iter()
             .any(|r| r.action == "sync" || r.action == "event")
-    );
-}
-
-#[test]
-fn exit_sync_shifts_phase_and_exit_events_together() {
-    let model = parse(
-        r#"timeline 1 "x" {
-        start "Start"
-        phase "p" {
-            enter "Start"
-            event "phase-hit" 4.0 name="Phase"
-            loop "l" start=5.0 every=2.0 {
-                until "Stop" at=1.0 before=1.0
-                event "pulse" 0.0 name="Pulse"
-                on-exit {
-                    event "exit-hit" 2.0 name="Exit" { sync 2.0 "Sync" before=2.0 after=2.0; }
-                }
-            }
-        }
-    }"#,
-    )
-    .unwrap();
-    let input = recording(
-        5000,
-        serde_json::json!([
-            {"at_ms":0,"type":"Start","fields":{}},
-            {"at_ms":1000,"type":"Stop","fields":{}},
-            {"at_ms":2000,"type":"Sync","fields":{}}
-        ]),
-    )
-    .unwrap();
-    let output = replay(&model, &input).unwrap();
-    assert!(
-        output
-            .iter()
-            .any(|r| r.action == "event" && r.detail.starts_with("exit-hit:") && r.at_ms == 2000)
-    );
-    assert!(
-        output
-            .iter()
-            .any(|r| r.action == "event" && r.detail.starts_with("phase-hit:") && r.at_ms == 3000)
-    );
-    assert!(
-        !output
-            .iter()
-            .any(|r| r.action == "event" && r.detail.starts_with("pulse:"))
     );
 }
 

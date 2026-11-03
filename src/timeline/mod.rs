@@ -99,7 +99,6 @@ struct Loop {
     untils: Vec<Signal>,
     events: Vec<Event>,
     branches: Vec<Branch>,
-    on_exit: Vec<Event>,
 }
 
 #[derive(Debug)]

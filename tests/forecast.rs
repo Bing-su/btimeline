@@ -28,8 +28,11 @@ timeline 1 "Forecast test" {
         loop "rotation" start=30.0 every=10.0 {
             until "Ability" id="EXIT" at=32.0 before=32.0 after=100.0
             event "pulse" 0.0 name="Pulse"
-            on-exit { event "after-exit" 1.0 name="After exit"; }
         }
+    }
+    phase "after-rotation" {
+        enter "Ability" id="EXIT" from="first"
+        event "after-exit" 1.0 name="After exit"
     }
     phase "later" {
         enter "Ability" id="LATER" from="first"
@@ -91,8 +94,8 @@ fn forecast_excludes_future_signals_and_unselected_paths() {
     assert_eq!(
         first["events"],
         json!([
-            {"id":"selected","name":"Selected","at_ms":4000,"lead_ms":2000,"duration_ms":0,"run":1,"context":{"phase":"first","phase_instance":1,"branch":"choice","option":"left","loop_id":null,"iteration":null,"on_exit":false}},
-            {"id":"common","name":"Common","at_ms":5000,"lead_ms":3000,"duration_ms":2000,"run":1,"context":{"phase":"first","phase_instance":1,"branch":null,"option":null,"loop_id":null,"iteration":null,"on_exit":false}}
+            {"id":"selected","name":"Selected","at_ms":4000,"lead_ms":2000,"duration_ms":0,"run":1,"context":{"phase":"first","phase_instance":1,"branch":"choice","option":"left","loop_id":null,"iteration":null}},
+            {"id":"common","name":"Common","at_ms":5000,"lead_ms":3000,"duration_ms":2000,"run":1,"context":{"phase":"first","phase_instance":1,"branch":null,"option":null,"loop_id":null,"iteration":null}}
         ])
     );
 }

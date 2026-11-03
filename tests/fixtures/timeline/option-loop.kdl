@@ -8,7 +8,6 @@ timeline 1 "Option loop" {
                 loop "left-loop" start=0.0 every=1.0 {
                     until "StartsUsing" id="2002" source="The Boss" at=1.5 before=0.0
                     event "pulse" 0.0 name="Pulse"
-                    on-exit { event "exit" 0.0 name="Exit"; }
                 }
             }
             option "right" {

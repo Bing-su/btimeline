@@ -1,6 +1,5 @@
 ---
 source: tests/cli.rs
-assertion_line: 848
 expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][recording], \"not_checked\":\n    output[\"not_checked\"]\n})"
 ---
 {
@@ -22,7 +21,6 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "branch": null,
         "iteration": null,
         "loop_id": null,
-        "on_exit": false,
         "option": null,
         "phase": "boss",
         "phase_instance": 1
@@ -37,7 +35,6 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "branch": "choice",
         "iteration": null,
         "loop_id": null,
-        "on_exit": false,
         "option": "left",
         "phase": "boss",
         "phase_instance": 1
@@ -52,7 +49,6 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "branch": "choice",
         "iteration": 1,
         "loop_id": "left-loop",
-        "on_exit": false,
         "option": "left",
         "phase": "boss",
         "phase_instance": 1
@@ -73,7 +69,6 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "branch": "choice",
         "iteration": 2,
         "loop_id": "left-loop",
-        "on_exit": false,
         "option": "left",
         "phase": "boss",
         "phase_instance": 1
@@ -94,33 +89,11 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "branch": "choice",
         "iteration": 2,
         "loop_id": "left-loop",
-        "on_exit": true,
         "option": "left",
         "phase": "boss",
         "phase_instance": 1
       },
       "detail": "left-loop",
-      "run": 1
-    },
-    {
-      "action": "event",
-      "at_ms": 2600,
-      "context": {
-        "branch": "choice",
-        "iteration": 2,
-        "loop_id": "left-loop",
-        "on_exit": true,
-        "option": "left",
-        "phase": "boss",
-        "phase_instance": 1
-      },
-      "detail": "exit: Exit (visible=true, duration=0.0s)",
-      "event": {
-        "duration_ms": 0,
-        "id": "exit",
-        "name": "Exit",
-        "visible": true
-      },
       "run": 1
     },
     {
@@ -130,7 +103,6 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "branch": "choice",
         "iteration": null,
         "loop_id": null,
-        "on_exit": false,
         "option": null,
         "phase": "boss",
         "phase_instance": 1
@@ -145,7 +117,6 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "branch": "choice",
         "iteration": null,
         "loop_id": null,
-        "on_exit": false,
         "option": null,
         "phase": "boss",
         "phase_instance": 1

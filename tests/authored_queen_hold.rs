@@ -54,13 +54,18 @@ fn early_and_late_exit_cancel_cycles_and_keep_exit_clock_independent(
     assert!(!rows.iter().any(|row| {
         ["ambiguous", "unresolved", "violation"].contains(&row["action"].as_str().expect("action"))
     }));
+    let phases = rows
+        .iter()
+        .filter(|row| row["action"] == "phase")
+        .map(|row| (&row["detail"], &row["at_ms"]))
+        .collect::<Vec<_>>();
     assert_eq!(
-        rows.iter().filter(|row| row["action"] == "phase").count(),
-        1
+        phases,
+        [
+            (&json!("hold"), &json!(0)),
+            (&json!("castellation"), &json!(exit))
+        ]
     );
-    let exits: Vec<_> = rows.iter().filter(|row| row["action"] == "until").collect();
-    assert_eq!(exits.len(), 1);
-    assert_eq!(exits.first().expect("exit")["at_ms"], exit);
     let events: Vec<_> = rows.iter().filter(|row| row["action"] == "event").collect();
     let hold: Vec<_> = events
         .iter()

@@ -1,5 +1,4 @@
 //! An observed next anchor closes a body; timers alone cannot certify missing intermediate displays.
-use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
@@ -23,7 +22,6 @@ pub(in crate::evaluate) struct BodyCoverage {
     pub complete_display_bodies: usize,
     pub incomplete_display_bodies: usize,
     pub unverified_iterations: usize,
-    pub exits_with_matched_on_exit: usize,
     pub first_gap: Option<BodyGap>,
 }
 
@@ -46,9 +44,10 @@ fn first_gap(
         .iter()
         .filter(|row| {
             same_iteration(row, pair)
-                && row.context.as_ref().is_some_and(|context| {
-                    context.owner.loop_id.as_deref() == Some(id) && !context.owner.on_exit
-                })
+                && row
+                    .context
+                    .as_ref()
+                    .is_some_and(|context| context.owner.loop_id.as_deref() == Some(id))
         })
         .collect::<Vec<_>>();
     let window = support
@@ -149,47 +148,13 @@ pub(super) fn collect(
             result.complete_display_bodies += 1;
         }
     }
-    let exits = rows
-        .iter()
-        .filter(|row| {
-            row.action == "until"
-                && row
-                    .context
-                    .as_ref()
-                    .is_some_and(|context| context.owner.loop_id.as_deref() == Some(id))
-        })
-        .filter_map(|row| row.source_event_index.map(|index| (row, index)));
-    result.exits_with_matched_on_exit = exits
-        .filter(|(exit, index)| {
-            support.iter().any(|sample| {
-                sample.raw_index > *index
-                    && sample.record.at_ms >= exit.at_ms
-                    && sample.record.run == exit.run
-                    && sample
-                        .record
-                        .context
-                        .as_ref()
-                        .zip(exit.context.as_ref())
-                        .is_some_and(|(context, exit_context)| {
-                            context.owner.on_exit
-                                && context.owner.loop_id.as_deref() == Some(id)
-                                && context.phase_instance == exit_context.phase_instance
-                        })
-            })
-        })
-        .map(|(row, _)| {
-            (
-                row.run,
-                row.context.as_ref().map(|context| context.phase_instance),
-            )
-        })
-        .collect::<BTreeSet<_>>()
-        .len();
     result
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use super::*;
     use crate::timeline::{Observation, Recording};
 
@@ -211,7 +176,6 @@ mod tests {
                     event "hidden" 1.5 name="Control" visible=#false
                     event "tail" {tail} name="Tail"
                     {branch}
-                    on-exit {{ event "after" 1.0 name="After"; }}
                 }}
             }}
         }}"#
@@ -237,7 +201,6 @@ mod tests {
                 row.event.as_ref().is_some_and(|event| {
                     event.visible
                         && !(case == "missing" && event.id == "middle" && row.at_ms == 1000)
-                        && !(case == "no_exit" && event.id == "after")
                 })
             })
             .map(|record| {
@@ -295,15 +258,11 @@ mod tests {
 
     #[test]
     fn complete_bodies_allow_simultaneous_order_and_keep_terminal_iteration_unverified() {
-        for case in ["complete", "simultaneous", "no_exit"] {
+        for case in ["complete", "simultaneous"] {
             let result = analyze(case);
             assert_eq!(result.complete_display_bodies, 2);
             assert_eq!(result.incomplete_display_bodies, 0);
             assert_eq!(result.unverified_iterations, 1);
-            assert_eq!(
-                result.exits_with_matched_on_exit,
-                usize::from(case != "no_exit")
-            );
         }
     }
 }

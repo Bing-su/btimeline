@@ -6,7 +6,7 @@ timeline 1 "Queen Eternal - Castellation hold and exit" {
     finish "InCombat" inGameCombat="0"
     zone-exit "ChangeZone"
     phase "hold" {
-        enter "Ability" id="8F00" source="Queen Eternal"
+        enter "Ability" id="8F00" source="Queen Eternal" resume-at=0.0
         event "approach-shift" 0.0 name="Virtual Shift"
         event "approach-coronation" 10.2 name="Coronation"
         event "approach-aethertithe" 16.4 name="Aethertithe"
@@ -17,8 +17,6 @@ timeline 1 "Queen Eternal - Castellation hold and exit" {
 
         // Prosecution belongs inside the cancellable hold: early Castellation can skip even this first attack.
         loop "castellation-hold" start=54.7 every=60.6 {
-            // Watch before the first cycle, after the fixed approach has completed; no HP or FFLogs-only signal is needed.
-            until "StartsUsing" id="8EFF" source="Queen Eternal" at=40.8
             event "hold-prosecution" 0.0 name="Prosecution of War" {
                 sync 0.0 "Ability" id="8EFA" source="Queen Eternal" before=5.0 after=8.0
             }
@@ -29,22 +27,23 @@ timeline 1 "Queen Eternal - Castellation hold and exit" {
             }
             event "hold-force-third" 43.5 name="Legitimate Force"
             event "hold-force-fourth" 46.6 name="Legitimate Force"
-            on-exit {
-                // Exit timing is measured from the cast start, not the corrected cycle clock.
-                event "exit-shift" 5.0 name="Virtual Shift" {
-                    sync 5.0 "Ability" id="8EFF" source="Queen Eternal" before=2.0 after=5.0
-                }
-                event "exit-castellation-first" 13.1 name="Castellation"
-                event "exit-besiegement-first" 20.8 name="Besiegement"
-                event "exit-castellation-second" 30.3 name="Castellation"
-                event "exit-besiegement-second" 37.9 name="Besiegement"
-                event "exit-besiegement-third" 46.4 name="Besiegement"
-                event "exit-force-first" 53.5 name="Legitimate Force"
-                event "exit-force-second" 56.6 name="Legitimate Force"
-                event "exit-return" 68.7 name="Virtual Shift" {
-                    sync 68.7 "Ability" id="8F00" source="Queen Eternal" before=5.0 after=8.0
-                }
-            }
+        }
+    }
+    phase "castellation" {
+        enter "StartsUsing" id="8EFF" source="Queen Eternal" from="hold" at=40.8 before=0.0 after=3600.0
+        // Exit timing is measured from the cast start, not the corrected cycle clock.
+        event "exit-shift" 5.0 name="Virtual Shift" {
+            sync 5.0 "Ability" id="8EFF" source="Queen Eternal" before=2.0 after=5.0
+        }
+        event "exit-castellation-first" 13.1 name="Castellation"
+        event "exit-besiegement-first" 20.8 name="Besiegement"
+        event "exit-castellation-second" 30.3 name="Castellation"
+        event "exit-besiegement-second" 37.9 name="Besiegement"
+        event "exit-besiegement-third" 46.4 name="Besiegement"
+        event "exit-force-first" 53.5 name="Legitimate Force"
+        event "exit-force-second" 56.6 name="Legitimate Force"
+        event "exit-return" 68.7 name="Virtual Shift" {
+            sync 68.7 "Ability" id="8F00" source="Queen Eternal" before=5.0 after=8.0
         }
     }
 }

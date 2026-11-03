@@ -20,7 +20,6 @@ timeline 1 "Branch and loop" {
         loop "rotation" start=0.0 every=2.0 {
             until "StartsUsing" id="1003" source="The Boss" at=5.0 before=1.0
             event "pulse" 0.0 name="Pulse"
-            on-exit { event "after-exit" 1.0 name="After exit"; }
         }
     }
 }
