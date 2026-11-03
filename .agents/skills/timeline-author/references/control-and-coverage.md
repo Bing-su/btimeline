@@ -19,6 +19,14 @@ Use this table when similar signals, divergent timing or multiple actors make a 
 
 For R12S Raptor and Serpentine, impact identifies a known offset in the selected path. For San d’Oria Kirin, the ADCD and Double Cast recovery schedules have separate signal anchors and lead-time evidence. Preserve that distinction until a shared offset is verified.
 
+### Moving from a waiting loop to a follow-up phase
+
+1. Use `until` if the signal should stop only the loop and preserve the phase’s other reservations. Use `enter from` if it should cancel the old schedule and anchor a new one. Check which pending displays must survive before moving them.
+2. Anchor the follow-up phase to the first reliable transition signal. Set its window on the preceding phase clock and add a later sync when the logs support it. If a return packet reuses the opening ID, guard the opening entry so it cannot restart the waiting phase while the follow-up is active.
+3. When rewriting an existing timeline, replay the same inputs before and after. Compare display IDs and timestamps, then query the first follow-up forecast before impact. Check transition before the loop starts and after several iterations, delayed follow-up sync, and return without restart. Record any timing deltas and label synthetic cases separately.
+
+In [Queen Eternal](../../../../timelines/queen-eternal-hold.authoring.md), `8EFF` StartsUsing moves `hold` to `castellation`. The matching Ability corrects the follow-up clock. The return `8F00` syncs the follow-up without reopening `hold`.
+
 For each consequential decision, preserve the source indices, competing interpretation, chosen control and user-visible effect. Scope changes and relaxed lead targets are model revisions: record them before fresh independent evaluation.
 
 A compact coverage table should identify each choice/loop, development observations, held-out observations and synthetic checks. Use `review.coverage` for signal selections, bounded display bodies, and first body gaps; preserve its role and unmatched-display warnings. Check `body_coverage_inputs` before interpreting zero counts from an older report. A terminal body without the next observed anchor remains unverified; combine separate test evidence explicitly. An unobserved held-out route stays unverified even when every held-out file passes. See the [evaluation contract](../../../../docs/AUTHORED_EVALUATION.md#분기반복-커버리지) for each metric's limits.
