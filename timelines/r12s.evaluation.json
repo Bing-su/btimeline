@@ -100,6 +100,16 @@
         "B523": {
           "name": "Double Sobat",
           "events": ["post-sobat-variant-01", "post-sobat-variant-02", "post-sobat-variant-03"]
+        },
+        "B52E": {
+          "name": "Netherwrath Near",
+          "lead_ms": 4500,
+          "events": ["post-netherwrath-near"]
+        },
+        "B52F": {
+          "name": "Netherwrath Far",
+          "lead_ms": 4500,
+          "events": ["post-netherwrath-far"]
         }
       }
     }

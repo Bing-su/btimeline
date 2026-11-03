@@ -371,8 +371,16 @@ timeline 1 "AAC Heavyweight M4 (Savage) — Lindwurm" {
         event post-checkpoint-grotesquerie-lindschrat-b4f1 155.9 name=Grotesquerie {
             sync 155.9 Ability id=B4F1 source="Lindschrat" before=2.5 after=2.5
         }
-        event post-checkpoint-netherwrath-near-lindwurm-b52e 155.9 name="Netherwrath Near" {
-            sync 155.9 Ability id=B52E source=Lindwurm before=2.5 after=2.5
+        // Near and Far share a schedule, but the cast start determines the required position.
+        branch "post-netherwrath" open=149.0 close=153.0 {
+            option "near" {
+                when "StartsUsing" id="B52E" source="Lindwurm"
+                event "post-netherwrath-near" 5.0 name="Netherwrath Near"
+            }
+            option "far" {
+                when "StartsUsing" id="B52F" source="Lindwurm"
+                event "post-netherwrath-far" 5.0 name="Netherwrath Far"
+            }
         }
         event post-checkpoint-grotesquerie-lindwurm-b4ea-03 157.2 name=Grotesquerie
         event post-checkpoint-timeless-spite-lindwurm-b530 157.2 name="Timeless Spite" {
