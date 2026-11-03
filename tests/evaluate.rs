@@ -111,6 +111,7 @@ fn inferred_evaluation_requires_one_observed_phase_and_impact_binding(
 #[case(false, false, false, false)]
 #[case(true, false, false, true)]
 #[case(true, false, true, false)]
+#[case(true, false, true, true)]
 fn inferred_sequential_phases_require_an_observed_boundary(
     #[case] same_source: bool,
     #[case] defeated: bool,
@@ -119,6 +120,17 @@ fn inferred_sequential_phases_require_an_observed_boundary(
 ) {
     let directory = tempfile::tempdir().unwrap();
     let mut manifest = setup(directory.path());
+    let reuse = repeated && passed;
+    let third = if reuse {
+        r#"
+        phase "third" {
+            enter "StartsUsing" id="B530" source="Synthetic Boss" from="second" at=7.0
+            event "third-impact" 6.0 name="Third impact" { sync 6.0 "Ability" id="B531" source="Synthetic Boss"; }
+        }
+    "#
+    } else {
+        ""
+    };
     let (source, entry, source_id) = if same_source {
         (
             "Synthetic Boss",
@@ -143,6 +155,7 @@ fn inferred_sequential_phases_require_an_observed_boundary(
                 enter "Ability" id="B528" source="Synthetic Boss" resume-at=0.0
                 event "first-impact" 6.0 name="First impact" {{ sync 6.0 "Ability" id="B529" source="Synthetic Boss"; }}
             }}
+            {third}
         }}"#
     );
     let mut raw: Value = serde_json::from_slice(include_bytes!("fixtures/pull.json")).unwrap();
@@ -171,6 +184,12 @@ fn inferred_sequential_phases_require_an_observed_boundary(
     if same_source {
         events.push(cast(18000, 10, 0xB528));
     }
+    if reuse {
+        events.push(cast(23000, 10, 0xB531));
+        raw["report"]["endTime"] = json!(24000);
+        raw["report"]["fights"][0]["endTime"] = json!(24000);
+        raw["collection"]["endTime"] = json!(24000);
+    }
     raw["collection"]["eventCount"] = json!(events.len());
     raw["events"] = json!(events);
     let bytes = serde_json::to_vec(&raw).unwrap();
@@ -195,6 +214,10 @@ fn inferred_sequential_phases_require_an_observed_boundary(
             if same_source { 7999 } else { 7000 }
         );
         assert_eq!(trace["bosses"][1]["phase"], "second");
+        if reuse {
+            assert_eq!(trace["bosses"][2]["phase"], "third");
+            assert_eq!(trace["bosses"][2]["entry_ms"], 15000);
+        }
         assert_eq!(trace["passed"], true);
     } else {
         result.failure();

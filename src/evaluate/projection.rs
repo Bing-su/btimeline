@@ -348,66 +348,149 @@ enum Boundary {
     TransitionAt(i64),
 }
 
+type PhaseEntry<'a> = (&'a SegmentRule, usize, &'a Event);
+
+fn phase_ambiguity(message: &'static str, entries: &[PhaseEntry<'_>]) -> anyhow::Error {
+    let evidence = entries
+        .iter()
+        .map(|(rule, index, _)| json!({"phase":rule.phase,"source":rule.source,"raw_index":index}))
+        .collect::<Vec<_>>();
+    UnverifiedScope(message, json!({"entry_candidates":evidence})).into()
+}
+
+fn follow_transitions<'a>(
+    log: &'a CollectedLog,
+    rules: &'a [SegmentRule],
+    actors: &'a BTreeMap<i64, &Actor>,
+    root: PhaseEntry<'a>,
+    limit: usize,
+) -> Result<Vec<PhaseEntry<'a>>> {
+    let mut route = Vec::new();
+    let mut current = root;
+    let mut visited = BTreeSet::new();
+    loop {
+        if !visited.insert(&current.0.phase) {
+            return Err(phase_ambiguity(
+                "Repeated phase in inferred sequence",
+                &[current],
+            ));
+        }
+        route.push(current);
+        let mut choices = rules
+            .iter()
+            .filter(|rule| rule.entry_from.as_deref() == Some(&current.0.phase))
+            .filter_map(|rule| {
+                find_entries(log, rule, actors)
+                    .take_while(|(index, _)| *index < limit)
+                    .find(|(index, _)| *index > current.1)
+                    .map(|(index, event)| (rule, index, event))
+            })
+            .collect::<Vec<_>>();
+        choices.sort_by_key(|(_, index, _)| *index);
+        if let [first, second, ..] = choices.as_slice()
+            && first.2.timestamp == second.2.timestamp
+        {
+            return Err(phase_ambiguity(
+                "Multiple phase transitions at the same time",
+                &choices,
+            ));
+        }
+        let next = choices.first().copied();
+        if let Some(next) = next
+            && next.2.timestamp == current.2.timestamp
+        {
+            return Err(phase_ambiguity(
+                "Phase transition shares the prior entry timestamp",
+                &[current, next],
+            ));
+        }
+        if let Some(next) = next
+            && next.0.source != current.0.source
+        {
+            return Err(phase_ambiguity(
+                "Transition changes source and needs an explicit scope",
+                &[current, next],
+            ));
+        }
+        let boundary = next.map_or(limit, |(_, index, _)| index);
+        // Reuse in a later phase is valid. Repetition before leaving this phase is ambiguous.
+        if current.0.entry_from.is_some()
+            && let Some((index, event)) = find_entries(log, current.0, actors)
+                .take_while(|(index, _)| *index < boundary)
+                .find(|(index, _)| *index > current.1)
+        {
+            return Err(phase_ambiguity(
+                "Repeated transition before the next phase",
+                &[current, (current.0, index, event)],
+            ));
+        }
+        let Some(next) = next else { break };
+        current = next;
+    }
+    Ok(route)
+}
+
 fn inferred_segments(
     log: &CollectedLog,
     rules: &[SegmentRule],
     actors: &BTreeMap<i64, &Actor>,
     origin: i64,
 ) -> Result<Vec<Segment>> {
-    let mut candidates = Vec::new();
-    for rule in rules {
-        // Repeated transition casts need extra evidence to choose the intended occurrence.
-        let mut entries = find_entries(log, rule, actors);
-        if let Some((index, event)) = entries.next() {
-            if rule.entry_from.is_some()
-                && let Some((later, _)) = entries.next()
-            {
-                return Err(UnverifiedScope("Multiple observations for a phase transition", json!({
-                    "entry_candidates":[{"phase":rule.phase,"raw_index":index},{"phase":rule.phase,"raw_index":later}]
-                })).into());
-            }
-            candidates.push((rule, index, event.timestamp));
-        }
+    let mut roots = rules
+        .iter()
+        .filter(|rule| rule.entry_from.is_none())
+        .filter_map(|rule| {
+            find_entries(log, rule, actors)
+                .next()
+                .map(|(index, event)| (rule, index, event))
+        })
+        .collect::<Vec<_>>();
+    roots.sort_by_key(|(_, index, _)| *index);
+    let mut sources = BTreeSet::new();
+    if roots.is_empty()
+        || !roots
+            .iter()
+            .all(|(rule, _, _)| sources.insert(&rule.source))
+    {
+        return Err(phase_ambiguity(
+            "Observed phase entries do not establish distinct starting scopes",
+            &roots,
+        ));
     }
-    candidates.sort_by_key(|(_, index, _)| *index);
-    let mut roots = BTreeSet::new();
-    let valid = candidates.iter().enumerate().all(|(i, (rule, _, at))| {
-        let previous = i.checked_sub(1).and_then(|i| candidates.get(i));
-        match (&rule.entry_from, previous) {
-            (Some(from), Some((prior, _, previous_at))) => {
-                from == &prior.phase && previous_at < at && prior.source == rule.source
-            }
-            (Some(_), None) => false,
-            (None, _) => roots.insert(&rule.source),
-        }
-    });
-    if candidates.is_empty() || !valid {
-        let evidence = candidates.iter().map(|(rule, index, _)| {
-            json!({"phase":rule.phase,"source":rule.source,"raw_index":index})
-        }).collect::<Vec<_>>();
-        return Err(UnverifiedScope(
-            "Observed phase entries do not establish a unique supported sequence",
-            json!({"entry_candidates":evidence}),
-        )
-        .into());
+    let limits = roots
+        .iter()
+        .skip(1)
+        .map(|(_, index, _)| *index)
+        .chain(std::iter::once(log.events.len()));
+    let mut candidates = Vec::new();
+    for (root, limit) in roots.iter().copied().zip(limits) {
+        candidates.extend(follow_transitions(log, rules, actors, root, limit)?);
     }
     // Same-boss transitions use the explicit entry; switching bosses still requires defeat.
     let next_entries = candidates
         .iter()
         .skip(1)
-        .map(|(rule, _, timestamp)| {
+        .map(|(rule, _, event)| {
             Some(if rule.entry_from.is_some() {
-                Boundary::TransitionAt(*timestamp)
+                Boundary::TransitionAt(event.timestamp)
             } else {
-                Boundary::DefeatBefore(*timestamp)
+                Boundary::DefeatBefore(event.timestamp)
             })
         })
         .chain(std::iter::once(None));
     candidates
         .iter()
         .zip(next_entries)
-        .map(|((rule, _, _), next_entry)| {
-            project_segment(log, rule, actors, origin, true, next_entry)
+        .map(|((rule, index, event), next_entry)| {
+            project_segment(
+                log,
+                rule,
+                actors,
+                origin,
+                true,
+                next_entry,
+                Some((*index, *event)),
+            )
         })
         .collect()
 }
@@ -419,11 +502,12 @@ fn project_segment(
     origin: i64,
     inferred: bool,
     next_entry: Option<Boundary>,
+    inferred_entry: Option<(usize, &Event)>,
 ) -> Result<Segment> {
     let main = main_actors(log, rule)?;
     let source = |id: Option<i64>| id.and_then(|id| actors.get(&id)).map(|a| a.name.as_str());
-    let entry = find_entries(log, rule, actors)
-        .next()
+    let entry = inferred_entry
+        .or_else(|| find_entries(log, rule, actors).next())
         .ok_or_else(|| exclude("Missing boss entry", json!({"source":rule.source})))?;
     let (entry_event, start) = (entry.0, entry.1.timestamp);
     let defeat = log.events.iter().enumerate().find(|(_, e)| {
@@ -576,7 +660,7 @@ pub(super) fn project(log: &CollectedLog, profile: &Profile) -> Result<Projectio
             .segments
             .iter()
             .filter(|r| r.encounter.is_none_or(|id| id == encounter))
-            .map(|rule| project_segment(log, rule, &actors, origin, false, None))
+            .map(|rule| project_segment(log, rule, &actors, origin, false, None, None))
             .collect::<Result<Vec<_>>>()?
     };
     if bosses.is_empty() {
