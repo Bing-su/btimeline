@@ -7,6 +7,8 @@ timeline 1 "AAC Heavyweight M4 (Savage) — Lindwurm" {
     wipe "ActorControl" command="4000000F"
     wipe "ActorControl" command="40000010"
     zone-exit "ChangeZone"
+    // The kill transition closes the first schedule before the checkpoint pull.
+    boss-complete "Ability" id="B539" source="Lindwurm" from="pre-checkpoint"
 
     phase "pre-checkpoint" {
         // The early cast identifies the segment before its opening raidwide.
