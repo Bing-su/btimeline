@@ -27,6 +27,18 @@ For R12S Raptor and Serpentine, impact identifies a known offset in the selected
 
 In [Queen Eternal](../../../../timelines/queen-eternal-hold.authoring.md), `8EFF` StartsUsing moves `hold` to `castellation`. The matching Ability corrects the follow-up clock. The return `8F00` syncs the follow-up without reopening `hold`.
 
+### Splitting a long segment into phases
+
+| Observation                                                                    | Authoring decision                                                                                                      |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| A reliable signal ends the prior schedule and anchors a distinct continuation  | Create a phase with `enter from`. Move the continuation’s displays and syncs to the new clock.                          |
+| A mechanic starts a new section in a guide, but prior reservations still apply | Keep the same phase. Use a sync for drift or a branch for alternate paths.                                              |
+| The pull can begin at a checkpoint                                             | Keep its independent entry on the checkpoint opening phase. Require the preceding phase for later internal transitions. |
+
+Before splitting, record the boundary signal, predecessor, and first major cue in multiple long logs. Replay early and late transitions, a missing boundary signal, and any opening ID reused later. Verify which reservations cancel, whether the first follow-up cue still has enough lead, and whether checkpoint and wipe behavior survives. Recheck each `from` guard and evaluation binding against the new phase owners.
+
+In [R12S](../../../../timelines/r12s.authoring.md), consider the transition into the first Slaughtershed cycle in the first half and into the Cosmic Kiss sequence in the second half. These are candidates for evidence review. Splitting the first half changes which phase is active at `B539`; check the completion guard for every reachable clear path. Keep independent checkpoint entry at the start of the second half and verify restart from there.
+
 For each consequential decision, preserve the source indices, competing interpretation, chosen control and user-visible effect. Scope changes and relaxed lead targets are model revisions: record them before fresh independent evaluation.
 
 A compact coverage table should identify each choice/loop, development observations, held-out observations and synthetic checks. Use `review.coverage` for signal selections, bounded display bodies, and first body gaps; preserve its role and unmatched-display warnings. Check `body_coverage_inputs` before interpreting zero counts from an older report. A terminal body without the next observed anchor remains unverified; combine separate test evidence explicitly. An unobserved held-out route stays unverified even when every held-out file passes. See the [evaluation contract](../../../../docs/AUTHORED_EVALUATION.md#분기반복-커버리지) for each metric's limits.
