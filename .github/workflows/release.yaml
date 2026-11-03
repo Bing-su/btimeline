@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+          - os: ubuntu-latest
+            target: riscv64gc-unknown-linux-musl
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+
+    permissions:
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: ${{ runner.os != 'Linux' }}
+        with:
+          target: ${{ matrix.target }}
+
+      - name: Build binary (Linux)
+        if: ${{ runner.os == 'Linux' }}
+        uses: zijiren233/cargo-cross@v1
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build binary (Windows/macOS)
+        if: ${{ runner.os != 'Linux' }}
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Archive binary
+        run: 7z a ${{ github.workspace }}/btimeline-${{ matrix.target }}.zip btimeline${{ case(runner.os == 'Windows', '.exe', '') }}
+        working-directory: target/${{ matrix.target }}/release
+
+      - name: Generate artifact attestation
+        uses: actions/attest@v4
+        with:
+          subject-path: btimeline-*.zip
+
+      - uses: actions/upload-artifact@v7
+        with:
+          archive: false
+          path: btimeline-${{ matrix.target }}.zip
+          if-no-files-found: error
+
+      - uses: orhun/git-cliff-action@v4
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        id: cliff
+        with:
+          args: -vv --latest --strip header
+
+      - name: Publish artifacts and release
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        uses: softprops/action-gh-release@v3
+        with:
+          files: btimeline-*.zip
+          body: ${{ steps.cliff.outputs.content }}
