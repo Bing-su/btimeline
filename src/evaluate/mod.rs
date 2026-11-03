@@ -16,7 +16,7 @@ use std::path::Path;
 use anyhow::{Context, Result, ensure};
 use camino::Utf8PathBuf;
 pub use evidence::EvidenceCommand;
-use projection::{InputExclusion, Profile, exclude};
+use projection::{InputExclusion, Profile, UnverifiedScope, exclude};
 pub use review::ReviewCommand;
 use ring::digest::{SHA256, digest};
 use serde::Deserialize;
@@ -89,7 +89,7 @@ fn evaluate_input(
     let log = crate::generate::validated_collected(Path::new(&item.input), &bytes)?;
     let Some(profile) = profile else {
         return Ok(
-            json!({"status":"unverified","input":item.input,"sha256":item.sha256,"passed":null,"review_required":true,"error":"No unambiguous single-phase entry and visible impact bindings in KDL"}),
+            json!({"status":"unverified","input":item.input,"sha256":item.sha256,"passed":null,"review_required":true,"error":"No phase with a supported literal cast entry in KDL"}),
         );
     };
     *stage = "input-validation";
@@ -104,7 +104,16 @@ fn evaluate_input(
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
-    let fingerprint = hash(&serde_json::to_vec(&samples)?);
+    let fingerprint = if profile.inferred {
+        let phases = projected
+            .bosses
+            .iter()
+            .map(|boss| &boss.phase)
+            .collect::<Vec<_>>();
+        hash(&serde_json::to_vec(&(phases, &samples))?)
+    } else {
+        hash(&serde_json::to_vec(&samples)?)
+    };
     if samples.iter().any(|sample| !sample.is_empty())
         && (manifest.excluded_fingerprints.contains(&fingerprint)
             || !seen.insert(fingerprint.clone()))
@@ -185,7 +194,9 @@ impl Manifest {
 }
 
 fn failure(item: &Input, stage: &str, error: anyhow::Error) -> Value {
-    if let Some(exclusion) = error.downcast_ref::<InputExclusion>() {
+    if let Some(scope) = error.downcast_ref::<UnverifiedScope>() {
+        json!({"status":"unverified","input":item.input,"sha256":item.sha256,"stage":stage,"error":scope.to_string(),"passed":null,"review_required":true,"evidence":scope.0})
+    } else if let Some(exclusion) = error.downcast_ref::<InputExclusion>() {
         json!({"status":"excluded","input":item.input,"sha256":item.sha256,"stage":stage,"error":format!("InputExclusion: {exclusion}"),"passed":null,"evidence":exclusion.evidence,"review_required":exclusion.evidence.get("review_required")})
     } else {
         json!({"status":"error","input":item.input,"sha256":item.sha256,"stage":stage,"error":format!("{error:#}"),"passed":false})

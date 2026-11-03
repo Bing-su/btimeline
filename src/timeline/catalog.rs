@@ -180,25 +180,26 @@ fn literal_cast(signal: &Signal) -> Option<(&str, &str)> {
 }
 
 impl Timeline {
-    pub(crate) fn single_cast_entry(&self) -> Option<(&str, &str, Vec<String>)> {
-        let [phase] = self.phases.as_slice() else {
-            return None;
-        };
-        let mut entries = phase.enters.iter().map(|signal| {
-            if signal.from.is_some() || signal.at.is_some() || signal.resume_at.is_some() {
-                return None;
-            }
-            literal_cast(signal)
-        });
-        let (first, source) = entries.next()??;
-        let mut ids = vec![first.into()];
-        for entry in entries {
-            let (id, other_source) = entry?;
-            if other_source != source {
-                return None;
-            }
-            ids.push(id.into());
-        }
-        Some((&phase.id, source, ids))
+    pub(crate) fn cast_entries(&self) -> impl Iterator<Item = (&str, &str, Vec<String>)> {
+        self.phases.iter().filter_map(cast_entry)
     }
+}
+
+fn cast_entry(phase: &super::Phase) -> Option<(&str, &str, Vec<String>)> {
+    let mut entries = phase.enters.iter().map(|signal| {
+        if signal.from.is_some() || signal.at.is_some() || signal.resume_at.is_some() {
+            return None;
+        }
+        literal_cast(signal)
+    });
+    let (first, source) = entries.next()??;
+    let mut ids = vec![first.into()];
+    for entry in entries {
+        let (id, other_source) = entry?;
+        if other_source != source {
+            return None;
+        }
+        ids.push(id.into());
+    }
+    Some((&phase.id, source, ids))
 }

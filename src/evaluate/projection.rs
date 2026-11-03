@@ -1,5 +1,5 @@
 //! Explicit authoring assumptions; encounter IDs, names and display summaries stay in data files.
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context, Result, ensure};
 use serde::Deserialize;
@@ -22,6 +22,17 @@ impl std::error::Error for InputExclusion {}
 pub(super) fn exclude(message: &'static str, evidence: Value) -> anyhow::Error {
     InputExclusion { message, evidence }.into()
 }
+
+#[derive(Debug)]
+pub(super) struct UnverifiedScope(pub Value);
+
+impl std::fmt::Display for UnverifiedScope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Expected exactly one phase with an observed literal cast entry")
+    }
+}
+
+impl std::error::Error for UnverifiedScope {}
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -105,11 +116,49 @@ pub(super) struct Projection {
 
 impl Profile {
     pub(super) fn infer(model: &crate::timeline::Timeline) -> Option<Self> {
-        let (phase, source, entry) = model.single_cast_entry()?;
+        let segments = model
+            .cast_entries()
+            .map(|(phase, source, entry)| SegmentRule::infer(model, phase, source, entry))
+            .collect::<Vec<_>>();
+        (!segments.is_empty()).then(|| Self {
+            version: 1,
+            observations: ObservationScope::AllCastsAndStarts,
+            segments,
+            not_checked: vec!["Displays without an unambiguous same-time boss Ability sync".into()],
+            inferred: true,
+        })
+    }
+}
+
+impl SegmentRule {
+    fn infer(
+        model: &crate::timeline::Timeline,
+        phase: &str,
+        source: &str,
+        entry: Vec<String>,
+    ) -> Self {
         let mut targets = BTreeMap::<String, TargetRule>::new();
-        for definition in model.catalog.events.values().filter(|definition| {
-            definition.event.visible && definition.owner.phase.as_deref() == Some(phase)
-        }) {
+        let visible = || {
+            model.catalog.events.values().filter(|definition| {
+                definition.event.visible && definition.owner.phase.as_deref() == Some(phase)
+            })
+        };
+        let unbound_names = visible()
+            .filter(|definition| definition.cast.is_none())
+            .map(|definition| definition.event.name.as_str())
+            .collect::<BTreeSet<_>>();
+        // A known binding cannot distinguish another occurrence displayed under the same unbound name.
+        let ambiguous_ids = visible()
+            .filter(|definition| unbound_names.contains(definition.event.name.as_str()))
+            .filter_map(|definition| {
+                definition
+                    .cast
+                    .as_ref()
+                    .filter(|(_, actor)| actor == source)
+            })
+            .map(|(id, _)| id.as_str())
+            .collect::<BTreeSet<_>>();
+        for definition in visible() {
             let Some((id, _)) = definition
                 .cast
                 .as_ref()
@@ -117,6 +166,9 @@ impl Profile {
             else {
                 continue;
             };
+            if ambiguous_ids.contains(id.as_str()) {
+                continue;
+            }
             let target = targets.entry(id.clone()).or_insert_with(|| TargetRule {
                 name: definition.event.name.clone(),
                 events: Vec::new(),
@@ -127,28 +179,19 @@ impl Profile {
             });
             target.events.push(definition.event.id.clone());
         }
-        if targets.is_empty() {
-            return None;
+        Self {
+            phase: phase.into(),
+            encounter: None,
+            source: source.into(),
+            other_sources: Vec::new(),
+            entry,
+            completion: Completion::FightEnd,
+            max_duration_ms: None,
+            require_main_actor: true,
+            reject_health_reset: true,
+            targets,
+            ignored: BTreeMap::new(),
         }
-        Some(Self {
-            version: 1,
-            observations: ObservationScope::AllCastsAndStarts,
-            segments: vec![SegmentRule {
-                phase: phase.into(),
-                encounter: None,
-                source: source.into(),
-                other_sources: Vec::new(),
-                entry,
-                completion: Completion::FightEnd,
-                max_duration_ms: None,
-                require_main_actor: true,
-                reject_health_reset: true,
-                targets,
-                ignored: BTreeMap::new(),
-            }],
-            not_checked: vec!["Displays without an unambiguous same-time boss Ability sync".into()],
-            inferred: true,
-        })
     }
 }
 
@@ -167,7 +210,7 @@ impl Profile {
             ensure!(
                 !segment.source.is_empty()
                     && !segment.entry.is_empty()
-                    && !segment.targets.is_empty(),
+                    && (self.inferred || !segment.targets.is_empty()),
                 "Segment requires source, entry IDs and targets"
             );
             ensure!(
@@ -275,6 +318,42 @@ fn check_health(log: &CollectedLog, actors: &[&Actor], start: i64, end: i64) -> 
     }
     Ok(())
 }
+fn find_entry<'a>(
+    log: &'a CollectedLog,
+    rule: &SegmentRule,
+    actors: &BTreeMap<i64, &Actor>,
+) -> Option<(usize, &'a Event)> {
+    log.events.iter().enumerate().find(|(_, event)| {
+        event.kind == "cast"
+            && event
+                .source_id
+                .and_then(|id| actors.get(&id))
+                .is_some_and(|actor| actor.name == rule.source)
+            && event
+                .ability_game_id
+                .is_some_and(|id| rule.entry.contains(&format!("{id:X}")))
+    })
+}
+
+fn inferred_segment<'a>(
+    log: &CollectedLog,
+    rules: &'a [SegmentRule],
+    actors: &BTreeMap<i64, &Actor>,
+) -> Result<&'a SegmentRule> {
+    let candidates = rules
+        .iter()
+        .filter_map(|rule| find_entry(log, rule, actors).map(|(index, _)| (rule, index)))
+        .collect::<Vec<_>>();
+    if let [(rule, _)] = candidates.as_slice() {
+        return Ok(rule);
+    }
+    let evidence = candidates
+        .iter()
+        .map(|(rule, index)| json!({"phase":rule.phase,"source":rule.source,"raw_index":index}))
+        .collect::<Vec<_>>();
+    Err(UnverifiedScope(json!({"entry_candidates":evidence})).into())
+}
+
 fn project_segment(
     log: &CollectedLog,
     rule: &SegmentRule,
@@ -284,16 +363,7 @@ fn project_segment(
 ) -> Result<Segment> {
     let main = main_actors(log, rule)?;
     let source = |id: Option<i64>| id.and_then(|id| actors.get(&id)).map(|a| a.name.as_str());
-    let entry = log
-        .events
-        .iter()
-        .enumerate()
-        .find(|(_, e)| {
-            e.kind == "cast"
-                && source(e.source_id) == Some(&rule.source)
-                && e.ability_game_id
-                    .is_some_and(|id| rule.entry.contains(&format!("{id:X}")))
-        })
+    let entry = find_entry(log, rule, actors)
         .ok_or_else(|| exclude("Missing boss entry", json!({"source":rule.source})))?;
     let (entry_event, start) = (entry.0, entry.1.timestamp);
     let defeat = log.events.iter().enumerate().find(|(_, e)| {
@@ -427,12 +497,17 @@ pub(super) fn project(log: &CollectedLog, profile: &Profile) -> Result<Projectio
         .first()
         .context("Missing fight")?
         .encounter_id;
-    let bosses = profile
-        .segments
-        .iter()
-        .filter(|r| r.encounter.is_none_or(|id| id == encounter))
-        .map(|rule| project_segment(log, rule, &actors, origin, profile.inferred))
-        .collect::<Result<Vec<_>>>()?;
+    let bosses = if profile.inferred {
+        let rule = inferred_segment(log, &profile.segments, &actors)?;
+        vec![project_segment(log, rule, &actors, origin, true)?]
+    } else {
+        profile
+            .segments
+            .iter()
+            .filter(|r| r.encounter.is_none_or(|id| id == encounter))
+            .map(|rule| project_segment(log, rule, &actors, origin, false))
+            .collect::<Result<Vec<_>>>()?
+    };
     if bosses.is_empty() {
         return Err(exclude(
             "Unsupported encounter",

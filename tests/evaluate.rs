@@ -41,9 +41,16 @@ fn command(directory: &Path) -> assert_cmd::Command {
 }
 
 #[rstest::rstest]
-#[case(true)]
-#[case(false)]
-fn inferred_evaluation_requires_a_visible_impact_binding(#[case] bound: bool) {
+#[case(true, "B529", "Unbound opening", "evaluated")]
+#[case(false, "B529", "Unbound opening", "unverified")]
+#[case(true, "B528", "Unbound opening", "unverified")]
+#[case(true, "B529", "Bound impact", "unverified")]
+fn inferred_evaluation_requires_one_observed_phase_and_impact_binding(
+    #[case] bound: bool,
+    #[case] other_entry: &str,
+    #[case] opening_name: &str,
+    #[case] expected: &str,
+) {
     let directory = tempfile::tempdir().unwrap();
     let mut manifest = setup(directory.path());
     let sync = if bound {
@@ -57,9 +64,12 @@ fn inferred_evaluation_requires_a_visible_impact_binding(#[case] bound: bool) {
         start "Ability" id="B528" source="Synthetic Boss"
         phase "boss" {{
             enter "Ability" id="B528" source="Synthetic Boss"
-            event "first" 0.0 name="Unbound opening"
+            event "first" 0.0 name="{opening_name}"
             event "second" 4.0 name="Middle impact" {middle_sync}
             event "third" 8.0 name="Bound impact" {sync}
+        }}
+        phase "other" {{
+            enter "Ability" id="{other_entry}" source="Synthetic Boss"
         }}
     }}"#
     );
@@ -71,7 +81,8 @@ fn inferred_evaluation_requires_a_visible_impact_binding(#[case] bound: bool) {
         .current_dir(directory.path())
         .args(["evaluate", "manifest.json", "-o", "report.json"])
         .assert();
-    if bound {
+    let passed = expected == "evaluated";
+    if passed {
         assertion.success();
     } else {
         assertion.failure();
@@ -79,11 +90,15 @@ fn inferred_evaluation_requires_a_visible_impact_binding(#[case] bound: bool) {
     let report: Value =
         serde_json::from_slice(&fs::read(directory.path().join("report.json")).unwrap()).unwrap();
     assert_eq!(report["projection"], "inferred");
-    assert_eq!(
-        report["traces"][0]["status"],
-        if bound { "evaluated" } else { "unverified" }
-    );
-    assert_eq!(report["summary"]["passed"], bound);
+    assert_eq!(report["traces"][0]["status"], expected);
+    assert_eq!(report["summary"]["passed"], passed);
+    if other_entry == "B528" {
+        let candidates = report["traces"][0]["evidence"]["entry_candidates"]
+            .as_array()
+            .unwrap();
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(candidates[1]["phase"], "other");
+    }
     cargo_bin_cmd!("btimeline")
         .current_dir(directory.path())
         .args(["review", "report.json"])

@@ -59,6 +59,12 @@ struct Boss {
 struct ExclusionEvidence {
     #[serde(default)]
     audit_only: Vec<AuditScope>,
+    entry_candidates: Option<Vec<EntryCandidate>>,
+}
+#[derive(Deserialize)]
+struct EntryCandidate {
+    phase: String,
+    raw_index: usize,
 }
 #[derive(Deserialize)]
 struct AuditScope {
@@ -207,9 +213,21 @@ fn first_issue(trace: &Trace) -> Option<Value> {
             .error
             .as_deref()
             .map(|error| error.chars().take(400).collect::<String>());
-        return Some(
-            json!({"input":trace.input,"status":trace.status,"stage":trace.stage,"error":error}),
-        );
+        let mut issue =
+            json!({"input":trace.input,"status":trace.status,"stage":trace.stage,"error":error});
+        if let Some((fields, candidates)) = issue.as_object_mut().zip(
+            trace
+                .evidence
+                .as_ref()
+                .and_then(|evidence| evidence.entry_candidates.as_ref()),
+        ) {
+            fields.insert("entry_candidate_count".into(), json!(candidates.len()));
+            let examples = candidates.iter().take(3).map(|entry| {
+                json!({"phase":entry.phase.chars().take(120).collect::<String>(),"raw_index":entry.raw_index})
+            }).collect::<Vec<_>>();
+            fields.insert("entry_candidates".into(), json!(examples));
+        }
+        return Some(issue);
     }
     let failed_targets = trace
         .bosses
