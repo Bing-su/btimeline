@@ -380,7 +380,7 @@ fn entirely_excluded_inputs_do_not_pass() {
 }
 
 #[test]
-fn a_scope_with_no_matching_targets_is_an_error_instead_of_an_empty_pass() {
+fn a_scope_with_no_matching_targets_keeps_entry_evidence_without_passing() {
     let directory = tempfile::tempdir().expect("temporary directory");
     let manifest = setup(directory.path());
     save(directory.path(), &manifest);
@@ -394,9 +394,13 @@ fn a_scope_with_no_matching_targets_is_an_error_instead_of_an_empty_pass() {
     let report: Value =
         serde_json::from_slice(&fs::read(directory.path().join("report.json")).expect("report"))
             .expect("JSON");
-    assert_eq!(report["summary"]["eligible"], 1);
+    assert_eq!(report["summary"]["eligible"], 0);
     assert_eq!(report["summary"]["passed"], false);
-    assert_eq!(report["traces"][0]["status"], "error");
+    let trace = &report["traces"][0];
+    assert_eq!(trace["status"], "unverified");
+    assert_eq!(trace["safe_entry"], true);
+    assert_eq!(trace["passed"], Value::Null);
+    assert_eq!(trace["unverified_phases"], json!(["boss"]));
 }
 
 #[test]

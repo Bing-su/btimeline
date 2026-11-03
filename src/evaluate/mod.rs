@@ -135,27 +135,28 @@ fn evaluate_input(
         .bosses
         .iter()
         .filter(|boss| {
-            !boss.targets.iter().any(|target| {
-                target.at_ms - boss.entry_ms >= target.lead_ms.unwrap_or(manifest.forecast_lead_ms)
-            })
+            // A pull can end after a valid entry but before the first target.
+            boss.targets.is_empty()
+                || (profile.inferred
+                    && !boss.targets.iter().any(|target| {
+                        target.at_ms - boss.entry_ms
+                            >= target.lead_ms.unwrap_or(manifest.forecast_lead_ms)
+                    }))
         })
         .map(|boss| &boss.phase)
         .collect::<Vec<_>>();
     let fields = result
         .as_object_mut()
         .context("Expected evaluation object")?;
-    if profile.inferred && !unverified_phases.is_empty() {
+    if !unverified_phases.is_empty() {
         fields.insert("unverified_phases".into(), json!(unverified_phases));
         fields.insert("review_required".into(), json!(true));
     }
-    let status = if profile.inferred
-        && !unverified_phases.is_empty()
-        && fields.get("passed") == Some(&json!(true))
-    {
+    let status = if !unverified_phases.is_empty() && fields.get("passed") == Some(&json!(true)) {
         fields.insert("passed".into(), Value::Null);
         fields.insert(
             "error".into(),
-            json!("At least one phase has no inferred targets with enough observed time for a forecast"),
+            json!("At least one phase has no observed targets eligible for evaluation"),
         );
         "unverified"
     } else {

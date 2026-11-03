@@ -225,6 +225,9 @@ fn first_issue(trace: &Trace) -> Option<Value> {
             .map(|error| error.chars().take(400).collect::<String>());
         let mut issue =
             json!({"input":trace.input,"status":trace.status,"stage":trace.stage,"error":error});
+        if let Some((fields, safe_entry)) = issue.as_object_mut().zip(trace.safe_entry) {
+            fields.insert("safe_entry".into(), json!(safe_entry));
+        }
         if let Some((fields, candidates)) = issue.as_object_mut().zip(
             trace
                 .evidence

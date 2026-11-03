@@ -653,10 +653,6 @@ fn project_segment(
         last.insert(group, event.timestamp);
         targets.push(target.project(raw_index, event.timestamp - origin, id));
     }
-    ensure!(
-        inferred || !targets.is_empty(),
-        "No evaluation targets in declared scope"
-    );
     let audit = audit_segment(log, rule, start..=end, origin)?;
     Ok(Segment {
         phase: rule.phase.clone(),
