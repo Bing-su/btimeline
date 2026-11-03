@@ -1,0 +1,936 @@
+{
+  "version": 1,
+  "evidence_role": "held_out",
+  "timeline_sha256": "589afddf3467a6865e7057ee73fe88a0075283a6671839e35a5a83d0b965640b",
+  "profile_sha256": "f3435bf78cd8d62b92c6a44ce7a0beeae6002c911626b50234fad42ccf37fe1f",
+  "evaluator_sha256": "9735855dce4fae823068aa18f1b1c15308f832d540b62519e1b9ea4b90d85a91",
+  "runs": [
+    {
+      "manifest": "tests/fixtures/authored/sandoria-body-fresh-holdout-plan.json",
+      "manifest_sha256": "09680ad3591a6d7a519f6fbb7a2aa3aab4629b523fb0da880b6f2c312e684020",
+      "report": "out/sandoria-body-fresh-holdout.json",
+      "report_sha256": "4e131de52f2d2c52fab58c16e9f32ec6eb9c310f1f2639a19d317e1a73afd9e3",
+      "summary": {
+        "eligible": 24,
+        "excluded": 0,
+        "passed": false,
+        "passed_traces": 23,
+        "selected": 24
+      },
+      "review_required": true,
+      "choices": [
+        {
+          "branch": "shijin",
+          "first_observation": {
+            "input": "logs/sandoria-body-fresh-holdout/ZzqnvApcPVYNDmH2_17.json",
+            "selection": {
+              "at_ms": 103393,
+              "iteration": null,
+              "phase_instance": 1,
+              "raw_index": 9818,
+              "run": 1
+            }
+          },
+          "input_count": 1,
+          "option": "eastwind",
+          "owner": {
+            "branch": null,
+            "loop_id": null,
+            "on_exit": false,
+            "option": null,
+            "phase": "kirin"
+          },
+          "signal_selections": 1
+        },
+        {
+          "branch": "shijin",
+          "first_observation": null,
+          "input_count": 0,
+          "option": "genbu",
+          "owner": {
+            "branch": null,
+            "loop_id": null,
+            "on_exit": false,
+            "option": null,
+            "phase": "kirin"
+          },
+          "signal_selections": 0
+        },
+        {
+          "branch": "shijin",
+          "first_observation": {
+            "input": "logs/sandoria-body-fresh-holdout/LWcQxMbhZr9NK68X_4.json",
+            "selection": {
+              "at_ms": 107732,
+              "iteration": null,
+              "phase_instance": 1,
+              "raw_index": 10641,
+              "run": 1
+            }
+          },
+          "input_count": 1,
+          "option": "quake",
+          "owner": {
+            "branch": null,
+            "loop_id": null,
+            "on_exit": false,
+            "option": null,
+            "phase": "kirin"
+          },
+          "signal_selections": 1
+        },
+        {
+          "branch": "shijin",
+          "first_observation": {
+            "input": "logs/sandoria-body-fresh-holdout/Y9BczK4fbPC7XLRA_3.json",
+            "selection": {
+              "at_ms": 113214,
+              "iteration": null,
+              "phase_instance": 1,
+              "raw_index": 9089,
+              "run": 1
+            }
+          },
+          "input_count": 4,
+          "option": "stonega",
+          "owner": {
+            "branch": null,
+            "loop_id": null,
+            "on_exit": false,
+            "option": null,
+            "phase": "kirin"
+          },
+          "signal_selections": 4
+        }
+      ],
+      "issues": [
+        {
+          "at_ms": 272603,
+          "diagnostic": null,
+          "failed_targets": 6,
+          "failure_reasons": ["missing_display", "forecast_missing"],
+          "forecast_error_ms": null,
+          "id": "AD77",
+          "input": "logs/sandoria-body-fresh-holdout/LbWnM34CRBc6xHFd_8.json",
+          "phase": "eald",
+          "raw_index": 23026,
+          "replay_error_ms": null
+        },
+        {
+          "at_ms": 309521,
+          "event_id": "kam-33",
+          "input": "logs/sandoria-body-fresh-holdout/ZzqnvApcPVYNDmH2_21.json",
+          "kind": "unmatched_display",
+          "phase": "kam",
+          "unmatched_displays": 1
+        }
+      ],
+      "traces": [
+        {
+          "input": "logs/sandoria-body-fresh-holdout/LbWnM34CRBc6xHFd_7.json",
+          "trace": "LbWnM34CRBc6xHFd/7",
+          "phase": "kam",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "488c88abfd56228dcff78894a0139b89950a4583c25d942800799e8355c7cdc3",
+          "targets": 36,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/Y9BczK4fbPC7XLRA_8.json",
+          "trace": "Y9BczK4fbPC7XLRA/8",
+          "phase": "eald",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "55f229e520e40e3f48c8d128e5ea9fec791f2ae314d14f668149ddb32a89bdba",
+          "targets": 29,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/ZzqnvApcPVYNDmH2_19.json",
+          "trace": "ZzqnvApcPVYNDmH2/19",
+          "phase": "duo",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "dcc2aa37a843849f079146018e53887836be1a83a756565796175717b3498ee3",
+          "targets": 30,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/LWcQxMbhZr9NK68X_4.json",
+          "trace": "LWcQxMbhZr9NK68X/4",
+          "phase": "kirin",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "b2a218ef3c0899424bcf7cd0f559ac821bc8f2fd09fb1b37095528bc4e0758cf",
+          "targets": 19,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/YHWDtcLbNjahV67M_8.json",
+          "trace": "YHWDtcLbNjahV67M/8",
+          "phase": "eald",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "e3df7e0ae49dff8ceacc95c38c990121d24c839bb6ff51cf785bb5e74370c961",
+          "targets": 27,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/caLP6Ym7rTAbZkhG_28.json",
+          "trace": "caLP6Ym7rTAbZkhG/28",
+          "phase": "kam",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "93d11fe4c5e96e05504db1e89703f1867b8c7d9bd21d5e64574b1114f313b6b7",
+          "targets": 33,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/Y9BczK4fbPC7XLRA_3.json",
+          "trace": "Y9BczK4fbPC7XLRA/3",
+          "phase": "kirin",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "6015cca84e85aef8738beefa0e292eaf896fb3d72be74d1500f9208c6586d5d2",
+          "targets": 20,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/YHWDtcLbNjahV67M_5.json",
+          "trace": "YHWDtcLbNjahV67M/5",
+          "phase": "duo",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "7fe37d09b61fcdef690b687d2950d828c7ce88f8fd136c5411644a11bf01a523",
+          "targets": 30,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/LbWnM34CRBc6xHFd_8.json",
+          "trace": "LbWnM34CRBc6xHFd/8",
+          "phase": "eald",
+          "status": "evaluated",
+          "passed": false,
+          "fingerprint": "1de3992f5f69f48f13eec11821c9c71e3c080987371128d0b83e470e2a48fe3e",
+          "targets": 8,
+          "unmatched_displays": 4
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/ZzqnvApcPVYNDmH2_21.json",
+          "trace": "ZzqnvApcPVYNDmH2/21",
+          "phase": "kam",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "63cbc8739e9ab9f8a585e0e82b1aed7eaf7f7b6c9771f8fc9402b494874243bc",
+          "targets": 32,
+          "unmatched_displays": 1
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/caLP6Ym7rTAbZkhG_26.json",
+          "trace": "caLP6Ym7rTAbZkhG/26",
+          "phase": "duo",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "a5bb1e2f9609009c7643bf6a4d0f5a1ec6113188ac44de124db5985b271f47da",
+          "targets": 29,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/LWcQxMbhZr9NK68X_9.json",
+          "trace": "LWcQxMbhZr9NK68X/9",
+          "phase": "eald",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "3a4cfb4254966dc455e278e30399f84f4345b8071dce017619c0f65dd8f45207",
+          "targets": 26,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/caLP6Ym7rTAbZkhG_24.json",
+          "trace": "caLP6Ym7rTAbZkhG/24",
+          "phase": "kirin",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "0f2b3364a9d0ae57a34770e18597d8f5b1fa70c68693257907a589923edf0293",
+          "targets": 13,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/LbWnM34CRBc6xHFd_3.json",
+          "trace": "LbWnM34CRBc6xHFd/3",
+          "phase": "kirin",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "1b26bec06fa4bb1793444b2044a292dcc064759fafc269228f7f34768d7240bd",
+          "targets": 17,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/LWcQxMbhZr9NK68X_6.json",
+          "trace": "LWcQxMbhZr9NK68X/6",
+          "phase": "duo",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "80f053e8110aad7b01971c61833c3391d43d17ace5cad84afb32089c9d5fdff3",
+          "targets": 27,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/YHWDtcLbNjahV67M_7.json",
+          "trace": "YHWDtcLbNjahV67M/7",
+          "phase": "kam",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "4ee43de78d6d22d02feb42c32610ddfb35437ce16c031610cf1eb5e63966c264",
+          "targets": 32,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/ZzqnvApcPVYNDmH2_22.json",
+          "trace": "ZzqnvApcPVYNDmH2/22",
+          "phase": "eald",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "31cf5e30f5de945215d5a6c320f7df21707d8634259db2ac62ef3ac3698ce52a",
+          "targets": 27,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/Y9BczK4fbPC7XLRA_5.json",
+          "trace": "Y9BczK4fbPC7XLRA/5",
+          "phase": "duo",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "58ce474cfe573142b0f9b8520e627db8ca3b6def06db461cb79508ebab655fc9",
+          "targets": 33,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/YHWDtcLbNjahV67M_3.json",
+          "trace": "YHWDtcLbNjahV67M/3",
+          "phase": "kirin",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "cb439201818d36ca03271a6c7ec3fcb357ade21001f8d7cafa19b47f268c85c0",
+          "targets": 17,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/LWcQxMbhZr9NK68X_8.json",
+          "trace": "LWcQxMbhZr9NK68X/8",
+          "phase": "kam",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "919827518805d62bb41cc1d1516ca7343a81bcd11a292996e3083c938a7c8d39",
+          "targets": 28,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/caLP6Ym7rTAbZkhG_29.json",
+          "trace": "caLP6Ym7rTAbZkhG/29",
+          "phase": "eald",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "ea5367b104b6b79bd190474f68edd6c7b87e793102d94a5fae74b53c7f5f8c89",
+          "targets": 25,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/ZzqnvApcPVYNDmH2_17.json",
+          "trace": "ZzqnvApcPVYNDmH2/17",
+          "phase": "kirin",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "ca784de2038b3eb8f507651da0a4d63b5690a63d035167382e31af47caed250a",
+          "targets": 19,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/LbWnM34CRBc6xHFd_5.json",
+          "trace": "LbWnM34CRBc6xHFd/5",
+          "phase": "duo",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "85a724fcf277737610df73395d34075e1327d8f7f28b4782211501c8f6638dd6",
+          "targets": 29,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/Y9BczK4fbPC7XLRA_7.json",
+          "trace": "Y9BczK4fbPC7XLRA/7",
+          "phase": "kam",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "d6f697d0c9c837b4879ac47d6ff75508e217d0c08b69aadf75b7a0cdedc3d478",
+          "targets": 34,
+          "unmatched_displays": 0
+        }
+      ],
+      "failed_targets": [
+        {
+          "input": "logs/sandoria-body-fresh-holdout/LbWnM34CRBc6xHFd_8.json",
+          "phase": "eald",
+          "raw_index": 23026,
+          "id": "AD77",
+          "at_ms": 272603,
+          "replay_error_ms": null,
+          "forecast_error_ms": null,
+          "reasons": ["missing_display", "forecast_missing"]
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/LbWnM34CRBc6xHFd_8.json",
+          "phase": "eald",
+          "raw_index": 23745,
+          "id": "AD75",
+          "at_ms": 281701,
+          "replay_error_ms": null,
+          "forecast_error_ms": null,
+          "reasons": ["missing_display", "forecast_missing"]
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/LbWnM34CRBc6xHFd_8.json",
+          "phase": "eald",
+          "raw_index": 23979,
+          "id": "AD76",
+          "at_ms": 285799,
+          "replay_error_ms": null,
+          "forecast_error_ms": null,
+          "reasons": ["missing_display", "forecast_missing"]
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/LbWnM34CRBc6xHFd_8.json",
+          "phase": "eald",
+          "raw_index": 24411,
+          "id": "AD5C",
+          "at_ms": 290837,
+          "replay_error_ms": null,
+          "forecast_error_ms": null,
+          "reasons": ["missing_display", "forecast_missing"]
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/LbWnM34CRBc6xHFd_8.json",
+          "phase": "eald",
+          "raw_index": 25277,
+          "id": "AD53",
+          "at_ms": 299301,
+          "replay_error_ms": null,
+          "forecast_error_ms": null,
+          "reasons": ["missing_display", "forecast_missing"]
+        },
+        {
+          "input": "logs/sandoria-body-fresh-holdout/LbWnM34CRBc6xHFd_8.json",
+          "phase": "eald",
+          "raw_index": 28141,
+          "id": "AD72",
+          "at_ms": 326608,
+          "replay_error_ms": null,
+          "forecast_error_ms": null,
+          "reasons": ["missing_display", "forecast_missing"]
+        }
+      ],
+      "not_checked": [
+        "ACT equivalence and actual lifecycle signals",
+        "UI visibility",
+        "post-second-Fire duo tail, helper attacks and reactive buffs",
+        "unobserved later cycles and mechanic positioning"
+      ]
+    },
+    {
+      "manifest": "tests/fixtures/authored/sandoria-kirin-followup-holdout-plan.json",
+      "manifest_sha256": "8d396063d33f497ab09917b17dd5e273a9d47c5760388c2bd31211b3feb46cb6",
+      "report": "out/sandoria-kirin-followup-holdout.json",
+      "report_sha256": "ac654c43f6bea0aa21c51476c72a5ae7bfb99f8f9798310db05d89e51f7cf02b",
+      "summary": {
+        "eligible": 7,
+        "excluded": 1,
+        "passed": false,
+        "passed_traces": 5,
+        "selected": 8
+      },
+      "review_required": true,
+      "choices": [
+        {
+          "branch": "shijin",
+          "first_observation": {
+            "input": "logs/sandoria-kirin-followup-holdout/cptvaKBRfn9YMrQ2_3.json",
+            "selection": {
+              "at_ms": 102519,
+              "iteration": null,
+              "phase_instance": 1,
+              "raw_index": 9401,
+              "run": 1
+            }
+          },
+          "input_count": 1,
+          "option": "eastwind",
+          "owner": {
+            "branch": null,
+            "loop_id": null,
+            "on_exit": false,
+            "option": null,
+            "phase": "kirin"
+          },
+          "signal_selections": 1
+        },
+        {
+          "branch": "shijin",
+          "first_observation": {
+            "input": "logs/sandoria-kirin-followup-holdout/vnwPcLFD9A8k4mfJ_27.json",
+            "selection": {
+              "at_ms": 90772,
+              "iteration": null,
+              "phase_instance": 1,
+              "raw_index": 8322,
+              "run": 1
+            }
+          },
+          "input_count": 1,
+          "option": "genbu",
+          "owner": {
+            "branch": null,
+            "loop_id": null,
+            "on_exit": false,
+            "option": null,
+            "phase": "kirin"
+          },
+          "signal_selections": 1
+        },
+        {
+          "branch": "shijin",
+          "first_observation": {
+            "input": "logs/sandoria-kirin-followup-holdout/yPFpj3D9NC4Kq8bB_312.json",
+            "selection": {
+              "at_ms": 107406,
+              "iteration": null,
+              "phase_instance": 1,
+              "raw_index": 10214,
+              "run": 1
+            }
+          },
+          "input_count": 2,
+          "option": "quake",
+          "owner": {
+            "branch": null,
+            "loop_id": null,
+            "on_exit": false,
+            "option": null,
+            "phase": "kirin"
+          },
+          "signal_selections": 2
+        },
+        {
+          "branch": "shijin",
+          "first_observation": {
+            "input": "logs/sandoria-kirin-followup-holdout/VyQC4gPcwHftG9MW_30.json",
+            "selection": {
+              "at_ms": 114003,
+              "iteration": null,
+              "phase_instance": 1,
+              "raw_index": 11777,
+              "run": 1
+            }
+          },
+          "input_count": 1,
+          "option": "stonega",
+          "owner": {
+            "branch": null,
+            "loop_id": null,
+            "on_exit": false,
+            "option": null,
+            "phase": "kirin"
+          },
+          "signal_selections": 1
+        }
+      ],
+      "issues": [
+        {
+          "at_ms": 111447,
+          "diagnostic": null,
+          "failed_targets": 15,
+          "failure_reasons": ["missing_display", "forecast_missing"],
+          "forecast_error_ms": null,
+          "id": "AFF5",
+          "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+          "phase": "kirin",
+          "raw_index": 10968,
+          "replay_error_ms": null
+        },
+        {
+          "at_ms": 110532,
+          "diagnostic": null,
+          "failed_targets": 12,
+          "failure_reasons": ["missing_display", "forecast_missing"],
+          "forecast_error_ms": null,
+          "id": "AFF5",
+          "input": "logs/sandoria-kirin-followup-holdout/z1BXyNRgnxkLac2h_2.json",
+          "phase": "kirin",
+          "raw_index": 9629,
+          "replay_error_ms": null
+        },
+        {
+          "error": "InputExclusion: Unknown cast source",
+          "input": "logs/sandoria-kirin-followup-holdout/bBH61QKjfNnDVyzg_18.json",
+          "stage": "input-validation",
+          "status": "excluded"
+        }
+      ],
+      "traces": [
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/bBH61QKjfNnDVyzg_18.json",
+          "status": "excluded",
+          "passed": null,
+          "error": "InputExclusion: Unknown cast source"
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+          "trace": "NGytdwK3ZWTjn78C/16",
+          "phase": "kirin",
+          "status": "evaluated",
+          "passed": false,
+          "fingerprint": "66fcc08a4a76587878c67c89dad3e140d663f6b336b5e215bbc64973b083b826",
+          "targets": 22,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/yPFpj3D9NC4Kq8bB_312.json",
+          "trace": "yPFpj3D9NC4Kq8bB/312",
+          "phase": "kirin",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "63a8836ec9096b2a8a0bd09fcf68411af224f996abecc6f55c166fa4fd66cc03",
+          "targets": 22,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/vnwPcLFD9A8k4mfJ_27.json",
+          "trace": "vnwPcLFD9A8k4mfJ/27",
+          "phase": "kirin",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "39dd376cae3e781061bd0a8bd7574981865faf608bf85111f8da5f42d5d43b4d",
+          "targets": 17,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/z1BXyNRgnxkLac2h_2.json",
+          "trace": "z1BXyNRgnxkLac2h/2",
+          "phase": "kirin",
+          "status": "evaluated",
+          "passed": false,
+          "fingerprint": "34580e967b9a317c1be81ddd349d241fa07866c0dd93f49cb1d268ce5d405d19",
+          "targets": 19,
+          "unmatched_displays": 1
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/cptvaKBRfn9YMrQ2_3.json",
+          "trace": "cptvaKBRfn9YMrQ2/3",
+          "phase": "kirin",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "8d7fb152335c14bce12d52ba616a9e9f0b90f6ddb9f27dca93dd5df5a1ede63e",
+          "targets": 19,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/qbMpHmF1Wdh68YrD_44.json",
+          "trace": "qbMpHmF1Wdh68YrD/44",
+          "phase": "kirin",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "f04343e22e337c952e3d18166d0cd3abf5ec80985d9a44345d7e44ce386c5d3f",
+          "targets": 19,
+          "unmatched_displays": 0
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/VyQC4gPcwHftG9MW_30.json",
+          "trace": "VyQC4gPcwHftG9MW/30",
+          "phase": "kirin",
+          "status": "evaluated",
+          "passed": true,
+          "fingerprint": "4abdc7344188c7ead4411165a26603bacf7b502f3728c9aac87195f6565cfe27",
+          "targets": 13,
+          "unmatched_displays": 0
+        }
+      ],
+      "failed_targets": [
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+          "phase": "kirin",
+          "raw_index": 10968,
+          "id": "AFF5",
+          "at_ms": 111447,
+          "replay_error_ms": null,
+          "forecast_error_ms": null,
+          "reasons": ["missing_display", "forecast_missing"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+          "phase": "kirin",
+          "raw_index": 11895,
+          "id": "A916",
+          "at_ms": 122587,
+          "replay_error_ms": null,
+          "forecast_error_ms": null,
+          "reasons": ["missing_display", "forecast_missing"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+          "phase": "kirin",
+          "raw_index": 12718,
+          "id": "A918",
+          "at_ms": 130649,
+          "replay_error_ms": null,
+          "forecast_error_ms": null,
+          "reasons": ["missing_display", "forecast_missing", "projection_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+          "phase": "kirin",
+          "raw_index": 12725,
+          "id": "A917",
+          "at_ms": 130649,
+          "replay_error_ms": null,
+          "forecast_error_ms": null,
+          "reasons": ["missing_display", "forecast_missing", "projection_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+          "phase": "kirin",
+          "raw_index": 13547,
+          "id": "AD91",
+          "at_ms": 138086,
+          "replay_error_ms": 31,
+          "forecast_error_ms": null,
+          "reasons": ["forecast_missing", "current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+          "phase": "kirin",
+          "raw_index": 14557,
+          "id": "AD92",
+          "at_ms": 146551,
+          "replay_error_ms": 66,
+          "forecast_error_ms": 66,
+          "reasons": ["current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+          "phase": "kirin",
+          "raw_index": 16054,
+          "id": "AD93",
+          "at_ms": 161164,
+          "replay_error_ms": 53,
+          "forecast_error_ms": 53,
+          "reasons": ["current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+          "phase": "kirin",
+          "raw_index": 17033,
+          "id": "ADCA",
+          "at_ms": 171507,
+          "replay_error_ms": 10,
+          "forecast_error_ms": 10,
+          "reasons": ["current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+          "phase": "kirin",
+          "raw_index": 18172,
+          "id": "ADAD",
+          "at_ms": 179973,
+          "replay_error_ms": 44,
+          "forecast_error_ms": 44,
+          "reasons": ["current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+          "phase": "kirin",
+          "raw_index": 18534,
+          "id": "ADB0",
+          "at_ms": 183982,
+          "replay_error_ms": 35,
+          "forecast_error_ms": 35,
+          "reasons": ["current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+          "phase": "kirin",
+          "raw_index": 18743,
+          "id": "AD9D",
+          "at_ms": 185940,
+          "replay_error_ms": 623,
+          "forecast_error_ms": 623,
+          "reasons": ["current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+          "phase": "kirin",
+          "raw_index": 19149,
+          "id": "ADA5",
+          "at_ms": 190438,
+          "replay_error_ms": 21,
+          "forecast_error_ms": 21,
+          "reasons": ["current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+          "phase": "kirin",
+          "raw_index": 21217,
+          "id": "ADB1",
+          "at_ms": 208343,
+          "replay_error_ms": 26,
+          "forecast_error_ms": 26,
+          "reasons": ["current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+          "phase": "kirin",
+          "raw_index": 23267,
+          "id": "ADB2",
+          "at_ms": 228970,
+          "replay_error_ms": 47,
+          "forecast_error_ms": 47,
+          "reasons": ["current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/NGytdwK3ZWTjn78C_16.json",
+          "phase": "kirin",
+          "raw_index": 24118,
+          "id": "ADBF",
+          "at_ms": 237083,
+          "replay_error_ms": 66,
+          "forecast_error_ms": 66,
+          "reasons": ["current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/z1BXyNRgnxkLac2h_2.json",
+          "phase": "kirin",
+          "raw_index": 9629,
+          "id": "AFF5",
+          "at_ms": 110532,
+          "replay_error_ms": null,
+          "forecast_error_ms": null,
+          "reasons": ["missing_display", "forecast_missing"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/z1BXyNRgnxkLac2h_2.json",
+          "phase": "kirin",
+          "raw_index": 10382,
+          "id": "A916",
+          "at_ms": 121666,
+          "replay_error_ms": null,
+          "forecast_error_ms": null,
+          "reasons": ["missing_display", "forecast_missing"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/z1BXyNRgnxkLac2h_2.json",
+          "phase": "kirin",
+          "raw_index": 11014,
+          "id": "A918",
+          "at_ms": 129736,
+          "replay_error_ms": null,
+          "forecast_error_ms": null,
+          "reasons": ["missing_display", "forecast_missing", "projection_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/z1BXyNRgnxkLac2h_2.json",
+          "phase": "kirin",
+          "raw_index": 11020,
+          "id": "A917",
+          "at_ms": 129736,
+          "replay_error_ms": null,
+          "forecast_error_ms": null,
+          "reasons": ["missing_display", "forecast_missing", "projection_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/z1BXyNRgnxkLac2h_2.json",
+          "phase": "kirin",
+          "raw_index": 11854,
+          "id": "AD91",
+          "at_ms": 137213,
+          "replay_error_ms": 55,
+          "forecast_error_ms": null,
+          "reasons": ["forecast_missing", "current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/z1BXyNRgnxkLac2h_2.json",
+          "phase": "kirin",
+          "raw_index": 12619,
+          "id": "AD92",
+          "at_ms": 145677,
+          "replay_error_ms": 91,
+          "forecast_error_ms": 91,
+          "reasons": ["current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/z1BXyNRgnxkLac2h_2.json",
+          "phase": "kirin",
+          "raw_index": 13939,
+          "id": "AD93",
+          "at_ms": 160286,
+          "replay_error_ms": 82,
+          "forecast_error_ms": 82,
+          "reasons": ["current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/z1BXyNRgnxkLac2h_2.json",
+          "phase": "kirin",
+          "raw_index": 14900,
+          "id": "ADCA",
+          "at_ms": 170625,
+          "replay_error_ms": 43,
+          "forecast_error_ms": 43,
+          "reasons": ["current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/z1BXyNRgnxkLac2h_2.json",
+          "phase": "kirin",
+          "raw_index": 15775,
+          "id": "ADAD",
+          "at_ms": 179082,
+          "replay_error_ms": 86,
+          "forecast_error_ms": 86,
+          "reasons": ["current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/z1BXyNRgnxkLac2h_2.json",
+          "phase": "kirin",
+          "raw_index": 16025,
+          "id": "ADB0",
+          "at_ms": 183093,
+          "replay_error_ms": 75,
+          "forecast_error_ms": 75,
+          "reasons": ["current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/z1BXyNRgnxkLac2h_2.json",
+          "phase": "kirin",
+          "raw_index": 16139,
+          "id": "AD9D",
+          "at_ms": 185053,
+          "replay_error_ms": 585,
+          "forecast_error_ms": 585,
+          "reasons": ["current_diagnostic"]
+        },
+        {
+          "input": "logs/sandoria-kirin-followup-holdout/z1BXyNRgnxkLac2h_2.json",
+          "phase": "kirin",
+          "raw_index": 16465,
+          "id": "ADA5",
+          "at_ms": 189549,
+          "replay_error_ms": 19,
+          "forecast_error_ms": 19,
+          "reasons": ["current_diagnostic"]
+        }
+      ],
+      "not_checked": [
+        "ACT equivalence and actual lifecycle signals",
+        "UI visibility",
+        "post-second-Fire duo tail, helper attacks and reactive buffs",
+        "unobserved later cycles and mechanic positioning"
+      ]
+    }
+  ]
+}

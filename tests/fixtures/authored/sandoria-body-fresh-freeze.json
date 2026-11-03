@@ -1,0 +1,139 @@
+{
+  "evidence_role": "held_out",
+  "timeline": "timelines/sandoria.kdl",
+  "timeline_sha256": "589afddf3467a6865e7057ee73fe88a0075283a6671839e35a5a83d0b965640b",
+  "profile": "timelines/sandoria.evaluation.json",
+  "profile_sha256": "f3435bf78cd8d62b92c6a44ce7a0beeae6002c911626b50234fad42ccf37fe1f",
+  "evaluator": "out/btimeline-body-frozen",
+  "evaluator_sha256": "9735855dce4fae823068aa18f1b1c15308f832d540b62519e1b9ea4b90d85a91",
+  "forecast_lead_ms": 5000,
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "download_plan": "tests/fixtures/authored/sandoria-body-fresh-download-plan.json",
+  "download_plan_sha256": "51085821da945974933336fb04fc84b10de13a5393eba4379a85b4999f1c5c08",
+  "selection": "All 24 fights from six previously unused reports discovered on page 5; metadata only inspected before freeze",
+  "inputs": [
+    {
+      "report": "LbWnM34CRBc6xHFd",
+      "fight": 7,
+      "encounter": 2069
+    },
+    {
+      "report": "Y9BczK4fbPC7XLRA",
+      "fight": 8,
+      "encounter": 2070
+    },
+    {
+      "report": "ZzqnvApcPVYNDmH2",
+      "fight": 19,
+      "encounter": 2068
+    },
+    {
+      "report": "LWcQxMbhZr9NK68X",
+      "fight": 4,
+      "encounter": 2067
+    },
+    {
+      "report": "YHWDtcLbNjahV67M",
+      "fight": 8,
+      "encounter": 2070
+    },
+    {
+      "report": "caLP6Ym7rTAbZkhG",
+      "fight": 28,
+      "encounter": 2069
+    },
+    {
+      "report": "Y9BczK4fbPC7XLRA",
+      "fight": 3,
+      "encounter": 2067
+    },
+    {
+      "report": "YHWDtcLbNjahV67M",
+      "fight": 5,
+      "encounter": 2068
+    },
+    {
+      "report": "LbWnM34CRBc6xHFd",
+      "fight": 8,
+      "encounter": 2070
+    },
+    {
+      "report": "ZzqnvApcPVYNDmH2",
+      "fight": 21,
+      "encounter": 2069
+    },
+    {
+      "report": "caLP6Ym7rTAbZkhG",
+      "fight": 26,
+      "encounter": 2068
+    },
+    {
+      "report": "LWcQxMbhZr9NK68X",
+      "fight": 9,
+      "encounter": 2070
+    },
+    {
+      "report": "caLP6Ym7rTAbZkhG",
+      "fight": 24,
+      "encounter": 2067
+    },
+    {
+      "report": "LbWnM34CRBc6xHFd",
+      "fight": 3,
+      "encounter": 2067
+    },
+    {
+      "report": "LWcQxMbhZr9NK68X",
+      "fight": 6,
+      "encounter": 2068
+    },
+    {
+      "report": "YHWDtcLbNjahV67M",
+      "fight": 7,
+      "encounter": 2069
+    },
+    {
+      "report": "ZzqnvApcPVYNDmH2",
+      "fight": 22,
+      "encounter": 2070
+    },
+    {
+      "report": "Y9BczK4fbPC7XLRA",
+      "fight": 5,
+      "encounter": 2068
+    },
+    {
+      "report": "YHWDtcLbNjahV67M",
+      "fight": 3,
+      "encounter": 2067
+    },
+    {
+      "report": "LWcQxMbhZr9NK68X",
+      "fight": 8,
+      "encounter": 2069
+    },
+    {
+      "report": "caLP6Ym7rTAbZkhG",
+      "fight": 29,
+      "encounter": 2070
+    },
+    {
+      "report": "ZzqnvApcPVYNDmH2",
+      "fight": 17,
+      "encounter": 2067
+    },
+    {
+      "report": "LbWnM34CRBc6xHFd",
+      "fight": 5,
+      "encounter": 2068
+    },
+    {
+      "report": "Y9BczK4fbPC7XLRA",
+      "fight": 7,
+      "encounter": 2069
+    }
+  ],
+  "original_download_plan_sha256": "525d2dbed2c9c6c086988c79da78199c67bd4007f3bda001aa85cdf7a196325b",
+  "plan_format_note": "Original native plan and formatted tracked plan contain identical JSON values; both byte hashes retained before event inspection"
+}

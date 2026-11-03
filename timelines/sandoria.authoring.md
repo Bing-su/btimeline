@@ -95,7 +95,7 @@ cargo test --test authored_sandoria
 
 ## 이벤트 ID 평가가 드러낸 표시 24건 검토
 
-현재 KDL SHA-256은 `589afddf3467a6865e7057ee73fe88a0075283a6671839e35a5a83d0b965640b`다. 원래 개발·보류를 합친 44개 입력을 [경고 검토 계획](../tests/fixtures/authored/sandoria-warning-review-plan.json)에 개발 역할로 고정했다. 42개 적격 입력의 1차 재평가가 통과했고 원래 이름 누락/본체 불명확 제외 2개를 유지했다. 과거 manifest·validation은 덮어쓰지 않았다. 현재 수정본의 독립 보류 검증은 아직 없다.
+현재 KDL SHA-256은 `589afddf3467a6865e7057ee73fe88a0075283a6671839e35a5a83d0b965640b`다. 원래 개발·보류를 합친 44개 입력을 [경고 검토 계획](../tests/fixtures/authored/sandoria-warning-review-plan.json)에 개발 역할로 고정했다. 42개 적격 입력의 1차 재평가가 통과했고 원래 이름 누락/본체 불명확 제외 2개를 유지했다. 과거 manifest·validation은 덮어쓰지 않았다. 이 재평가는 독립 검증 표본으로 계산하지 않는다.
 
 | 원인                                | 건수 | 근거와 처리                                                                                                                                   |
 | ----------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -112,3 +112,29 @@ cargo test --test authored_sandoria
 | Y3/6 `kirin-15` | #18660 ADB1 시전 시작, 끝 8.774초 전      | 발동 미관측. 기록 종료 이전 취소·진행 중단 여부는 확인 불가 |
 
 `out/sandoria-warning-review-v2.json`에서 대응 없는 표시가 24건에서 위 3건으로 줄었다. 시간표·window 완화나 입력 제외 확대 없이 누락된 대안/시전자를 보완했다. 보조 actor를 공동 본체로 취급하는 중간 profile은 거부하고 바로 수정했으며 해당 중간 결과를 검증 근거로 사용하지 않는다.
+
+## 수정본의 새 독립 평가
+
+[사전 고정 기록](../tests/fixtures/authored/sandoria-body-fresh-freeze.json)은 전투 이벤트를 읽기 전에 KDL·profile·평가기 실행 파일·판정 기준을 고정했다. zone 1304의 보고서 탐색 5쪽에서 기존 개발·보류에 없던 6개 보고서를 골랐다. [다운로드 계획](../tests/fixtures/authored/sandoria-body-fresh-download-plan.json)의 24개를 모두 [보류 평가](../tests/fixtures/authored/sandoria-body-fresh-holdout-plan.json)에 포함하고 기존 개발의 기술열 fingerprint를 제외 목록으로 넣었다. [요약 기록](sandoria.fresh-evaluation.json)에 원본·보고서 해시, 판정, 선택 원본 인덱스 및 실패를 보존한다. 후보와 기준은 평가 후에도 바꾸지 않았다.
+
+첫 묶음은 제외 0개, 24개 중 23개가 통과했다. Kirin은 Quake 1회, Stonega 4회, Eastwind 1회가 모두 통과했고 Genbu는 관측되지 않았다. Eastwind `ZzqnvApcPVYNDmH2/17`의 AD82 선택은 #9818, Riddle은 #10397, Double Cast는 #11252, 동시 Quake·Stonega는 #12107/#12118이다. 해당 선택 표시의 사전 조회 오차는 최대 92ms였다.
+
+실패 `LbWnM34CRBc6xHFd/8`은 Eald의 첫 Cronos Sling을 #894(전투 기준 21.007초)에 기록했지만, 진입 신호로 쓰는 AD51의 첫 발동은 #22377(265.426초)이다. 초기 AD51이 관측되지 않아 후반 Uranos를 첫 진입으로 받아들였고, 그 뒤 Duplicate #23026 등 6개의 후속 표시·예고를 놓쳤다. 원본이 무결성 검사를 통과했으므로 실패로 보존한다. 실제 초반 기술 생략과 관측 누락은 이 자료로 구분할 수 없다. 복구 신호를 바꾸는 후속 실험에서는 이 보고서를 개발로 전환한다.
+
+Genbu 표본을 얻기 위해 같은 후보와 기준으로 Kirin만 추가했다. zone 탐색 6–7쪽의 9개 후보 중 전투 길이·교전 시간·결과가 모두 같은 업로드 후보 하나를 이벤트 다운로드 전에 보수적으로 제외했다. [추가 고정 기록](../tests/fixtures/authored/sandoria-kirin-followup-freeze.json)과 [평가 계획](../tests/fixtures/authored/sandoria-kirin-followup-holdout-plan.json)의 새 보고서 8개 중 적격 7개에서 5개가 통과했다. `bBH61QKjfNnDVyzg/18`은 #13683의 시전자 ID 310을 원본 actor 이름으로 투영할 수 없어 제외했다.
+
+| 선택·결과                              | 독립 관측 근거                                                                                                                                             |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Genbu 1회 통과                         | `vnwPcLFD9A8k4mfJ/27` #8322 선택                                                                                                                           |
+| Eastwind 2회 통과                      | 첫 묶음 `ZzqnvApcPVYNDmH2/17` #9818 및 추가 묶음 `cptvaKBRfn9YMrQ2/3` #9401                                                                                |
+| Eastwind 후속과 일치하나 선택 실패 2건 | `NGytdwK3ZWTjn78C/16` #10639, `z1BXyNRgnxkLac2h/2` #9263에서 Riddle 시전 시작. 두 로그에 AD82 선택이 없고 Riddle → Double Cast → 동시 Quake·Stonega를 관측 |
+
+선택 실패 2건은 `unresolved`와 예고 실패로 보존한다. Riddle을 무조건 선택 신호로 쓰면 Genbu와 충돌할 수 있고, 관측된 약 4.99초 시전으로는 기존 5초 목표를 복구할 수 없다. 후보·판정 기준을 이 보류 결과에 맞춰 바꾸지 않았다. 두 묶음 합계는 32개 선정·1개 제외·31개 적격·28개 통과다. 최초 신호가 없는 경우의 복구는 독립 검증의 다음 과제다.
+
+```sh
+out/btimeline-body-frozen evaluate tests/fixtures/authored/sandoria-body-fresh-holdout-plan.json --profile timelines/sandoria.evaluation.json -o out/sandoria-body-fresh-holdout-new.json
+out/btimeline-body-frozen review out/sandoria-body-fresh-holdout-new.json
+out/btimeline-body-frozen evaluate tests/fixtures/authored/sandoria-kirin-followup-holdout-plan.json --profile timelines/sandoria.evaluation.json -o out/sandoria-kirin-followup-new.json
+```
+
+실행 파일은 로컬 `out/`에 보존했다. 재빌드한 파일의 해시가 다르면 원래 동결 평가로 실행할 수 없으며 새 평가 계획으로 구분한다. 오프라인 원본 투영은 ACT·외부 실행기·실제 UI를 검증하지 않는다.

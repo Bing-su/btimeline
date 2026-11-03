@@ -1,0 +1,65 @@
+{
+  "evidence_role": "held_out",
+  "timeline": "timelines/sandoria.kdl",
+  "timeline_sha256": "589afddf3467a6865e7057ee73fe88a0075283a6671839e35a5a83d0b965640b",
+  "profile": "timelines/sandoria.evaluation.json",
+  "profile_sha256": "f3435bf78cd8d62b92c6a44ce7a0beeae6002c911626b50234fad42ccf37fe1f",
+  "evaluator": "out/btimeline-body-frozen",
+  "evaluator_sha256": "9735855dce4fae823068aa18f1b1c15308f832d540b62519e1b9ea4b90d85a91",
+  "forecast_lead_ms": 5000,
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "download_plan": "tests/fixtures/authored/sandoria-kirin-followup-download-plan.json",
+  "download_plan_sha256": "59caae9052e097ea72203a2f13e70c5dab46c2e23ddcc4ddae7e68f406456bbc",
+  "selection": "Eight Kirin fights from unused reports selected by metadata on pages 6–7; one possible duplicate omitted before download",
+  "inputs": [
+    {
+      "report": "bBH61QKjfNnDVyzg",
+      "fight": 18,
+      "encounter": 2067
+    },
+    {
+      "report": "NGytdwK3ZWTjn78C",
+      "fight": 16,
+      "encounter": 2067
+    },
+    {
+      "report": "yPFpj3D9NC4Kq8bB",
+      "fight": 312,
+      "encounter": 2067
+    },
+    {
+      "report": "vnwPcLFD9A8k4mfJ",
+      "fight": 27,
+      "encounter": 2067
+    },
+    {
+      "report": "z1BXyNRgnxkLac2h",
+      "fight": 2,
+      "encounter": 2067
+    },
+    {
+      "report": "cptvaKBRfn9YMrQ2",
+      "fight": 3,
+      "encounter": 2067
+    },
+    {
+      "report": "qbMpHmF1Wdh68YrD",
+      "fight": 44,
+      "encounter": 2067
+    },
+    {
+      "report": "VyQC4gPcwHftG9MW",
+      "fight": 30,
+      "encounter": 2067
+    }
+  ],
+  "metadata_exclusions": [
+    {
+      "report": "jaBmd7kfcP23HDnK",
+      "fight": 34,
+      "similar_to": "bBH61QKjfNnDVyzg/18",
+      "reason": "Matching duration, combat time and outcome metadata; possible duplicate upload"
+    }
+  ]
+}
