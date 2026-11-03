@@ -107,20 +107,20 @@ fn inferred_evaluation_requires_one_observed_phase_and_impact_binding(
 }
 
 #[rstest::rstest]
-#[case(false, true, false, true)]
-#[case(false, false, false, false)]
-#[case(true, false, false, true)]
-#[case(true, false, true, false)]
-#[case(true, false, true, true)]
+#[case(false, true, false, false, true)]
+#[case(false, false, false, false, false)]
+#[case(true, false, false, false, true)]
+#[case(true, false, true, false, true)]
+#[case(true, false, true, true, true)]
 fn inferred_sequential_phases_require_an_observed_boundary(
     #[case] same_source: bool,
     #[case] defeated: bool,
     #[case] repeated: bool,
+    #[case] reuse: bool,
     #[case] passed: bool,
 ) {
     let directory = tempfile::tempdir().unwrap();
     let mut manifest = setup(directory.path());
-    let reuse = repeated && passed;
     let third = if reuse {
         r#"
         phase "third" {
@@ -218,14 +218,15 @@ fn inferred_sequential_phases_require_an_observed_boundary(
             assert_eq!(trace["bosses"][2]["phase"], "third");
             assert_eq!(trace["bosses"][2]["entry_ms"], 15000);
         }
-        assert_eq!(trace["passed"], true);
+        assert_eq!(trace["safe_entry"], true);
+        assert_eq!(
+            trace["bosses"].as_array().unwrap().len(),
+            if reuse { 3 } else { 2 }
+        );
     } else {
         result.failure();
         assert_eq!(trace["status"], "unverified");
-        assert_eq!(
-            trace["evidence"]["entry_candidates"][0]["phase"],
-            if repeated { "second" } else { "first" }
-        );
+        assert_eq!(trace["evidence"]["entry_candidates"][0]["phase"], "first");
     }
 }
 

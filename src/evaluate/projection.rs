@@ -412,18 +412,8 @@ fn follow_transitions<'a>(
                 &[current, next],
             ));
         }
-        let boundary = next.map_or(limit, |(_, index, _)| index);
-        // Reuse in a later phase is valid. Repetition before leaving this phase is ambiguous.
-        if current.0.entry_from.is_some()
-            && let Some((index, event)) = find_entries(log, current.0, actors)
-                .take_while(|(index, _)| *index < boundary)
-                .find(|(index, _)| *index > current.1)
-        {
-            return Err(phase_ambiguity(
-                "Repeated transition before the next phase",
-                &[current, (current.0, index, event)],
-            ));
-        }
+        // An incoming signal can recur as an ordinary cast. Only outgoing edges
+        // establish the next boundary, and replay checks the inferred route.
         let Some(next) = next else { break };
         current = next;
     }
