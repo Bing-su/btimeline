@@ -31,6 +31,11 @@ On resuming, read the current candidate, decision record and compact review firs
 
 ## Completion
 
+| Check            | Record before closing                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Route comparison | Compare the representative route with other long logs by source, cast ID, occurrence and neighboring order. For meaningful deviations, record raw indices and classify as forecast verified, displayed but unverified, missing display, or unobserved before the pull ended. Start with `review.missing_occurrences` for bound targets and `review.unclassified` for unbound casts. |
+| Checkpoint       | Verify independent entry and forecasts in each segment. Separately check cancellation, continuation and restart in a continuous ACT recording. Record synthetic lifecycle replay as synthetic and identify any missing ACT boundary evidence.                                                                                                                                       |
+
 Keep an authoring record beside KDL: candidate and evaluation bindings, report/fight plus raw indices, interpretation and control impact, scope/target changes, per-route development/held-out coverage, and remaining uncertainty. Preserve generated draft evidence separately.
 
 Report predictive scores, unclassified review status, exclusions and untested routes separately. Passing selected targets is not complete coverage. Offline projections and synthetic tests do not establish ACT or UI compatibility. Final KDL runs without the profile, evidence or FFLogs metadata.

@@ -689,6 +689,49 @@ fn review_prioritizes_failures_over_exclusions_and_clips_error_text() {
 }
 
 #[test]
+fn review_groups_missing_displays_by_observed_occurrence() {
+    let directory = tempfile::tempdir().unwrap();
+    let target = |index, passed| {
+        json!({
+            "raw_index":index,"at_ms":index*1000,"id":"A001","passed":passed,
+            "failure_reasons":if passed {vec![]} else {vec!["missing_display"]}
+        })
+    };
+    let trace = |input, passed, targets| {
+        json!({
+            "input":input,"status":"evaluated","passed":passed,
+            "bosses":[{"phase":"boss","targets":targets}]
+        })
+    };
+    let report = json!({
+        "version":1,"summary":{"selected":2,"excluded":0,"eligible":2,"passed_traces":1,"passed":false},
+        "traces":[
+            trace("long",false,vec![target(3,false),target(1,true),target(2,false)]),
+            trace("short",true,vec![target(1,true),target(2,true)])
+        ]
+    });
+    fs::write(
+        directory.path().join("report.json"),
+        serde_json::to_vec(&report).unwrap(),
+    )
+    .unwrap();
+    let output = cargo_bin_cmd!("btimeline")
+        .current_dir(directory.path())
+        .args(["review", "report.json", "--limit", "1"])
+        .assert()
+        .success();
+    let review: Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
+    assert_eq!(
+        review["review"]["missing_occurrences"],
+        json!([{
+            "phase":"boss","id":"A001","occurrence":2,"observed":2,"missing":1,
+            "example":{"input":"long","raw_index":2,"at_ms":2000}
+        }])
+    );
+    assert_eq!(review["review"]["omitted_missing_occurrences"], 1);
+}
+
+#[test]
 fn unclassified_groups_can_be_paged_without_unbounded_output() {
     let directory = tempfile::tempdir().expect("temporary directory");
     let report = json!({

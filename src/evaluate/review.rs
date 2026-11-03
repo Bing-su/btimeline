@@ -15,7 +15,7 @@ mod coverage;
 pub struct ReviewCommand {
     #[usage(arg)]
     report: Utf8PathBuf,
-    /// Maximum rows in each phase, issue and unclassified list (1..50).
+    /// Maximum rows per summary list (1..50).
     #[usage(long, default = "8")]
     limit: usize,
     /// Page through unclassified groups without expanding the output limit; other lists are unchanged.
@@ -301,7 +301,54 @@ fn first_issue(trace: &Trace) -> Option<Value> {
     None
 }
 
-fn compact(report: &Report, limit: usize, offset: usize) -> Result<Value> {
+#[derive(Default)]
+struct OccurrenceCoverage<'a> {
+    observed: usize,
+    missing: usize,
+    example: Option<(&'a str, &'a Target)>,
+}
+
+fn missing_occurrences(traces: &[Trace], limit: usize) -> (Vec<Value>, usize) {
+    let mut coverage = BTreeMap::<(&str, &str, usize), OccurrenceCoverage<'_>>::new();
+    for (trace, boss) in traces
+        .iter()
+        .flat_map(|trace| trace.bosses.iter().map(move |boss| (trace, boss)))
+    {
+        let mut ordinals = BTreeMap::<&str, usize>::new();
+        let mut targets = boss.targets.iter().collect::<Vec<_>>();
+        targets.sort_by_key(|target| (target.at_ms, target.raw_index));
+        for target in targets {
+            let ordinal = ordinals.entry(&target.id).or_default();
+            *ordinal += 1;
+            let row = coverage
+                .entry((&boss.phase, &target.id, *ordinal))
+                .or_default();
+            row.observed += 1;
+            // An absent observation cannot establish a missed display.
+            if target
+                .failure_reasons
+                .iter()
+                .any(|reason| reason == "missing_display")
+            {
+                row.missing += 1;
+                row.example.get_or_insert((&trace.input, target));
+            }
+        }
+    }
+    let mut gaps = coverage
+        .into_iter()
+        .filter(|(_, row)| row.missing > 0)
+        .collect::<Vec<_>>();
+    gaps.sort_by_key(|(key, row)| (std::cmp::Reverse(row.missing), *key));
+    let omitted = gaps.len().saturating_sub(limit);
+    let examples = gaps.into_iter().take(limit).filter_map(|((phase, id, ordinal), row)| {
+        let (input, target) = row.example?;
+        Some(json!({"phase":phase,"id":id,"occurrence":ordinal,"observed":row.observed,"missing":row.missing,"example":{"input":input,"raw_index":target.raw_index,"at_ms":target.at_ms}}))
+    }).collect();
+    (examples, omitted)
+}
+
+fn validate_summary(report: &Report) -> Result<()> {
     ensure!(
         report.version.is_none_or(|v| v == 1) && report.summary.is_object(),
         "Unsupported evaluation report"
@@ -315,6 +362,11 @@ fn compact(report: &Report, limit: usize, offset: usize) -> Result<Value> {
         report.summary == super::summary(&statuses),
         "Report summary disagrees with traces"
     );
+    Ok(())
+}
+
+fn compact(report: &Report, limit: usize, offset: usize) -> Result<Value> {
+    validate_summary(report)?;
     let mut phases = BTreeMap::<String, Phase>::new();
     let mut unknown = BTreeMap::<(String, String, String), Unknown>::new();
     let mut audited = 0;
@@ -392,11 +444,13 @@ fn compact(report: &Report, limit: usize, offset: usize) -> Result<Value> {
         .take(limit)
         .collect::<Vec<_>>();
     let next = offset + unknown_rows.len();
+    let (missing, omitted_missing) = missing_occurrences(&report.traces, limit);
     Ok(json!({
         "summary": report.summary, "profile_sha256": report.profile_sha256, "evaluator_sha256": report.evaluator_sha256, "bindings": report.bindings,
         "phases": phase_rows.iter().take(limit).collect::<Vec<_>>(), "omitted_phases": phases.len().saturating_sub(limit),
         "issues": issues.iter().take(limit).collect::<Vec<_>>(), "issue_traces": issues.len(), "omitted_issues": issues.len().saturating_sub(limit),
-        "audit_status": audit_status, "unaudited_inputs": unaudited_inputs, "unclassified_groups": unknown.len(),
+        "missing_occurrences": missing, "omitted_missing_occurrences": omitted_missing, "audit_status": audit_status,
+        "unaudited_inputs": unaudited_inputs, "unclassified_groups": unknown.len(),
         "unclassified": unknown_rows, "omitted_unclassified": unknown.len() - unknown_rows.len(),
         "unclassified_offset": offset, "next_unclassified_offset": (next < unknown.len()).then_some(next),
         "scope": "declared evaluation sources and intervals; other helpers and out-of-scope activity are not audited",
