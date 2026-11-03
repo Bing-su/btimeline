@@ -48,6 +48,8 @@ pub(crate) struct LoopDefinition {
     pub id: String,
     pub owner: Owner,
     pub anchor_events: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub count: Option<i64>,
 }
 #[derive(Debug, Default, Serialize)]
 pub(crate) struct Catalog {
@@ -133,6 +135,7 @@ impl Catalog {
         for repeat in loops {
             self.loops.push(LoopDefinition {
                 id: repeat.id.clone(),
+                count: repeat.count,
                 owner: owner.clone(),
                 anchor_events: repeat
                     .events

@@ -95,6 +95,7 @@ struct Loop {
     id: String,
     start: Tick,
     every: Tick,
+    count: Option<i64>,
     untils: Vec<Signal>,
     events: Vec<Event>,
     branches: Vec<Branch>,

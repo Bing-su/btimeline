@@ -213,7 +213,7 @@ timeline 1 "AAC Heavyweight M4 (Savage) — Lindwurm" {
         event pre-checkpoint-fourth-wall-fusion-lindwurm-b4d5-01 347.9 name="Fourth-Wall Fusion"
         event pre-checkpoint-burst-lindwurm-b49f-03 348.4 name=Burst
         // Enrage starts before a fourth pair can open; kill and wipe close the phase.
-        loop "pre-tail-rotation" start=351.5 every=28.9 {
+        loop "pre-tail-rotation" start=351.5 every=28.9 count=3 {
             until "StartsUsing" id="B538" source="Lindwurm" at=422.0
             until "Ability" id="B538" source="Lindwurm" at=422.0
             until "Ability" id="B53A" source="Lindwurm" at=422.0

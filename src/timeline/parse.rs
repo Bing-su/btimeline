@@ -629,11 +629,21 @@ impl Validation {
     }
 
     fn loop_node(&mut self, node: &KdlNode, source: &str) -> Result<()> {
-        shape(node, 1, &["start", "every"])?;
+        shape(node, 1, &["start", "every", "count"])?;
         let id = self.id(node)?;
         let start = property_time(node, "start")?.context("loop requires start")?;
         let every = property_time(node, "every")?.context("loop requires every")?;
         ensure!(every > 0, "loop every must be positive");
+        let count = node
+            .get("count")
+            .map(|value| {
+                value
+                    .as_integer()
+                    .and_then(|count| i64::try_from(count).ok())
+                    .filter(|&count| count > 0)
+                    .context("loop count must be a positive integer")
+            })
+            .transpose()?;
         let mut body = Vec::new();
         let mut untils = Vec::new();
         let mut exits = 0;
@@ -672,6 +682,7 @@ impl Validation {
                 id,
                 start,
                 every,
+                count,
                 untils,
                 events,
                 branches,

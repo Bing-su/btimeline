@@ -11,6 +11,94 @@ fn recording(end_ms: i64, observations: serde_json::Value) -> Result<Recording> 
 }
 
 #[rstest]
+#[case(4000, vec![0, 2000], true)]
+#[case(6000, vec![0, 2000, 4000], false)]
+#[case(8000, vec![0, 2000, 4000], false)]
+fn counted_loop_finishes_without_running_signal_exit(
+    #[case] stop_at: i64,
+    #[case] expected: Vec<i64>,
+    #[case] signal_exit: bool,
+) {
+    let model = parse(
+        r#"timeline 1 "Count" {
+        start "Pull"
+        phase "boss" {
+            enter "Pull"
+            loop "rotation" start=0.0 every=2.0 count=3 {
+                until "Stop" at=0.0
+                event "pulse" 0.0 name="Pulse"
+                event "tail" 1.5 name="Tail"
+                on-exit { event "exit" 0.0 name="Exit"; }
+            }
+            loop "next" start=6.0 every=2.0 count=1 {
+                event "next-event" 0.0 name="Next"
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        11000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Pull","fields":{}}, {"at_ms":stop_at,"type":"Stop","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let rows = replay(&model, &input).unwrap();
+    let displays = |id| {
+        rows.iter()
+            .filter(|row| row.event.as_ref().is_some_and(|e| e.id == id))
+            .map(|row| row.at_ms)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(displays("pulse"), expected);
+    assert_eq!(
+        displays("tail").last().copied(),
+        Some(if signal_exit { 3500 } else { 5500 })
+    );
+    assert_eq!(
+        displays("exit"),
+        if signal_exit { vec![stop_at] } else { vec![] }
+    );
+    assert_eq!(displays("next-event"), [6000]);
+    assert!(!rows.iter().any(|row| row.action == "violation"));
+}
+
+#[test]
+fn counted_loop_is_exhausted_by_forward_sync_past_its_cap() {
+    let model = parse(
+        r#"timeline 1 "Jump" {
+        start "Pull"
+        phase "boss" {
+            enter "Pull"
+            event "advance" 20.0 name="Advance" { sync 20.0 "Jump" before=30.0 after=0.0; }
+            loop "rotation" start=5.0 every=2.0 count=2 { event "pulse" 0.0 name="Pulse"; }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        12000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Pull","fields":{}}, {"at_ms":1000,"type":"Jump","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let rows = replay(&model, &input).unwrap();
+    assert_eq!(
+        rows.iter()
+            .filter(|row| row.action == "skipped" && row.detail == "pulse")
+            .count(),
+        2
+    );
+    assert!(
+        !rows
+            .iter()
+            .any(|row| row.event.as_ref().is_some_and(|event| event.id == "pulse"))
+    );
+}
+
+#[rstest]
 #[case(false)]
 #[case(true)]
 fn option_resume_skips_past_displays_without_shifting_parent(#[case] in_loop: bool) {

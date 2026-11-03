@@ -260,6 +260,19 @@ fn repeat_start(base_ms: i64, repeat: &Loop, state: &RepeatState) -> Option<i64>
     })
 }
 
+fn last_iteration(repeat: &Loop, clock: &Clock) -> bool {
+    repeat
+        .count
+        .is_some_and(|count| clock.iteration == Some(count.unsigned_abs()))
+}
+
+fn exhaust_repeat(state: &mut RepeatState) {
+    // Only an observed until signal creates an on-exit path.
+    state.exited = true;
+    state.current = None;
+    state.branches.clear();
+}
+
 fn requirement_status(
     option: &BranchOption,
     history: &BTreeMap<String, Option<String>>,
@@ -796,7 +809,11 @@ fn enter_repeat_after_jump(
         ) else {
             continue;
         };
-        if running {
+        let offset = target - state.anchor.unwrap_or(0);
+        let exhausted = repeat
+            .count
+            .is_some_and(|count| (offset - repeat.start) / repeat.every >= count);
+        if running && !exhausted {
             state.blocked = true;
             record(
                 out,
@@ -807,16 +824,8 @@ fn enter_repeat_after_jump(
             );
             continue;
         }
-        enter_repeat_after_jump_one(
-            repeat,
-            state,
-            at,
-            target - state.anchor.unwrap_or(0),
-            out,
-            run,
-            history,
-        )?;
-        running = true;
+        enter_repeat_after_jump_one(repeat, state, at, offset, out, run, history)?;
+        running |= state.current.is_some();
     }
     Ok(())
 }
@@ -832,6 +841,8 @@ fn enter_repeat_after_jump_one(
 ) -> Result<()> {
     let offset = target - repeat.start;
     let completed = offset / repeat.every;
+    let exhausted = repeat.count.is_some_and(|count| completed >= count);
+    let completed = repeat.count.map_or(completed, |count| count.min(completed));
     let position = offset % repeat.every;
     let event_count = i64::try_from(repeat.events.len()).unwrap_or(i64::MAX);
     let partial_count = i64::try_from(
@@ -872,6 +883,10 @@ fn enter_repeat_after_jump_one(
             history.insert(branch.id.clone(), None);
             record_unresolved_branch(out, at, &branch.id, run);
         }
+    }
+    if exhausted {
+        exhaust_repeat(state);
+        return Ok(());
     }
     let mut clock = Clock {
         base_ms: at - position * 100,
@@ -982,6 +997,7 @@ fn start_repeats(
     inclusive: bool,
     out: &mut Vec<Record>,
     run: usize,
+    history: &mut BTreeMap<String, Option<String>>,
 ) {
     let mut pending: Vec<_> = phase
         .loops
@@ -1000,8 +1016,18 @@ fn start_repeats(
         })
         .collect();
     pending.sort_unstable();
-    let mut running = phase.repeats.iter().any(|state| state.current.is_some());
     for (start_ms, index) in pending {
+        for (entry, state) in phase.loops.iter().zip(&mut phase.repeats) {
+            if let Some((clock, count)) = state.current.as_ref().zip(entry.definition.count)
+                && let Some(iteration) = clock.iteration.and_then(|i| i64::try_from(i).ok())
+                && clock.base_ms.saturating_add(
+                    (count - iteration + 1).saturating_mul(entry.definition.every * 100),
+                ) <= start_ms
+            {
+                advance_repeat(entry.definition, state, start_ms, false, out, run, history);
+            }
+        }
+        let running = phase.repeats.iter().any(|state| state.current.is_some());
         let (Some(definition), Some(state)) = (
             phase.loops.get(index).map(|entry| entry.definition),
             phase.repeats.get_mut(index),
@@ -1019,7 +1045,7 @@ fn start_repeats(
             );
             continue;
         }
-        running = activate_repeat(definition, state, phase.clock.base_ms);
+        activate_repeat(definition, state, phase.clock.base_ms);
     }
 }
 
@@ -1115,7 +1141,11 @@ fn advance_repeat(
     };
     let period = definition.every * 100;
     let mut boundary = clock.base_ms + period;
-    while due(boundary, at, inclusive) {
+    while state
+        .current
+        .as_ref()
+        .is_some_and(|clock| due(boundary, at, inclusive || last_iteration(definition, clock)))
+    {
         advance_nested_branches(definition, state, boundary, false, out, run, history);
         let Some(clock) = &mut state.current else {
             return;
@@ -1128,6 +1158,10 @@ fn advance_repeat(
             out,
             run,
         );
+        if last_iteration(definition, clock) {
+            exhaust_repeat(state);
+            return;
+        }
         clock.base_ms += period;
         clock.iteration = clock.iteration.map(|iteration| iteration + 1);
         clock.zero_at = None;
@@ -1154,7 +1188,7 @@ fn advance_repeats(
     run: usize,
     history: &mut BTreeMap<String, Option<String>>,
 ) {
-    start_repeats(phase, at, inclusive, out, run);
+    start_repeats(phase, at, inclusive, out, run, history);
     for (entry, state) in phase.loops.iter().zip(&mut phase.repeats) {
         advance_repeat(entry.definition, state, at, inclusive, out, run, history);
     }
@@ -1366,6 +1400,7 @@ impl<'a> Replay<'a> {
                 return None;
             }
             clock.base_ms = at;
+            clock.iteration = clock.iteration.map(|iteration| iteration + 1);
             clock.zero_at = None;
             clock.processed.clear();
             state.branches = entry
@@ -2207,7 +2242,11 @@ fn validate_repeat_support(timeline: &Timeline, end_ms: i64) -> Result<()> {
                 validate_nested_repeat(repeat, end_ms)?;
             }
             ensure!(
-                end_ms / (repeat.every * 100) <= 1_000_000,
+                repeat
+                    .count
+                    .unwrap_or(i64::MAX)
+                    .min(end_ms / (repeat.every * 100))
+                    <= 1_000_000,
                 "Recording spans more than one million possible loop iterations; shorten the recording"
             );
         }
@@ -2216,7 +2255,10 @@ fn validate_repeat_support(timeline: &Timeline, end_ms: i64) -> Result<()> {
 }
 
 fn validate_nested_repeat(repeat: &Loop, end_ms: i64) -> Result<()> {
-    let cycles = end_ms / (repeat.every * 100);
+    let cycles = repeat
+        .count
+        .unwrap_or(i64::MAX)
+        .min(end_ms / (repeat.every * 100));
     let branch_count = i64::try_from(repeat.branches.len()).unwrap_or(i64::MAX);
     ensure!(
         cycles.saturating_mul(branch_count) <= 1_000_000,
