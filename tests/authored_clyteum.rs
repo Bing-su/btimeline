@@ -7,6 +7,7 @@ use serde_json::{Value, json};
 #[case("BF00", "Eye of the Scorpion", "eye-eyes-first", 306000)]
 #[case("BEF4", "Chort", "chort-emission", 305200)]
 #[case("BF18", "Malphas", "malphas-pair", 337700)]
+#[case("BF18", "Malphas", "malphas-pair-helpers", 339300)]
 fn each_boss_predicts_future_cycles_and_restarts_after_finish(
     #[case] entry: &str,
     #[case] source: &str,
@@ -81,6 +82,7 @@ fn each_boss_predicts_future_cycles_and_restarts_after_finish(
 )]
 #[case("BEF4", "Chort", "C4F1", 167200, 167800, "chort-pressure", 172800)]
 #[case("BF18", "Malphas", "BF1B", 84700, 87500, "malphas-void-first", 92500)]
+#[case("BF18", "Malphas", "BF1B", 80700, 81200, "malphas-pair-helpers", 82300)]
 fn delayed_cycle_markers_restore_forecasts_without_future_mechanic_observations(
     #[case] entry: &str,
     #[case] source: &str,

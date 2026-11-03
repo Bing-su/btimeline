@@ -230,9 +230,41 @@
         "BF1D": {
           "name": "Puppet Mastery",
           "events": ["malphas-mastery-first", "malphas-mastery-second"]
+        },
+        "BF27": {
+          "name": "Puppet Strings / Pair helper wave",
+          "group": "malphas-strings-pair-helpers",
+          "events": [
+            "malphas-opening-helper-first",
+            "malphas-opening-helper-second",
+            "malphas-pair-helpers"
+          ]
+        },
+        "BF29": {
+          "name": "Puppet Strings / Pair helper wave",
+          "group": "malphas-strings-pair-helpers",
+          "events": [
+            "malphas-opening-helper-first",
+            "malphas-opening-helper-second",
+            "malphas-pair-helpers"
+          ]
+        },
+        "BF2C": {
+          "name": "Puppet Mastery helper wave",
+          "group": "malphas-mastery-helpers",
+          "events": ["malphas-mastery-helpers-first", "malphas-mastery-helpers-second"]
+        },
+        "BF2F": {
+          "name": "Puppet Mastery helper wave",
+          "group": "malphas-mastery-helpers",
+          "events": ["malphas-mastery-helpers-first", "malphas-mastery-helpers-second"]
         }
       }
     }
   ],
-  "not_checked": ["unobserved Chort late cycles", "mechanic positioning and helper ownership"]
+  "not_checked": [
+    "unobserved Chort late cycles",
+    "mechanic positioning and helper ownership",
+    "unidentified BF2A/BF2D helper effects"
+  ]
 }

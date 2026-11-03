@@ -6,7 +6,7 @@
 
 | 항목         | 내용                                                                                                                                      |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| KDL          | [clyteum.kdl](clyteum.kdl), Eye 22·Chort 21·Malphas 20개, 총 63개 이벤트와 보스별 loop 3개                                                |
+| KDL          | [현재 후보](clyteum.kdl)는 Eye 22·Chort 21·Malphas 25개, 총 68개 이벤트와 보스별 loop 3개. 기존 보류 후보는 Malphas 20개, 총 63개         |
 | 후보 SHA-256 | `69c5639aabdfa9261e13d7f4f69b4ee8cbb4c27759bd2cc3f21c47420160afc3`                                                                        |
 | 개발         | [개발 계획](../tests/fixtures/authored/clyteum-development-plan.json)의 31개 파일·해시. 기존 조사에 사용된 자료이므로 독립 근거가 아님    |
 | 보류         | [보류 계획](../tests/fixtures/authored/clyteum-holdout-plan.json)의 미사용 보고서 4개·pull 6개. 후보·입력·판정 조건을 내용 확인 전에 고정 |
@@ -32,7 +32,21 @@
 
 ## 개발 검증
 
-보조 공격 후보를 기존 수집 로그 `AVxmgdNytFPBwLRH/31`에서 추적했다. Malphas의 Puppet Strings 뒤 Scrap Byblos의 `BF28` Metallic Miasma가 #14604, Scrap Gargoyle의 `BF26` Cast-Off Halo가 #14732–14737에 기록됐다. Puppet Pair 뒤에는 두 기술이 #15406–15413에 같은 밀리초로 기록됐다. 이 표본에서 Puppet 계열과의 선후 관계는 확인했지만, 개체별 패킷을 별개 예고로 표시할 근거와 다른 회차의 대응은 남아 있다.
+### Malphas 보조 공격 예고
+
+기존 개발 계획의 31개 파일에서 Puppet 시전과 후속 효과를 대조했다. `AVxmgdNytFPBwLRH/31`의 Byblos `BF28` #14604·#14608 뒤 Malphas가 `BF29` #14624를 기록한다. Pair에서는 NPC 자기 대상 시전 #15420–15427 뒤 Malphas의 `BF27`/`BF29` 효과 #15437–15445가 같은 밀리초에 기록된다. Mastery도 NPC 자기 대상 시전 #16474–16481과 Malphas 효과 #16498–16505를 구분한다.
+
+| 부모 시전      | 관측된 효과 묶음                                                                    | 예고                                                 |
+| -------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Puppet Strings | `BF27` 38개, `BF29` 38개. 한 묶음에는 한 효과만 나타나며 첫 순서가 입력에 따라 바뀜 | 기존 두 Strings 각각 1.6초 뒤에 대안 한 줄           |
+| Puppet Pair    | `BF27`과 `BF29`가 함께 나타난 묶음 50개                                             | Pair의 기존 반복 본문에서 1.6초 뒤에 동시 효과 한 줄 |
+| Puppet Mastery | `BF2C`와 `BF2F`가 함께 나타난 묶음 66개                                             | 기존 두 Mastery 각각 1.6초 뒤에 동시 효과 한 줄      |
+
+Malphas 효과 패킷은 부모 시전 뒤 1.509–1.617초 범위였다. 평가 프로필은 같은 효과의 복수 대상과 동시 효과를 묶는다. 후속 `BF2A`/`BF2D`는 개발 자료에서 자기 대상 시전만 확인돼 별도 예고는 보류했다. 보조 패킷에 sync를 추가하지 않았다.
+
+수정 후보는 68개 표시이며 KDL SHA-256은 `7b4892001ad74cd2a1079764b21743e37a9b6fcaf1dde4638cd913d9dd6ceb27`이다. 개발 평가에서 적격 23개가 통과했고 8개가 제외됐다. 추가 효과 묶음 118개가 재생과 5초 전 조회에서 모두 대응했으며 최대 오차는 495ms였다. 실제 ACT와 수정 후보의 새 보류 평가는 별도 검증 범위다.
+
+### 기존 후보의 개발 검증
 
 | 검사              | 결과                                                                                                                                                    |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -73,9 +87,10 @@
 cargo build
 target/debug/btimeline validate timelines/clyteum.kdl
 target/debug/btimeline evaluate --profile timelines/clyteum.evaluation.json tests/fixtures/authored/clyteum-development-plan.json -o out/clyteum-authoring/development-new.json
-target/debug/btimeline evaluate --profile timelines/clyteum.evaluation.json tests/fixtures/authored/clyteum-holdout-plan.json -o out/clyteum-authoring/holdout-new.json
 bun run --cwd scripts test
 cargo test --test authored_clyteum
 ```
 
 원본 경로·해시가 일치해야 하며 보고서는 새 경로로만 저장한다. 보류 결과를 보고 수정하면 해당 입력을 개발 자료로 전환한다. 실제 ACT·UI, 이동 중 종료 신호, 위치·대상 해석은 미검증이며 관측된 기믹 예고 범위만 평가한다.
+
+기존 보류 계획은 보조 예고 추가 전 후보를 고정한다. 보류 명령을 재현할 때는 `94f3286`의 KDL과 프로필을 함께 사용한다.

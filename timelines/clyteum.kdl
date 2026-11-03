@@ -105,7 +105,10 @@ timeline 1 "The Clyteum" {
         event "malphas-opening-void" 10.9 name="Void Dark"
         event "malphas-opening-scrap" 20.6 name="Scrap Meddle"
         event "malphas-opening-strings-first" 31.0 name="Puppet Strings"
+        // Either helper can act first. Forecast the cue without choosing its effect ahead of evidence.
+        event "malphas-opening-helper-first" 32.6 name="Metallic Miasma / Cast-Off Halo"
         event "malphas-opening-strings-second" 40.5 name="Puppet Strings"
+        event "malphas-opening-helper-second" 42.1 name="Metallic Miasma / Cast-Off Halo"
         event "malphas-opening-wire" 50.9 name="Gluttonous Wire"
         event "malphas-opening-rubbish-second" 62.4 name="Rubbish Disposal"
         event "malphas-opening-scrap-second" 70.2 name="Scrap Meddle" {
@@ -116,6 +119,7 @@ timeline 1 "The Clyteum" {
             event "malphas-pair" 0.0 name="Puppet Pair" {
                 sync 0.0 "Ability" id="BF1B" source="Malphas" before=5.0 after=8.0
             }
+            event "malphas-pair-helpers" 1.6 name="Metallic Miasma + Cast-Off Halo"
             event "malphas-void-first" 7.8 name="Void Dark" {
                 sync 7.8 "Ability" id="C489" source="Malphas" before=3.0 after=8.0
             }
@@ -126,8 +130,10 @@ timeline 1 "The Clyteum" {
             }
             event "malphas-scrap-first" 47.4 name="Scrap Meddle"
             event "malphas-mastery-first" 65.8 name="Puppet Mastery"
+            event "malphas-mastery-helpers-first" 67.4 name="Metallic Miasma + Cast-Off Halo"
             event "malphas-void-second" 73.7 name="Void Dark"
             event "malphas-mastery-second" 88.9 name="Puppet Mastery"
+            event "malphas-mastery-helpers-second" 90.5 name="Metallic Miasma + Cast-Off Halo"
             event "malphas-void-third" 101.6 name="Void Dark"
             event "malphas-rubbish-second" 108.8 name="Rubbish Disposal" {
                 sync 108.8 "Ability" id="BF18" source="Malphas" before=3.0 after=8.0
