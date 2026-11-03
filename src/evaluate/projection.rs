@@ -388,43 +388,29 @@ fn follow_transitions<'a>(
             })
             .collect::<Vec<_>>();
         choices.sort_by_key(|(_, index, _)| *index);
-        let next = if let [first, second, ..] = choices.as_slice()
-            && first.2.timestamp == second.2.timestamp
-        {
-            let tied = choices
-                .split_at(choices.partition_point(|entry| entry.2.timestamp == first.2.timestamp))
-                .0;
-            // Distinct packets could both be valid before either changes the active phase.
-            if tied.iter().all(|entry| entry.1 == first.1)
-                && let Some(index) = replay_choice(tied)?
-            {
-                tied.get(index).copied()
-            } else {
-                return Err(phase_ambiguity(
-                    "Multiple phase transitions at the same time",
-                    tied,
-                ));
-            }
-        } else if choices.len() > 1
-            && let Some(index) = replay_choice(&choices)?
-            && let Some(selected) = choices.get(index)
-        {
-            // A later in-window cast may be the first effective transition.
+        let selected = if choices.len() > 1 {
+            replay_choice(&choices)?.and_then(|index| choices.get(index))
+        } else {
+            None
+        };
+        let next = selected.or_else(|| choices.first()).copied();
+        // Check both boundaries so skipping an early packet cannot hide a
+        // conflict whose result depends on the ordering of distinct packets.
+        for entry in [choices.first().copied(), next].into_iter().flatten() {
             let tied = choices
                 .iter()
                 .copied()
-                .filter(|entry| entry.2.timestamp == selected.2.timestamp)
+                .filter(|candidate| candidate.2.timestamp == entry.2.timestamp)
                 .collect::<Vec<_>>();
-            if tied.iter().any(|entry| entry.1 != selected.1) {
+            if tied.len() > 1
+                && (selected.is_none() || tied.iter().any(|candidate| candidate.1 != entry.1))
+            {
                 return Err(phase_ambiguity(
                     "Multiple phase transitions at the same time",
                     &tied,
                 ));
             }
-            Some(*selected)
-        } else {
-            choices.first().copied()
-        };
+        }
         if let Some(next) = next
             && next.2.timestamp == current.2.timestamp
         {
@@ -447,6 +433,30 @@ fn follow_transitions<'a>(
         current = next;
     }
     Ok(route)
+}
+
+fn replayed_phase_choice(rows: &[Record], choices: &[PhaseEntry<'_>]) -> Option<usize> {
+    for row in rows {
+        if row.action == "ambiguous"
+            && choices
+                .iter()
+                .any(|entry| row.source_event_index == Some(entry.1))
+        {
+            return None;
+        }
+        if row.action == "phase"
+            && let Some(phase) = row
+                .context
+                .as_ref()
+                .and_then(|context| context.owner.phase.as_deref())
+            && let Some(index) = choices
+                .iter()
+                .position(|entry| row.source_event_index == Some(entry.1) && entry.0.phase == phase)
+        {
+            return Some(index);
+        }
+    }
+    None
 }
 
 fn inferred_segments(
@@ -500,16 +510,10 @@ fn inferred_segments(
             )?;
             replay_rows = Some(crate::timeline::replay(model, &recording)?);
         }
-        Ok(replay_rows
-            .iter()
-            .flatten()
-            .filter(|row| row.action == "phase")
-            .find_map(|row| {
-                let phase = row.context.as_ref()?.owner.phase.as_deref()?;
-                choices.iter().position(|entry| {
-                    row.source_event_index == Some(entry.1) && entry.0.phase == phase
-                })
-            }))
+        Ok(replayed_phase_choice(
+            replay_rows.as_deref().unwrap_or_default(),
+            choices,
+        ))
     };
     for (root, limit) in roots.iter().copied().zip(limits) {
         candidates.extend(follow_transitions(

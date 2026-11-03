@@ -115,6 +115,8 @@ fn inferred_evaluation_requires_one_observed_phase_and_impact_binding(
 #[case(true, false, false, false, Some(20), true, false)]
 #[case(true, false, false, false, Some(9), false, false)]
 #[case(true, false, false, false, None, true, true)]
+#[case(true, false, false, false, Some(20), true, true)]
+#[case(true, false, false, false, Some(9), false, true)]
 fn inferred_sequential_phases_require_an_observed_boundary(
     #[case] same_source: bool,
     #[case] defeated: bool,
