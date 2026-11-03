@@ -1,0 +1,69 @@
+{
+  "timeline": "timelines/r12s.kdl",
+  "timeline_sha256": "59ae39e1ff93bfa859dd044ce70621621e30b471a2552611397153909ca82bcc",
+  "profile_sha256": "6196acfbf123c99129c28649f2af42124acc3cdaea1d861e25c5d71be653f1c8",
+  "evaluator_sha256": "6a3abb7cca92077596c0832c2699f0662cefd5a58918cabc41659c14cae04e6c",
+  "role": "R12S full development regression",
+  "evidence_role": "development",
+  "forecast_lead_ms": 5000,
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "inputs": [
+    {
+      "input": "logs/r12s/TRCXHNpyzcZrWxm7_3.json",
+      "sha256": "e25118f76eacf91f12233c86e4638bd59fcd24bb5447528d5736ca1af80cc4de"
+    },
+    {
+      "input": "logs/r12s/RYVqaCf3zZyc8TpF_60.json",
+      "sha256": "5d65536400e52bb1455e0a5507b82625a1fcc435b24cd4dd6a840c350d9d4d77"
+    },
+    {
+      "input": "logs/r12s/YVPmpQrvfKN4ATWz_10.json",
+      "sha256": "24fa1e5b7a66c03727f5296b50741a83ce778f5d7103bcbfb97b3d37a5d72db5"
+    },
+    {
+      "input": "logs/r12s/tjGrJ4LqaXbRk9AT_5.json",
+      "sha256": "f462460b66951dfcde31f613e8e8f915f779ed9f795176cf8fe2048e866abc89"
+    },
+    {
+      "input": "logs/r12s/dhZqgJKPwt8McX3A_37.json",
+      "sha256": "bd08052a661e64d723f059d20966f7885baa1e00777e93547b13a17237687fec"
+    },
+    {
+      "input": "logs/r12s/KPHRn9wFNhtdfQyb_11.json",
+      "sha256": "139992307b5b2da1aa921a69ed0aaa0aea9d480dc0c467ea942fdda5c199c0e8"
+    },
+    {
+      "input": "logs/r12s/bpNkT471KdWjzHXh_11.json",
+      "sha256": "f81c1b7ea021fdaf912f67b2c950c9eab89b280a0391bcd3d74e21cb68d357ac"
+    },
+    {
+      "input": "logs/r12s/RYVqaCf3zZyc8TpF_68.json",
+      "sha256": "a9d291f4f7adec83dd45756cb97fb9d730e9eaed8527f06fd4e0c7b61afdece9"
+    },
+    {
+      "input": "logs/r12s/4kz6WLqPGAJ2p8xg_2.json",
+      "sha256": "1c57507d01ea0da4be72db262570766c109c7d1e11757bb8744e43fec37d70fc"
+    },
+    {
+      "input": "logs/v2-fresh-checkpoint/4wmxNYn9vhLK6Cjy_8.json",
+      "sha256": "eb91dd30e0bc33368abec441f1dfb1f977c6f71e464487ddf6ab81aefcf91fd6"
+    },
+    {
+      "input": "logs/r12s/hkat1dVbzr3v9CXy_1.json",
+      "sha256": "11b8414e95bf66a3514ad0dbd78103f291b0baf8a7f335732398032c315de555"
+    },
+    {
+      "input": "logs/r12s/NzcYQ9XPT2W47Vhj_10.json",
+      "sha256": "26896753c2b04f71fdd6c82fe2148b4a6619f0ba770f8d0d69d99a3bd8880b67"
+    },
+    {
+      "input": "logs/r12s/cfjArQtVb3NgFZWP_20.json",
+      "sha256": "f19461ff1910871c23d70624d551abfdaf0b4e454d507884540f52e0a23e8d7a"
+    },
+    {
+      "input": "logs/r12s/4kz6WLqPGAJ2p8xg_3.json",
+      "sha256": "cfe2a1f1690836290601408c8423d9edfb3197548e1fd44abc52fe6d8c121112"
+    }
+  ]
+}

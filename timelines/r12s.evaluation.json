@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "observations": "scoped_casts_and_starts",
+  "segments": [
+    {
+      "phase": "pre-checkpoint",
+      "encounter": 104,
+      "source": "Lindwurm",
+      "other_sources": ["Lindschrat"],
+      "entry": ["B4D3", "B4D7"],
+      "completion": "fight_end",
+      "targets": {
+        "B4D7": {
+          "name": "The Fixer",
+          "events": [
+            "pre-checkpoint-the-fixer-lindwurm-b4d7-01",
+            "pre-checkpoint-the-fixer-lindwurm-b4d7-02",
+            "pre-checkpoint-the-fixer-lindwurm-b4d7-03"
+          ]
+        },
+        "BEBF": {
+          "name": "Grotesquerie: Act 3",
+          "events": ["pre-checkpoint-grotesquerie-act-3-lindwurm-bebf"]
+        },
+        "B9C3": {
+          "name": "Splattershed",
+          "events": ["pre-checkpoint-splattershed-lindwurm-b9c3"]
+        },
+        "B538": {
+          "name": "Refreshing Overkill",
+          "events": ["pre-checkpoint-refreshing-overkill-lindwurm-b538"]
+        }
+      }
+    },
+    {
+      "phase": "post-checkpoint",
+      "encounter": 105,
+      "source": "Lindwurm",
+      "other_sources": ["Lindschrat"],
+      "entry": ["B51F", "B528"],
+      "completion": "fight_end",
+      "targets": {
+        "B528": {
+          "name": "Arcadia Aflame",
+          "events": [
+            "post-checkpoint-arcadia-aflame-lindwurm-b528-01",
+            "post-checkpoint-arcadia-aflame-lindwurm-b528-02"
+          ]
+        },
+        "B524": {
+          "name": "Double Sobat",
+          "events": [
+            "post-checkpoint-double-sobat-lindwurm-b524",
+            "post-checkpoint-double-sobat-lindwurm-b521"
+          ]
+        },
+        "B46C": {
+          "name": "Replication",
+          "events": ["post-checkpoint-replication-lindwurm-b46c"]
+        },
+        "B537": {
+          "name": "Arcadian Hell",
+          "events": ["post-checkpoint-arcadian-hell-lindwurm-b537"]
+        }
+      }
+    }
+  ],
+  "not_checked": [
+    "Only selected opening, body, and ending forecasts are scored",
+    "Alternative sequences and live checkpoint transitions"
+  ]
+}
