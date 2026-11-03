@@ -51,6 +51,8 @@ btimeline forecast timeline.kdl recording.json --at-ms 10000 --horizon-ms 30000
 
 전체 판정·profile 필드·기존 결과와의 대조는 [작성 평가 계약](AUTHORED_EVALUATION.md)을 따른다. profile은 검증용 자료이고 KDL의 외부 실행 의존성이 아니다. FFLogs를 직접 넣은 `compare`의 신호 의미와 ACT/UI 미검증 경계는 유지한다.
 
+`review REPORT --limit 8`은 기존 결과를 다시 재생하지 않고 실패·미분류를 제한된 예시로 요약한다. `evidence INPUT --around-index N --limit 40`은 해당 원본 관측 주변의 FFLogs 시전만 조회한다. 두 명령은 생략 수와 근거 파일 해시를 제공하며, 잘린 출력이나 감사가 없는 과거 보고서에서 전체 커버리지를 추정하지 않는다.
+
 ## 입력 관측
 
 ```json
