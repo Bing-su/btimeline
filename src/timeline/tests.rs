@@ -10,6 +10,99 @@ fn recording(end_ms: i64, observations: serde_json::Value) -> Result<Recording> 
     )?)
 }
 
+#[rstest]
+#[case(false, 5000)]
+#[case(true, 3000)]
+fn scoped_completion_and_checkpoint_restart(#[case] same_packet: bool, #[case] post_at: i64) {
+    let transition = if same_packet {
+        r#"enter "Defeat" from="pre";"#
+    } else {
+        ""
+    };
+    let model = parse(&format!(
+        r#"timeline 1 "Checkpoint" {{
+            start "Pull"
+            start "Checkpoint"
+            wipe "Wipe"
+            boss-complete "Defeat" from="pre"
+            phase "pre" {{
+                enter "Pull"
+                event "cancelled" 3.0 name="Cancelled"
+            }}
+            phase "post" {{
+                enter "Checkpoint"
+                {transition}
+                event "first" 1.0 name="First"
+                event "later" 5.0 name="Later"
+            }}
+        }}"#
+    ))
+    .unwrap();
+    let observations = [
+        (0, "Defeat"),
+        (1000, "Pull"),
+        (3000, "Defeat"),
+        (4000, "Defeat"),
+        (5000, "Checkpoint"),
+        (5100, "Checkpoint"),
+        (5500, "Defeat"),
+        (6500, "Wipe"),
+        (9000, "Checkpoint"),
+        (9100, "Checkpoint"),
+        (9500, "Defeat"),
+    ];
+    let input =
+        recording(
+            10000,
+            serde_json::json!(observations.map(|(at_ms, kind)| {
+                serde_json::json!({"at_ms":at_ms,"type":kind,"fields":{}})
+            })),
+        )
+        .unwrap();
+    let rows = replay(&model, &input).unwrap();
+    let lifecycle = rows
+        .iter()
+        .filter(|row| {
+            matches!(
+                row.action.as_str(),
+                "start" | "phase" | "boss-complete" | "wipe"
+            )
+        })
+        .map(|row| (row.action.as_str(), row.detail.as_str(), row.at_ms, row.run))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        lifecycle,
+        [
+            ("start", "", 1000, 1),
+            ("phase", "pre", 1000, 1),
+            ("boss-complete", "", 3000, 1),
+            ("phase", "post", post_at, 1),
+            ("wipe", "", 6500, 1),
+            ("start", "", 9000, 2),
+            ("phase", "post", 9000, 2),
+        ]
+    );
+    let displayed = rows
+        .iter()
+        .filter_map(|row| {
+            row.event
+                .as_ref()
+                .map(|event| (event.id.as_str(), row.at_ms, row.run))
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        displayed,
+        [("first", post_at + 1000, 1), ("first", 10000, 2)]
+    );
+}
+
+#[test]
+fn scoped_completion_requires_a_declared_phase() {
+    let error =
+        parse(r#"timeline 1 "Invalid" { boss-complete "Defeat" from="missing"; }"#).unwrap_err();
+    assert!(error.to_string().contains("Unknown phase in from: missing"));
+}
+
 #[test]
 fn occurrence_context_survives_sync_and_distinguishes_phase_reentry() {
     let model = parse(

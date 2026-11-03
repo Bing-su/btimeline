@@ -1779,10 +1779,19 @@ impl<'a> Replay<'a> {
     }
 
     fn matches_lifecycle(&self, role: &str, observation: &Observation) -> bool {
+        let active = self
+            .phase
+            .as_ref()
+            .map(|phase| phase.definition.id.as_str());
         self.timeline.lifecycle.get(role).is_some_and(|signals| {
-            signals
-                .iter()
-                .any(|s| s.matches(&observation.kind, &observation.fields, 0))
+            signals.iter().any(|signal| {
+                // Match against the phase before lifecycle actions change it.
+                signal
+                    .from
+                    .as_deref()
+                    .is_none_or(|from| active == Some(from))
+                    && signal.matches(&observation.kind, &observation.fields, 0)
+            })
         })
     }
 

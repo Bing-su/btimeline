@@ -232,6 +232,7 @@ fn signal(node: &KdlNode, role: &str) -> Result<Signal> {
     let reserved: &[&str] = match role {
         "sync" => &["before", "after"],
         "enter" => &["from", "at", "before", "after", "resume-at"],
+        "boss-complete" => &["from"],
         "when" | "merge-when" | "until" => &["at", "before", "after"],
         _ => &[],
     };
@@ -268,7 +269,7 @@ fn signal(node: &KdlNode, role: &str) -> Result<Signal> {
         );
         ensure!(at.is_some() || before.is_none(), "Window requires at");
     }
-    let from = if role == "enter" {
+    let from = if matches!(role, "enter" | "boss-complete") {
         node.get("from").map(string).transpose()?
     } else {
         None
@@ -747,11 +748,15 @@ pub(crate) fn parse(source: &str) -> Result<Timeline> {
     for node in children(root) {
         (|| -> Result<()> {
             match node.name().value() {
-                role @ ("start" | "wipe" | "boss-complete" | "finish" | "zone-exit") => timeline
-                    .lifecycle
-                    .entry(role.into())
-                    .or_default()
-                    .push(signal(node, role)?),
+                role @ ("start" | "wipe" | "boss-complete" | "finish" | "zone-exit") => {
+                    let signal = signal(node, role)?;
+                    v.phase_refs.extend(signal.from.iter().cloned());
+                    timeline
+                        .lifecycle
+                        .entry(role.into())
+                        .or_default()
+                        .push(signal);
+                }
                 "event" => timeline.events.push(v.event(node, 0, None)?),
                 "phase" => {
                     timeline.phases.push(v.phase_node(node, source)?);
