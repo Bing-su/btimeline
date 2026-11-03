@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::fflogs::model::{Actor, CollectedLog, Event};
-use crate::timeline::{MAX_MS, Observation, Recording};
+use crate::timeline::{CastEntry, MAX_MS, Observation, Recording};
 
 #[derive(Debug)]
 pub(super) struct InputExclusion {
@@ -69,6 +69,10 @@ struct SegmentRule {
     #[serde(default)]
     other_sources: Vec<String>,
     entry: Vec<String>,
+    #[serde(skip)]
+    entry_kind: Option<&'static str>,
+    #[serde(skip)]
+    entry_from: Option<String>,
     completion: Completion,
     max_duration_ms: Option<i64>,
     #[serde(default)]
@@ -118,7 +122,7 @@ impl Profile {
     pub(super) fn infer(model: &crate::timeline::Timeline) -> Option<Self> {
         let segments = model
             .cast_entries()
-            .map(|(phase, source, entry)| SegmentRule::infer(model, phase, source, entry))
+            .map(|entry| SegmentRule::infer(model, entry))
             .collect::<Vec<_>>();
         (!segments.is_empty()).then(|| Self {
             version: 1,
@@ -131,12 +135,14 @@ impl Profile {
 }
 
 impl SegmentRule {
-    fn infer(
-        model: &crate::timeline::Timeline,
-        phase: &str,
-        source: &str,
-        entry: Vec<String>,
-    ) -> Self {
+    fn infer(model: &crate::timeline::Timeline, entry: CastEntry<'_>) -> Self {
+        let CastEntry {
+            phase,
+            source,
+            from,
+            raw_kind,
+            ids,
+        } = entry;
         let mut targets = BTreeMap::<String, TargetRule>::new();
         let visible = || {
             model.catalog.events.values().filter(|definition| {
@@ -184,7 +190,9 @@ impl SegmentRule {
             encounter: None,
             source: source.into(),
             other_sources: Vec::new(),
-            entry,
+            entry: ids,
+            entry_kind: Some(raw_kind),
+            entry_from: from.map(str::to_owned),
             completion: Completion::FightEnd,
             max_duration_ms: None,
             require_main_actor: true,
@@ -318,13 +326,13 @@ fn check_health(log: &CollectedLog, actors: &[&Actor], start: i64, end: i64) -> 
     }
     Ok(())
 }
-fn find_entry<'a>(
+fn find_entries<'a>(
     log: &'a CollectedLog,
-    rule: &SegmentRule,
-    actors: &BTreeMap<i64, &Actor>,
-) -> Option<(usize, &'a Event)> {
-    log.events.iter().enumerate().find(|(_, event)| {
-        event.kind == "cast"
+    rule: &'a SegmentRule,
+    actors: &'a BTreeMap<i64, &Actor>,
+) -> impl Iterator<Item = (usize, &'a Event)> + 'a {
+    log.events.iter().enumerate().filter(move |(_, event)| {
+        event.kind == rule.entry_kind.unwrap_or("cast")
             && event
                 .source_id
                 .and_then(|id| actors.get(&id))
@@ -335,38 +343,65 @@ fn find_entry<'a>(
     })
 }
 
+enum Boundary {
+    DefeatBefore(i64),
+    TransitionAt(i64),
+}
+
 fn inferred_segments(
     log: &CollectedLog,
     rules: &[SegmentRule],
     actors: &BTreeMap<i64, &Actor>,
     origin: i64,
 ) -> Result<Vec<Segment>> {
-    let mut candidates = rules
-        .iter()
-        .filter_map(|rule| {
-            find_entry(log, rule, actors).map(|(index, event)| (rule, index, event.timestamp))
-        })
-        .collect::<Vec<_>>();
+    let mut candidates = Vec::new();
+    for rule in rules {
+        // Repeated transition casts need extra evidence to choose the intended occurrence.
+        let mut entries = find_entries(log, rule, actors);
+        if let Some((index, event)) = entries.next() {
+            if rule.entry_from.is_some()
+                && let Some((later, _)) = entries.next()
+            {
+                return Err(UnverifiedScope("Multiple observations for a phase transition", json!({
+                    "entry_candidates":[{"phase":rule.phase,"raw_index":index},{"phase":rule.phase,"raw_index":later}]
+                })).into());
+            }
+            candidates.push((rule, index, event.timestamp));
+        }
+    }
     candidates.sort_by_key(|(_, index, _)| *index);
-    let sources = candidates
-        .iter()
-        .map(|(rule, _, _)| &rule.source)
-        .collect::<BTreeSet<_>>();
-    if candidates.is_empty() || sources.len() != candidates.len() {
+    let mut roots = BTreeSet::new();
+    let valid = candidates.iter().enumerate().all(|(i, (rule, _, at))| {
+        let previous = i.checked_sub(1).and_then(|i| candidates.get(i));
+        match (&rule.entry_from, previous) {
+            (Some(from), Some((prior, _, previous_at))) => {
+                from == &prior.phase && previous_at < at && prior.source == rule.source
+            }
+            (Some(_), None) => false,
+            (None, _) => roots.insert(&rule.source),
+        }
+    });
+    if candidates.is_empty() || !valid {
         let evidence = candidates.iter().map(|(rule, index, _)| {
             json!({"phase":rule.phase,"source":rule.source,"raw_index":index})
         }).collect::<Vec<_>>();
         return Err(UnverifiedScope(
-            "Expected observed entries from distinct phase sources",
+            "Observed phase entries do not establish a unique supported sequence",
             json!({"entry_candidates":evidence}),
         )
         .into());
     }
-    // A later boss's entry provides a deadline, never a substitute for observed defeat.
+    // Same-boss transitions use the explicit entry; switching bosses still requires defeat.
     let next_entries = candidates
         .iter()
         .skip(1)
-        .map(|(_, _, timestamp)| Some(*timestamp))
+        .map(|(rule, _, timestamp)| {
+            Some(if rule.entry_from.is_some() {
+                Boundary::TransitionAt(*timestamp)
+            } else {
+                Boundary::DefeatBefore(*timestamp)
+            })
+        })
         .chain(std::iter::once(None));
     candidates
         .iter()
@@ -383,11 +418,12 @@ fn project_segment(
     actors: &BTreeMap<i64, &Actor>,
     origin: i64,
     inferred: bool,
-    next_entry: Option<i64>,
+    next_entry: Option<Boundary>,
 ) -> Result<Segment> {
     let main = main_actors(log, rule)?;
     let source = |id: Option<i64>| id.and_then(|id| actors.get(&id)).map(|a| a.name.as_str());
-    let entry = find_entry(log, rule, actors)
+    let entry = find_entries(log, rule, actors)
+        .next()
         .ok_or_else(|| exclude("Missing boss entry", json!({"source":rule.source})))?;
     let (entry_event, start) = (entry.0, entry.1.timestamp);
     let defeat = log.events.iter().enumerate().find(|(_, e)| {
@@ -400,7 +436,10 @@ fn project_segment(
             }
     });
     let fight = log.report.fights.first().context("Missing fight")?;
-    let end = if let Some(next) = next_entry {
+    let end = if let Some(Boundary::TransitionAt(next)) = next_entry {
+        // The entry millisecond belongs to the new phase.
+        next - 1
+    } else if let Some(Boundary::DefeatBefore(next)) = next_entry {
         defeat.filter(|(_, event)| event.timestamp < next && start < next)
             .map(|(_, event)| event.timestamp)
             .ok_or_else(|| UnverifiedScope(

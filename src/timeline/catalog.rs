@@ -164,7 +164,14 @@ fn impact_cast(event: &Event) -> Option<(String, String)> {
 }
 
 fn literal_cast(signal: &Signal) -> Option<(&str, &str)> {
-    if signal.kind != "Ability" || signal.fields.len() != 2 {
+    if signal.kind != "Ability" {
+        return None;
+    }
+    literal_cast_fields(signal)
+}
+
+fn literal_cast_fields(signal: &Signal) -> Option<(&str, &str)> {
+    if signal.fields.len() != 2 {
         return None;
     }
     let field = |name| match signal.fields.get(name)? {
@@ -180,26 +187,45 @@ fn literal_cast(signal: &Signal) -> Option<(&str, &str)> {
 }
 
 impl Timeline {
-    pub(crate) fn cast_entries(&self) -> impl Iterator<Item = (&str, &str, Vec<String>)> {
+    pub(crate) fn cast_entries(&self) -> impl Iterator<Item = CastEntry<'_>> {
         self.phases.iter().filter_map(cast_entry)
     }
 }
 
-fn cast_entry(phase: &super::Phase) -> Option<(&str, &str, Vec<String>)> {
-    let mut entries = phase.enters.iter().map(|signal| {
-        if signal.from.is_some() || signal.at.is_some() || signal.resume_at.is_some() {
-            return None;
-        }
-        literal_cast(signal)
-    });
-    let (first, source) = entries.next()??;
-    let mut ids = vec![first.into()];
-    for entry in entries {
-        let (id, other_source) = entry?;
-        if other_source != source {
+pub(crate) struct CastEntry<'a> {
+    pub phase: &'a str,
+    pub source: &'a str,
+    pub from: Option<&'a str>,
+    pub raw_kind: &'static str,
+    pub ids: Vec<String>,
+}
+
+fn cast_entry(phase: &super::Phase) -> Option<CastEntry<'_>> {
+    let first = phase.enters.first()?;
+    let (_, source) = literal_cast_fields(first)?;
+    let raw_kind = match first.kind.as_str() {
+        "Ability" => "cast",
+        "StartsUsing" => "begincast",
+        _ => return None,
+    };
+    let from = first.from.as_deref();
+    let mut ids = Vec::new();
+    for signal in &phase.enters {
+        let (id, other_source) = literal_cast_fields(signal)?;
+        if other_source != source
+            || signal.kind != first.kind
+            || signal.from.as_deref() != from
+            || signal.resume_at.is_some_and(|offset| offset != 0)
+        {
             return None;
         }
         ids.push(id.into());
     }
-    Some((&phase.id, source, ids))
+    Some(CastEntry {
+        phase: &phase.id,
+        source,
+        from,
+        raw_kind,
+        ids,
+    })
 }

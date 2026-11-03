@@ -7,7 +7,7 @@ mod tests;
 
 use std::collections::BTreeMap;
 
-pub(crate) use catalog::{Catalog, EventData, ExecutionContext, LoopDefinition, Owner};
+pub(crate) use catalog::{CastEntry, Catalog, EventData, ExecutionContext, LoopDefinition, Owner};
 pub(crate) use fflogs::from_fflogs;
 pub(crate) use parse::parse;
 use regress::Regex;
