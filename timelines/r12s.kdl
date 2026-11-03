@@ -9,10 +9,11 @@ timeline 1 "AAC Heavyweight M4 (Savage) — Lindwurm" {
     zone-exit "ChangeZone"
     // The kill transition closes the first schedule before the checkpoint pull.
     boss-complete "Ability" id="B539" source="Lindwurm" from="pre-checkpoint"
+    boss-complete "Ability" id="B539" source="Lindwurm" from="pre-slaughtershed"
 
     phase "pre-checkpoint" {
         // The early cast identifies the segment before its opening raidwide.
-        enter "Ability" id="B4D3" source="Lindwurm"
+        enter "Ability" id="B4D3" source="Lindwurm" resume-at=0.0
         // If opening autos are absent, rebase an idle phase on the first major cast.
         enter "Ability" id="B4D7" source="Lindwurm" resume-at=12.1
         event pre-checkpoint-the-fixer-lindwurm-b4d7-01 12.1 name="The Fixer" {
@@ -205,18 +206,23 @@ timeline 1 "AAC Heavyweight M4 (Savage) — Lindwurm" {
         event pre-checkpoint-mortal-slayer-lindwurm-b496-06 315.6 name="Mortal Slayer"
         event pre-checkpoint-mortal-slayer-lindwurm-b498-02 318.6 name="Mortal Slayer"
         event pre-checkpoint-mortal-slayer-lindwurm-b496-07 321.6 name="Mortal Slayer"
-        event pre-checkpoint-unknown-b7c5-lindwurm-b7c5-02 324.6 name=unknown_b7c5
-        event pre-checkpoint-slaughtershed-lindwurm-b4c6-01 336.8 name=Slaughtershed
-        event pre-checkpoint-slaughtershed-lindwurm-adc9-01 339.3 name=Slaughtershed
-        event pre-checkpoint-unknown-b4ce-lindwurm-b4ce-01 340.9 name=unknown_b4ce
-        event pre-checkpoint-dramatic-lysis-lindwurm-b4d4-01 347.9 name="Dramatic Lysis"
-        event pre-checkpoint-fourth-wall-fusion-lindwurm-b4d5-01 347.9 name="Fourth-Wall Fusion"
-        event pre-checkpoint-burst-lindwurm-b49f-03 348.4 name=Burst
+    }
+
+    phase "pre-slaughtershed" {
+        // The late occurrence anchors the continuation while earlier copies stay in the opening phase.
+        enter "Ability" id="B7C5" source="Lindwurm" from="pre-checkpoint" at=324.6 before=3.0 after=3.0
+        event pre-checkpoint-unknown-b7c5-lindwurm-b7c5-02 0.0 name=unknown_b7c5
+        event pre-checkpoint-slaughtershed-lindwurm-b4c6-01 12.2 name=Slaughtershed
+        event pre-checkpoint-slaughtershed-lindwurm-adc9-01 14.7 name=Slaughtershed
+        event pre-checkpoint-unknown-b4ce-lindwurm-b4ce-01 16.3 name=unknown_b4ce
+        event pre-checkpoint-dramatic-lysis-lindwurm-b4d4-01 23.3 name="Dramatic Lysis"
+        event pre-checkpoint-fourth-wall-fusion-lindwurm-b4d5-01 23.3 name="Fourth-Wall Fusion"
+        event pre-checkpoint-burst-lindwurm-b49f-03 23.8 name=Burst
         // Enrage starts before a fourth pair can open; kill and wipe close the phase.
-        loop "pre-tail-rotation" start=351.5 every=28.9 count=3 {
-            until "StartsUsing" id="B538" source="Lindwurm" at=422.0
-            until "Ability" id="B538" source="Lindwurm" at=422.0
-            until "Ability" id="B53A" source="Lindwurm" at=422.0
+        loop "pre-tail-rotation" start=26.9 every=28.9 count=3 {
+            until "StartsUsing" id="B538" source="Lindwurm" at=97.4
+            until "Ability" id="B538" source="Lindwurm" at=97.4
+            until "Ability" id="B53A" source="Lindwurm" at=97.4
             branch "pre-tail-pair" open=0.0 close=4.0 {
                 option "raptor" {
                     when "StartsUsing" id="B9C7" source="Lindwurm"
@@ -232,29 +238,31 @@ timeline 1 "AAC Heavyweight M4 (Savage) — Lindwurm" {
                 }
             }
         }
-        event pre-checkpoint-slaughtershed-lindwurm-b4c6-02 365.7 name=Slaughtershed
-        event pre-checkpoint-slaughtershed-lindwurm-adc9-02 368.2 name=Slaughtershed
-        event pre-checkpoint-unknown-b4ce-lindwurm-b4ce-02 369.8 name=unknown_b4ce
-        event pre-checkpoint-dramatic-lysis-lindwurm-b4d4-02 376.9 name="Dramatic Lysis"
-        event pre-checkpoint-fourth-wall-fusion-lindwurm-b4d5-02 376.9 name="Fourth-Wall Fusion"
-        event pre-checkpoint-burst-lindwurm-b49f-04 377.3 name=Burst
-        event pre-checkpoint-slaughtershed-lindwurm-b4c6-03 394.6 name=Slaughtershed
-        event pre-checkpoint-slaughtershed-lindwurm-adc9-03 397.1 name=Slaughtershed
-        event pre-checkpoint-unknown-b4ce-lindwurm-b4ce-03 398.7 name=unknown_b4ce
-        event pre-checkpoint-dramatic-lysis-lindwurm-b4d4-03 405.8 name="Dramatic Lysis"
-        event pre-checkpoint-fourth-wall-fusion-lindwurm-b4d5-03 405.8 name="Fourth-Wall Fusion"
-        event pre-checkpoint-burst-lindwurm-b49f-05 406.2 name=Burst
-        event pre-checkpoint-refreshing-overkill-lindwurm-b538 435.1 name="Refreshing Overkill" {
-            sync 435.1 Ability id=B538 source=Lindwurm before=2.5 after=2.5
+        event pre-checkpoint-slaughtershed-lindwurm-b4c6-02 41.1 name=Slaughtershed
+        event pre-checkpoint-slaughtershed-lindwurm-adc9-02 43.6 name=Slaughtershed
+        event pre-checkpoint-unknown-b4ce-lindwurm-b4ce-02 45.2 name=unknown_b4ce
+        event pre-checkpoint-dramatic-lysis-lindwurm-b4d4-02 52.3 name="Dramatic Lysis"
+        event pre-checkpoint-fourth-wall-fusion-lindwurm-b4d5-02 52.3 name="Fourth-Wall Fusion"
+        event pre-checkpoint-burst-lindwurm-b49f-04 52.7 name=Burst
+        event pre-checkpoint-slaughtershed-lindwurm-b4c6-03 70.0 name=Slaughtershed
+        event pre-checkpoint-slaughtershed-lindwurm-adc9-03 72.5 name=Slaughtershed
+        event pre-checkpoint-unknown-b4ce-lindwurm-b4ce-03 74.1 name=unknown_b4ce
+        event pre-checkpoint-dramatic-lysis-lindwurm-b4d4-03 81.2 name="Dramatic Lysis"
+        event pre-checkpoint-fourth-wall-fusion-lindwurm-b4d5-03 81.2 name="Fourth-Wall Fusion"
+        event pre-checkpoint-burst-lindwurm-b49f-05 81.6 name=Burst
+        event pre-checkpoint-refreshing-overkill-lindwurm-b538 110.5 name="Refreshing Overkill" {
+            sync 110.5 Ability id=B538 source=Lindwurm before=2.5 after=2.5
         }
-        event pre-checkpoint-refreshing-overkill-lindwurm-b53a 435.3 name="Refreshing Overkill" {
-            sync 435.3 Ability id=B53A source=Lindwurm before=2.5 after=2.5
+        event pre-checkpoint-refreshing-overkill-lindwurm-b53a 110.7 name="Refreshing Overkill" {
+            sync 110.7 Ability id=B53A source=Lindwurm before=2.5 after=2.5
         }
     }
 
     phase "post-checkpoint" {
         // The early cast identifies the segment before its opening raidwide.
-        enter "Ability" id="B51F" source="Lindwurm"
+        enter "Ability" id="B51F" source="Lindwurm" resume-at=0.0
+        enter "Ability" id="B51F" source="Lindwurm" from="pre-checkpoint"
+        enter "Ability" id="B51F" source="Lindwurm" from="pre-slaughtershed"
         // If opening autos are absent, rebase an idle phase on the first major cast.
         enter "Ability" id="B528" source="Lindwurm" resume-at=12.1
         event post-checkpoint-arcadia-aflame-lindwurm-b528-01 12.1 name="Arcadia Aflame" {
@@ -451,79 +459,84 @@ timeline 1 "AAC Heavyweight M4 (Savage) — Lindwurm" {
         event post-checkpoint-heavy-slam-lindschrat-b519-02 377.2 name="Heavy Slam"
         event post-checkpoint-mana-burst-lindschrat-b517-02 382.2 name="Mana Burst"
         event post-checkpoint-mana-burst-lindwurm-b518-02 383.5 name="Mana Burst"
-        event post-checkpoint-twisted-vision-lindwurm-bbe2-05 391.3 name="Twisted Vision"
-        event post-checkpoint-cosmic-kiss-lindwurm-b4f4 395.7 name="Cosmic Kiss" {
-            sync 395.7 Ability id=B4F4 source=Lindwurm before=2.5 after=2.5
+    }
+
+    phase "post-cosmic-kiss" {
+        // The late occurrence anchors the continuation while earlier copies stay in the opening phase.
+        enter "Ability" id="BBE2" source="Lindwurm" from="post-checkpoint" at=391.3 before=3.0 after=3.0
+        event post-checkpoint-twisted-vision-lindwurm-bbe2-05 0.0 name="Twisted Vision"
+        event post-checkpoint-cosmic-kiss-lindwurm-b4f4 4.4 name="Cosmic Kiss" {
+            sync 4.4 Ability id=B4F4 source=Lindwurm before=2.5 after=2.5
         }
-        event post-checkpoint-lindwurm-s-dark-ii-lindwurm-b4f6 396.4 name="Lindwurm's Dark II" {
-            sync 396.4 Ability id=B4F6 source=Lindwurm before=2.5 after=2.5
+        event post-checkpoint-lindwurm-s-dark-ii-lindwurm-b4f6 5.1 name="Lindwurm's Dark II" {
+            sync 5.1 Ability id=B4F6 source=Lindwurm before=2.5 after=2.5
         }
-        event post-checkpoint-lindwurm-s-stone-iii-lindwurm-b4f7 401.4 name="Lindwurm's Stone III" {
-            sync 401.4 Ability id=B4F7 source=Lindwurm before=2.5 after=2.5
+        event post-checkpoint-lindwurm-s-stone-iii-lindwurm-b4f7 10.1 name="Lindwurm's Stone III" {
+            sync 10.1 Ability id=B4F7 source=Lindwurm before=2.5 after=2.5
         }
-        event post-checkpoint-lindwurm-s-glare-lindwurm-b4f8 406.4 name="Lindwurm's Glare" {
-            sync 406.4 Ability id=B4F8 source=Lindwurm before=2.5 after=2.5
+        event post-checkpoint-lindwurm-s-glare-lindwurm-b4f8 15.1 name="Lindwurm's Glare" {
+            sync 15.1 Ability id=B4F8 source=Lindwurm before=2.5 after=2.5
         }
-        event post-checkpoint-lindwurm-s-thunder-ii-lindwurm-b4fa 406.4 name="Lindwurm's Thunder II" {
-            sync 406.4 Ability id=B4FA source=Lindwurm before=2.5 after=2.5
+        event post-checkpoint-lindwurm-s-thunder-ii-lindwurm-b4fa 15.1 name="Lindwurm's Thunder II" {
+            sync 15.1 Ability id=B4FA source=Lindwurm before=2.5 after=2.5
         }
-        event post-checkpoint-temporal-curtain-lindwurm-b51c 414.8 name="Temporal Curtain" {
-            sync 414.8 Ability id=B51C source=Lindwurm before=2.5 after=2.5
+        event post-checkpoint-temporal-curtain-lindwurm-b51c 23.5 name="Temporal Curtain" {
+            sync 23.5 Ability id=B51C source=Lindwurm before=2.5 after=2.5
         }
-        event post-checkpoint-unknown-b51d-lindschrat-b51d 417.9 name=unknown_b51d {
-            sync 417.9 Ability id=B51D source="Lindschrat" before=2.5 after=2.5
+        event post-checkpoint-unknown-b51d-lindschrat-b51d 26.6 name=unknown_b51d {
+            sync 26.6 Ability id=B51D source="Lindschrat" before=2.5 after=2.5
         }
-        event post-checkpoint-unknown-b4d9-lindschrat-b4d9-03 421.0 name=unknown_b4d9
-        event post-checkpoint-twisted-vision-lindwurm-bbe2-06 427.3 name="Twisted Vision"
-        event post-checkpoint-power-gusher-lindschrat-b510-02 428.3 name="Power Gusher"
-        event post-checkpoint-snaking-kick-lindschrat-bcaf 428.3 name="Snaking Kick" {
-            sync 428.3 Ability id=BCAF source="Lindschrat" before=2.5 after=2.5
+        event post-checkpoint-unknown-b4d9-lindschrat-b4d9-03 29.7 name=unknown_b4d9
+        event post-checkpoint-twisted-vision-lindwurm-bbe2-06 36.0 name="Twisted Vision"
+        event post-checkpoint-power-gusher-lindschrat-b510-02 37.0 name="Power Gusher"
+        event post-checkpoint-snaking-kick-lindschrat-bcaf 37.0 name="Snaking Kick" {
+            sync 37.0 Ability id=BCAF source="Lindschrat" before=2.5 after=2.5
         }
-        event post-checkpoint-reenactment-lindwurm-b4ec-02 433.5 name=Reenactment
-        event post-checkpoint-heavy-slam-lindschrat-b4ef-03 435.6 name="Heavy Slam"
-        event post-checkpoint-mana-burst-lindschrat-b4ee-03 435.6 name="Mana Burst"
-        event post-checkpoint-mana-burst-lindwurm-bbe3-03 436.9 name="Mana Burst"
-        event post-checkpoint-heavy-slam-lindwurm-be5d-03 437.1 name="Heavy Slam"
-        event post-checkpoint-twisted-vision-lindwurm-bbe2-07 442.6 name="Twisted Vision"
-        event post-checkpoint-power-gusher-lindschrat-b514-02 446.1 name="Power Gusher"
-        event post-checkpoint-snaking-kick-lindschrat-b515-02 446.1 name="Snaking Kick"
-        event post-checkpoint-snaking-kick-lindwurm-be95-02 447.0 name="Snaking Kick"
-        event post-checkpoint-power-gusher-lindwurm-b516-02 447.3 name="Power Gusher"
-        event post-checkpoint-twisted-vision-lindwurm-bbe2-08 450.1 name="Twisted Vision"
-        event post-checkpoint-heavy-slam-lindschrat-b4ef-04 456.5 name="Heavy Slam"
-        event post-checkpoint-mana-burst-lindschrat-b4ee-04 456.5 name="Mana Burst"
-        event post-checkpoint-unknown-b51e-lindschrat-b51e 456.5 name=unknown_b51e {
-            sync 456.5 Ability id=B51E source="Lindschrat" before=2.5 after=2.5
+        event post-checkpoint-reenactment-lindwurm-b4ec-02 42.2 name=Reenactment
+        event post-checkpoint-heavy-slam-lindschrat-b4ef-03 44.3 name="Heavy Slam"
+        event post-checkpoint-mana-burst-lindschrat-b4ee-03 44.3 name="Mana Burst"
+        event post-checkpoint-mana-burst-lindwurm-bbe3-03 45.6 name="Mana Burst"
+        event post-checkpoint-heavy-slam-lindwurm-be5d-03 45.8 name="Heavy Slam"
+        event post-checkpoint-twisted-vision-lindwurm-bbe2-07 51.3 name="Twisted Vision"
+        event post-checkpoint-power-gusher-lindschrat-b514-02 54.8 name="Power Gusher"
+        event post-checkpoint-snaking-kick-lindschrat-b515-02 54.8 name="Snaking Kick"
+        event post-checkpoint-snaking-kick-lindwurm-be95-02 55.7 name="Snaking Kick"
+        event post-checkpoint-power-gusher-lindwurm-b516-02 56.0 name="Power Gusher"
+        event post-checkpoint-twisted-vision-lindwurm-bbe2-08 58.8 name="Twisted Vision"
+        event post-checkpoint-heavy-slam-lindschrat-b4ef-04 65.2 name="Heavy Slam"
+        event post-checkpoint-mana-burst-lindschrat-b4ee-04 65.2 name="Mana Burst"
+        event post-checkpoint-unknown-b51e-lindschrat-b51e 65.2 name=unknown_b51e {
+            sync 65.2 Ability id=B51E source="Lindschrat" before=2.5 after=2.5
         }
-        event post-checkpoint-mana-burst-lindwurm-bbe3-04 457.8 name="Mana Burst"
-        event post-checkpoint-heavy-slam-lindwurm-be5d-04 458.0 name="Heavy Slam"
-        event post-checkpoint-power-gusher-lindschrat-b51a 461.6 name="Power Gusher" {
-            sync 461.6 Ability id=B51A source="Lindschrat" before=2.5 after=2.5
+        event post-checkpoint-mana-burst-lindwurm-bbe3-04 66.5 name="Mana Burst"
+        event post-checkpoint-heavy-slam-lindwurm-be5d-04 66.7 name="Heavy Slam"
+        event post-checkpoint-power-gusher-lindschrat-b51a 70.3 name="Power Gusher" {
+            sync 70.3 Ability id=B51A source="Lindschrat" before=2.5 after=2.5
         }
-        event post-checkpoint-power-gusher-lindwurm-b516-03 462.8 name="Power Gusher"
-        event post-checkpoint-idyllic-dream-lindwurm-b509-02 468.6 name="Idyllic Dream"
-        event post-checkpoint-double-sobat-lindwurm-b520-03 476.8 name="Double Sobat"
-        event "post-sobat-variant-03" 477.6 name="Double Sobat" {
-            sync 477.6 "Ability" id="B521" source="Lindwurm"
-            sync 477.6 "Ability" id="B522" source="Lindwurm"
-            sync 477.6 "Ability" id="B523" source="Lindwurm"
-            sync 477.6 "Ability" id="B524" source="Lindwurm"
+        event post-checkpoint-power-gusher-lindwurm-b516-03 71.5 name="Power Gusher"
+        event post-checkpoint-idyllic-dream-lindwurm-b509-02 77.3 name="Idyllic Dream"
+        event post-checkpoint-double-sobat-lindwurm-b520-03 85.5 name="Double Sobat"
+        event "post-sobat-variant-03" 86.3 name="Double Sobat" {
+            sync 86.3 "Ability" id="B521" source="Lindwurm"
+            sync 86.3 "Ability" id="B522" source="Lindwurm"
+            sync 86.3 "Ability" id="B523" source="Lindwurm"
+            sync 86.3 "Ability" id="B524" source="Lindwurm"
         }
-        event post-checkpoint-double-sobat-lindwurm-b525-03 482.1 name="Double Sobat"
-        event post-checkpoint-esoteric-finisher-lindwurm-b526-03 484.6 name="Esoteric Finisher"
-        event post-checkpoint-replication-lindwurm-b46c 498.1 name=Replication {
-            sync 498.1 Ability id=B46C source=Lindwurm before=2.5 after=2.5
+        event post-checkpoint-double-sobat-lindwurm-b525-03 90.8 name="Double Sobat"
+        event post-checkpoint-esoteric-finisher-lindwurm-b526-03 93.3 name="Esoteric Finisher"
+        event post-checkpoint-replication-lindwurm-b46c 106.8 name=Replication {
+            sync 106.8 Ability id=B46C source=Lindwurm before=2.5 after=2.5
         }
-        event post-checkpoint-arcadian-hell-lindschrat-b534-01 511.5 name="Arcadian Hell"
-        event post-checkpoint-arcadian-hell-lindschrat-b534-02 511.5 name="Arcadian Hell"
-        event post-checkpoint-arcadian-hell-lindwurm-b533-01 511.5 name="Arcadian Hell"
-        event post-checkpoint-arcadian-hell-lindschrat-b535-01 527.8 name="Arcadian Hell"
-        event post-checkpoint-arcadian-hell-lindschrat-b535-02 527.8 name="Arcadian Hell"
-        event post-checkpoint-arcadian-hell-lindwurm-b533-02 527.8 name="Arcadian Hell"
-        event post-checkpoint-arcadian-hell-lindschrat-bec1-01 550.5 name="Arcadian Hell"
-        event post-checkpoint-arcadian-hell-lindschrat-bec1-02 550.5 name="Arcadian Hell"
-        event post-checkpoint-arcadian-hell-lindwurm-b537 550.5 name="Arcadian Hell" {
-            sync 550.5 Ability id=B537 source=Lindwurm before=2.5 after=2.5
+        event post-checkpoint-arcadian-hell-lindschrat-b534-01 120.2 name="Arcadian Hell"
+        event post-checkpoint-arcadian-hell-lindschrat-b534-02 120.2 name="Arcadian Hell"
+        event post-checkpoint-arcadian-hell-lindwurm-b533-01 120.2 name="Arcadian Hell"
+        event post-checkpoint-arcadian-hell-lindschrat-b535-01 136.5 name="Arcadian Hell"
+        event post-checkpoint-arcadian-hell-lindschrat-b535-02 136.5 name="Arcadian Hell"
+        event post-checkpoint-arcadian-hell-lindwurm-b533-02 136.5 name="Arcadian Hell"
+        event post-checkpoint-arcadian-hell-lindschrat-bec1-01 159.2 name="Arcadian Hell"
+        event post-checkpoint-arcadian-hell-lindschrat-bec1-02 159.2 name="Arcadian Hell"
+        event post-checkpoint-arcadian-hell-lindwurm-b537 159.2 name="Arcadian Hell" {
+            sync 159.2 Ability id=B537 source=Lindwurm before=2.5 after=2.5
         }
     }
 }

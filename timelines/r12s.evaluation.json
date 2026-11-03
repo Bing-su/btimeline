@@ -25,7 +25,17 @@
         "B9C3": {
           "name": "Splattershed",
           "events": ["pre-checkpoint-splattershed-lindwurm-b9c3"]
-        },
+        }
+      }
+    },
+    {
+      "phase": "pre-slaughtershed",
+      "encounter": 104,
+      "source": "Lindwurm",
+      "other_sources": ["Lindschrat"],
+      "entry": ["B7C5"],
+      "completion": "fight_end",
+      "targets": {
         "B538": {
           "name": "Refreshing Overkill",
           "events": ["pre-checkpoint-refreshing-overkill-lindwurm-b538"]
@@ -39,8 +49,25 @@
           "name": "Serpentine Scourge",
           "lead_ms": 500,
           "events": ["pre-tail-serpentine-first", "pre-tail-serpentine-second"]
+        },
+        "B4C3": {
+          "name": "Slaughtershed",
+          "events": [
+            "pre-checkpoint-slaughtershed-lindwurm-b4c6-01",
+            "pre-checkpoint-slaughtershed-lindwurm-b4c6-02",
+            "pre-checkpoint-slaughtershed-lindwurm-b4c6-03"
+          ]
+        },
+        "B4C6": {
+          "name": "Slaughtershed",
+          "events": [
+            "pre-checkpoint-slaughtershed-lindwurm-b4c6-01",
+            "pre-checkpoint-slaughtershed-lindwurm-b4c6-02",
+            "pre-checkpoint-slaughtershed-lindwurm-b4c6-03"
+          ]
         }
-      }
+      },
+      "entry_from": "pre-checkpoint"
     },
     {
       "phase": "post-checkpoint",
@@ -59,27 +86,19 @@
         },
         "B524": {
           "name": "Double Sobat",
-          "events": ["post-sobat-variant-01", "post-sobat-variant-02", "post-sobat-variant-03"]
-        },
-        "B46C": {
-          "name": "Replication",
-          "events": ["post-checkpoint-replication-lindwurm-b46c"]
-        },
-        "B537": {
-          "name": "Arcadian Hell",
-          "events": ["post-checkpoint-arcadian-hell-lindwurm-b537"]
+          "events": ["post-sobat-variant-01", "post-sobat-variant-02"]
         },
         "B521": {
           "name": "Double Sobat",
-          "events": ["post-sobat-variant-01", "post-sobat-variant-02", "post-sobat-variant-03"]
+          "events": ["post-sobat-variant-01", "post-sobat-variant-02"]
         },
         "B522": {
           "name": "Double Sobat",
-          "events": ["post-sobat-variant-01", "post-sobat-variant-02", "post-sobat-variant-03"]
+          "events": ["post-sobat-variant-01", "post-sobat-variant-02"]
         },
         "B523": {
           "name": "Double Sobat",
-          "events": ["post-sobat-variant-01", "post-sobat-variant-02", "post-sobat-variant-03"]
+          "events": ["post-sobat-variant-01", "post-sobat-variant-02"]
         },
         "B52E": {
           "name": "Netherwrath Near",
@@ -92,6 +111,46 @@
           "events": ["post-netherwrath-far"]
         }
       }
+    },
+    {
+      "phase": "post-cosmic-kiss",
+      "encounter": 105,
+      "source": "Lindwurm",
+      "other_sources": ["Lindschrat"],
+      "entry": ["BBE2"],
+      "completion": "fight_end",
+      "targets": {
+        "B46C": {
+          "name": "Replication",
+          "events": ["post-checkpoint-replication-lindwurm-b46c"]
+        },
+        "B537": {
+          "name": "Arcadian Hell",
+          "events": ["post-checkpoint-arcadian-hell-lindwurm-b537"]
+        },
+        "B521": {
+          "name": "Double Sobat",
+          "events": ["post-sobat-variant-03"]
+        },
+        "B522": {
+          "name": "Double Sobat",
+          "events": ["post-sobat-variant-03"]
+        },
+        "B523": {
+          "name": "Double Sobat",
+          "events": ["post-sobat-variant-03"]
+        },
+        "B524": {
+          "name": "Double Sobat",
+          "events": ["post-sobat-variant-03"]
+        },
+        "B4F4": {
+          "name": "Cosmic Kiss",
+          "events": ["post-checkpoint-cosmic-kiss-lindwurm-b4f4"],
+          "lead_ms": 3500
+        }
+      },
+      "entry_from": "post-checkpoint"
     }
   ],
   "not_checked": [

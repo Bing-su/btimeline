@@ -71,7 +71,6 @@ struct SegmentRule {
     entry: Vec<String>,
     #[serde(skip)]
     entry_kind: Option<&'static str>,
-    #[serde(skip)]
     entry_from: Option<String>,
     completion: Completion,
     max_duration_ms: Option<i64>,
@@ -209,10 +208,19 @@ impl Profile {
             self.version == 1 && !self.segments.is_empty(),
             "Unsupported or empty projection profile"
         );
-        let mut phases = std::collections::BTreeSet::new();
+        let mut phases = BTreeMap::new();
         for segment in &self.segments {
+            let scope = (segment.source.as_str(), segment.encounter);
+            if let Some(from) = &segment.entry_from
+                && !self.inferred
+            {
+                ensure!(
+                    phases.get(from.as_str()).copied() == Some(scope),
+                    "entry_from must reference an earlier segment with the same encounter and source"
+                );
+            }
             ensure!(
-                !segment.phase.is_empty() && phases.insert(&segment.phase),
+                !segment.phase.is_empty() && phases.insert(segment.phase.as_str(), scope).is_none(),
                 "Empty or duplicate segment phase"
             );
             ensure!(
@@ -379,7 +387,10 @@ fn follow_transitions<'a>(
         route.push(current);
         let mut choices = rules
             .iter()
-            .filter(|rule| rule.entry_from.as_deref() == Some(&current.0.phase))
+            .filter(|rule| {
+                rule.entry_from.as_deref() == Some(&current.0.phase)
+                    && rule.encounter == current.0.encounter
+            })
             .flat_map(|rule| {
                 find_entries(log, rule, actors)
                     .take_while(|(index, _)| *index < limit)
@@ -461,14 +472,16 @@ fn replayed_phase_choice(rows: &[Record], choices: &[PhaseEntry<'_>]) -> Option<
 
 fn inferred_segments(
     log: &CollectedLog,
-    rules: &[SegmentRule],
+    profile: &Profile,
     actors: &BTreeMap<i64, &Actor>,
     origin: i64,
+    encounter: i64,
     model: Option<&Timeline>,
 ) -> Result<Vec<Segment>> {
-    let mut roots = rules
+    let mut roots = profile
+        .segments
         .iter()
-        .filter(|rule| rule.entry_from.is_none())
+        .filter(|rule| rule.entry_from.is_none() && rule.encounter.is_none_or(|id| id == encounter))
         .filter_map(|rule| {
             find_entries(log, rule, actors)
                 .next()
@@ -518,7 +531,7 @@ fn inferred_segments(
     for (root, limit) in roots.iter().copied().zip(limits) {
         candidates.extend(follow_transitions(
             log,
-            rules,
+            &profile.segments,
             actors,
             root,
             limit,
@@ -546,7 +559,7 @@ fn inferred_segments(
                 rule,
                 actors,
                 origin,
-                true,
+                profile.inferred,
                 next_entry,
                 Some((*index, *event)),
             )
@@ -712,8 +725,11 @@ pub(super) fn project(
         .first()
         .context("Missing fight")?
         .encounter_id;
-    let bosses = if profile.inferred {
-        inferred_segments(log, &profile.segments, &actors, origin, model)?
+    let bosses = if profile.inferred
+        || profile.segments.iter().any(|rule| {
+            rule.entry_from.is_some() && rule.encounter.is_none_or(|id| id == encounter)
+        }) {
+        inferred_segments(log, profile, &actors, origin, encounter, model)?
     } else {
         profile
             .segments

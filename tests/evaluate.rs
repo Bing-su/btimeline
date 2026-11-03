@@ -256,6 +256,43 @@ fn inferred_sequential_phases_require_an_observed_boundary(
 }
 
 #[test]
+fn explicit_profile_splits_on_the_observed_entry_from_transition() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path();
+    let mut manifest = setup(path);
+    let timeline = br#"timeline 1 "Linked profile" {
+        start "Ability" id="B528"
+        phase "boss" {
+            enter "Ability" id="B528" resume-at=0.0
+            event "first" 0.0 name="Hit"
+        }
+        phase "later" {
+            enter "Ability" id="B528" source="Synthetic Boss" from="boss" at=4.0
+            event "second" 0.0 name="Hit"
+            event "third" 4.0 name="Hit"
+        }
+    }"#;
+    let profile = json!({"version":1,"observations":"all_casts","segments":[
+        {"phase":"boss","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Hit","events":["first"]}}},
+        {"phase":"later","source":"Synthetic Boss","entry":["B528"],"entry_from":"boss","completion":"fight_end","targets":{"B528":{"name":"Hit","events":["second","third"]}}}
+    ],"not_checked":[]});
+    fs::write(path.join("timeline.kdl"), timeline).unwrap();
+    fs::write(
+        path.join("profile.json"),
+        serde_json::to_vec(&profile).unwrap(),
+    )
+    .unwrap();
+    manifest["timeline_sha256"] = json!(hash(timeline));
+    save(path, &manifest);
+    command(path).assert().success();
+    let report: Value =
+        serde_json::from_slice(&fs::read(path.join("report.json")).unwrap()).unwrap();
+    assert_eq!(report["traces"][0]["safe_entry"], true);
+    assert_eq!(report["traces"][0]["bosses"][0]["end_ms"], 3999);
+    assert_eq!(report["traces"][0]["bosses"][1]["entry_ms"], 4000);
+}
+
+#[test]
 fn review_reports_phase_entry_mismatch_before_forecast_failures() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path();
