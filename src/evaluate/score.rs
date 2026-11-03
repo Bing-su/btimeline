@@ -62,6 +62,8 @@ fn forecast_target(
                 && executed_context.is_none_or(|actual| {
                     actual.owner.loop_id == event.context.owner.loop_id
                         && actual.iteration == event.context.iteration
+                        && actual.owner.sequence == event.context.owner.sequence
+                        && actual.sequence_instance == event.context.sequence_instance
                 })
         })
         .min_by_key(|event| event.at_ms.abs_diff(target.at_ms));

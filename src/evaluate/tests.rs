@@ -442,3 +442,52 @@ fn sandoria_scores_variant_casts_and_helper_bury_without_counting_duplicate_arms
     assert_eq!(result.bosses[0].targets.len(), 2);
     assert_eq!(result.bosses[0].targets[1].id, "AD4C");
 }
+
+#[rstest::rstest]
+#[case(3500, false)]
+#[case(2500, true)]
+fn a_restarted_sequence_requires_its_own_forecast(#[case] lead_ms: i64, #[case] passed: bool) {
+    let profile: Profile = serde_json::from_value(json!({
+        "version":1,"observations":"scoped_casts","not_checked":[],
+        "segments":[{"phase":"boss","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end",
+        "targets":{"B529":{"name":"Hit","events":["hit"]}}}]
+    })).unwrap();
+    let raw = log(
+        1,
+        &["Synthetic Boss"],
+        json!([
+            cast(0, 1, 0xb528),
+            cast(1000, 1, 0xb530),
+            cast(2000, 1, 0xb530),
+            cast(5000, 1, 0xb529)
+        ]),
+    );
+    let model = crate::timeline::parse(
+        r#"timeline 1 "Test" {
+        start "Ability" id="B528"
+        phase "boss" {
+            enter "Ability" id="B528"
+            sequence "reaction" {
+                on "Ability" id="B530"
+                event "hit" 3.0 name="Hit"
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    profile.validate_bindings(&model).unwrap();
+    let projected = projection::project(&raw, &profile, None).unwrap();
+    let manifest: Manifest = serde_json::from_value(json!({
+        "timeline":"unused","timeline_sha256":"unused","role":"test","forecast_lead_ms":lead_ms,
+        "horizon_ms":6500,"tolerance_ms":1500,"inputs":[]
+    }))
+    .unwrap();
+    let result = score::score(&model, &projected, &manifest).unwrap();
+    let target = &result["bosses"][0]["targets"][0];
+    assert_eq!(target["matched_event"]["context"]["sequence_instance"], 2);
+    assert_eq!(target["forecast"]["passed"], passed);
+    assert_eq!(
+        target["forecast"]["matched_event"]["context"]["sequence_instance"],
+        if passed { json!(2) } else { Value::Null }
+    );
+}

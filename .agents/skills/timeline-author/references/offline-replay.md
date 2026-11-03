@@ -83,7 +83,7 @@ JSON 실행 행의 `event`에는 `id`, `name`, `visible`, `duration_ms`를 제�
 | 처치 전 시작·처치 후 발동      | 부모 전환 이전의 시작과 이후의 발동이 새 단독 sequence를 만들지 않는다.                              |
 | 예약 후 처치·전멸·전환         | 기존 부모의 예약을 취소한다. 종료에 소비된 신호가 하위 일정까지 시작하지 않는다.                     |
 
-반복해서 같은 이벤트 ID가 실행될 수 있으므로 재생·조회와 작성 평가에서는 부모 phase 실행과 sequence 실행을 구분할 수 있어야 한다. sequence 시작 행의 동작은 `sequence`다. 시작 행과 실행한 이벤트의 `context`에 `sequence`와 `sequence_instance`를 기록한다. 실행 번호는 같은 부모 phase 인스턴스 안에서 시작 순서대로 증가한다. 작성 평가에서 이 식별자를 사용하는 범위는 후속 작업이다.
+반복해서 같은 이벤트 ID가 실행될 수 있으므로 재생·조회와 작성 평가에서는 부모 phase 실행과 sequence 실행을 구분할 수 있어야 한다. sequence 시작 행의 동작은 `sequence`다. 시작 행과 실행한 이벤트의 `context`에 `sequence`와 `sequence_instance`를 기록한다. 실행 번호는 같은 부모 phase 인스턴스 안에서 시작 순서대로 증가한다. 작성 평가는 사전 조회에서 실제 대응한 sequence 실행과 같은 식별자를 요구한다.
 
 ## 입력 관측
 
