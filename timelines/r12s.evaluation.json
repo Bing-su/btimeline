@@ -52,19 +52,27 @@
         },
         "B4C3": {
           "name": "Slaughtershed",
-          "events": [
-            "pre-checkpoint-slaughtershed-lindwurm-b4c6-01",
-            "pre-checkpoint-slaughtershed-lindwurm-b4c6-02",
-            "pre-checkpoint-slaughtershed-lindwurm-b4c6-03"
-          ]
+          "events": ["pre-tail-slaughtershed"]
         },
         "B4C6": {
           "name": "Slaughtershed",
-          "events": [
-            "pre-checkpoint-slaughtershed-lindwurm-b4c6-01",
-            "pre-checkpoint-slaughtershed-lindwurm-b4c6-02",
-            "pre-checkpoint-slaughtershed-lindwurm-b4c6-03"
-          ]
+          "events": ["pre-tail-slaughtershed"]
+        },
+        "ADC9": {
+          "name": "Slaughtershed",
+          "events": ["pre-tail-slaughtershed-impact"]
+        },
+        "B4D4": {
+          "name": "Dramatic Lysis",
+          "events": ["pre-tail-dramatic-lysis"]
+        },
+        "B4D5": {
+          "name": "Fourth-Wall Fusion",
+          "events": ["pre-tail-fourth-wall-fusion"]
+        },
+        "B49F": {
+          "name": "Burst",
+          "events": ["pre-tail-burst"]
         }
       },
       "entry_from": "pre-checkpoint"

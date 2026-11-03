@@ -212,18 +212,14 @@ timeline 1 "AAC Heavyweight M4 (Savage) — Lindwurm" {
         // The late occurrence anchors the continuation while earlier copies stay in the opening phase.
         enter "Ability" id="B7C5" source="Lindwurm" from="pre-checkpoint" at=324.6 before=3.0 after=3.0
         event pre-checkpoint-unknown-b7c5-lindwurm-b7c5-02 0.0 name=unknown_b7c5
-        event pre-checkpoint-slaughtershed-lindwurm-b4c6-01 12.2 name=Slaughtershed
-        event pre-checkpoint-slaughtershed-lindwurm-adc9-01 14.7 name=Slaughtershed
-        event pre-checkpoint-unknown-b4ce-lindwurm-b4ce-01 16.3 name=unknown_b4ce
-        event pre-checkpoint-dramatic-lysis-lindwurm-b4d4-01 23.3 name="Dramatic Lysis"
-        event pre-checkpoint-fourth-wall-fusion-lindwurm-b4d5-01 23.3 name="Fourth-Wall Fusion"
-        event pre-checkpoint-burst-lindwurm-b49f-03 23.8 name=Burst
-        // Enrage starts before a fourth pair can open; kill and wipe close the phase.
-        loop "pre-tail-rotation" start=26.9 every=28.9 count=3 {
-            until "StartsUsing" id="B538" source="Lindwurm" at=97.4
-            until "Ability" id="B538" source="Lindwurm" at=97.4
-            until "Ability" id="B53A" source="Lindwurm" at=97.4
-            branch "pre-tail-pair" open=0.0 close=4.0 {
+        // The three full rotations finish before Refreshing Overkill starts.
+        loop "pre-tail-rotation" start=12.2 every=28.9 count=3 {
+            event "pre-tail-slaughtershed" 0.0 name=Slaughtershed
+            event "pre-tail-slaughtershed-impact" 2.5 name=Slaughtershed
+            event "pre-tail-dramatic-lysis" 11.1 name="Dramatic Lysis"
+            event "pre-tail-fourth-wall-fusion" 11.1 name="Fourth-Wall Fusion"
+            event "pre-tail-burst" 11.6 name=Burst
+            branch "pre-tail-pair" open=14.7 close=18.7 {
                 option "raptor" {
                     when "StartsUsing" id="B9C7" source="Lindwurm"
                     when "Ability" id="B9C7" source="Lindwurm" resume-at=0.8
@@ -238,22 +234,8 @@ timeline 1 "AAC Heavyweight M4 (Savage) — Lindwurm" {
                 }
             }
         }
-        event pre-checkpoint-slaughtershed-lindwurm-b4c6-02 41.1 name=Slaughtershed
-        event pre-checkpoint-slaughtershed-lindwurm-adc9-02 43.6 name=Slaughtershed
-        event pre-checkpoint-unknown-b4ce-lindwurm-b4ce-02 45.2 name=unknown_b4ce
-        event pre-checkpoint-dramatic-lysis-lindwurm-b4d4-02 52.3 name="Dramatic Lysis"
-        event pre-checkpoint-fourth-wall-fusion-lindwurm-b4d5-02 52.3 name="Fourth-Wall Fusion"
-        event pre-checkpoint-burst-lindwurm-b49f-04 52.7 name=Burst
-        event pre-checkpoint-slaughtershed-lindwurm-b4c6-03 70.0 name=Slaughtershed
-        event pre-checkpoint-slaughtershed-lindwurm-adc9-03 72.5 name=Slaughtershed
-        event pre-checkpoint-unknown-b4ce-lindwurm-b4ce-03 74.1 name=unknown_b4ce
-        event pre-checkpoint-dramatic-lysis-lindwurm-b4d4-03 81.2 name="Dramatic Lysis"
-        event pre-checkpoint-fourth-wall-fusion-lindwurm-b4d5-03 81.2 name="Fourth-Wall Fusion"
-        event pre-checkpoint-burst-lindwurm-b49f-05 81.6 name=Burst
         event pre-checkpoint-refreshing-overkill-lindwurm-b538 110.5 name="Refreshing Overkill" {
             sync 110.5 Ability id=B538 source=Lindwurm before=2.5 after=2.5
-        }
-        event pre-checkpoint-refreshing-overkill-lindwurm-b53a 110.7 name="Refreshing Overkill" {
             sync 110.7 Ability id=B53A source=Lindwurm before=2.5 after=2.5
         }
     }
