@@ -39,7 +39,10 @@
             "pre-tail-2-raptor-first",
             "pre-tail-2-raptor-second",
             "pre-tail-3-raptor-first",
-            "pre-tail-3-raptor-second"
+            "pre-tail-3-raptor-second",
+            "pre-tail-1-raptor-recovery-second",
+            "pre-tail-2-raptor-recovery-second",
+            "pre-tail-3-raptor-recovery-second"
           ]
         },
         "B9BC": {
@@ -51,7 +54,10 @@
             "pre-tail-2-serpentine-first",
             "pre-tail-2-serpentine-second",
             "pre-tail-3-serpentine-first",
-            "pre-tail-3-serpentine-second"
+            "pre-tail-3-serpentine-second",
+            "pre-tail-1-serpentine-recovery-second",
+            "pre-tail-2-serpentine-recovery-second",
+            "pre-tail-3-serpentine-recovery-second"
           ]
         }
       }
@@ -73,10 +79,7 @@
         },
         "B524": {
           "name": "Double Sobat",
-          "events": [
-            "post-checkpoint-double-sobat-lindwurm-b524",
-            "post-checkpoint-double-sobat-lindwurm-b521"
-          ]
+          "events": ["post-sobat-variant-01", "post-sobat-variant-02", "post-sobat-variant-03"]
         },
         "B46C": {
           "name": "Replication",
@@ -85,6 +88,18 @@
         "B537": {
           "name": "Arcadian Hell",
           "events": ["post-checkpoint-arcadian-hell-lindwurm-b537"]
+        },
+        "B521": {
+          "name": "Double Sobat",
+          "events": ["post-sobat-variant-01", "post-sobat-variant-02", "post-sobat-variant-03"]
+        },
+        "B522": {
+          "name": "Double Sobat",
+          "events": ["post-sobat-variant-01", "post-sobat-variant-02", "post-sobat-variant-03"]
+        },
+        "B523": {
+          "name": "Double Sobat",
+          "events": ["post-sobat-variant-01", "post-sobat-variant-02", "post-sobat-variant-03"]
         }
       }
     }

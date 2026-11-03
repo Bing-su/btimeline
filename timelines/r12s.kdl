@@ -222,6 +222,15 @@ timeline 1 "AAC Heavyweight M4 (Savage) — Lindwurm" {
                 event "pre-tail-1-serpentine-first" 1.0 name="Serpentine Scourge"
                 event "pre-tail-1-serpentine-second" 5.6 name="Serpentine Scourge"
             }
+            // If the first cast-start packet is missing, its impact still identifies the follow-up.
+            option "raptor-recovery" fallback=#true {
+                when "Ability" id="B9C7" source="Lindwurm"
+                event "pre-tail-1-raptor-recovery-second" 4.5 name="Raptor Knuckles"
+            }
+            option "serpentine-recovery" fallback=#true {
+                when "Ability" id="B9BC" source="Lindwurm"
+                event "pre-tail-1-serpentine-recovery-second" 4.6 name="Serpentine Scourge"
+            }
         }
         event pre-checkpoint-slaughtershed-lindwurm-b4c6-02 365.7 name=Slaughtershed
         event pre-checkpoint-slaughtershed-lindwurm-adc9-02 368.2 name=Slaughtershed
@@ -241,6 +250,15 @@ timeline 1 "AAC Heavyweight M4 (Savage) — Lindwurm" {
                 event "pre-tail-2-serpentine-first" 1.0 name="Serpentine Scourge"
                 event "pre-tail-2-serpentine-second" 5.6 name="Serpentine Scourge"
             }
+            // If the first cast-start packet is missing, its impact still identifies the follow-up.
+            option "raptor-recovery" fallback=#true {
+                when "Ability" id="B9C7" source="Lindwurm"
+                event "pre-tail-2-raptor-recovery-second" 4.5 name="Raptor Knuckles"
+            }
+            option "serpentine-recovery" fallback=#true {
+                when "Ability" id="B9BC" source="Lindwurm"
+                event "pre-tail-2-serpentine-recovery-second" 4.6 name="Serpentine Scourge"
+            }
         }
         event pre-checkpoint-slaughtershed-lindwurm-b4c6-03 394.6 name=Slaughtershed
         event pre-checkpoint-slaughtershed-lindwurm-adc9-03 397.1 name=Slaughtershed
@@ -259,6 +277,15 @@ timeline 1 "AAC Heavyweight M4 (Savage) — Lindwurm" {
                 when "StartsUsing" id="B9BC" source="Lindwurm"
                 event "pre-tail-3-serpentine-first" 1.0 name="Serpentine Scourge"
                 event "pre-tail-3-serpentine-second" 5.6 name="Serpentine Scourge"
+            }
+            // If the first cast-start packet is missing, its impact still identifies the follow-up.
+            option "raptor-recovery" fallback=#true {
+                when "Ability" id="B9C7" source="Lindwurm"
+                event "pre-tail-3-raptor-recovery-second" 4.5 name="Raptor Knuckles"
+            }
+            option "serpentine-recovery" fallback=#true {
+                when "Ability" id="B9BC" source="Lindwurm"
+                event "pre-tail-3-serpentine-recovery-second" 4.6 name="Serpentine Scourge"
             }
         }
         event pre-checkpoint-refreshing-overkill-lindwurm-b538 435.1 name="Refreshing Overkill" {
@@ -299,8 +326,11 @@ timeline 1 "AAC Heavyweight M4 (Savage) — Lindwurm" {
         event post-checkpoint-winged-scourge-lindwurm-b4dc-04 58.4 name="Winged Scourge"
         event post-checkpoint-mighty-magic-lindwurm-b4e0-02 58.7 name="Mighty Magic"
         event post-checkpoint-double-sobat-lindwurm-b520-01 66.1 name="Double Sobat"
-        event post-checkpoint-double-sobat-lindwurm-b523 66.7 name="Double Sobat" {
-            sync 66.7 Ability id=B523 source=Lindwurm before=10.0 after=10.0
+        event "post-sobat-variant-01" 66.7 name="Double Sobat" {
+            sync 66.7 "Ability" id="B521" source="Lindwurm"
+            sync 66.7 "Ability" id="B522" source="Lindwurm"
+            sync 66.7 "Ability" id="B523" source="Lindwurm"
+            sync 66.7 "Ability" id="B524" source="Lindwurm"
         }
         event post-checkpoint-double-sobat-lindwurm-b525-01 71.3 name="Double Sobat"
         event post-checkpoint-esoteric-finisher-lindwurm-b526-01 73.7 name="Esoteric Finisher"
@@ -404,8 +434,11 @@ timeline 1 "AAC Heavyweight M4 (Savage) — Lindwurm" {
         event post-checkpoint-dramatic-lysis-lindwurm-b507-02 229.2 name="Dramatic Lysis"
         event post-checkpoint-arcadia-aflame-lindwurm-b528-02 233.1 name="Arcadia Aflame"
         event post-checkpoint-double-sobat-lindwurm-b520-02 242.4 name="Double Sobat"
-        event post-checkpoint-double-sobat-lindwurm-b524 242.9 name="Double Sobat" {
-            sync 242.9 Ability id=B524 source=Lindwurm before=2.5 after=2.5
+        event "post-sobat-variant-02" 242.9 name="Double Sobat" {
+            sync 242.9 "Ability" id="B521" source="Lindwurm"
+            sync 242.9 "Ability" id="B522" source="Lindwurm"
+            sync 242.9 "Ability" id="B523" source="Lindwurm"
+            sync 242.9 "Ability" id="B524" source="Lindwurm"
         }
         event post-checkpoint-double-sobat-lindwurm-b525-02 247.5 name="Double Sobat"
         event post-checkpoint-esoteric-finisher-lindwurm-b526-02 250.0 name="Esoteric Finisher"
@@ -506,8 +539,11 @@ timeline 1 "AAC Heavyweight M4 (Savage) — Lindwurm" {
         event post-checkpoint-power-gusher-lindwurm-b516-03 462.8 name="Power Gusher"
         event post-checkpoint-idyllic-dream-lindwurm-b509-02 468.6 name="Idyllic Dream"
         event post-checkpoint-double-sobat-lindwurm-b520-03 476.8 name="Double Sobat"
-        event post-checkpoint-double-sobat-lindwurm-b521 477.6 name="Double Sobat" {
-            sync 477.6 Ability id=B521 source=Lindwurm before=2.5 after=2.5
+        event "post-sobat-variant-03" 477.6 name="Double Sobat" {
+            sync 477.6 "Ability" id="B521" source="Lindwurm"
+            sync 477.6 "Ability" id="B522" source="Lindwurm"
+            sync 477.6 "Ability" id="B523" source="Lindwurm"
+            sync 477.6 "Ability" id="B524" source="Lindwurm"
         }
         event post-checkpoint-double-sobat-lindwurm-b525-03 482.1 name="Double Sobat"
         event post-checkpoint-esoteric-finisher-lindwurm-b526-03 484.6 name="Esoteric Finisher"
