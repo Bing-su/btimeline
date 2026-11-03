@@ -61,6 +61,8 @@ struct SegmentRule {
     #[serde(default)]
     reject_health_reset: bool,
     targets: BTreeMap<String, TargetRule>,
+    #[serde(default)]
+    ignored: BTreeMap<String, String>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -84,6 +86,7 @@ pub(super) struct Segment {
     pub entry_event: usize,
     pub completion_event: usize,
     pub targets: Vec<Target>,
+    pub audit: super::audit::Audit,
 }
 pub(super) struct Projection {
     pub origin_timestamp_ms: i64,
@@ -119,13 +122,24 @@ impl Profile {
                 !segment.reject_health_reset || segment.require_main_actor,
                 "Health-reset checks require an unambiguous main actor"
             );
-            for id in segment.entry.iter().chain(segment.targets.keys()) {
+            for id in segment
+                .entry
+                .iter()
+                .chain(segment.targets.keys())
+                .chain(segment.ignored.keys())
+            {
                 ensure!(
                     !id.is_empty()
                         && id
                             .bytes()
                             .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_lowercase()),
                     "Ability IDs must be uppercase hexadecimal"
+                );
+            }
+            for (id, reason) in &segment.ignored {
+                ensure!(
+                    !reason.trim().is_empty() && !segment.targets.contains_key(id),
+                    "Ignored IDs require a reason and must not overlap targets"
                 );
             }
             for target in segment.targets.values() {
@@ -139,7 +153,7 @@ impl Profile {
         Ok(())
     }
 }
-fn ability(event: &Event) -> Result<String> {
+pub(super) fn ability(event: &Event) -> Result<String> {
     let id = event
         .ability_game_id
         .filter(|id| *id >= 0)
@@ -295,6 +309,7 @@ fn project_segment(
         !targets.is_empty(),
         "No evaluation targets in declared scope"
     );
+    let audit = audit_segment(log, rule, start..=end, origin)?;
     Ok(Segment {
         phase: rule.phase.clone(),
         entry_ms: start - origin,
@@ -302,7 +317,36 @@ fn project_segment(
         entry_event,
         completion_event,
         targets,
+        audit,
     })
+}
+
+fn audit_segment(
+    log: &CollectedLog,
+    rule: &SegmentRule,
+    range: std::ops::RangeInclusive<i64>,
+    origin: i64,
+) -> Result<super::audit::Audit> {
+    let sources = std::iter::once(rule.source.as_str())
+        .chain(rule.other_sources.iter().map(String::as_str))
+        .chain(
+            rule.targets
+                .values()
+                .filter_map(|target| target.source.as_deref()),
+        )
+        .collect();
+    super::audit::collect(
+        log,
+        range,
+        origin,
+        &sources,
+        |source, id| {
+            rule.targets
+                .get(id)
+                .is_some_and(|target| source == target.source.as_deref().unwrap_or(&rule.source))
+        },
+        &rule.ignored,
+    )
 }
 
 pub(super) fn project(log: &CollectedLog, profile: &Profile) -> Result<Projection> {

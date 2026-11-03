@@ -30,16 +30,49 @@ fn forecast_target(
     let passed = result.phase.as_deref() == Some(phase)
         && result.status == "active"
         && error.is_some_and(|error| error <= manifest.tolerance_ms);
-    let mut diagnostics = result.diagnostics;
-    diagnostics.extend(result.projection_diagnostics);
-    let mut forecast = json!({"error_ms":error,"passed":passed,"diagnostics":diagnostics});
-    if target.lead_ms.is_some() {
-        forecast
-            .as_object_mut()
-            .expect("forecast object")
-            .insert("lead_ms".into(), json!(lead));
-    }
+    let diagnostics = result
+        .diagnostics
+        .iter()
+        .chain(&result.projection_diagnostics)
+        .collect::<Vec<_>>();
+    let forecast = json!({
+        "error_ms":error,"passed":passed,"diagnostics":diagnostics,
+        "current_diagnostics":result.diagnostics,"projection_diagnostics":result.projection_diagnostics,
+        "phase":result.phase,"status":result.status,"lead_ms":lead
+    });
     Ok(forecast)
+}
+
+fn failure_reasons(error: Option<i64>, forecast: &Value, tolerance: i64) -> Vec<&'static str> {
+    let mut reasons = Vec::new();
+    match error {
+        None => reasons.push("missing_display"),
+        Some(error) if error > tolerance => reasons.push("display_timing"),
+        _ => {}
+    }
+    if forecast.is_null() {
+        return reasons;
+    }
+    if forecast.get("passed") == Some(&Value::Bool(false)) {
+        reasons.push(match forecast.get("error_ms").and_then(Value::as_i64) {
+            None => "forecast_missing",
+            Some(error) if error > tolerance => "forecast_timing",
+            _ => "forecast_control_state",
+        });
+    }
+    for (field, reason) in [
+        ("current_diagnostics", "current_diagnostic"),
+        ("projection_diagnostics", "projection_diagnostic"),
+    ] {
+        if forecast
+            .get(field)
+            .and_then(Value::as_array)
+            .is_some_and(|rows| !rows.is_empty())
+        {
+            reasons.push(reason);
+        }
+    }
+    reasons
 }
 
 // Evaluate forecasts directly in process; no temporary recording, CLI spawning or repeated KDL parsing.
@@ -88,12 +121,14 @@ pub(super) fn score(
             let passed = error.is_some_and(|error| error <= manifest.tolerance_ms) && forecast_passed;
             Ok(json!({
                 "raw_index": target.raw_index, "at_ms": target.at_ms, "id": target.id,
-                "error_ms": error, "forecast": forecast, "passed": passed
+                "error_ms": error, "failure_reasons": failure_reasons(error, &forecast, manifest.tolerance_ms),
+                "forecast": forecast, "passed": passed
             }))
         }).collect::<Result<Vec<_>>>()?;
         Ok(json!({
             "phase": boss.phase, "entry_ms": boss.entry_ms, "end_ms": boss.end_ms,
-            "entry_event": boss.entry_event, "completion_event": boss.completion_event, "targets": targets
+            "entry_event": boss.entry_event, "completion_event": boss.completion_event, "targets": targets,
+            "audit": boss.audit
         }))
     }).collect::<Result<Vec<_>>>()?;
     let passed = safe_entry
@@ -108,6 +143,6 @@ pub(super) fn score(
                 })
         });
     Ok(
-        json!({"origin_timestamp_ms":projected.origin_timestamp_ms,"cast_observations":projected.recording.observations.len(),"safe_entry":safe_entry,"diagnostics":diagnostics,"bosses":bosses,"passed":passed}),
+        json!({"origin_timestamp_ms":projected.origin_timestamp_ms,"cast_observations":projected.recording.observations.len(),"safe_entry":safe_entry,"diagnostics":diagnostics,"bosses":bosses,"passed":passed,"review_required":projected.bosses.iter().any(|boss|boss.audit.unclassified_casts > 0)}),
     )
 }

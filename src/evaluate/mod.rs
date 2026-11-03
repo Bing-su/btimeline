@@ -1,5 +1,8 @@
 //! Shared authored-timeline evaluation. Profiles describe observations, never executable game rules.
+mod audit;
+mod evidence;
 mod projection;
+mod review;
 mod score;
 #[cfg(test)]
 mod tests;
@@ -10,7 +13,9 @@ use std::path::Path;
 
 use anyhow::{Context, Result, ensure};
 use camino::Utf8PathBuf;
+pub use evidence::EvidenceCommand;
 use projection::{InputExclusion, Profile, exclude};
+pub use review::ReviewCommand;
 use ring::digest::{SHA256, digest};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -36,6 +41,8 @@ struct Manifest {
     forecast_lead_ms: i64,
     horizon_ms: i64,
     tolerance_ms: i64,
+    profile_sha256: Option<String>,
+    evaluator_sha256: Option<String>,
     #[serde(default)]
     excluded_fingerprints: BTreeSet<String>,
     inputs: Vec<Input>,
@@ -91,9 +98,15 @@ fn evaluate_input(
         .collect::<Vec<_>>();
     let fingerprint = hash(&serde_json::to_vec(&samples)?);
     if manifest.excluded_fingerprints.contains(&fingerprint) || !seen.insert(fingerprint.clone()) {
+        // Duplicate target sequences may contain new unselected casts; retain the audit without counting independence.
+        let audit_only = projected
+            .bosses
+            .iter()
+            .map(|boss| json!({"phase":boss.phase,"audit":boss.audit}))
+            .collect::<Vec<_>>();
         return Err(exclude(
             "Duplicate mechanic sequence",
-            json!({"fingerprint":fingerprint}),
+            json!({"fingerprint":fingerprint,"audit_only":audit_only,"review_required":projected.bosses.iter().any(|boss|boss.audit.unclassified_casts > 0)}),
         ));
     }
     *stage = "timeline-evaluation";
@@ -119,7 +132,7 @@ fn summary(traces: &[Value]) -> Value {
 
 fn failure(item: &Input, stage: &str, error: anyhow::Error) -> Value {
     if let Some(exclusion) = error.downcast_ref::<InputExclusion>() {
-        json!({"status":"excluded","input":item.input,"sha256":item.sha256,"stage":stage,"error":format!("InputExclusion: {exclusion}"),"passed":null,"evidence":exclusion.evidence})
+        json!({"status":"excluded","input":item.input,"sha256":item.sha256,"stage":stage,"error":format!("InputExclusion: {exclusion}"),"passed":null,"evidence":exclusion.evidence,"review_required":exclusion.evidence.get("review_required")})
     } else {
         json!({"status":"error","input":item.input,"sha256":item.sha256,"stage":stage,"error":format!("{error:#}"),"passed":false})
     }
@@ -143,6 +156,22 @@ impl Run for EvaluateCommand {
             "Invalid forecast criteria"
         );
         let profile_bytes = fs::read(&self.profile)?;
+        let profile_sha256 = hash(&profile_bytes);
+        let evaluator_sha256 = hash(&fs::read(std::env::current_exe()?)?);
+        ensure!(
+            manifest
+                .profile_sha256
+                .as_ref()
+                .is_none_or(|expected| expected == &profile_sha256),
+            "Projection profile changed since freeze"
+        );
+        ensure!(
+            manifest
+                .evaluator_sha256
+                .as_ref()
+                .is_none_or(|expected| expected == &evaluator_sha256),
+            "Evaluator binary changed since freeze"
+        );
         let profile: Profile = serde_json::from_slice(&profile_bytes)?;
         profile.validate()?;
         let timeline_bytes = fs::read(&manifest.timeline)?;
@@ -176,12 +205,26 @@ impl Run for EvaluateCommand {
             "UI visibility".to_owned(),
         ];
         not_checked.extend(profile.not_checked);
-        let report = json!({"manifest":self.manifest.as_str(),"manifest_sha256":hash(&manifest_bytes),"timeline_sha256":manifest.timeline_sha256,"profile":self.profile.as_str(),"profile_sha256":hash(&profile_bytes),"role":manifest.role,"summary":summary,"traces":traces,"not_checked":not_checked});
+        let review_required = traces
+            .iter()
+            .filter_map(|trace| trace.get("review_required").and_then(Value::as_bool))
+            .reduce(|a, b| a || b);
+        let report = json!({
+            "version": 1, "manifest": self.manifest.as_str(), "manifest_sha256": hash(&manifest_bytes),
+            "timeline_sha256": manifest.timeline_sha256, "profile": self.profile.as_str(),
+            "profile_sha256": profile_sha256, "evaluator_sha256": evaluator_sha256,
+            "bindings": { "profile_frozen": manifest.profile_sha256.is_some(), "evaluator_frozen": manifest.evaluator_sha256.is_some() },
+            "role": manifest.role, "summary": summary, "review_required": review_required,
+            "traces": traces, "not_checked": not_checked
+        });
         crate::output::write_new(&[(
             self.output.as_std_path(),
             &serde_json::to_vec_pretty(&report)?,
         )])?;
-        println!("{summary}");
+        println!(
+            "{}",
+            json!({"summary": summary, "review_required": review_required, "report": self.output.as_str()})
+        );
         ensure!(passed, "Evaluation failures saved: {}", self.output);
         Ok(())
     }

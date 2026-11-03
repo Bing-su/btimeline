@@ -234,3 +234,36 @@ fn edited_evaluation_sources_are_rejected() {
     fs::write(&path, b"edited").expect("valid test fixture");
     assert!(ensure_unchanged(path.to_str().unwrap(), b"frozen").is_err());
 }
+
+#[test]
+fn hypothetical_unresolved_diagnostics_are_kept_separate_from_current_failures() {
+    let p: Profile = serde_json::from_value(json!({"version":1,"observations":"scoped_casts","segments":[{"phase":"boss","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Hit"}}}],"not_checked":[]})).expect("profile");
+    let raw: CollectedLog =
+        serde_json::from_str(include_str!("../../tests/fixtures/pull.json")).expect("fixture");
+    let model = crate::timeline::parse(
+        r#"timeline 1 "Test" {
+        start "Ability" id="B528"
+        phase "boss" {
+            enter "Ability" id="B528"
+            event "first" 0.0 name="Hit"
+            event "last" 8.0 name="Hit"
+            branch "choice" open=1.0 close=4.0 {
+                option "left" { when "Left"; }
+                option "right" { when "Right"; }
+            }
+        }
+    }"#,
+    )
+    .expect("timeline");
+    let projected = projection::project(&raw, &p).expect("projection");
+    let manifest: Manifest = serde_json::from_value(json!({"timeline":"unused","timeline_sha256":"unused","role":"test","forecast_lead_ms":5000,"horizon_ms":6500,"tolerance_ms":1500,"inputs":[]})).expect("manifest");
+    let result = score::score(&model, &projected, &manifest).expect("score");
+    let target = &result["bosses"][0]["targets"][2];
+    assert_eq!(target["forecast"]["current_diagnostics"], json!([]));
+    assert_eq!(
+        target["forecast"]["projection_diagnostics"][0]["action"],
+        "unresolved"
+    );
+    assert_eq!(target["failure_reasons"], json!(["projection_diagnostic"]));
+    assert_eq!(target["forecast"]["lead_ms"], 5000);
+}

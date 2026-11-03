@@ -28,6 +28,10 @@ pub enum MainCommands {
     Forecast(ForecastCommand),
     /// Evaluate an authored timeline against FFLogs inputs and an explicit projection profile.
     Evaluate(crate::evaluate::EvaluateCommand),
+    /// Show a bounded raw cast window with original event indices.
+    Evidence(crate::evaluate::EvidenceCommand),
+    /// Summarize a saved evaluation with bounded failure and unclassified examples.
+    Review(crate::evaluate::ReviewCommand),
 }
 
 #[derive(Args)]
