@@ -1,4 +1,4 @@
-import { InputExclusion } from "./verify_griffin_holdout.ts";
+import { InputExclusion } from "./types.ts";
 
 export const varisBlocks = {
   L: {

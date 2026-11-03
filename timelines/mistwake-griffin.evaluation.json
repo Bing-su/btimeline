@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "observations": "all_casts",
+  "segments": [
+    {
+      "phase": "griffin",
+      "source": "Thundergust Griffin",
+      "entry": ["B0EB"],
+      "completion": "defeat",
+      "targets": {
+        "B0EB": {
+          "name": "Thunderspark",
+          "events": ["opening-thunderspark", "rotation-thunderspark"]
+        },
+        "B0EC": {
+          "name": "High Volts",
+          "events": ["opening-high-volts", "rotation-high-volts"]
+        },
+        "B0EF": {
+          "name": "Thundering Roar",
+          "events": [
+            "opening-roar-first",
+            "opening-roar-second",
+            "opening-roar-last",
+            "rotation-roar-first",
+            "rotation-roar-second",
+            "rotation-roar-last"
+          ]
+        },
+        "B0F3": {
+          "name": "Storm Surge",
+          "events": ["rotation-storm-surge"]
+        },
+        "B0F4": {
+          "name": "Electrifying Flight",
+          "source": "Shock Storm",
+          "events": ["rotation-electrifying-flight"]
+        },
+        "B0F5": {
+          "name": "Fulgurous Fall",
+          "events": ["opening-fulgurous-fall", "rotation-fulgurous-fall"]
+        },
+        "B0F8": {
+          "name": "Electrogenetic Force",
+          "events": ["opening-electrogenetic-force", "rotation-electrogenetic-force"]
+        },
+        "B0F9": {
+          "name": "Golden Talons",
+          "events": ["opening-golden-talons", "rotation-golden-talons"]
+        }
+      }
+    }
+  ],
+  "not_checked": [
+    "ACT equivalence and lifecycle signals",
+    "UI visibility",
+    "unobserved late cycles",
+    "non-target ability coverage"
+  ]
+}

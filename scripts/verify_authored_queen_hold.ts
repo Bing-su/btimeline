@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { queenHoldRecording } from "./queen_hold_recording.ts";
-import { holdoutSummary, InputExclusion } from "./verify_griffin_holdout.ts";
+import { holdoutSummary, InputExclusion } from "./types.ts";
 
 const [binary, manifestFile, output] = process.argv.slice(2);
 assert(

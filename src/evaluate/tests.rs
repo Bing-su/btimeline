@@ -5,12 +5,53 @@ use crate::timeline::Timeline;
 fn profile(name: &str) -> Profile {
     let text = match name {
         "mistwake" => include_str!("../../timelines/mistwake.evaluation.json"),
+        "griffin" => include_str!("../../timelines/mistwake-griffin.evaluation.json"),
         "clyteum" => include_str!("../../timelines/clyteum.evaluation.json"),
         _ => include_str!("../../timelines/sandoria.evaluation.json"),
     };
     let profile: Profile = serde_json::from_str(text).expect("valid test fixture");
     profile.validate().expect("valid test fixture");
     profile
+}
+
+#[test]
+fn griffin_keeps_control_noise_and_requires_the_observed_defeat() {
+    let p = profile("griffin");
+    let model =
+        crate::timeline::parse(include_str!("../../timelines/mistwake-griffin.kdl")).unwrap();
+    p.validate_bindings(&model).unwrap();
+    let mut raw = log(
+        4549,
+        &["Thundergust Griffin", "Shock Storm", "Other"],
+        json!([
+            cast(0, 1, 0xb0eb),
+            cast(100, 3, 7),
+            cast(200, 1, 0xb0f4),
+            cast(300, 2, 0xb0f4),
+            cast(301, 2, 0xb0f4),
+            health(400, 1, 0),
+            cast(500, 1, 0xb0f9)
+        ]),
+    );
+    let result = projection::project(&raw, &p).unwrap();
+    assert_eq!(result.recording.observations.len(), 5);
+    assert_eq!(result.bosses[0].end_ms, 400);
+    assert_eq!(
+        result.bosses[0]
+            .targets
+            .iter()
+            .map(|target| target.raw_index)
+            .collect::<Vec<_>>(),
+        vec![0, 3]
+    );
+    raw.events.remove(5);
+    assert!(
+        projection::project(&raw, &p)
+            .err()
+            .unwrap()
+            .downcast_ref::<InputExclusion>()
+            .is_some()
+    );
 }
 fn log(encounter: i64, names: &[&str], events: Value) -> CollectedLog {
     let mut raw: Value = serde_json::from_str(include_str!("../../tests/fixtures/pull.json"))

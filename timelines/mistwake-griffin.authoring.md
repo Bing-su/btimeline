@@ -127,7 +127,7 @@ HP=0은 원본 damage의 대상이 Griffin이고 `targetResources.hitPoints=0`�
 
 입력 무결성·원본 actor 이름·Griffin 진입·처치 근거와 기존 개발/선정 로그의 중복을 먼저 검사한다. 보고서 ID와 report/fight 중복 외에 `[상대 ms, 주요 능력 ID]` 열의 해시를 비교해 동일한 시전 기록의 복사를 거른다. 이는 이 자료 범위의 중복 검사이며 모든 변형 업로드의 독립성을 증명하지 않는다. 입력 적격 조건을 충족하지 못한 2개는 예고 성능의 분모에서 제외하되 사유와 원본 해시는 남겼다. 예고 실패·실행 오류를 입력 제외로 바꾸지 않으며, 적격 입력이 0개면 통과하지 않는다.
 
-[평가 결과](mistwake-griffin.holdout-result.json)에 계획·KDL·원본 해시, 원본 기믹 인덱스, 재생·조회 오차, 제외 사유와 집계를 보존했다. [평가 스크립트](../scripts/verify_griffin_holdout.ts)는 원본이 없으면 해당 입력을 제외했다고 보고하며, 새 결과를 보고 후보를 고치면 이 코퍼스를 개발 자료로 전환하고 새 보류 자료가 필요하다. 현재 검증 완료된 보류 자료를 다시 실행하는 것은 같은 평가의 재현이지 새로운 독립 평가가 아니다.
+[평가 결과](mistwake-griffin.holdout-result.json)에 당시 계획·KDL·원본 해시, 원본 기믹 인덱스, 재생·조회 오차, 제외 사유와 집계를 보존했다. 현재 원본 평가는 [공통 Rust 평가기](../docs/AUTHORED_EVALUATION.md)와 [Griffin profile](mistwake-griffin.evaluation.json)로 재현한다. 새 결과를 보고 후보를 고치면 이 코퍼스를 개발 자료로 전환한다.
 
 후속 검사에서 입력 투영의 명시적인 `InputExclusion`만 제외하도록 제한했다. `inspect` 명령 실패·예상하지 못한 예외는 어느 단계에서 발생해도 도구 오류로 남아 전체 평가를 실패시킨다. 정상 재생 하나와 검사 명령 실패 하나를 함께 공급해, 실패한 검사를 제외하여 통과시키지 못하는 CLI 회귀 검사를 추가했다. 같은 원본으로 재현한 적격 네 로그의 결과·집계는 기존 기록과 동일하다. 제외 기록에는 `P9xGdw2Y3C7hMfH1/5`의 진입 `#17332`·마지막 대상 피해 `#21350`, `83DnJkLN7KTqWwPf/8`의 미상 sourceID=39 시전 `#10622`를 추가했다. 개발 fixture에 고정한 원본 해시 불일치는 제외로 완화하지 않는다.
 
@@ -135,13 +135,16 @@ HP=0은 원본 damage의 대상이 Griffin이고 `targetResources.hitPoints=0`�
 
 | 검사                      | 확인 범위                                                                                       |
 | ------------------------- | ----------------------------------------------------------------------------------------------- |
-| 원본 보류 평가 스크립트   | 전체 시전의 경쟁 신호·진입 안전성·주요 표시·조회와 입력 적격 조건                               |
+| 공통 Rust 원본 평가       | 전체 시전의 경쟁 신호·진입 안전성·주요 표시·조회와 입력 적격 조건                               |
 | 오프라인 코퍼스 회귀 검사 | 보존한 주요 시전과 현재 KDL의 예고 동작. 원본의 다른 시전·종료 근거·입력 품질은 재검사하지 않음 |
 
 이는 이미 평가한 관측을 사용하는 회귀 검사이며 새 독립 평가가 아니다. 회귀 실패를 보고 KDL을 수정하면 해당 로그는 개발 자료가 되며, 수정 후보의 독립 주장에는 새 보류 자료가 필요하다.
 
+원본 검증을 이전하면서 기존 6개 로그의 report/fight·시각·원본 해시를 확인해 새 manifest에 고정했다. 기존 적격 4개·제외 2개 및 76개 대상의 원본 인덱스·재생/예고 오차가 그대로였다. 개발 12개에서는 적격 9개가 통과했고 시전자 이름을 알 수 없는 3개를 제외했다. 이는 전체 시전 투영 기준이며 이전에 선택 기술만 재생한 12개 결과와 범위가 다르다. 기존 합성 perturbation과 과거 후보 비교 스크립트는 별도로 유지한다.
+
 ```sh
-bun scripts/verify_griffin_holdout.ts target/debug/btimeline logs/griffin-holdout out/griffin-check/holdout-report.json
+target/debug/btimeline evaluate tests/fixtures/authored/griffin-native-regression-plan.json --profile timelines/mistwake-griffin.evaluation.json -o out/griffin-native-regression-new.json
+target/debug/btimeline evaluate tests/fixtures/authored/griffin-native-development-plan.json --profile timelines/mistwake-griffin.evaluation.json -o out/griffin-native-development-new.json
 ```
 
 원본을 새로 수집하려면 FFLogs 자격 증명을 환경에 둔다(`bun`은 로컬 `.env`를 읽는다). 아래 명령은 고정한 report/fight를 사용한다. 수집 시각·보고서 revision 등에 따라 재다운로드 파일 해시가 달라질 수 있으므로 재현 결과의 입력 해시를 함께 확인한다.

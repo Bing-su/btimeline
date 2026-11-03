@@ -1,0 +1,48 @@
+{
+  "timeline": "timelines/mistwake-griffin.kdl",
+  "timeline_sha256": "d2a2d80632bfe330e65589a3e4f7e332c9b485ae6bb5c6e3c6c63ca8da18ab1c",
+  "forecast_lead_ms": 5000,
+  "horizon_ms": 6500,
+  "tolerance_ms": 1500,
+  "role": "Regression of historical Griffin holdout under native evaluator; no new independent claim",
+  "excluded_fingerprints": [
+    "e0487d52823247d623b8bf847f326a76ec07651818b43cf3c2ad67f3dafec049",
+    "38a309f59280acc2cdcf80b0293dee1124ce0dcf17b51660796a48feccb18921",
+    "f705313fc3077c5845de652580234a75f151d1a44618da8361fe3ae8df86be27",
+    "e8c2ab3dc1b3412ca1a946e6f3d822ac15e98464812ed8fb97480f2435b3c1f2",
+    "5035195fd65e5ef33a21fe4bbdb2910076151856b0af43017d11717f78d3bf90",
+    "67a3e292830d11770eb6e4aa31e5e9aba977c181e01fa722fb71e41de0b31264",
+    "daf92432e2ecacf41e547265aa306975ac009b6598b5e0f6b0281194dcb73de8",
+    "2745f1de8a9560fac56d1a1ae2247245e4cbddfef1042a89cafde07d29b3e925",
+    "dae4a549da85a2e0c0292d1fc3e1aefaf30663c2133e9d842e20e0ca7b1b79fc",
+    "834b97cd8b9164459546c58b304292d4577bc4d305c152e0c8b75a3b731c0887",
+    "d9496516775065c2e433dbe9b40af41b2f4155c00ffd2b3a52ceaecf8c36dc5b",
+    "d62347206460eed972a30573dda05d6a1c24e6102c935c50eecea023fe709373"
+  ],
+  "inputs": [
+    {
+      "input": "logs/griffin-holdout/NK81VJ9gWnkXy7qR_24.json",
+      "sha256": "3f863d6ec87147ef15ba99822a2f82e195073e2aa234c6ada46fc27f7aa23689"
+    },
+    {
+      "input": "logs/griffin-holdout/P9xGdw2Y3C7hMfH1_5.json",
+      "sha256": "8ba8d202a48e543209f58e086c64becf42493605b12365dbb35f43b2932749b5"
+    },
+    {
+      "input": "logs/griffin-holdout/LxHcZCv8VTbY7BDk_1.json",
+      "sha256": "81a966e7a343a9ad30f99e687e95bcf3353b12daadb00b29732156840998fb23"
+    },
+    {
+      "input": "logs/griffin-holdout/hzbZrF19qv3yMpKX_2.json",
+      "sha256": "aa3efb0739dee58ccfc9eadd57a5ae1a67aa5fc9d0728ac5b61d0e748ec3661d"
+    },
+    {
+      "input": "logs/griffin-holdout/83DnJkLN7KTqWwPf_8.json",
+      "sha256": "7d3dd0b5cf175a108a96af523df3cbf5250ca0364c1f8a02eecc0fbd8031ae8c"
+    },
+    {
+      "input": "logs/griffin-holdout/TBp72wVPc9Lrzbtj_113.json",
+      "sha256": "0ca7d2994dca7d917601208fa047c07b363476a36a9c527e7bd82711f70df2fb"
+    }
+  ]
+}

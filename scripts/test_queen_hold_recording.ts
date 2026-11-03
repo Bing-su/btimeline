@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { queenHoldRecording } from "./queen_hold_recording.ts";
-import { InputExclusion } from "./verify_griffin_holdout.ts";
+import { InputExclusion } from "./types.ts";
 
 const ability = (timestamp: number, abilityGameID: number, type = "cast", sourceID = 1) => ({
   timestamp,

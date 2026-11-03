@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { varisP3Recording } from "./varis_p3_recording.ts";
-import { InputExclusion } from "./verify_griffin_holdout.ts";
+import { InputExclusion } from "./types.ts";
 
 const ability = (timestamp: number, sourceID: number, abilityGameID: number, type = "cast") => ({
   timestamp,

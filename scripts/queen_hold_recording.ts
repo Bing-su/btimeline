@@ -1,4 +1,4 @@
-import { InputExclusion } from "./verify_griffin_holdout.ts";
+import { InputExclusion } from "./types.ts";
 
 const mechanics: Record<string, [string, string]> = {
   "8F00": ["shift", "Virtual Shift"],
