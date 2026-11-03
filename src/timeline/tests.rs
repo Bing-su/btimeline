@@ -63,9 +63,8 @@ fn option_resume_skips_past_displays_without_shifting_parent(#[case] in_loop: bo
 }
 
 #[test]
-fn competing_offsets_for_one_option_are_ambiguous() {
-    let model = parse(
-        r#"timeline 1 "Conflict" {
+fn competing_offsets_for_one_option_are_rejected_or_reported() {
+    let timeline = r#"timeline 1 "Conflict" {
         start "Pull"
         phase "boss" {
             enter "Pull"
@@ -74,13 +73,24 @@ fn competing_offsets_for_one_option_are_ambiguous() {
                 option "b" { when "Other"; }
             }
         }
-    }"#,
-    )
-    .unwrap();
+    }"#;
+    let error = parse(timeline).unwrap_err();
+    assert!(format!("{error:#}").contains("Conflicting entry offsets for option a"));
+    let outside = timeline.replace(
+        r#"when "Signal" resume-at=0.8;"#,
+        r#"when "Signal" resume-at=0.8 at=4.0 before=0.0 after=1.0;"#,
+    );
+    parse(&outside).unwrap();
+    // A regex intersection cannot be proved by the literal overlap check.
+    let runtime = timeline.replace(
+        r#"when "Signal" resume-at=0.8;"#,
+        r#"when "Signal" resume-at=0.8 { regex "id" "^A$"; }"#,
+    );
+    let model = parse(&runtime).unwrap();
     let input = recording(
         2000,
         serde_json::json!([
-            {"at_ms":0,"type":"Pull","fields":{}}, {"at_ms":1000,"type":"Signal","fields":{}}
+            {"at_ms":0,"type":"Pull","fields":{}}, {"at_ms":1000,"type":"Signal","fields":{"id":"A"}}
         ]),
     )
     .unwrap();

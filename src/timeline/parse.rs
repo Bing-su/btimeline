@@ -126,7 +126,7 @@ fn literal_signals_overlap(left: &Signal, right: &Signal) -> bool {
 }
 
 // Identical prerequisites enable both options together whenever those prerequisites hold.
-fn validate_option_overlaps(node: &KdlNode) -> Result<()> {
+fn validate_option_overlaps(node: &KdlNode, open: Tick, close: Tick) -> Result<()> {
     let options: Vec<_> = children(node)
         .iter()
         .filter(|child| child.name().value() == "option")
@@ -147,7 +147,23 @@ fn validate_option_overlaps(node: &KdlNode) -> Result<()> {
             Ok((arg_string(option, 0)?, whens, requires))
         })
         .collect::<Result<Vec<_>>>()?;
+    // Only a conflict inside the branch window can select two entry points.
+    let active = |signal: &&Signal| {
+        signal.at.is_none_or(|at| {
+            at - signal.before < close && signal.after.is_none_or(|after| at + after >= open)
+        })
+    };
     for (index, (left_id, left, left_requires)) in candidates.iter().enumerate() {
+        for (index, a) in left.iter().enumerate().filter(|(_, signal)| active(signal)) {
+            ensure!(
+                !left
+                    .iter()
+                    .skip(index + 1)
+                    .filter(active)
+                    .any(|b| { a.resume_at != b.resume_at && literal_signals_overlap(a, b) }),
+                "Conflicting entry offsets for option {left_id}: distinguish their signals"
+            );
+        }
         for (right_id, right, right_requires) in candidates.iter().skip(index + 1) {
             ensure!(
                 left_requires != right_requires
@@ -597,7 +613,7 @@ impl Validation {
             }
         }
         ensure!(options.len() >= 2, "branch needs at least two options");
-        validate_option_overlaps(node)?;
+        validate_option_overlaps(node, open, close)?;
         self.options.insert(id.clone(), options);
         self.branches.insert(
             id.clone(),
