@@ -1,0 +1,445 @@
+timeline 1 "Dancing Mad (Ultimate)" {
+    // Phase cues adapted from cactbot e79ea7f1 and checked against FFLogs encounter 1085.
+    start "StartsUsing" id="C403" source="Kefka"
+    wipe "ActorControl" command="4000000F"
+    wipe "ActorControl" command="40000010"
+    finish "InCombat" inGameCombat="0"
+    boss-complete "WasDefeated" target="Chaos" from="p3-chaos-enrage"
+    boss-complete "WasDefeated" target="Exdeath" from="p3-exdeath-enrage"
+    boss-complete "WasDefeated" target="Kefka" from="p5-final-kefka"
+    zone-exit "ChangeZone"
+
+    phase "p1-kefka" {
+        enter "StartsUsing" id="C403" source="Kefka" resume-at=0.0
+        // A merged FFLogs pull can contain a new P1 opener after a P2 wipe.
+        enter "StartsUsing" id="C403" source="Kefka" from="p2-god-kefka"
+        enter "StartsUsing" id="C403" source="Kefka" from="p2-enrage"
+        enter "StartsUsing" id="C403" source="Kefka" from="p1-enrage"
+        event "p1-kefka-revolting-ruin-iii-1" 5.0 name="Revolting Ruin III 1"
+        event "p1-kefka-revolting-ruin-iii-2" 8.1 name="Revolting Ruin III 2"
+        event "p1-kefka-middle" 14.2 name="middle"
+        event "p1-kefka-graven-image-1" 18.6 name="Graven Image 1"
+        event "p1-kefka-pulse-wave" 24.5 name="Pulse Wave"
+        event "p1-kefka-mystery-magic" 26.8 name="Mystery Magic"
+        event "p1-kefka-blizzard-iii-blowout" 26.8 name="Blizzard III Blowout"
+        event "p1-kefka-flagrant-fire-iii" 27.7 name="Flagrant Fire III"
+        event "p1-kefka-wave-cannon" 31.9 name="Wave Cannon"
+        event "p1-kefka-double-trouble-trap-1" 34.0 name="Double-trouble Trap 1"
+        event "p1-kefka-explosion" 35.4 name="Explosion"
+        event "p1-kefka-knockback" 39.0 name="knockback"
+        event "p1-kefka-double-trouble-trap-2" 39.1 name="Double-trouble Trap 2"
+        event "p1-kefka-mystery-magic-2" 43.1 name="Mystery Magic"
+        event "p1-kefka-thrumming-thunder-iii" 43.1 name="Thrumming Thunder III"
+        event "p1-kefka-blizzard-iii-blowout-2" 43.1 name="Blizzard III Blowout"
+        event "p1-kefka-light-of-judgment" 52.1 name="Light of Judgment" {
+            sync 52.1 "Ability" id="C622" source="Kefka" before=2.0 after=2.0
+        }
+        event "p1-kefka-hyperdrive-1" 55.2 name="Hyperdrive 1"
+        event "p1-kefka-hyperdrive-2" 57.2 name="Hyperdrive 2"
+        event "p1-kefka-hyperdrive-3" 59.2 name="Hyperdrive 3"
+        event "p1-kefka-middle-2" 65.0 name="middle"
+        event "p1-kefka-graven-image-2" 69.4 name="Graven Image 2"
+        event "p1-kefka-blizzard-iii-blowout-3" 76.5 name="Blizzard III Blowout"
+        event "p1-kefka-gravitas" 76.6 name="Gravitas"
+        event "p1-kefka-vitrophyre" 80.6 name="Vitrophyre"
+        event "p1-kefka-revolting-ruin-iii-1-2" 86.5 name="Revolting Ruin III 1"
+        event "p1-kefka-revolting-ruin-iii-2-2" 89.6 name="Revolting Ruin III 2"
+        event "p1-kefka-intemperate-will-gravitational-wave" 90.5 name="Intemperate Will/Gravitational Wave"
+        event "p1-kefka-gravitas-2" 95.2 name="Gravitas"
+        event "p1-kefka-vitrophyre-2" 99.2 name="Vitrophyre"
+        event "p1-kefka-intemperate-will-gravitational-wave-2" 103.8 name="Intemperate Will/Gravitational Wave"
+        event "p1-kefka-gravity-iii-pop-window" 106.4 name="Gravity III (Pop Window)" duration=6.0
+        event "p1-kefka-knockback-2" 107.4 name="knockback"
+        event "p1-kefka-double-trouble-trap-3" 107.5 name="Double-trouble Trap 3"
+        event "p1-kefka-light-of-judgment-2" 121.8 name="Light of Judgment"
+        event "p1-kefka-hyperdrive-1-2" 125.0 name="Hyperdrive 1"
+        event "p1-kefka-hyperdrive-2-2" 127.1 name="Hyperdrive 2"
+        event "p1-kefka-hyperdrive-3-2" 129.1 name="Hyperdrive 3"
+        event "p1-kefka-tele-trouncing-castbar" 140.9 name="Tele-trouncing (castbar)"
+        event "p1-kefka-tele-trouncing-1" 148.8 name="Tele-trouncing 1"
+        event "p1-kefka-tele-trouncing-2" 151.8 name="Tele-trouncing 2"
+        event "p1-kefka-graven-image-3" 153.0 name="Graven Image 3"
+        event "p1-kefka-knockback-3" 160.0 name="knockback"
+        event "p1-kefka-indulgent-will" 162.8 name="Indulgent Will"
+        event "p1-kefka-idyllic-will" 162.8 name="Idyllic Will"
+        event "p1-kefka-sync-69" 167.1 name="Timing anchor" visible=#false {
+            sync 167.1 "Ability" id="C555" source="Kefka" before=2.0 after=2.0
+        }
+        event "p1-kefka-middle-3" 169.1 name="middle"
+        event "p1-kefka-mystery-magic-3" 175.7 name="Mystery Magic"
+        event "p1-kefka-thrumming-thunder-iii-2" 175.7 name="Thrumming Thunder III"
+        event "p1-kefka-ave-maria-indolent-will" 175.7 name="Ave Maria/Indolent Will"
+        event "p1-kefka-flagrant-fire-iii-2" 176.5 name="Flagrant Fire III"
+    }
+
+    phase "p2-god-kefka" {
+        enter "StartsUsing" id="C24C" source="Kefka" from="p1-kefka"
+        event "p2-god-kefka-ultimate-embrace" 5.0 name="Ultimate Embrace"
+        event "p2-god-kefka-forsaken" 20.2 name="Forsaken" {
+            sync 20.2 "Ability" id="BABC" source="Kefka" before=2.0 after=2.0
+        }
+        event "p2-god-kefka-the-path-of-light-1" 33.4 name="The Path of Light 1"
+        event "p2-god-kefka-spelldriver-spellscatter-spellwave" 34.0 name="Spelldriver/Spellscatter/Spellwave"
+        event "p2-god-kefka-future-s-end-past-s-end-1" 42.7 name="Future's End/Past's End 1"
+        event "p2-god-kefka-the-path-of-light-2" 43.3 name="The Path of Light 2"
+        event "p2-god-kefka-spelldriver-spellscatter-spellwave-2" 44.0 name="Spelldriver/Spellscatter/Spellwave"
+        event "p2-god-kefka-all-things-ending" 54.0 name="All Things Ending"
+        event "p2-god-kefka-the-path-of-light-3" 54.3 name="The Path of Light 3"
+        event "p2-god-kefka-spelldriver-spellscatter-spellwave-3" 54.9 name="Spelldriver/Spellscatter/Spellwave"
+        event "p2-god-kefka-future-s-end-past-s-end-2" 63.6 name="Future's End/Past's End 2"
+        event "p2-god-kefka-the-path-of-light-4" 64.3 name="The Path of Light 4"
+        event "p2-god-kefka-spelldriver-spellscatter-spellwave-4" 65.0 name="Spelldriver/Spellscatter/Spellwave"
+        event "p2-god-kefka-all-things-ending-2" 75.3 name="All Things Ending"
+        event "p2-god-kefka-the-path-of-light-5" 75.4 name="The Path of Light 5" {
+            sync 75.4 "Ability" id="BABE" source="Kefka" before=2.0 after=2.0
+        }
+        event "p2-god-kefka-spelldriver-spellscatter-spellwave-5" 76.1 name="Spelldriver/Spellscatter/Spellwave"
+        event "p2-god-kefka-future-s-end-past-s-end-3" 84.9 name="Future's End/Past's End 3"
+        event "p2-god-kefka-the-path-of-light-6" 85.4 name="The Path of Light 6"
+        event "p2-god-kefka-spelldriver-spellscatter-spellwave-6" 86.0 name="Spelldriver/Spellscatter/Spellwave"
+        event "p2-god-kefka-all-things-ending-3" 96.1 name="All Things Ending"
+        event "p2-god-kefka-the-path-of-light-7" 96.3 name="The Path of Light 7"
+        event "p2-god-kefka-spelldriver-spellscatter-spellwave-7" 96.9 name="Spelldriver/Spellscatter/Spellwave"
+        event "p2-god-kefka-future-s-end-past-s-end-4" 105.6 name="Future's End/Past's End 4"
+        event "p2-god-kefka-the-path-of-light-8" 106.3 name="The Path of Light 8"
+        event "p2-god-kefka-spelldriver-spellscatter-spellwave-8" 106.9 name="Spelldriver/Spellscatter/Spellwave"
+        event "p2-god-kefka-all-things-ending-4" 117.0 name="All Things Ending"
+        event "p2-god-kefka-light-of-judgment" 126.0 name="Light of Judgment" {
+            sync 126.0 "Ability" id="BABD" source="Kefka" before=2.0 after=2.0
+        }
+        event "p2-god-kefka-trine" 137.2 name="Trine"
+        event "p2-god-kefka-wings-of-destruction" 144.3 name="Wings of Destruction"
+        event "p2-god-kefka-trine-1" 150.1 name="Trine 1"
+        event "p2-god-kefka-trine-2" 152.1 name="Trine 2"
+        event "p2-god-kefka-trine-3" 154.1 name="Trine 3"
+        event "p2-god-kefka-wings-of-destruction-2" 154.4 name="Wings of Destruction"
+        event "p2-god-kefka-ultimate-embrace-2" 161.6 name="Ultimate Embrace"
+        event "p2-god-kefka-untargetable" 165.0 name="untargetable?"
+    }
+
+    phase "p3-chaos-exdeath" {
+        enter "StartsUsing" id="C3F7" source="Kefka" from="p2-god-kefka"
+        event "p3-chaos-exdeath-aero-iii-assault" 3.0 name="Aero III Assault"
+        event "p3-chaos-exdeath-down-for-the-count" 3.8 name="Down for the Count" duration=32.5
+        event "p3-chaos-exdeath-definition-of-insanity" 40.3 name="Definition of Insanity" {
+            sync 40.3 "Ability" id="BAE2" source="Kefka" before=2.0 after=2.0
+        }
+        event "p3-chaos-exdeath-both-targetable" 43.3 name="both targetable"
+        event "p3-chaos-exdeath-the-decisive-battle" 46.5 name="The Decisive Battle"
+        event "p3-chaos-exdeath-single-target" 46.5 name="single target"
+        event "p3-chaos-exdeath-bowels-of-agony" 65.9 name="Bowels of Agony" {
+            sync 65.9 "Ability" id="BAF2" source="Chaos" before=2.0 after=2.0
+        }
+        event "p3-chaos-exdeath-both-targetable-2" 78.0 name="both targetable"
+        event "p3-chaos-exdeath-stray-flames-stray-spray" 85.0 name="Stray Flames/Stray Spray"
+        event "p3-chaos-exdeath-thunder-iii" 85.2 name="Thunder III"
+        event "p3-chaos-exdeath-inferno-tsunami" 86.0 name="Inferno/Tsunami"
+        event "p3-chaos-exdeath-cyclone" 87.7 name="Cyclone"
+        event "p3-chaos-exdeath-thunder-iii-1" 94.3 name="Thunder III 1"
+        event "p3-chaos-exdeath-thunder-iii-2" 97.3 name="Thunder III 2"
+        event "p3-chaos-exdeath-sync-182" 99.9 name="Timing anchor" visible=#false {
+            sync 99.9 "Ability" id="C555" source="Kefka" before=2.0 after=2.0
+        }
+        event "p3-chaos-exdeath-trance" 105.9 name="Trance"
+        event "p3-chaos-exdeath-longitudinal-implosion-latitudinal-implosion-castbar" 107.1 name="Longitudinal Implosion/Latitudinal Implosion (castbar)"
+        event "p3-chaos-exdeath-shockwave-1" 107.9 name="Shockwave 1"
+        event "p3-chaos-exdeath-shockwave-2" 109.9 name="Shockwave 2"
+        event "p3-chaos-exdeath-stray-spray-stray-flames" 112.0 name="Stray Spray/Stray Flames"
+        event "p3-chaos-exdeath-tsunami-inferno" 113.0 name="Tsunami/Inferno"
+        event "p3-chaos-exdeath-cyclone-2" 114.7 name="Cyclone"
+        event "p3-chaos-exdeath-jump-baited" 122.2 name="jump baited" {
+            sync 122.2 "StartsUsing" id="BB00" source="Chaos" before=2.0 after=2.0
+        }
+        event "p3-chaos-exdeath-ultima-blaster-1" 123.1 name="Ultima Blaster 1"
+        event "p3-chaos-exdeath-ultima-blaster-2" 125.1 name="Ultima Blaster 2"
+        event "p3-chaos-exdeath-ultima-blaster-3" 127.1 name="Ultima Blaster 3"
+        event "p3-chaos-exdeath-umbra-smash" 127.2 name="Umbra Smash"
+        event "p3-chaos-exdeath-ultima-blaster-4" 129.1 name="Ultima Blaster 4"
+        event "p3-chaos-exdeath-vacuum-wave" 130.4 name="Vacuum Wave"
+        event "p3-chaos-exdeath-ultima-blaster-5" 131.2 name="Ultima Blaster 5"
+        event "p3-chaos-exdeath-numbers" 133.1 name="numbers"
+        event "p3-chaos-exdeath-ultima-blaster-6" 133.2 name="Ultima Blaster 6"
+        event "p3-chaos-exdeath-cyclone-3" 134.3 name="Cyclone"
+        event "p3-chaos-exdeath-ultima-blaster-7" 135.2 name="Ultima Blaster 7"
+        event "p3-chaos-exdeath-aetherlink" 135.6 name="Aetherlink"
+        event "p3-chaos-exdeath-ultima-blaster-8" 137.2 name="Ultima Blaster 8"
+        event "p3-chaos-exdeath-ultima-blaster-1-2" 145.2 name="Ultima Blaster 1"
+        event "p3-chaos-exdeath-ultima-blaster-2-2" 145.4 name="Ultima Blaster 2"
+        event "p3-chaos-exdeath-ultima-blaster-3-2" 145.6 name="Ultima Blaster 3"
+        event "p3-chaos-exdeath-ultima-blaster-4-2" 145.8 name="Ultima Blaster 4"
+        event "p3-chaos-exdeath-ultima-blaster-5-2" 146.0 name="Ultima Blaster 5"
+        event "p3-chaos-exdeath-ultima-blaster-6-2" 146.2 name="Ultima Blaster 6"
+        event "p3-chaos-exdeath-ultima-blaster-7-2" 146.4 name="Ultima Blaster 7"
+        event "p3-chaos-exdeath-ultima-blaster-8-2" 146.6 name="Ultima Blaster 8"
+        event "p3-chaos-exdeath-thunder-iii-1-2" 152.7 name="Thunder III 1"
+        event "p3-chaos-exdeath-thunder-iii-2-2" 155.7 name="Thunder III 2"
+        event "p3-chaos-exdeath-the-decisive-battle-2" 160.7 name="The Decisive Battle"
+        event "p3-chaos-exdeath-single-target-2" 160.7 name="single target"
+        event "p3-chaos-exdeath-thunder-iii-1-3" 169.9 name="Thunder III 1"
+        event "p3-chaos-exdeath-max" 171.9 name="Max"
+        event "p3-chaos-exdeath-thunder-iii-2-3" 172.9 name="Thunder III 2"
+        event "p3-chaos-exdeath-earthquake" 175.0 name="Earthquake"
+        event "p3-chaos-exdeath-accretion" 179.1 name="accretion?"
+        event "p3-chaos-exdeath-accretion-earthquake-1" 180.1 name="Accretion Earthquake 1?"
+        event "p3-chaos-exdeath-accretion-2" 183.2 name="accretion?"
+        event "p3-chaos-exdeath-accretion-earthquake-2" 184.2 name="Accretion Earthquake 2?"
+        event "p3-chaos-exdeath-slap-happy-castbar" 190.5 name="Slap Happy (castbar)"
+        event "p3-chaos-exdeath-slap-happy-1" 191.3 name="Slap Happy 1"
+        event "p3-chaos-exdeath-slap-happy-2" 192.1 name="Slap Happy 2"
+        event "p3-chaos-exdeath-slap-happy-3" 192.8 name="Slap Happy 3"
+        event "p3-chaos-exdeath-slap-happy-4" 193.8 name="Slap Happy 4"
+        event "p3-chaos-exdeath-shocking-impact-shockwave" 193.8 name="Shocking Impact/Shockwave"
+        event "p3-chaos-exdeath-black-hole" 194.1 name="Black Hole" {
+            sync 194.1 "Ability" id="BAFB" source="Exdeath" before=2.0 after=2.0
+        }
+        event "p3-chaos-exdeath-1-tether" 194.3 name="1 tether"
+        event "p3-chaos-exdeath-nothingness" 201.2 name="Nothingness"
+        event "p3-chaos-exdeath-2-tethers" 201.2 name="2 tethers"
+        event "p3-chaos-exdeath-aetherlink-2" 201.3 name="Aetherlink"
+        event "p3-chaos-exdeath-nothingness-2" 208.3 name="Nothingness"
+        event "p3-chaos-exdeath-primordial-crust-quake" 209.9 name="Primordial Crust Quake?"
+        event "p3-chaos-exdeath-thunder-iii-1-4" 211.5 name="Thunder III 1"
+        event "p3-chaos-exdeath-thunder-iii-2-4" 214.5 name="Thunder III 2"
+        event "p3-chaos-exdeath-damning-edict" 219.6 name="Damning Edict"
+        event "p3-chaos-exdeath-slap-happy-castbar-2" 220.9 name="Slap Happy (castbar)"
+        event "p3-chaos-exdeath-slap-happy-1-2" 221.8 name="Slap Happy 1"
+        event "p3-chaos-exdeath-slap-happy-2-2" 222.4 name="Slap Happy 2"
+        event "p3-chaos-exdeath-slap-happy-3-2" 223.2 name="Slap Happy 3"
+        event "p3-chaos-exdeath-slap-happy-4-2" 224.2 name="Slap Happy 4"
+        event "p3-chaos-exdeath-shocking-impact-shockwave-2" 224.2 name="Shocking Impact/Shockwave"
+        event "p3-chaos-exdeath-3-tethers" 224.8 name="3 tethers"
+        event "p3-chaos-exdeath-nothingness-3" 231.7 name="Nothingness"
+        event "p3-chaos-exdeath-primordial-crust-quake-2" 233.3 name="Primordial Crust Quake?"
+        event "p3-chaos-exdeath-nothingness-4" 236.8 name="Nothingness"
+        event "p3-chaos-exdeath-primordial-crust-quake-3" 238.8 name="Primordial Crust Quake?"
+        event "p3-chaos-exdeath-nothingness-5" 241.9 name="Nothingness"
+        event "p3-chaos-exdeath-primordial-crust-quake-4" 243.5 name="Primordial Crust Quake"
+        event "p3-chaos-exdeath-damning-edict-2" 246.9 name="Damning Edict"
+        event "p3-chaos-exdeath-look-upon-me-and-despair-castbar" 247.3 name="Look upon Me and Despair (castbar)"
+        event "p3-chaos-exdeath-look-upon-me-and-despair" 248.4 name="Look upon Me and Despair"
+        event "p3-chaos-exdeath-thunder-iii-1-5" 252.8 name="Thunder III 1"
+        event "p3-chaos-exdeath-thunder-iii-2-5" 255.8 name="Thunder III 2"
+        event "p3-chaos-exdeath-3-tethers-2" 259.3 name="3 tethers"
+        event "p3-chaos-exdeath-nothingness-6" 266.0 name="Nothingness"
+        event "p3-chaos-exdeath-primordial-crust-quake-5" 267.6 name="Primordial Crust Quake"
+        event "p3-chaos-exdeath-aetherlink-3" 268.2 name="Aetherlink"
+        event "p3-chaos-exdeath-nothingness-7" 271.1 name="Nothingness"
+        event "p3-chaos-exdeath-primordial-crust-quake-6" 272.7 name="Primordial Crust Quake"
+        event "p3-chaos-exdeath-nothingness-8" 276.2 name="Nothingness"
+        event "p3-chaos-exdeath-primordial-crust-quake-7" 277.8 name="Primordial Crust Quake"
+        event "p3-chaos-exdeath-white-hole" 287.4 name="White Hole"
+        event "p3-chaos-exdeath-longitudinal-implosion-latitudinal-implosion-castbar-2" 287.4 name="Longitudinal Implosion/Latitudinal Implosion (castbar)"
+        event "p3-chaos-exdeath-shockwave-1-2" 288.2 name="Shockwave 1"
+        event "p3-chaos-exdeath-slap-happy-castbar-3" 288.9 name="Slap Happy (castbar)"
+        event "p3-chaos-exdeath-slap-happy-1-3" 289.7 name="Slap Happy 1"
+        event "p3-chaos-exdeath-shockwave-2-2" 290.2 name="Shockwave 2"
+        event "p3-chaos-exdeath-slap-happy-2-3" 290.2 name="Slap Happy 2"
+        event "p3-chaos-exdeath-slap-happy-3-3" 290.9 name="Slap Happy 3"
+        event "p3-chaos-exdeath-slap-happy-4-3" 292.2 name="Slap Happy 4"
+        event "p3-chaos-exdeath-shocking-impact-shockwave-3" 292.2 name="Shocking Impact/Shockwave"
+        event "p3-chaos-exdeath-2-tethers-2" 292.6 name="2 tethers"
+        event "p3-chaos-exdeath-nothingness-9" 299.6 name="Nothingness"
+        event "p3-chaos-exdeath-primordial-crust-quake-8" 301.2 name="Primordial Crust Quake"
+        event "p3-chaos-exdeath-look-upon-me-and-despair-castbar-2" 305.3 name="Look upon Me and Despair (castbar)"
+        event "p3-chaos-exdeath-1-tether-2" 305.7 name="1 tether"
+        event "p3-chaos-exdeath-look-upon-me-and-despair-2" 306.4 name="Look upon Me and Despair"
+        event "p3-chaos-exdeath-nothingness-10" 306.8 name="Nothingness"
+        event "p3-chaos-exdeath-primordial-crust-quake-9" 308.4 name="Primordial Crust Quake"
+        event "p3-chaos-exdeath-blizzard-iii-castbar" 315.7 name="Blizzard III (castbar)"
+        event "p3-chaos-exdeath-blizzard-iii-1" 318.8 name="Blizzard III 1"
+        event "p3-chaos-exdeath-stomp-a-mole-castbar" 319.7 name="Stomp-a-Mole (castbar)"
+        event "p3-chaos-exdeath-stomp-a-mole-1" 321.3 name="Stomp-a-Mole 1"
+        event "p3-chaos-exdeath-knock-down-1" 321.3 name="Knock Down 1"
+        event "p3-chaos-exdeath-blizzard-iii-2" 321.8 name="Blizzard III 2"
+        event "p3-chaos-exdeath-stomp-a-mole-2" 322.6 name="Stomp-a-Mole 2"
+        event "p3-chaos-exdeath-stomp-a-mole-3" 323.9 name="Stomp-a-Mole 3"
+        event "p3-chaos-exdeath-stomp-a-mole-4" 325.2 name="Stomp-a-Mole 4"
+        event "p3-chaos-exdeath-knock-down-2" 326.8 name="Knock Down 2"
+        event "p3-chaos-exdeath-blizzard-iii" 330.0 name="Blizzard III"
+        event "p3-chaos-exdeath-big-bang" 331.3 name="Big Bang"
+
+        // Each boss can independently announce enrage while both are alive.
+        sequence "chaos-dual-enrage" {
+            on "StartsUsing" id="C259" source="Chaos"
+            event "p3-chaos-dual-enrage" 5.0 name="Bowels of Agony (enrage)"
+        }
+        sequence "exdeath-dual-enrage" {
+            on "StartsUsing" id="C258" source="Exdeath"
+            event "p3-exdeath-dual-enrage" 5.0 name="Meteor (enrage)"
+        }
+    }
+
+    // These casts identify which boss survived and give its defeat a scoped cancellation.
+    phase "p3-chaos-enrage" {
+        enter "StartsUsing" id="C61F" source="Chaos" from="p3-chaos-exdeath"
+        event "p3-chaos-enrage" 10.0 name="Bowels of Agony (Chaos enrage)"
+    }
+
+    phase "p3-exdeath-enrage" {
+        enter "StartsUsing" id="C61E" source="Exdeath" from="p3-chaos-exdeath"
+        event "p3-exdeath-enrage" 10.0 name="Meteor (Exdeath enrage)"
+    }
+
+    phase "p4-grand-cross" {
+        enter "StartsUsing" id="C2DC" source="Kefka" from="p3-chaos-exdeath"
+        enter "StartsUsing" id="C2DC" source="Kefka" from="p3-chaos-enrage"
+        enter "StartsUsing" id="C2DC" source="Kefka" from="p3-exdeath-enrage"
+        enter "StartsUsing" id="C2DC" source="Kefka" resume-at=0.0
+        event "p4-grand-cross-kefka-says" 5.0 name="Kefka Says"
+        event "p4-grand-cross-middle" 8.1 name="middle"
+        event "p4-grand-cross-mystery-magic-1" 14.5 name="Mystery Magic 1"
+        event "p4-grand-cross-thrumming-thunder-iii" 14.5 name="Thrumming Thunder III"
+        event "p4-grand-cross-blizzard-iii-blowout" 14.5 name="Blizzard III Blowout"
+        event "p4-grand-cross-grand-cross" 18.9 name="Grand Cross"
+        event "p4-grand-cross-first-debuffs" 18.9 name="first debuffs"
+        event "p4-grand-cross-inferno-tsunami" 23.9 name="Inferno/Tsunami"
+        event "p4-grand-cross-mystery-magic-2" 29.3 name="Mystery Magic 2"
+        event "p4-grand-cross-thrumming-thunder-iii-2" 29.3 name="Thrumming Thunder III"
+        event "p4-grand-cross-blizzard-iii-blowout-2" 29.3 name="Blizzard III Blowout"
+        event "p4-grand-cross-grand-cross-2" 33.7 name="Grand Cross"
+        event "p4-grand-cross-second-debuffs" 33.7 name="second debuffs"
+        event "p4-grand-cross-tsunami-inferno" 38.7 name="Tsunami/Inferno"
+        event "p4-grand-cross-mystery-magic-3" 44.4 name="Mystery Magic 3"
+        event "p4-grand-cross-thrumming-thunder-iii-3" 44.4 name="Thrumming Thunder III"
+        event "p4-grand-cross-blizzard-iii-blowout-3" 44.4 name="Blizzard III Blowout"
+        event "p4-grand-cross-grand-cross-3" 48.6 name="Grand Cross"
+        event "p4-grand-cross-third-debuffs" 49.6 name="third debuffs"
+        event "p4-grand-cross-sync-364" 50.5 name="Timing anchor" visible=#false {
+            sync 50.5 "Ability" id="C554" source="Kefka" before=2.0 after=2.0
+        }
+        event "p4-grand-cross-flood-of-naught" 60.7 name="Flood of Naught"
+        event "p4-grand-cross-edge-of-death" 61.1 name="Edge of Death"
+        event "p4-grand-cross-white-antilight" 61.1 name="White Antilight"
+        event "p4-grand-cross-black-antilight" 61.1 name="Black Antilight"
+        event "p4-grand-cross-sync-370" 64.1 name="Timing anchor" visible=#false {
+            sync 64.1 "Ability" id="C555" source="Kefka" before=2.0 after=2.0
+        }
+        event "p4-grand-cross-death-surge" 64.9 name="Death Surge"
+        event "p4-grand-cross-mana-charge" 69.2 name="Mana Charge"
+        event "p4-grand-cross-short-debuffs" 69.2 name="short debuffs"
+        event "p4-grand-cross-death-bolt" 69.5 name="Death Bolt"
+        event "p4-grand-cross-death-wave" 69.5 name="Death Wave"
+        event "p4-grand-cross-thrumming-thunder-iii-4" 77.5 name="Thrumming Thunder III"
+        event "p4-grand-cross-death-shriek" 78.5 name="Death Shriek"
+        event "p4-grand-cross-twisters-donuts" 85.2 name="twisters/donuts?" duration=5.0
+        event "p4-grand-cross-ultima-upsurge" 87.5 name="Ultima Upsurge"
+        event "p4-grand-cross-stray-flames" 90.2 name="Stray Flames"
+        event "p4-grand-cross-long-debuffs" 94.3 name="long debuffs"
+        event "p4-grand-cross-death-wave-2" 94.4 name="Death Wave"
+        event "p4-grand-cross-death-bolt-2" 94.4 name="Death Bolt"
+        event "p4-grand-cross-blizzard-iii-blowout-4" 95.5 name="Blizzard III Blowout"
+        event "p4-grand-cross-death-shriek-2" 102.4 name="Death Shriek"
+        event "p4-grand-cross-twisters-donuts-2" 108.0 name="twisters/donuts?" duration=5.0
+        event "p4-grand-cross-mana-release" 108.8 name="Mana Release"
+        event "p4-grand-cross-stray-spray" 113.0 name="Stray Spray"
+        event "p4-grand-cross-thrumming-thunder-iii-5" 113.9 name="Thrumming Thunder III"
+        event "p4-grand-cross-blizzard-iii-blowout-5" 113.9 name="Blizzard III Blowout"
+    }
+
+    phase "p5-final-kefka" {
+        enter "Ability" id="C3FD" source="Kefka" from="p4-grand-cross" at=120.3 before=4.0 after=5.0
+        event "p5-final-kefka-ultima-upsurge" 6.4 name="Ultima Upsurge"
+        event "p5-final-kefka-untargetable" 6.4 name="untargetable"
+        event "p5-final-kefka-targetable" 37.4 name="targetable"
+        event "p5-final-kefka-sync-410" 40.6 name="Timing anchor" visible=#false {
+            sync 40.6 "StartsUsing" id="BB40" source="Kefka" before=2.0 after=2.0
+        }
+        event "p5-final-kefka-ultima-repeater-castbar" 44.6 name="Ultima Repeater (castbar)"
+        event "p5-final-kefka-ultima-repeater-1" 45.7 name="Ultima Repeater 1"
+        event "p5-final-kefka-ultima-repeater-2" 46.5 name="Ultima Repeater 2"
+        event "p5-final-kefka-ultima-repeater-3" 47.2 name="Ultima Repeater 3"
+        event "p5-final-kefka-ultima-repeater-4" 48.0 name="Ultima Repeater 4"
+        event "p5-final-kefka-fell-forces-1" 50.6 name="Fell Forces 1"
+        event "p5-final-kefka-fell-forces-2" 53.8 name="Fell Forces 2"
+        event "p5-final-kefka-fell-forces-3" 56.9 name="Fell Forces 3"
+        event "p5-final-kefka-flood-tell-1" 58.8 name="Flood Tell 1"
+        event "p5-final-kefka-flood-tell-2" 59.8 name="Flood Tell 2"
+        event "p5-final-kefka-flood-tell-3" 60.8 name="Flood Tell 3"
+        event "p5-final-kefka-flood-tell-4" 61.8 name="Flood Tell 4"
+        event "p5-final-kefka-flood-castbar" 62.2 name="Flood (castbar)"
+        event "p5-final-kefka-chaotic-flood-x4" 63.4 name="Chaotic Flood x4" duration=2.9
+        event "p5-final-kefka-flood-1" 63.4 name="Flood 1"
+        event "p5-final-kefka-flood-2" 64.4 name="Flood 2"
+        event "p5-final-kefka-flood-3" 65.4 name="Flood 3"
+        event "p5-final-kefka-flood-4" 66.4 name="Flood 4"
+        event "p5-final-kefka-maddening-orchestra" 75.4 name="Maddening Orchestra"
+        event "p5-final-kefka-holy" 76.3 name="Holy"
+        event "p5-final-kefka-flare" 76.3 name="Flare"
+        event "p5-final-kefka-maddening-orchestra-2" 78.6 name="Maddening Orchestra"
+        event "p5-final-kefka-holy-2" 79.5 name="Holy"
+        event "p5-final-kefka-chaotic-flare" 79.5 name="Chaotic Flare"
+        event "p5-final-kefka-chaotic-holy" 83.0 name="Chaotic Holy"
+        event "p5-final-kefka-flare-diffusion" 83.0 name="Flare Diffusion"
+        event "p5-final-kefka-fell-forces-1-2" 87.6 name="Fell Forces 1"
+        event "p5-final-kefka-fell-forces-2-2" 90.7 name="Fell Forces 2"
+        event "p5-final-kefka-celestriad" 97.1 name="Celestriad"
+        event "p5-final-kefka-1st-tower" 100.1 name="1st tower"
+        event "p5-final-kefka-catastrophic-choice" 105.5 name="Catastrophic Choice"
+        event "p5-final-kefka-2nd-tower" 106.1 name="2nd tower"
+        event "p5-final-kefka-fire-iii-blizzard-iii-thunder-iii" 106.2 name="Fire III/Blizzard III/Thunder III"
+        event "p5-final-kefka-quake-tornado" 106.3 name="Quake/Tornado"
+        event "p5-final-kefka-3rd-tower" 112.1 name="3rd tower"
+        event "p5-final-kefka-fire-iii-blizzard-iii-thunder-iii-2" 112.2 name="Fire III/Blizzard III/Thunder III"
+        event "p5-final-kefka-catastrophic-choice-2" 117.6 name="Catastrophic Choice"
+        event "p5-final-kefka-fire-iii-blizzard-iii-thunder-iii-3" 118.2 name="Fire III/Blizzard III/Thunder III"
+        event "p5-final-kefka-quake-tornado-2" 118.4 name="Quake/Tornado"
+        event "p5-final-kefka-ultima-repeater-castbar-2" 126.5 name="Ultima Repeater (castbar)"
+        event "p5-final-kefka-ultima-repeater-1-2" 127.6 name="Ultima Repeater 1"
+        event "p5-final-kefka-ultima-repeater-2-2" 128.4 name="Ultima Repeater 2"
+        event "p5-final-kefka-ultima-repeater-3-2" 129.1 name="Ultima Repeater 3"
+        event "p5-final-kefka-ultima-repeater-4-2" 129.9 name="Ultima Repeater 4"
+        event "p5-final-kefka-fell-forces-1-3" 132.5 name="Fell Forces 1"
+        event "p5-final-kefka-fell-forces-2-3" 135.7 name="Fell Forces 2"
+        event "p5-final-kefka-stray-apocalypse-castbar" 141.1 name="Stray Apocalypse (castbar)"
+        event "p5-final-kefka-stray-apocalypse-1-x6" 141.8 name="Stray Apocalypse 1 x6" duration=2.4
+        event "p5-final-kefka-stray-apocalypse-2-x6" 144.3 name="Stray Apocalypse 2 x6" duration=2.4
+        event "p5-final-kefka-stray-apocalypse-3-x6" 146.8 name="Stray Apocalypse 3 x6" duration=2.4
+        event "p5-final-kefka-stray-apocalypse-4-x6" 149.3 name="Stray Apocalypse 4 x6" duration=2.4
+        event "p5-final-kefka-stray-apocalypse-5-x6" 151.8 name="Stray Apocalypse 5 x6" duration=2.4
+        event "p5-final-kefka-stray-apocalypse-6-x6" 154.3 name="Stray Apocalypse 6 x6" duration=2.4
+        event "p5-final-kefka-stray-entropy-castbar" 158.2 name="Stray Entropy (castbar)"
+        event "p5-final-kefka-stray-entropy" 159.1 name="Stray Entropy"
+        event "p5-final-kefka-maddening-orchestra-3" 167.4 name="Maddening Orchestra"
+        event "p5-final-kefka-holy-3" 168.3 name="Holy"
+        event "p5-final-kefka-flare-2" 168.3 name="Flare"
+        event "p5-final-kefka-maddening-orchestra-4" 170.6 name="Maddening Orchestra"
+        event "p5-final-kefka-holy-4" 171.5 name="Holy"
+        event "p5-final-kefka-chaotic-flare-2" 171.5 name="Chaotic Flare"
+        event "p5-final-kefka-flare-diffusion-2" 175.0 name="Flare Diffusion"
+        event "p5-final-kefka-chaotic-holy-2" 175.0 name="Chaotic Holy"
+        event "p5-final-kefka-sync-495" 178.8 name="Timing anchor" visible=#false {
+            sync 178.8 "Ability" id="C652" source="Kefka" before=2.0 after=2.0
+        }
+        event "p5-final-kefka-fell-forces-1-4" 179.6 name="Fell Forces 1"
+        event "p5-final-kefka-fell-forces-2-4" 182.7 name="Fell Forces 2"
+        event "p5-final-kefka-fell-forces-3-2" 185.8 name="Fell Forces 3"
+        event "p5-final-kefka-forsaken-1" 197.1 name="Forsaken 1"
+        event "p5-final-kefka-forsaken-ground-forsaken-bonds-1" 203.1 name="Forsaken Ground/Forsaken Bonds 1"
+        event "p5-final-kefka-forsaken-2" 205.3 name="Forsaken 2"
+        event "p5-final-kefka-forsaken-ground-forsaken-bonds-2" 210.3 name="Forsaken Ground/Forsaken Bonds 2"
+        event "p5-final-kefka-forsaken-3" 213.4 name="Forsaken 3"
+        event "p5-final-kefka-forsaken-ground-forsaken-bonds-3" 218.4 name="Forsaken Ground/Forsaken Bonds 3"
+        event "p5-final-kefka-forsaken-4" 221.6 name="Forsaken 4"
+        event "p5-final-kefka-forsaken-ground-forsaken-bonds-4" 226.6 name="Forsaken Ground/Forsaken Bonds 4"
+        event "p5-final-kefka-sync-511" 231.8 name="Timing anchor" visible=#false {
+            sync 231.8 "StartsUsing" id="BB3A" source="Kefka" before=2.0 after=2.0
+        }
+        event "p5-final-kefka-forsaken-null-enrage" 257.8 name="Forsaken Null (Enrage)"
+        event "p5-final-kefka-untargetable-2" 262.2 name="untargetable"
+    }
+
+    phase "p1-enrage" {
+        enter "StartsUsing" id="BABB" source="Kefka" from="p1-kefka"
+        event "p1-enrage-light-of-judgment" 5.0 name="Light of Judgment (Enrage)"
+    }
+
+    phase "p2-enrage" {
+        enter "StartsUsing" id="BAE1" source="Kefka" from="p2-god-kefka"
+        event "p2-enrage-light-of-judgment" 5.0 name="Light of Judgment (Enrage)"
+    }
+
+    phase "p4-enrage" {
+        enter "StartsUsing" id="BABB" source="Kefka" from="p4-grand-cross"
+        event "p4-enrage-light-of-judgment" 5.0 name="Light of Judgment (Enrage)"
+    }
+}
