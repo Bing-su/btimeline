@@ -40,8 +40,12 @@ pub(super) struct Profile {
     version: u32,
     observations: ObservationScope,
     segments: Vec<SegmentRule>,
+    #[serde(default)]
+    source_aliases: BTreeMap<String, String>,
+    #[serde(default)]
+    continuations: BTreeSet<String>,
     pub not_checked: Vec<String>,
-    #[serde(skip)]
+    #[serde(default, rename = "infer_segments")]
     pub(super) inferred: bool,
 }
 #[derive(Deserialize, PartialEq)]
@@ -50,7 +54,6 @@ enum ObservationScope {
     AllCasts,
     ScopedCasts,
     ScopedCastsAndStarts,
-    #[serde(skip)]
     AllCastsAndStarts,
 }
 #[derive(Deserialize)]
@@ -120,6 +123,30 @@ pub(super) struct Projection {
 }
 
 impl Profile {
+    pub(super) fn resolve(mut self, model: &Timeline) -> Result<Self> {
+        if self.inferred {
+            ensure!(
+                self.segments.is_empty()
+                    && self.observations == ObservationScope::AllCastsAndStarts,
+                "An inference profile requires empty segments and all_casts_and_starts observations"
+            );
+            let inferred =
+                Self::infer(model).context("No supported entries for inference profile")?;
+            self.segments = inferred.segments;
+            self.not_checked.extend(inferred.not_checked);
+        }
+        Ok(self)
+    }
+
+    pub(super) fn apply_source_aliases(&self, log: &mut CollectedLog) {
+        // Normalize the projection after validating the original input and its hash.
+        for actor in &mut log.report.master_data.actors {
+            if let Some(source) = self.source_aliases.get(&actor.name) {
+                actor.name.clone_from(source);
+            }
+        }
+    }
+
     pub(super) fn infer(model: &crate::timeline::Timeline) -> Option<Self> {
         let segments = model
             .cast_entries()
@@ -129,6 +156,8 @@ impl Profile {
             version: 1,
             observations: ObservationScope::AllCastsAndStarts,
             segments,
+            source_aliases: BTreeMap::new(),
+            continuations: BTreeSet::new(),
             not_checked: vec!["Displays without an unambiguous same-time boss Ability sync".into()],
             inferred: true,
         })
@@ -225,6 +254,24 @@ impl Profile {
             self.version == 1 && !self.segments.is_empty(),
             "Unsupported or empty projection profile"
         );
+        ensure!(
+            self.source_aliases.iter().all(|(raw, canonical)| {
+                !raw.trim().is_empty()
+                    && !canonical.trim().is_empty()
+                    && !self.source_aliases.contains_key(canonical)
+            }),
+            "Source aliases must map nonempty names directly to canonical names"
+        );
+        ensure!(
+            self.continuations.iter().all(|phase| {
+                self.inferred
+                    && self
+                        .segments
+                        .iter()
+                        .any(|rule| rule.phase == *phase && rule.accepts_entry(None, None))
+            }),
+            "Continuations must name inferred phases with unguarded entries"
+        );
         let mut phases = BTreeMap::new();
         for segment in &self.segments {
             let scope = (segment.source.as_str(), segment.encounter);
@@ -303,7 +350,27 @@ fn is_defeat(event: &Event) -> bool {
     event.kind == "damage" && hp(event, "hitPoints") == Some(0.0)
 }
 
-fn main_actors<'a>(log: &'a CollectedLog, rule: &SegmentRule) -> Result<Vec<&'a Actor>> {
+fn main_actors<'a>(
+    log: &'a CollectedLog,
+    rule: &SegmentRule,
+    transition_entry: Option<(usize, &Event)>,
+) -> Result<Vec<&'a Actor>> {
+    // An entry-only transition can identify its NPC by the observed instance.
+    if let Some((raw_index, event)) = transition_entry {
+        let actor = log
+            .report
+            .master_data
+            .actors
+            .iter()
+            .find(|actor| Some(actor.id) == event.source_id && actor.kind == "NPC")
+            .ok_or_else(|| {
+                exclude(
+                    "Entry-only phase requires an observed NPC",
+                    json!({"source":rule.source,"raw_index":raw_index}),
+                )
+            })?;
+        return Ok(vec![actor]);
+    }
     if !rule.require_main_actor {
         return Ok(Vec::new());
     }
@@ -503,9 +570,9 @@ fn inferred_segments(
     roots.sort_by_key(|(_, index, _)| *index);
     let mut sources = BTreeSet::new();
     if roots.is_empty()
-        || !roots
-            .iter()
-            .all(|(rule, _, _)| sources.insert(&rule.source))
+        || !roots.iter().all(|(rule, _, _)| {
+            profile.continuations.contains(&rule.phase) || sources.insert(&rule.source)
+        })
     {
         return Err(phase_ambiguity(
             "Observed phase entries do not establish distinct starting scopes",
@@ -559,8 +626,8 @@ fn inferred_segments(
     let next_entries = candidates
         .iter()
         .skip(1)
-        .map(|((_, _, event), guarded)| {
-            Some(if *guarded {
+        .map(|((rule, _, event), guarded)| {
+            Some(if *guarded || profile.continuations.contains(&rule.phase) {
                 Boundary::TransitionAt(event.timestamp)
             } else {
                 Boundary::DefeatBefore(event.timestamp)
@@ -593,12 +660,15 @@ fn project_segment(
     next_entry: Option<Boundary>,
     inferred_entry: Option<(usize, &Event)>,
 ) -> Result<Segment> {
-    let main = main_actors(log, rule)?;
     let source = |id: Option<i64>| id.and_then(|id| actors.get(&id)).map(|a| a.name.as_str());
     let entry = inferred_entry
         .or_else(|| find_entries(log, rule, actors, None).next())
         .ok_or_else(|| exclude("Missing boss entry", json!({"source":rule.source})))?;
     let (entry_event, start) = (entry.0, entry.1.timestamp);
+    let transition_only = inferred
+        && rule.targets.is_empty()
+        && matches!(next_entry, Some(Boundary::TransitionAt(_)));
+    let main = main_actors(log, rule, transition_only.then_some(entry))?;
     let defeat = log.events.iter().enumerate().find(|(_, e)| {
         e.timestamp >= start
             && is_defeat(e)

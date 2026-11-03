@@ -86,12 +86,13 @@ fn evaluate_input(
     ensure!(hash(&bytes) == item.sha256, "Input changed since selection");
     *stage = "input-inspection";
     // Reuse inspect's integrity validation; a malformed download is an error, not an exclusion.
-    let log = crate::generate::validated_collected(Path::new(&item.input), &bytes)?;
+    let mut log = crate::generate::validated_collected(Path::new(&item.input), &bytes)?;
     let Some(profile) = profile else {
         return Ok(
             json!({"status":"unverified","input":item.input,"sha256":item.sha256,"passed":null,"review_required":true,"error":"No phase with a supported literal cast entry in KDL"}),
         );
     };
+    profile.apply_source_aliases(&mut log);
     *stage = "input-validation";
     let projected = projection::project(&log, profile, Some(model))?;
     let samples = projected
@@ -254,7 +255,7 @@ impl Run for EvaluateCommand {
         );
         let model = crate::timeline::parse(std::str::from_utf8(&timeline_bytes)?)?;
         let profile = if let Some(bytes) = &profile_bytes {
-            Some(serde_json::from_slice::<Profile>(bytes)?)
+            Some(serde_json::from_slice::<Profile>(bytes)?.resolve(&model)?)
         } else {
             Profile::infer(&model)
         };
@@ -295,6 +296,7 @@ impl Run for EvaluateCommand {
             "ACT equivalence and actual lifecycle signals".to_owned(),
             "UI visibility".to_owned(),
         ];
+        let inferred = profile.as_ref().is_none_or(|profile| profile.inferred);
         if let Some(profile) = profile {
             not_checked.extend(profile.not_checked);
         }
@@ -305,7 +307,7 @@ impl Run for EvaluateCommand {
         let report = json!({
             "version": 1, "manifest": self.manifest.as_str(), "manifest_sha256": hash(&manifest_bytes),
             "timeline_sha256": manifest.timeline_sha256, "profile": self.profile.as_ref().map(|path| path.as_str()),
-            "projection": if self.profile.is_some() {"profile"} else {"inferred"},
+            "projection": if inferred {"inferred"} else {"profile"},
             "profile_sha256": profile_sha256, "evaluator_sha256": evaluator_sha256,
             "bindings": { "profile_frozen": manifest.profile_sha256.is_some(), "evaluator_frozen": manifest.evaluator_sha256.is_some() },
             "role": manifest.role, "summary": summary, "review_required": review_required,

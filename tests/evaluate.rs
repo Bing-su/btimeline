@@ -107,17 +107,17 @@ fn inferred_evaluation_requires_one_observed_phase_and_impact_binding(
 }
 
 #[rstest::rstest]
-#[case(false, true, false, false, None, true, false, false)]
-#[case(false, false, false, false, None, false, false, false)]
-#[case(false, false, false, false, None, true, false, true)]
-#[case(true, false, false, false, None, true, false, false)]
-#[case(true, false, true, false, None, true, false, false)]
-#[case(true, false, true, true, None, true, false, false)]
-#[case(true, false, false, false, Some(20), true, false, false)]
-#[case(true, false, false, false, Some(9), false, false, false)]
-#[case(true, false, false, false, None, true, true, false)]
-#[case(true, false, false, false, Some(20), true, true, false)]
-#[case(true, false, false, false, Some(9), false, true, false)]
+#[case(false, true, false, false, None, true, (false, false))]
+#[case(false, false, false, false, None, false, (false, false))]
+#[case(false, false, false, false, None, true, (false, true))]
+#[case(true, false, false, false, None, true, (false, false))]
+#[case(true, false, true, false, None, true, (false, false))]
+#[case(true, false, true, true, None, true, (false, false))]
+#[case(true, false, false, false, Some(20), true, (false, false))]
+#[case(true, false, false, false, Some(9), false, (false, false))]
+#[case(true, false, false, false, None, true, (true, false))]
+#[case(true, false, false, false, Some(20), true, (true, false))]
+#[case(true, false, false, false, Some(9), false, (true, false))]
 fn inferred_sequential_phases_require_an_observed_boundary(
     #[case] same_source: bool,
     #[case] defeated: bool,
@@ -125,11 +125,11 @@ fn inferred_sequential_phases_require_an_observed_boundary(
     #[case] reuse: bool,
     #[case] competing_at: Option<i64>,
     #[case] passed: bool,
-    #[case] early: bool,
-    #[case] guarded_handoff: bool,
+    #[case] entry_variation: (bool, bool),
 ) {
     let directory = tempfile::tempdir().unwrap();
     let mut manifest = setup(directory.path());
+    let (early, guarded_handoff) = entry_variation;
     let third = if reuse {
         r#"
         phase "third" {
@@ -272,6 +272,85 @@ fn inferred_sequential_phases_require_an_observed_boundary(
             }
         );
     }
+}
+
+#[rstest::rstest]
+#[case("NPC")]
+#[case("Player")]
+fn inferred_alias_profile_follows_guarded_choice_into_shared_continuation(#[case] kind: &str) {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path();
+    let mut manifest = setup(path);
+    let timeline = r#"timeline 1 "Shared continuation" {
+        start "Ability" id="B528" source="Opening NPC"
+        phase "ready" { enter "Ability" id="B528" source="Opening NPC"; }
+        phase "choice" {
+            enter "StartsUsing" id="B528" source="Boss" from="ready" at=2.0
+            event "choice-impact" 6.0 name="Choice impact" { sync 6.0 "Ability" id="B528" source="Boss"; }
+        }
+        phase "joined" {
+            enter "StartsUsing" id="B529" source="Boss"
+            event "joined-impact" 6.0 name="Joined impact" { sync 6.0 "Ability" id="B528" source="Boss"; }
+        }
+    }"#;
+    let mut raw: Value = serde_json::from_slice(include_bytes!("fixtures/pull.json")).unwrap();
+    raw["report"]["masterData"]["actors"]
+        .as_array_mut()
+        .unwrap()
+        .extend([
+            json!({"id":11,"name":"opening npc","gameID":99002,"type":kind,"subType":"NPC"}),
+            json!({"id":12,"name":"opening npc","gameID":99002,"type":"NPC","subType":"NPC"}),
+        ]);
+    raw["report"]["masterData"]["abilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"gameID":0xB529,"name":"Join","type":"1"}));
+    let event = |timestamp, kind, source, id| json!({"timestamp":timestamp,"type":kind,"sourceID":source,"abilityGameID":id,"fight":1});
+    raw["events"] = json!([
+        event(2000, "cast", 11, 0xB528),
+        event(4000, "begincast", 10, 0xB528),
+        event(10000, "cast", 10, 0xB528),
+        event(11000, "begincast", 10, 0xB529),
+        event(17000, "cast", 10, 0xB528)
+    ]);
+    raw["collection"]["eventCount"] = json!(5);
+    let bytes = serde_json::to_vec(&raw).unwrap();
+    fs::write(path.join("timeline.kdl"), timeline).unwrap();
+    fs::write(path.join("input.json"), &bytes).unwrap();
+    fs::write(
+        path.join("profile.json"),
+        json!({
+            "version":1, "observations":"all_casts_and_starts", "segments":[], "infer_segments":true, "continuations":["joined"],
+            "source_aliases":{"opening npc":"Opening NPC","Synthetic Boss":"Boss"}, "not_checked":[]
+        })
+        .to_string(),
+    )
+    .unwrap();
+    manifest["timeline_sha256"] = json!(hash(timeline.as_bytes()));
+    manifest["inputs"][0]["sha256"] = json!(hash(&bytes));
+    save(path, &manifest);
+
+    // The entry-only phase has no forecast to score, but all three phase entries must match.
+    command(path).assert().failure();
+    let report: Value =
+        serde_json::from_slice(&fs::read(path.join("report.json")).unwrap()).unwrap();
+    let trace = &report["traces"][0];
+    assert_eq!(report["projection"], "inferred");
+    if kind != "NPC" {
+        assert_eq!(trace["status"], "excluded");
+        assert!(
+            trace["error"]
+                .as_str()
+                .unwrap()
+                .contains("requires an observed NPC")
+        );
+        return;
+    }
+    assert_eq!(trace["safe_entry"], true, "{trace}");
+    assert_eq!(trace["unverified_phases"], json!(["ready"]));
+    assert_eq!(trace["bosses"][1]["phase"], "choice");
+    assert_eq!(trace["bosses"][1]["end_ms"], 8999);
+    assert_eq!(trace["bosses"][2]["phase"], "joined");
 }
 
 #[test]

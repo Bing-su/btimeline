@@ -3,6 +3,7 @@
   "timeline": "timelines/varis-ex-p3.kdl",
   "timeline_sha256": "98aff0a0a422bd3b0950b3ebb2fe3518cc69e22e48c4c5d29367753476fc03f4",
   "horizon_ms": 6500,
+  "forecast_lead_ms": 5000,
   "tolerance_ms": 1500,
   "lead_ms": {
     "shield": 3000,

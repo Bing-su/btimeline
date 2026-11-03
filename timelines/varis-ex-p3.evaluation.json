@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "observations": "all_casts_and_starts",
+  "segments": [],
+  "infer_segments": true,
+  "continuations": ["joined"],
+  "source_aliases": {
+    "Varis yae Galvus": "Varis Yae Galvus",
+    "bladesblood": "Bladesblood",
+    "gunshield": "Gunshield"
+  },
+  "not_checked": [
+    "ACT source identity and live lifecycle",
+    "Unbound displays and the shared Spark/Torch alternatives"
+  ]
+}

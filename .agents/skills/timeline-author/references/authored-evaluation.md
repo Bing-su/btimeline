@@ -16,6 +16,8 @@ cargo test evaluate
 
 `--profile`을 생략하면 KDL 근거로 평가 가능한 범위를 추론한다. manifest에는 같은 KDL·원본 입력 해시와 공통 예고 기준을 둔다. 독립 보류 평가에는 평가기 해시도 고정한다.
 
+시전자 이름이나 가드 없는 합류의 근거가 필요하면 `infer_segments: true`, `segments: []`, `observations: "all_casts_and_starts"`를 선언한 프로필을 전달한다. `source_aliases`는 원본 이름을 KDL 이름에 정확히 대응하며, 원본 검증 후 투영에만 적용한다. `continuations`는 가드 없는 진입을 앞 일정의 연속으로 평가할 phase ID 목록이다. 지정한 합류는 이전 시전자의 HP=0을 요구하지 않으며 진입 일치 여부는 실제 KDL 재생으로 확인한다. 독립 보스 진입의 처치 근거는 유지된다.
+
 ```sh
 target/debug/btimeline evaluate tests/fixtures/authored/griffin-native-regression-plan.json -o out/griffin-inferred-new.json
 target/debug/btimeline review out/griffin-inferred-new.json --limit 8
@@ -38,7 +40,7 @@ Griffin의 기존 원본 6개를 재실행해 적격 4개의 대상 21개를 평
 
 Doomtrain 시험 KDL을 Runaway Train에서 같은 보스의 두 phase로 분리해 기존 비교 로그 5개를 다시 재생했다. 첫 진입에 `resume-at=0.0`을 둔 뒤 5개 모두 진입과 전환이 일치했다. 1개는 예고까지 통과했고, 4개는 후반 예고의 시각 오차 또는 누락이 남았다.
 
-같은 신호가 반복되어도 현재 phase의 후속 전환에 해당하지 않으면 진입 근거로 쓰지 않는다. 다른 phase의 후속 전환에 해당하면 재사용할 수 있다. 동일한 신호 종류·시전자의 여러 `enter from`은 진입 ID와 직전 phase를 한 쌍으로 비교한다. 명시적인 `from` 전환에서는 이전 phase와 시전자가 달라도 관측된 전환을 경계로 삼는다. 자동 범위의 시전자는 FFLogs에서 이름이 일치하는 유일한 Boss로 식별돼야 한다. 독립 보스 진입 사이에는 여전히 HP=0 근거가 필요하다. Varis의 별칭 시전자와 가드 없는 합류는 기존 전투별 평가 범위에 남아 있다. Queen은 일부 기술이 연결되지만, 공통 5초 기준과 기록 전체 범위를 사용하면 기존 Castellation 발췌 평가와 결과가 다르다.
+같은 신호가 반복되어도 현재 phase의 후속 전환에 해당하지 않으면 진입 근거로 쓰지 않는다. 동일한 신호 종류·시전자의 여러 `enter from`은 진입 ID와 직전 phase를 한 쌍으로 비교한다. 자동 범위의 시전자는 보통 FFLogs에서 이름이 일치하는 유일한 Boss로 식별돼야 한다. 예고 대상 없이 다른 phase로 이어지는 전환 구간은 진입 패킷에 기록된 NPC 인스턴스를 사용한다. Queen은 일부 기술이 연결되지만, 공통 5초 기준과 기록 전체 범위를 사용하면 기존 Castellation 발췌 평가와 결과가 다르다.
 
 서로 다른 보스가 이어지는 기존 던전 자료에서 Mistwake는 적격 5개·제외 1개, Clyteum은 적격 2개·미확인 1개·제외 3개였다. 적격 7개에서 각 3개 phase의 자동 대상 62개가 통과했다. Clyteum의 미확인 로그는 다음 보스 진입 전 HP=0을 확인할 수 없었다. 제외 4개는 시전자 이름 부족이다. 두 전투의 기존 평가 입력을 재사용한 개발 회귀다.
 

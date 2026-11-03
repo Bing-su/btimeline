@@ -68,3 +68,11 @@ cargo test --test authored_varis_p3
 ```
 
 출력은 새 경로만 허용한다. 입력 해시 변경·검사 도구 오류와 실제 예고·제어 실패는 평가 실패로 남기며 확인된 입력 결함만 제외한다. 사용한 보류 자료로 후보를 수정하면 해당 자료를 개발 자료로 전환한다. 후보의 독립 평가에는 내용 확인 전에 고정한 새 자료가 필요하다.
+
+## 공통 평가기의 개발 회귀
+
+```sh
+btimeline evaluate tests/fixtures/authored/varis-p3-development-plan.json --profile timelines/varis-ex-p3.evaluation.json -o out/varis-p3-inferred-development.json
+```
+
+기존 개발 입력 14개 중 11개에서 재생의 phase 진입이 추론과 일치했고, 그중 8개는 `joined`에 도달했다. 동일 시각 sync로 자동 연결된 28개 예고 대상은 모두 통과했다. 진입 근거가 없는 입력 2개는 미확인, 시전자가 누락된 입력 1개는 제외됐다. 진입 전용 `ready`와 명시 바인딩이 없는 `joined`는 예고 평가에서 미확인이다. 이 미확인 구간 때문에 명령의 전체 판정은 성공이 아니다. 기존 전투별 평가는 Gunshield 예고와 Spark/Torch 대안도 별도 기준으로 확인한다.
