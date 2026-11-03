@@ -41,6 +41,7 @@ pub(crate) struct BranchDefinition {
     pub id: String,
     pub owner: Owner,
     pub options: Vec<String>,
+    pub fallback_options: Vec<String>,
 }
 #[derive(Debug, Serialize)]
 pub(crate) struct LoopDefinition {
@@ -101,6 +102,12 @@ impl Catalog {
                 id: branch.id.clone(),
                 owner: owner.clone(),
                 options: branch.options.iter().map(|o| o.id.clone()).collect(),
+                fallback_options: branch
+                    .options
+                    .iter()
+                    .filter(|o| o.fallback)
+                    .map(|o| o.id.clone())
+                    .collect(),
             });
             for option in &branch.options {
                 let next = Owner {

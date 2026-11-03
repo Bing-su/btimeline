@@ -795,9 +795,9 @@ fn coverage_counts_signal_choices_and_matched_anchors_separately_from_timer_iter
         phase "boss" {
             enter "Ability" id="B528"
             loop "rotation" start=0.0 every=4.0 { event "pulse" 0.0 name="Hit"; }
-            branch "choice" open=1.0 close=2.0 {
+            branch "choice" open=1.0 close=5.0 {
                 option "left" { when "Ability" id="B529"; }
-                option "right" { when "Ability" id="B52A"; }
+                option "right" fallback=#true { when "Ability" id="B52A"; }
             }
         }
     }"#;
@@ -858,12 +858,63 @@ fn coverage_counts_signal_choices_and_matched_anchors_separately_from_timer_iter
         0
     );
     assert_eq!(
+        review["review"]["coverage"]["choices"][0]["signal_kind"],
+        "primary"
+    );
+    assert_eq!(
         review["review"]["coverage"]["loops"][0]["consecutive_anchor_pairs"],
         2
     );
     assert_eq!(
         review["review"]["coverage"]["loops"][0]["complete_display_bodies"],
         2
+    );
+    check_fallback_and_unresolved(directory.path(), raw, manifest);
+}
+
+#[expect(
+    clippy::indexing_slicing,
+    clippy::unwrap_used,
+    reason = "fixed integration test fixture"
+)]
+fn check_fallback_and_unresolved(directory: &Path, mut raw: Value, mut manifest: Value) {
+    // Replace the primary packet, then remove it entirely to exercise both outcomes.
+    raw["events"][1]["abilityGameID"] = json!(46378);
+    raw["report"]["masterData"]["abilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"gameID":46378,"name":"Recovery","type":"1"}));
+    let bytes = serde_json::to_vec(&raw).unwrap();
+    fs::write(directory.join("input.json"), &bytes).unwrap();
+    manifest["inputs"][0]["sha256"] = json!(hash(&bytes));
+    save(directory, &manifest);
+    fs::remove_file(directory.join("report.json")).unwrap();
+    command(directory).assert().success();
+    let review = || {
+        let output = cargo_bin_cmd!("btimeline")
+            .current_dir(directory)
+            .args(["review", "report.json"])
+            .assert()
+            .success();
+        serde_json::from_slice::<Value>(&output.get_output().stdout).unwrap()
+    };
+    let recovery = review();
+    let right = &recovery["review"]["coverage"]["choices"][1];
+    assert_eq!(right["signal_kind"], "fallback");
+    assert_eq!(right["signal_selections"], 1);
+    assert_eq!(right["first_observation"]["selection"]["raw_index"], 1);
+
+    raw["events"].as_array_mut().unwrap().remove(1);
+    raw["collection"]["eventCount"] = json!(3);
+    let bytes = serde_json::to_vec(&raw).unwrap();
+    fs::write(directory.join("input.json"), &bytes).unwrap();
+    manifest["inputs"][0]["sha256"] = json!(hash(&bytes));
+    save(directory, &manifest);
+    fs::remove_file(directory.join("report.json")).unwrap();
+    command(directory).assert().failure();
+    assert_eq!(
+        review()["review"]["coverage"]["unresolved_branches"][0]["branch"],
+        "choice"
     );
 }
 

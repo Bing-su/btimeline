@@ -12,6 +12,7 @@ use crate::timeline::Owner;
 struct Choice {
     branch: String,
     option: String,
+    signal_kind: Option<&'static str>,
     owner: Owner,
     signal_selections: usize,
     #[serde(skip)]
@@ -23,6 +24,12 @@ struct Choice {
     fight_duration_range_ms: Option<[i64; 2]>,
     pace: Pace,
     first_forecast: ForecastCounts,
+    first_observation: Option<Value>,
+}
+#[derive(Default, Serialize)]
+struct Unresolved {
+    count: usize,
+    input_count: usize,
     first_observation: Option<Value>,
 }
 #[derive(Default, Serialize)]
@@ -218,6 +225,7 @@ pub(super) fn summarize(traces: &[Trace], role: EvidenceRole, limit: usize) -> R
         })
         .collect::<BTreeMap<_, _>>();
     let mut choices = BTreeMap::<(String, String), Choice>::new();
+    let mut unresolved = BTreeMap::<&str, Unresolved>::new();
     let mut repeats = BTreeMap::<String, Repeat>::new();
     let mut available = 0;
     for trace in traces {
@@ -226,12 +234,25 @@ pub(super) fn summarize(traces: &[Trace], role: EvidenceRole, limit: usize) -> R
         };
         available += 1;
         for branch in &coverage.branches {
+            if let Some(first) = branch.unresolved.first() {
+                let row = unresolved.entry(&branch.id).or_default();
+                row.count += branch.unresolved.len();
+                row.input_count += 1;
+                row.first_observation
+                    .get_or_insert_with(|| json!({"input":trace.input,"observation":first}));
+            }
             for option in &branch.options {
+                let signal_kind = match option.fallback {
+                    Some(true) => Some("fallback"),
+                    Some(false) => Some("primary"),
+                    None => None,
+                };
                 let row = choices
                     .entry((branch.id.clone(), option.id.clone()))
                     .or_insert_with(|| Choice {
                         branch: branch.id.clone(),
                         option: option.id.clone(),
+                        signal_kind,
                         owner: branch.owner.clone(),
                         signal_selections: 0,
                         inputs: BTreeSet::new(),
@@ -273,6 +294,8 @@ pub(super) fn summarize(traces: &[Trace], role: EvidenceRole, limit: usize) -> R
         "evidence_role": role, "available_inputs": available,
         "status": if available==0 {"unavailable"}else if traces.iter().filter(|t|t.status!="excluded").count()!=available {"partial"}else{"available"},
         "choices":choices.values().take(limit).collect::<Vec<_>>(),"omitted_choices":choices.len().saturating_sub(limit),
+        "unresolved_branches":unresolved.iter().take(limit).map(|(branch,row)| json!({"branch":branch,"count":row.count,"input_count":row.input_count,"first_observation":row.first_observation})).collect::<Vec<_>>(),
+        "omitted_unresolved_branches":unresolved.len().saturating_sub(limit),
         "loops":repeats.values().take(limit).collect::<Vec<_>>(),"omitted_loops":repeats.len().saturating_sub(limit),
         "not_checked":["Unmodeled mechanics and unobserved loop boundaries", "Tests outside this manifest", "Independence of reports or declared roles"]
     }))

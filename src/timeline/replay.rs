@@ -90,6 +90,8 @@ pub(crate) struct Record {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) context: Option<ExecutionContext>,
     #[serde(skip)]
+    pub(crate) unresolved_branch: bool,
+    #[serde(skip)]
     event_order: Option<usize>,
 }
 
@@ -364,6 +366,7 @@ fn record(out: &mut Vec<Record>, at_ms: i64, action: &str, detail: impl Into<Str
         detail: detail.into(),
         run,
         source_event_index: None,
+        unresolved_branch: false,
         event: None,
         context: None,
         event_order: None,
@@ -384,6 +387,13 @@ fn branch_owner(phase: &str, branch: &str, option: Option<&str>) -> Owner {
         branch: Some(branch.into()),
         option: option.map(String::from),
         ..Owner::default()
+    }
+}
+
+fn record_unresolved_branch(out: &mut Vec<Record>, at: i64, id: &str, run: usize) {
+    record(out, at, "unresolved", id, run);
+    if let Some(row) = out.last_mut() {
+        row.unresolved_branch = true;
     }
 }
 
@@ -818,7 +828,7 @@ fn enter_repeat_after_jump_one(
         }
         for branch in &repeat.branches {
             history.insert(branch.id.clone(), None);
-            record(out, at, "unresolved", branch.id.clone(), run);
+            record_unresolved_branch(out, at, &branch.id, run);
         }
     }
     let mut clock = Clock {
@@ -994,11 +1004,10 @@ fn advance_nested_branches(
         if branch_state.opened && !branch_state.closed && time >= branch.close {
             branch_state.closed = true;
             if branch_state.selected.is_none() {
-                record(
+                record_unresolved_branch(
                     out,
                     (base + branch.close * 100 - 50).max(0),
-                    "unresolved",
-                    branch.id.clone(),
+                    &branch.id,
                     run,
                 );
             }
@@ -1510,13 +1519,7 @@ impl<'a> Replay<'a> {
             }
             let close_at = (phase.clock.base_ms + branch.close * 100 - 50).max(0);
             let record_at = if corrected { at } else { close_at };
-            record(
-                &mut self.out,
-                record_at,
-                "unresolved",
-                branch.id.clone(),
-                self.run,
-            );
+            record_unresolved_branch(&mut self.out, record_at, &branch.id, self.run);
         }
     }
 

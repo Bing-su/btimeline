@@ -28,6 +28,7 @@ pub(super) struct Selection {
 #[derive(Deserialize, Serialize)]
 pub(super) struct OptionCoverage {
     pub id: String,
+    pub fallback: Option<bool>,
     #[serde(default)]
     pub event_ids: BTreeSet<String>,
     pub selections: Vec<Selection>,
@@ -37,6 +38,13 @@ pub(super) struct BranchCoverage {
     pub id: String,
     pub owner: Owner,
     pub options: Vec<OptionCoverage>,
+    #[serde(default)]
+    pub unresolved: Vec<UnresolvedBranch>,
+}
+#[derive(Deserialize, Serialize)]
+pub(super) struct UnresolvedBranch {
+    at_ms: i64,
+    raw_index: Option<usize>,
 }
 #[derive(Deserialize, Serialize)]
 pub(super) struct AnchorPair {
@@ -87,6 +95,7 @@ pub(super) fn collect(
                 .iter()
                 .map(|option| OptionCoverage {
                     id: option.clone(),
+                    fallback: Some(branch.fallback_options.contains(option)),
                     event_ids: model
                         .catalog
                         .events
@@ -123,6 +132,14 @@ pub(super) fn collect(
                 id: branch.id.clone(),
                 owner: branch.owner.clone(),
                 options,
+                unresolved: rows
+                    .iter()
+                    .filter(|row| row.unresolved_branch && row.detail == branch.id)
+                    .map(|row| UnresolvedBranch {
+                        at_ms: row.at_ms,
+                        raw_index: row.source_event_index,
+                    })
+                    .collect(),
             }
         })
         .collect();
