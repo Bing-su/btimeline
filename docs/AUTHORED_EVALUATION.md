@@ -104,7 +104,7 @@ Doomtrain 시험 KDL을 Runaway Train에서 같은 보스의 두 phase로 분리
 
 `evidence`의 `at_ms`는 fight.startTime 기준이며 `origin_timestamp_ms`와 열 이름을 함께 출력한다. `around-index`는 damage 등 시전이 아닌 원본 관측도 중심점으로 사용할 수 있다. 시간 범위를 지정하려면 around-index가 필요하다. 전체 일치 수와 생략 수를 확인하며, 생략된 관측이 없다고 추정하지 않는다. 원본 무결성은 inspect와 같은 경계에서 검사하며 ACT로 투영하지 않는다.
 
-`review`는 보고서의 집계와 trace가 일치하는지 확인한다. 감사가 없는 과거 보고서도 읽지만 `unavailable_or_partial`로 표시하며 기본 예고 간격을 추정하지 않는다. 각 목록의 예시만 자르므로 전체 JSON은 그대로 남는다. 원본 행이나 긴 진단의 문자 수는 실제 모델 토큰 사용량과 같은 단위가 아니다.
+`review`는 보고서의 집계와 trace가 일치하는지 확인한다. 감사가 없는 과거 보고서도 읽지만 `unavailable_or_partial`로 표시하며 기본 예고 간격을 추정하지 않는다. phase 진입이 다르면 예고 실패보다 먼저 `entry_mismatch`에 예상·재생 phase, 상대 시각과 원본 인덱스를 표시한다. 각 목록의 예시만 자르므로 전체 JSON은 그대로 남는다. 원본 행이나 긴 진단의 문자 수는 실제 모델 토큰 사용량과 같은 단위가 아니다.
 
 미분류가 상한보다 많으면 `next_unclassified_offset`을 다음 호출의 `--unclassified-offset`으로 넘긴다. 이는 미분류 목록만 페이지로 나누며 phase·문제 목록의 상한과 우선순위는 유지한다. 생략 수는 페이지 앞뒤를 합한 수다. 같은 보고서 파일과 해시를 기준으로 조회한다.
 

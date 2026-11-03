@@ -256,6 +256,39 @@ fn inferred_sequential_phases_require_an_observed_boundary(
 }
 
 #[test]
+fn review_reports_phase_entry_mismatch_before_forecast_failures() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path();
+    let mut manifest = setup(path);
+    let timeline_path = path.join("timeline.kdl");
+    let timeline = fs::read_to_string(&timeline_path).unwrap().replace(
+        r#"phase "boss" { enter "Ability" id="B528""#,
+        r#"phase "opening" { enter "Ability" id="B528"; }; phase "boss" { enter "Ability" id="B528" from="opening" at=4.0"#,
+    );
+    fs::write(timeline_path, &timeline).unwrap();
+    manifest["timeline_sha256"] = json!(hash(timeline.as_bytes()));
+    save(path, &manifest);
+    let evaluation = command(path).assert().failure();
+    let stderr = String::from_utf8_lossy(&evaluation.get_output().stderr);
+    assert!(stderr.contains("Evaluation failures saved"), "{stderr}");
+
+    let output = cargo_bin_cmd!("btimeline")
+        .current_dir(path)
+        .args(["review", "report.json"])
+        .assert()
+        .success();
+    let review: Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
+    assert_eq!(
+        review["review"]["issues"][0]["entry_mismatch"],
+        json!({
+            "index":0,
+            "expected":{"phase":"boss","at_ms":0,"raw_index":0},
+            "replayed":{"phase":"opening","at_ms":0,"raw_index":0}
+        })
+    );
+}
+
+#[test]
 fn native_evaluation_matches_forecasts_binds_profile_and_preserves_reports() {
     let directory = tempfile::tempdir().expect("valid test fixture");
     let manifest = setup(directory.path());

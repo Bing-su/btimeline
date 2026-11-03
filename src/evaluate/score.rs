@@ -249,24 +249,8 @@ pub(super) fn score(
         .iter()
         .filter(|row| diagnostic(row))
         .collect::<Vec<_>>();
-    let transitions = rows
-        .iter()
-        .filter(|row| row.action == "phase")
-        .map(|row| {
-            (
-                row.at_ms,
-                row.context
-                    .as_ref()
-                    .and_then(|context| context.owner.phase.as_deref()),
-            )
-        })
-        .collect::<Vec<_>>();
-    let expected = projected
-        .bosses
-        .iter()
-        .map(|boss| (boss.entry_ms, Some(boss.phase.as_str())))
-        .collect::<Vec<_>>();
-    let safe_entry = transitions == expected;
+    let entry_mismatch = first_entry_mismatch(&projected.bosses, &rows);
+    let safe_entry = entry_mismatch.is_none();
     let evaluated = projected
         .bosses
         .iter()
@@ -304,6 +288,29 @@ pub(super) fn score(
                 .is_some_and(|rows| !rows.is_empty())
         });
     Ok(
-        json!({"origin_timestamp_ms":projected.origin_timestamp_ms,"cast_observations":projected.recording.observations.len(),"safe_entry":safe_entry,"diagnostics":diagnostics,"bosses":bosses,"passed":passed,"review_required":review_required,"matched_occurrences":support.len(),"coverage":coverage}),
+        json!({"origin_timestamp_ms":projected.origin_timestamp_ms,"cast_observations":projected.recording.observations.len(),"safe_entry":safe_entry,"entry_mismatch":entry_mismatch,"diagnostics":diagnostics,"bosses":bosses,"passed":passed,"review_required":review_required,"matched_occurrences":support.len(),"coverage":coverage}),
     )
+}
+
+fn first_entry_mismatch(bosses: &[Segment], rows: &[Record]) -> Option<Value> {
+    let mut expected = bosses.iter();
+    let mut replayed = rows.iter().filter(|row| row.action == "phase");
+    for index in 0.. {
+        let (boss, row) = (expected.next(), replayed.next());
+        if boss.is_none() && row.is_none() {
+            break;
+        }
+        let phase = row.and_then(|row| row.context.as_ref()?.owner.phase.as_deref());
+        if boss.map(|boss| (boss.entry_ms, Some(boss.phase.as_str())))
+            != row.map(|row| (row.at_ms, phase))
+        {
+            // A missed entry can invalidate the forecasts for every later phase.
+            return Some(json!({
+                "index": index,
+                "expected": boss.map(|boss| json!({"phase":boss.phase,"at_ms":boss.entry_ms,"raw_index":boss.entry_event})),
+                "replayed": row.map(|row| json!({"phase":phase,"at_ms":row.at_ms,"raw_index":row.source_event_index})),
+            }));
+        }
+    }
+    None
 }

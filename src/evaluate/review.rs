@@ -41,6 +41,7 @@ struct Trace {
     error: Option<String>,
     evidence: Option<ExclusionEvidence>,
     safe_entry: Option<bool>,
+    entry_mismatch: Option<Value>,
     #[serde(default)]
     diagnostics: Vec<Value>,
     #[serde(default)]
@@ -246,6 +247,15 @@ fn first_issue(trace: &Trace) -> Option<Value> {
             fields.insert("unverified_phases".into(), json!(phases));
         }
         return Some(issue);
+    }
+    if let Some(mismatch) = &trace.entry_mismatch {
+        return Some(json!({
+            "input":trace.input,
+            "safe_entry":trace.safe_entry,
+            "entry_mismatch":mismatch,
+            "diagnostics":trace.diagnostics.len(),
+            "first_diagnostic":trace.diagnostics.first().map(brief_diagnostic),
+        }));
     }
     let failed_targets = trace
         .bosses
