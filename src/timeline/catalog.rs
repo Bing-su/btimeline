@@ -195,9 +195,8 @@ impl Timeline {
 pub(crate) struct CastEntry<'a> {
     pub phase: &'a str,
     pub source: &'a str,
-    pub from: Option<&'a str>,
     pub raw_kind: &'static str,
-    pub ids: Vec<String>,
+    pub entries: Vec<(Option<&'a str>, String)>,
 }
 
 fn cast_entry(phase: &super::Phase) -> Option<CastEntry<'_>> {
@@ -208,24 +207,23 @@ fn cast_entry(phase: &super::Phase) -> Option<CastEntry<'_>> {
         "StartsUsing" => "begincast",
         _ => return None,
     };
-    let from = first.from.as_deref();
-    let mut ids = Vec::new();
+    let mut entries = Vec::new();
     for signal in &phase.enters {
         let (id, other_source) = literal_cast_fields(signal)?;
         if other_source != source
             || signal.kind != first.kind
-            || signal.from.as_deref() != from
+            // A mixed root and transition would need separate inferred boundaries.
+            || signal.from.is_some() != first.from.is_some()
             || signal.resume_at.is_some_and(|offset| offset != 0)
         {
             return None;
         }
-        ids.push(id.into());
+        entries.push((signal.from.as_deref(), id.into()));
     }
     Some(CastEntry {
         phase: &phase.id,
         source,
-        from,
         raw_kind,
-        ids,
+        entries,
     })
 }

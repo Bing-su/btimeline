@@ -72,6 +72,8 @@ struct SegmentRule {
     #[serde(skip)]
     entry_kind: Option<&'static str>,
     entry_from: Option<String>,
+    #[serde(skip)]
+    inferred_entries: Vec<(Option<String>, String)>,
     completion: Completion,
     max_duration_ms: Option<i64>,
     #[serde(default)]
@@ -138,9 +140,8 @@ impl SegmentRule {
         let CastEntry {
             phase,
             source,
-            from,
             raw_kind,
-            ids,
+            entries,
         } = entry;
         let mut targets = BTreeMap::<String, TargetRule>::new();
         let visible = || {
@@ -189,15 +190,31 @@ impl SegmentRule {
             encounter: None,
             source: source.into(),
             other_sources: Vec::new(),
-            entry: ids,
+            entry: entries.iter().map(|(_, id)| id.clone()).collect(),
             entry_kind: Some(raw_kind),
-            entry_from: from.map(str::to_owned),
+            entry_from: None,
+            inferred_entries: entries
+                .into_iter()
+                .map(|(from, id)| (from.map(str::to_owned), id))
+                .collect(),
             completion: Completion::FightEnd,
             max_duration_ms: None,
             require_main_actor: true,
             reject_health_reset: true,
             targets,
             ignored: BTreeMap::new(),
+        }
+    }
+
+    fn accepts_entry(&self, from: Option<&str>, id: Option<&str>) -> bool {
+        // Keep the cast ID paired with its predecessor when a phase has multiple entrances.
+        if self.inferred_entries.is_empty() {
+            self.entry_from.as_deref() == from
+                && id.is_none_or(|id| self.entry.iter().any(|entry| entry == id))
+        } else {
+            self.inferred_entries
+                .iter()
+                .any(|(guard, entry)| guard.as_deref() == from && id.is_none_or(|id| entry == id))
         }
     }
 }
@@ -338,6 +355,7 @@ fn find_entries<'a>(
     log: &'a CollectedLog,
     rule: &'a SegmentRule,
     actors: &'a BTreeMap<i64, &Actor>,
+    from: Option<&'a str>,
 ) -> impl Iterator<Item = (usize, &'a Event)> + 'a {
     log.events.iter().enumerate().filter(move |(_, event)| {
         event.kind == rule.entry_kind.unwrap_or("cast")
@@ -347,7 +365,7 @@ fn find_entries<'a>(
                 .is_some_and(|actor| actor.name == rule.source)
             && event
                 .ability_game_id
-                .is_some_and(|id| rule.entry.contains(&format!("{id:X}")))
+                .is_some_and(|id| rule.accepts_entry(from, Some(&format!("{id:X}"))))
     })
 }
 
@@ -388,11 +406,11 @@ fn follow_transitions<'a>(
         let mut choices = rules
             .iter()
             .filter(|rule| {
-                rule.entry_from.as_deref() == Some(&current.0.phase)
+                rule.accepts_entry(Some(&current.0.phase), None)
                     && rule.encounter == current.0.encounter
             })
             .flat_map(|rule| {
-                find_entries(log, rule, actors)
+                find_entries(log, rule, actors, Some(&current.0.phase))
                     .take_while(|(index, _)| *index < limit)
                     .filter(|(index, _)| *index > current.1)
                     .map(move |(index, event)| (rule, index, event))
@@ -427,14 +445,6 @@ fn follow_transitions<'a>(
         {
             return Err(phase_ambiguity(
                 "Phase transition shares the prior entry timestamp",
-                &[current, next],
-            ));
-        }
-        if let Some(next) = next
-            && next.0.source != current.0.source
-        {
-            return Err(phase_ambiguity(
-                "Transition changes source and needs an explicit scope",
                 &[current, next],
             ));
         }
@@ -481,9 +491,11 @@ fn inferred_segments(
     let mut roots = profile
         .segments
         .iter()
-        .filter(|rule| rule.entry_from.is_none() && rule.encounter.is_none_or(|id| id == encounter))
+        .filter(|rule| {
+            rule.accepts_entry(None, None) && rule.encounter.is_none_or(|id| id == encounter)
+        })
         .filter_map(|rule| {
-            find_entries(log, rule, actors)
+            find_entries(log, rule, actors, None)
                 .next()
                 .map(|(index, event)| (rule, index, event))
         })
@@ -529,21 +541,26 @@ fn inferred_segments(
         ))
     };
     for (root, limit) in roots.iter().copied().zip(limits) {
-        candidates.extend(follow_transitions(
-            log,
-            &profile.segments,
-            actors,
-            root,
-            limit,
-            &mut replay_choice,
-        )?);
+        candidates.extend(
+            follow_transitions(
+                log,
+                &profile.segments,
+                actors,
+                root,
+                limit,
+                &mut replay_choice,
+            )?
+            .into_iter()
+            .enumerate()
+            .map(|(index, entry)| (entry, index != 0)),
+        );
     }
-    // Same-boss transitions use the explicit entry; switching bosses still requires defeat.
+    // Guarded transitions use the observed entry; independent boss attempts still require defeat.
     let next_entries = candidates
         .iter()
         .skip(1)
-        .map(|(rule, _, event)| {
-            Some(if rule.entry_from.is_some() {
+        .map(|((_, _, event), guarded)| {
+            Some(if *guarded {
                 Boundary::TransitionAt(event.timestamp)
             } else {
                 Boundary::DefeatBefore(event.timestamp)
@@ -553,7 +570,7 @@ fn inferred_segments(
     candidates
         .iter()
         .zip(next_entries)
-        .map(|((rule, index, event), next_entry)| {
+        .map(|(((rule, index, event), _), next_entry)| {
             project_segment(
                 log,
                 rule,
@@ -579,7 +596,7 @@ fn project_segment(
     let main = main_actors(log, rule)?;
     let source = |id: Option<i64>| id.and_then(|id| actors.get(&id)).map(|a| a.name.as_str());
     let entry = inferred_entry
-        .or_else(|| find_entries(log, rule, actors).next())
+        .or_else(|| find_entries(log, rule, actors, None).next())
         .ok_or_else(|| exclude("Missing boss entry", json!({"source":rule.source})))?;
     let (entry_event, start) = (entry.0, entry.1.timestamp);
     let defeat = log.events.iter().enumerate().find(|(_, e)| {
