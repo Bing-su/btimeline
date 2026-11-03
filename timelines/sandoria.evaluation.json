@@ -93,22 +93,22 @@
           "events": ["kirin-9"]
         },
         "ADAD": {
-          "name": "Wringer / Synchronized Strike",
+          "name": "Wringer / Synchronized Strike / Striking Left / Striking Right",
           "group": "Wringer / Synchronized Strike",
           "events": ["kirin-11", "kirin-12", "kirin-14"]
         },
         "ADB0": {
-          "name": "Wringer / Synchronized Strike",
+          "name": "Wringer / Synchronized Strike / Striking Left / Striking Right",
           "group": "Wringer / Synchronized Strike",
           "events": ["kirin-11", "kirin-12", "kirin-14"]
         },
         "AD9D": {
-          "name": "Synchronized Sequence / Double Wringer",
+          "name": "Synchronized Sequence / Double Wringer / Smiting Sequence",
           "group": "Synchronized Sequence / Double Wringer",
           "events": ["kirin-13"]
         },
         "ADA5": {
-          "name": "Wringer / Synchronized Strike",
+          "name": "Wringer / Synchronized Strike / Striking Left / Striking Right",
           "group": "Wringer / Synchronized Strike",
           "events": ["kirin-11", "kirin-12", "kirin-14"]
         },
@@ -125,7 +125,8 @@
         "ADBF": {
           "name": "Bury",
           "group": "Bury",
-          "events": ["kirin-17"]
+          "events": ["kirin-17"],
+          "source": "Chiseled Arm"
         },
         "B079": {
           "name": "Stonega III",
@@ -144,12 +145,12 @@
           "events": ["kirin-9"]
         },
         "ADA0": {
-          "name": "Synchronized Sequence / Double Wringer",
+          "name": "Synchronized Sequence / Double Wringer / Smiting Sequence",
           "group": "Synchronized Sequence / Double Wringer",
           "events": ["kirin-13"]
         },
         "ADA2": {
-          "name": "Wringer / Synchronized Strike",
+          "name": "Wringer / Synchronized Strike / Striking Left / Striking Right",
           "group": "Wringer / Synchronized Strike",
           "events": ["kirin-11", "kirin-12", "kirin-14"]
         },
@@ -173,6 +174,36 @@
             "kirin-quake-fourth",
             "kirin-double-quake"
           ]
+        },
+        "ADAE": {
+          "name": "Wringer / Synchronized Strike / Striking Left / Striking Right",
+          "group": "Wringer / Synchronized Strike",
+          "events": ["kirin-11", "kirin-12", "kirin-14"]
+        },
+        "ADAF": {
+          "name": "Wringer / Synchronized Strike / Striking Left / Striking Right",
+          "group": "Wringer / Synchronized Strike",
+          "events": ["kirin-11", "kirin-12", "kirin-14"]
+        },
+        "ADA3": {
+          "name": "Wringer / Synchronized Strike / Striking Left / Striking Right",
+          "group": "Wringer / Synchronized Strike",
+          "events": ["kirin-11", "kirin-12", "kirin-14"]
+        },
+        "ADA4": {
+          "name": "Wringer / Synchronized Strike / Striking Left / Striking Right",
+          "group": "Wringer / Synchronized Strike",
+          "events": ["kirin-11", "kirin-12", "kirin-14"]
+        },
+        "AD9E": {
+          "name": "Synchronized Sequence / Double Wringer / Smiting Sequence",
+          "group": "Synchronized Sequence / Double Wringer",
+          "events": ["kirin-13"]
+        },
+        "AD9F": {
+          "name": "Synchronized Sequence / Double Wringer / Smiting Sequence",
+          "group": "Synchronized Sequence / Double Wringer",
+          "events": ["kirin-13"]
         }
       }
     },
@@ -519,6 +550,11 @@
           "events": ["eald-18", "eald-28"]
         },
         "AD4A": {
+          "name": "Cronos Sling",
+          "group": "Cronos Sling",
+          "events": ["eald-2", "eald-4", "eald-26"]
+        },
+        "AD4C": {
           "name": "Cronos Sling",
           "group": "Cronos Sling",
           "events": ["eald-2", "eald-4", "eald-26"]

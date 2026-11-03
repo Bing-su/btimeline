@@ -367,3 +367,37 @@ fn bindings_reject_unknown_hidden_foreign_and_overlapping_definitions() {
         );
     }
 }
+
+#[test]
+fn sandoria_scores_variant_casts_and_helper_bury_without_counting_duplicate_arms() {
+    let p = profile("sandoria");
+    let raw = log(
+        2067,
+        &["Faithbound Kirin", "Chiseled Arm"],
+        json!([
+            cast(0, 1, 0xadca),
+            cast(163100, 1, 0xadaf),
+            cast(168400, 1, 0xad9f),
+            cast(173500, 1, 0xada4),
+            cast(220000, 2, 0xadbf),
+            cast(220000, 2, 0xadbf)
+        ]),
+    );
+    let result = projection::project(&raw, &p).unwrap();
+    assert_eq!(
+        result.bosses[0]
+            .targets
+            .iter()
+            .map(|target| target.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["ADCA", "ADAF", "AD9F", "ADA4", "ADBF"]
+    );
+    let raw = log(
+        2070,
+        &["Eald'narche"],
+        json!([cast(0, 1, 0xad51), cast(13100, 1, 0xad4c)]),
+    );
+    let result = projection::project(&raw, &p).unwrap();
+    assert_eq!(result.bosses[0].targets.len(), 2);
+    assert_eq!(result.bosses[0].targets[1].id, "AD4C");
+}

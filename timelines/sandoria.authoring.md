@@ -13,7 +13,7 @@
 | 평가 기준 | 주요 첫 발동 5초 전 조회, 오차 1.5초 이하. 첫 Shijin Quake/Stonega III는 선택 시작부터 발동까지 약 2.98초이므로 2초 전 조회로 분리                           |
 | 진입      | 첫 대표 Ability에서 시작. 진입 자체와 진입 후 5초 미만 기술의 5초 전 예고는 평가하지 않음                                                                    |
 
-현재 후보는 `8568a2e`, SHA-256 `4175ef50f2da90edbbb423cfea23befd5c8f51aeeb11c539a4aa3b766596c2ca`다. [새 보류 계획](../tests/fixtures/authored/sandoria-fresh-holdout-plan.json)의 5개 보고서·16개 입력은 후보 고정 뒤 평가했고 모두 통과했다. 평가 후 KDL은 수정하지 않았다.
+경고 검토 이전 후보는 `8568a2e`, SHA-256 `4175ef50f2da90edbbb423cfea23befd5c8f51aeeb11c539a4aa3b766596c2ca`다. [당시 새 보류 계획](../tests/fixtures/authored/sandoria-fresh-holdout-plan.json)의 5개 보고서·16개 입력은 그 후보 고정 뒤 평가했고 모두 통과했다. 아래 경고 검토에서는 이 자료도 개발 근거로 전환했다.
 
 ## 원본 해석
 
@@ -86,10 +86,29 @@ FFLogs HP=0은 구간 경계만 정하며 WasDefeated를 합성하지 않는다.
 ```sh
 cargo build
 target/debug/btimeline validate timelines/sandoria.kdl
-target/debug/btimeline evaluate --profile timelines/sandoria.evaluation.json tests/fixtures/authored/sandoria-expanded-development-plan.json -o out/sandoria-authoring/development-new.json
-target/debug/btimeline evaluate --profile timelines/sandoria.evaluation.json tests/fixtures/authored/sandoria-fresh-holdout-plan.json -o out/sandoria-authoring/holdout-new.json
+target/debug/btimeline evaluate --profile timelines/sandoria.evaluation.json tests/fixtures/authored/sandoria-warning-review-plan.json -o out/sandoria-authoring/warning-review-new.json
 bun run --cwd scripts test
 cargo test --test authored_sandoria
 ```
 
 보고서는 새 경로에만 쓴다. 초기 후보는 `784924f` 체크아웃에서 초기 계획으로 재현한다. 수정에 보류 결과를 사용하면 해당 입력을 개발 자료로 전환한다. 실제 ACT 신호/시전자 이름·종료 동등성, 실제 UI, 단독 생존 보스 후반·표의 경로 이후·helper 개별 공격·대상/위치는 미검증이다.
+
+## 이벤트 ID 평가가 드러낸 표시 24건 검토
+
+현재 KDL SHA-256은 `589afddf3467a6865e7057ee73fe88a0075283a6671839e35a5a83d0b965640b`다. 원래 개발·보류를 합친 44개 입력을 [경고 검토 계획](../tests/fixtures/authored/sandoria-warning-review-plan.json)에 개발 역할로 고정했다. 42개 적격 입력의 1차 재평가가 통과했고 원래 이름 누락/본체 불명확 제외 2개를 유지했다. 과거 manifest·validation은 덮어쓰지 않았다. 현재 수정본의 독립 보류 검증은 아직 없다.
+
+| 원인                                | 건수 | 근거와 처리                                                                                                                                   |
+| ----------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cronos Sling alias 누락             | 5    | Hnx/50 #1037의 AD4C는 첫 Sling. AD49/AD4A/AD4B와 같은 표시 후보·패킷 그룹에 추가                                                              |
+| Striking Left/Right alias·표시 누락 | 9    | Zdx/31 #17205 ADAF, Hnx/45 #16674 ADAF·#17271 ADA4. 기존 3개 Wringer/Strike 슬롯의 이름과 평가 ID를 확장. 시각·선택·sync는 유지               |
+| Smiting Sequence alias·표시 누락    | 3    | Zdx/31 #17745 AD9F는 같은 중간 슬롯의 Smiting Left Sequence. AD9E/AD9F를 추가하고 표시 대안을 명시                                            |
+| Bury 보조 시전자                    | 4    | Hnx/45 #21963 등은 Chiseled Arm의 ADBF. 보조 시전자 발동으로 평가하고 동시 여러 팔의 패킷은 한 표시로 요약. 본체 유일성 검사는 Kirin에만 적용 |
+| 끝부분 발동 미관측                  | 3    | 아래 표의 시전 시작은 있으나 발동은 기록되지 않음. 불필요한 표시로 단정하거나 표본을 제외하지 않고 검토 경고 유지                             |
+
+| 입력·표시       | 원본 근거                                 | 해석 한계                                                   |
+| --------------- | ----------------------------------------- | ----------------------------------------------------------- |
+| PA/72 `kam-36`  | #32287 ACB7 시전 시작, 전투 끝 4.585초 전 | 발동 미관측. 정상 발동 완료·실제 종료 신호 동등성은 미확인  |
+| PA/73 `eald-29` | #31144 AD77 시전 시작, 끝 3.708초 전      | 발동 미관측. 이 로그로 마지막 Duplicate를 삭제하지 않음     |
+| Y3/6 `kirin-15` | #18660 ADB1 시전 시작, 끝 8.774초 전      | 발동 미관측. 기록 종료 이전 취소·진행 중단 여부는 확인 불가 |
+
+`out/sandoria-warning-review-v2.json`에서 대응 없는 표시가 24건에서 위 3건으로 줄었다. 시간표·window 완화나 입력 제외 확대 없이 누락된 대안/시전자를 보완했다. 보조 actor를 공동 본체로 취급하는 중간 profile은 거부하고 바로 수정했으며 해당 중간 결과를 검증 근거로 사용하지 않는다.
