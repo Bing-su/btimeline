@@ -10,6 +10,7 @@ use crate::timeline::{Record, Recording, Timeline};
 pub(super) struct Support<'a> {
     pub record: &'a Record,
     pub raw_index: usize,
+    pub observed_at_ms: i64,
 }
 struct Expected<'a> {
     phase: &'a str,
@@ -198,6 +199,7 @@ fn segment_score<'a>(
                 support.push(Support {
                     record,
                     raw_index: target.raw_index,
+                    observed_at_ms: target.at_ms,
                 });
             }
             target_result(

@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use super::score::Support;
 use crate::timeline::{LoopDefinition, Owner, Record, Timeline};
+mod body;
+pub(super) use body::BodyCoverage;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -52,6 +54,7 @@ pub(super) struct LoopCoverage {
     pub matched_events: usize,
     pub anchor_recurrences: Vec<AnchorPair>,
     pub signal_exits: usize,
+    pub body: Option<BodyCoverage>,
 }
 #[derive(Deserialize, Serialize)]
 pub(super) struct Coverage {
@@ -120,12 +123,13 @@ pub(super) fn collect(
                 .as_deref()
                 .is_some_and(|phase| phases.contains(phase))
         })
-        .map(|repeat| loop_coverage(repeat, rows, support))
+        .map(|repeat| loop_coverage(model, repeat, rows, support))
         .collect();
     Coverage { branches, loops }
 }
 
 fn loop_coverage(
+    model: &Timeline,
     repeat: &LoopDefinition,
     rows: &[Record],
     support: &[&Support<'_>],
@@ -190,13 +194,23 @@ fn loop_coverage(
                     .is_some_and(|context| context.owner.loop_id.as_deref() == Some(&repeat.id))
         })
         .count();
+    let anchor_recurrences = pairs.into_values().collect::<Vec<_>>();
+    let body = body::collect(
+        model,
+        &repeat.id,
+        rows,
+        support,
+        &anchor_recurrences,
+        emitted.len(),
+    );
     LoopCoverage {
         id: repeat.id.clone(),
         owner: repeat.owner.clone(),
         emitted_iterations: emitted.len(),
         matched_iterations: iterations.len(),
         matched_events: matched.len(),
-        anchor_recurrences: pairs.into_values().collect(),
+        anchor_recurrences,
         signal_exits,
+        body: Some(body),
     }
 }

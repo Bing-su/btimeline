@@ -589,6 +589,8 @@ fn coverage_counts_signal_choices_and_matched_anchors_separately_from_timer_iter
     );
     assert_eq!(coverage["loops"][0]["emitted_iterations"], 5);
     assert_eq!(coverage["loops"][0]["matched_iterations"], 3);
+    assert_eq!(coverage["loops"][0]["body"]["complete_display_bodies"], 2);
+    assert_eq!(coverage["loops"][0]["body"]["unverified_iterations"], 3);
     assert_eq!(
         coverage["loops"][0]["anchor_recurrences"]
             .as_array()
@@ -609,6 +611,10 @@ fn coverage_counts_signal_choices_and_matched_anchors_separately_from_timer_iter
     );
     assert_eq!(
         review["review"]["coverage"]["loops"][0]["consecutive_anchor_pairs"],
+        2
+    );
+    assert_eq!(
+        review["review"]["coverage"]["loops"][0]["complete_display_bodies"],
         2
     );
 }

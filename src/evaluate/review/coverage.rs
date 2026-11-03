@@ -29,6 +29,12 @@ struct Repeat {
     consecutive_anchor_pairs: usize,
     signal_exits: usize,
     first_anchor_pair: Option<Value>,
+    body_coverage_inputs: usize,
+    complete_display_bodies: usize,
+    incomplete_display_bodies: usize,
+    unverified_iterations: usize,
+    exits_with_matched_on_exit: usize,
+    first_body_gap: Option<Value>,
 }
 
 impl Choice {
@@ -70,6 +76,34 @@ impl Repeat {
                 .first()
                 .map(|pair| json!({"input":input,"pair":pair}));
         }
+        if let Some(body) = &repeat.body {
+            self.body_coverage_inputs += 1;
+            for (sum, count) in [
+                (
+                    &mut self.complete_display_bodies,
+                    body.complete_display_bodies,
+                ),
+                (
+                    &mut self.incomplete_display_bodies,
+                    body.incomplete_display_bodies,
+                ),
+                (&mut self.unverified_iterations, body.unverified_iterations),
+                (
+                    &mut self.exits_with_matched_on_exit,
+                    body.exits_with_matched_on_exit,
+                ),
+            ] {
+                *sum = sum
+                    .checked_add(count)
+                    .context("Body coverage count overflow")?;
+            }
+            if self.first_body_gap.is_none() {
+                self.first_body_gap = body
+                    .first_gap
+                    .as_ref()
+                    .map(|gap| json!({"input":input,"gap":gap}));
+            }
+        }
         Ok(())
     }
 }
@@ -109,6 +143,12 @@ pub(super) fn summarize(traces: &[Trace], role: EvidenceRole, limit: usize) -> R
                 consecutive_anchor_pairs: 0,
                 signal_exits: 0,
                 first_anchor_pair: None,
+                body_coverage_inputs: 0,
+                complete_display_bodies: 0,
+                incomplete_display_bodies: 0,
+                unverified_iterations: 0,
+                exits_with_matched_on_exit: 0,
+                first_body_gap: None,
             });
             row.observe(&trace.input, repeat)?;
         }
@@ -118,6 +158,6 @@ pub(super) fn summarize(traces: &[Trace], role: EvidenceRole, limit: usize) -> R
         "status": if available==0 {"unavailable"}else if traces.iter().filter(|t|t.status!="excluded").count()!=available {"partial"}else{"available"},
         "choices":choices.values().take(limit).collect::<Vec<_>>(),"omitted_choices":choices.len().saturating_sub(limit),
         "loops":repeats.values().take(limit).collect::<Vec<_>>(),"omitted_loops":repeats.len().saturating_sub(limit),
-        "not_checked":["Complete loop-body correspondence", "Tests outside this manifest", "Independence of reports or declared roles"]
+        "not_checked":["Unmodeled mechanics and unobserved loop boundaries", "Tests outside this manifest", "Independence of reports or declared roles"]
     }))
 }
