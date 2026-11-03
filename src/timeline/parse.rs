@@ -225,7 +225,7 @@ fn signal(node: &KdlNode, role: &str) -> Result<Signal> {
     let timed = matches!(role, "sync" | "enter" | "merge-when" | "until");
     let reserved: &[&str] = match role {
         "sync" => &["before", "after"],
-        "enter" => &["from", "at", "before", "after"],
+        "enter" => &["from", "at", "before", "after", "resume-at"],
         "merge-when" | "until" => &["at", "before", "after"],
         _ => &[],
     };
@@ -270,6 +270,15 @@ fn signal(node: &KdlNode, role: &str) -> Result<Signal> {
     if role == "enter" && at.is_some() {
         ensure!(from.is_some(), "enter with at requires from");
     }
+    let resume_at = if role == "enter" {
+        property_time(node, "resume-at")?
+    } else {
+        None
+    };
+    ensure!(
+        resume_at.is_none() || from.is_none(),
+        "resume-at requires an entry without from"
+    );
     Ok(Signal {
         kind: arg_string(node, usize::from(sync))?,
         fields,
@@ -281,6 +290,7 @@ fn signal(node: &KdlNode, role: &str) -> Result<Signal> {
             Some(after.unwrap_or(25))
         },
         from,
+        resume_at,
     })
 }
 

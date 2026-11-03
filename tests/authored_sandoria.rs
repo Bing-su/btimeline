@@ -278,6 +278,41 @@ fn double_cast_recovers_the_paired_forecast_without_the_wheel_signal() {
 }
 
 #[test]
+fn first_sling_resumes_eald_and_later_sling_preserves_the_clock() {
+    let source = "Eald'narche";
+    let rows = run(
+        "compare",
+        vec![
+            signal(21007, "Ability", "AD4A", source),
+            signal(54807, "Ability", "AD4C", source),
+        ],
+        70000,
+        0,
+    );
+    let rows = rows.as_array().expect("replay rows");
+    assert_eq!(
+        rows.iter().filter(|row| row["action"] == "phase").count(),
+        1
+    );
+    assert!(
+        rows.iter()
+            .any(|row| row["action"] == "skipped" && row["detail"] == "eald-1")
+    );
+    assert!(
+        rows.iter()
+            .any(|row| row["event"]["id"] == "eald-2" && row["at_ms"] == 21007)
+    );
+    assert!(
+        rows.iter()
+            .any(|row| row["event"]["id"] == "eald-3" && row["at_ms"] == 37707)
+    );
+    assert!(
+        rows.iter()
+            .any(|row| row["event"]["id"] == "eald-4" && row["at_ms"] == 54807)
+    );
+}
+
+#[test]
 fn early_scrivening_cast_recovers_before_its_five_second_query() {
     let result = run(
         "forecast",

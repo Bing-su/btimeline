@@ -4,6 +4,7 @@ timeline 1 "San d'Oria: The Second Walk" {
     start "Ability" id="AD2B" source="Omega, the One"
     start "Ability" id="ACBD" source="Kam'lanaut"
     start "Ability" id="AD51" source="Eald'narche"
+    start "Ability" source="Eald'narche" { field "id" "AD49" "AD4A" "AD4B" "AD4C"; }
     wipe "ActorControl" command="4000000F"
     wipe "ActorControl" command="40000010"
     finish "InCombat" inGameCombat="0"
@@ -173,6 +174,8 @@ timeline 1 "San d'Oria: The Second Walk" {
 
     phase "eald" {
         enter "Ability" id="AD51" source="Eald'narche"
+        // The first Sling gives the remaining schedule a clock when the opening Cascade is missing.
+        enter "Ability" source="Eald'narche" resume-at=13.1 { field "id" "AD49" "AD4A" "AD4B" "AD4C"; }
         // Reused opening abilities stay in this active phase; they must not restart the encounter schedule.
         event "eald-1" 0.0 name="Uranos Cascade"
         event "eald-2" 13.1 name="Cronos Sling"

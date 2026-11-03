@@ -32,6 +32,7 @@ pub(crate) struct Signal {
     before: Tick,
     after: Option<Tick>,
     pub(crate) from: Option<String>,
+    pub(crate) resume_at: Option<Tick>,
 }
 
 impl Signal {

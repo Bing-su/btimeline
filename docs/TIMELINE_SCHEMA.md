@@ -183,6 +183,8 @@ sync 42.0 "Ability" source="The Tyrant" {
 
 `phase`에는 하나 이상의 `enter` 신호가 필요하며 이는 OR다. 전투가 시작된 상태에서만 진입할 수 있고 유휴 상태에서는 enter를 무시한다. 같은 관측의 start로 전투가 시작되는 경우는 허용한다. 진입 시 해당 phase 시계를 0.0으로 시작하고 기존 phase를 닫는다. 활성 phase의 동일 진입 신호는 다시 시작하지 않는다. 같은 관측이 유효한 여러 phase 진입 조건에 일치하면 어느 쪽도 선택하지 않고 `ambiguous`로 보고한다.
 
+`enter ... resume-at=13.1`은 활성 phase가 없을 때 해당 phase의 13.1초 지점에서 진입한다. `from` 없이 사용한다. 보정 규칙에 따라 그보다 앞선 표시를 건너뛰고, 해당 시각의 표시는 진입 신호와 같은 시각에 실행한다. 한 관측이 같은 phase의 서로 다른 진입 지점과 일치하면 `ambiguous`로 보고한다.
+
 필요하면 `enter`에 `from="phase-id"`와 `at`, `before`, `after`를 지정한다. `from`은 현재 활성 phase에 대한 조건이며, window는 **그 phase의 상대 시계**를 사용한다. `at`이 있으면 `from`이 필수이고 window 생략 기본값은 `sync`와 같다. `from`만 지정할 수도 있다. `from`이 없으면 특정 이전 phase에 제한하지 않는다. 최초 진입이나 `boss-complete` 후 대기 중인 진입에는 활성 `from`이 없으므로 해당 제약 없는 신호가 필요하다.
 
 이전 선택에 따라 다음 선택의 시간 창이 달라지면 기믹 구간을 phase로 표현하고, 같은 대상 phase에 이전 구간별 `enter from`을 둘 수 있다. [Varis EX의 P3 발췌](../tests/fixtures/timeline/varis-choice-windows.kdl)는 Loaded 진입을 이전 Reinforced 시계의 52.8초 또는 Electrified 시계의 58.7초에 받는 예시다. [검증 범위](VARIS_ANTIVIRUS_VALIDATION.md)의 여섯 순서·창 경계 확인은 생성기의 선택 이력 학습 완료와 구분한다.

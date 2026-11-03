@@ -1,7 +1,7 @@
 {
-  "role": "Development regression for missing Eastwind wheel recovery",
+  "role": "Development regression for missing Eald and Eastwind signals",
   "timeline": "timelines/sandoria.kdl",
-  "timeline_sha256": "62880e6a4d524104611cfc153478f679ae1e13c5d52053fc5e21e0d62da1fbc6",
+  "timeline_sha256": "454e00670af546a3574c4ba05d718b2cc73a1dd24335eeb3cf43c2d5005ce3e2",
   "forecast_lead_ms": 5000,
   "horizon_ms": 6500,
   "tolerance_ms": 1500,

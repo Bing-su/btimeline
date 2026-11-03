@@ -1784,7 +1784,7 @@ impl<'a> Replay<'a> {
     }
 
     // Capture the old phase and clock before boss-complete can close them.
-    fn enter_candidates(&self, observation: &Observation) -> Vec<&'a Phase> {
+    fn enter_candidates(&self, observation: &Observation) -> Vec<(&'a Phase, Tick)> {
         if self.fight.is_none() && !self.matches_lifecycle("start", observation) {
             return Vec::new();
         }
@@ -1797,14 +1797,22 @@ impl<'a> Replay<'a> {
             .phases
             .iter()
             .filter(|p| Some(p.id.as_str()) != old_phase)
-            .filter(|p| {
-                p.enters.iter().any(|s| {
-                    let from_ok = s
-                        .from
-                        .as_ref()
-                        .is_none_or(|from| old_phase == Some(from.as_str()));
-                    from_ok && s.matches(&observation.kind, &observation.fields, time)
-                })
+            .flat_map(|phase| {
+                let offsets = phase
+                    .enters
+                    .iter()
+                    .filter(|signal| {
+                        let from_ok = signal
+                            .from
+                            .as_ref()
+                            .is_none_or(|from| old_phase == Some(from.as_str()));
+                        from_ok
+                            && (signal.resume_at.is_none() || old_phase.is_none())
+                            && signal.matches(&observation.kind, &observation.fields, time)
+                    })
+                    .map(|signal| signal.resume_at.unwrap_or(0))
+                    .collect::<BTreeSet<_>>();
+                offsets.into_iter().map(move |offset| (phase, offset))
             })
             .collect()
     }
@@ -1842,10 +1850,21 @@ impl<'a> Replay<'a> {
         record(&mut self.out, at, role, "", self.run);
     }
 
-    fn enter_phase(&mut self, candidates: &[&'a Phase], at: i64) {
-        if let [phase] = candidates {
+    fn enter_phase(&mut self, candidates: &[(&'a Phase, Tick)], at: i64) -> Result<()> {
+        if let [(phase, offset)] = candidates {
             self.phase_entries += 1;
-            let state = PhaseState::new(phase, at, self.phase_entries);
+            let mut state = PhaseState::new(phase, at, self.phase_entries);
+            if *offset > 0 {
+                // Reuse forward correction to skip displays before the observed recovery anchor.
+                correct_phase(
+                    &mut state,
+                    at,
+                    *offset,
+                    &mut self.out,
+                    self.run,
+                    &mut self.history,
+                )?;
+            }
             record_control(
                 &mut self.out,
                 at,
@@ -1868,6 +1887,7 @@ impl<'a> Replay<'a> {
                 self.run,
             );
         }
+        Ok(())
     }
 
     fn synchronize(&mut self, observation: &Observation) -> Result<()> {
@@ -1979,7 +1999,7 @@ impl<'a> Replay<'a> {
         let terminal = matches!(lifecycle, Some("zone-exit" | "wipe" | "finish"));
         let enter = !terminal && self.fight.is_some() && !candidates.is_empty();
         if enter {
-            self.enter_phase(&candidates, at);
+            self.enter_phase(&candidates, at)?;
         }
         if lifecycle.is_none() && !enter && self.fight.is_some() {
             self.observe_control(observation)?;
