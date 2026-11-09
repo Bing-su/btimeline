@@ -1,8 +1,9 @@
 ---
 source: tests/generate.rs
+assertion_line: 347
 expression: timeline
 ---
-timeline 1 "Unknown Encounter" {
+timeline 2 "Unknown Encounter" {
     start InCombat inGameCombat="1"
     wipe ActorControl command="4000000F"
     wipe ActorControl command="40000010"

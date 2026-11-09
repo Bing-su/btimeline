@@ -1,31 +1,34 @@
 ---
 source: tests/generate_branches.rs
+assertion_line: 47
 expression: timeline
 ---
-timeline 1 "Unknown Encounter" {
+timeline 2 "Unknown Encounter" {
     start InCombat inGameCombat="1"
     wipe ActorControl command="4000000F"
     wipe ActorControl command="40000010"
     zone-exit ChangeZone
     phase combat {
-        enter InCombat inGameCombat="1"
-        event spell0-synthetic-boss-b528 1.0 name=Spell0 {
-            sync 1.0 Ability id=B528 source="Synthetic Boss" before=10.0 after=10.0
-        }
-        branch choice-synthetic-boss-before-b52b open=1.5 close=6.5 {
-            option spell1-b529 {
-                when Ability id=B529 source="Synthetic Boss"
-                event before-b52b-via-b529-spell1-synthetic-boss-b529-01 0.0 name=Spell1
-                event before-b52b-via-b529-spell2-synthetic-boss-b52a-01 4.0 name=Spell2
+        step main {
+            enter InCombat inGameCombat="1"
+            event spell0-synthetic-boss-b528 1.0 name=Spell0 {
+                sync 1.0 Ability id=B528 source="Synthetic Boss" before=10.0 after=10.0
             }
-            option spell2-b52a {
-                when Ability id=B52A source="Synthetic Boss"
-                event before-b52b-via-b52a-spell2-synthetic-boss-b52a-01 0.0 name=Spell2
-                event before-b52b-via-b52a-spell1-synthetic-boss-b529-01 4.0 name=Spell1
+            branch choice-synthetic-boss-before-b52b open=1.5 close=6.5 {
+                option spell1-b529 {
+                    when Ability id=B529 source="Synthetic Boss"
+                    event before-b52b-via-b529-spell1-synthetic-boss-b529-01 0.0 name=Spell1
+                    event before-b52b-via-b529-spell2-synthetic-boss-b52a-01 4.0 name=Spell2
+                }
+                option spell2-b52a {
+                    when Ability id=B52A source="Synthetic Boss"
+                    event before-b52b-via-b52a-spell2-synthetic-boss-b52a-01 0.0 name=Spell2
+                    event before-b52b-via-b52a-spell1-synthetic-boss-b529-01 4.0 name=Spell1
+                }
             }
-        }
-        event spell3-synthetic-boss-b52b 15.0 name=Spell3 {
-            sync 15.0 Ability id=B52B source="Synthetic Boss" before=2.5 after=2.5
+            event spell3-synthetic-boss-b52b 15.0 name=Spell3 {
+                sync 15.0 Ability id=B52B source="Synthetic Boss" before=2.5 after=2.5
+            }
         }
     }
 }

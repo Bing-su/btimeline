@@ -1,0 +1,1922 @@
+{
+  "btimeline/timelines/varis-ex-p3.kdl": {
+    "events": {
+      "L-loaded-gunshield": "L/main/L-loaded-gunshield",
+      "L-magitek-burst": "L/main/L-magitek-burst",
+      "L-ignis-est": "L/main/L-ignis-est",
+      "L-terminus-est": "L/main/L-terminus-est",
+      "L-festina-lente": "L/main/L-festina-lente",
+      "L-citius": "L/main/L-citius",
+      "R-reinforced-gunshield": "R/main/R-reinforced-gunshield",
+      "R-altius": "R/main/R-altius",
+      "R-terminus-est": "R/main/R-terminus-est",
+      "R-magitek-shielding": "R/main/R-magitek-shielding",
+      "R-ventus-est": "R/main/R-ventus-est",
+      "R-citius": "R/main/R-citius",
+      "E-electrified-gunshield": "E/main/E-electrified-gunshield",
+      "E-reinforcements": "E/main/E-reinforcements",
+      "E-aetherochemical-grenado": "E/main/E-aetherochemical-grenado",
+      "E-terminus-est": "E/main/E-terminus-est",
+      "E-magitek-shock": "E/main/E-magitek-shock",
+      "E-alea-iacta-est": "E/main/E-alea-iacta-est",
+      "LR-reinforced-gunshield": "LR/main/LR-reinforced-gunshield",
+      "LR-altius": "LR/main/LR-altius",
+      "LR-terminus-est": "LR/main/LR-terminus-est",
+      "LR-magitek-shielding": "LR/main/LR-magitek-shielding",
+      "LR-ventus-est": "LR/main/LR-ventus-est",
+      "LR-citius": "LR/main/LR-citius",
+      "LE-electrified-gunshield": "LE/main/LE-electrified-gunshield",
+      "LE-reinforcements": "LE/main/LE-reinforcements",
+      "LE-aetherochemical-grenado": "LE/main/LE-aetherochemical-grenado",
+      "LE-terminus-est": "LE/main/LE-terminus-est",
+      "LE-magitek-shock": "LE/main/LE-magitek-shock",
+      "LE-alea-iacta-est": "LE/main/LE-alea-iacta-est",
+      "RL-loaded-gunshield": "RL/main/RL-loaded-gunshield",
+      "RL-magitek-burst": "RL/main/RL-magitek-burst",
+      "RL-ignis-est": "RL/main/RL-ignis-est",
+      "RL-terminus-est": "RL/main/RL-terminus-est",
+      "RL-festina-lente": "RL/main/RL-festina-lente",
+      "RL-citius": "RL/main/RL-citius",
+      "RE-electrified-gunshield": "RE/main/RE-electrified-gunshield",
+      "RE-reinforcements": "RE/main/RE-reinforcements",
+      "RE-aetherochemical-grenado": "RE/main/RE-aetherochemical-grenado",
+      "RE-terminus-est": "RE/main/RE-terminus-est",
+      "RE-magitek-shock": "RE/main/RE-magitek-shock",
+      "RE-alea-iacta-est": "RE/main/RE-alea-iacta-est",
+      "EL-loaded-gunshield": "EL/main/EL-loaded-gunshield",
+      "EL-magitek-burst": "EL/main/EL-magitek-burst",
+      "EL-ignis-est": "EL/main/EL-ignis-est",
+      "EL-terminus-est": "EL/main/EL-terminus-est",
+      "EL-festina-lente": "EL/main/EL-festina-lente",
+      "EL-citius": "EL/main/EL-citius",
+      "ER-reinforced-gunshield": "ER/main/ER-reinforced-gunshield",
+      "ER-altius": "ER/main/ER-altius",
+      "ER-terminus-est": "ER/main/ER-terminus-est",
+      "ER-magitek-shielding": "ER/main/ER-magitek-shielding",
+      "ER-ventus-est": "ER/main/ER-ventus-est",
+      "ER-citius": "ER/main/ER-citius",
+      "final-L-loaded-gunshield": "final-L/main/final-L-loaded-gunshield",
+      "final-L-magitek-burst": "final-L/main/final-L-magitek-burst",
+      "final-L-ignis-est": "final-L/main/final-L-ignis-est",
+      "final-L-terminus-est": "final-L/main/final-L-terminus-est",
+      "final-L-festina-lente": "final-L/main/final-L-festina-lente",
+      "final-L-citius": "final-L/main/final-L-citius",
+      "final-R-reinforced-gunshield": "final-R/main/final-R-reinforced-gunshield",
+      "final-R-altius": "final-R/main/final-R-altius",
+      "final-R-terminus-est": "final-R/main/final-R-terminus-est",
+      "final-R-magitek-shielding": "final-R/main/final-R-magitek-shielding",
+      "final-R-ventus-est": "final-R/main/final-R-ventus-est",
+      "final-R-citius": "final-R/main/final-R-citius",
+      "final-E-electrified-gunshield": "final-E/main/final-E-electrified-gunshield",
+      "final-E-reinforcements": "final-E/main/final-E-reinforcements",
+      "final-E-aetherochemical-grenado": "final-E/main/final-E-aetherochemical-grenado",
+      "final-E-terminus-est": "final-E/main/final-E-terminus-est",
+      "final-E-magitek-shock": "final-E/main/final-E-magitek-shock",
+      "final-E-alea-iacta-est": "final-E/main/final-E-alea-iacta-est",
+      "joined-first": "joined/main/joined-first",
+      "joined-second": "joined/main/joined-second"
+    },
+    "controls": {
+      "ready": [
+        {
+          "id": "ready/main",
+          "offset": 0
+        }
+      ],
+      "L": [
+        {
+          "id": "L/main",
+          "offset": 0
+        }
+      ],
+      "R": [
+        {
+          "id": "R/main",
+          "offset": 0
+        }
+      ],
+      "E": [
+        {
+          "id": "E/main",
+          "offset": 0
+        }
+      ],
+      "LR": [
+        {
+          "id": "LR/main",
+          "offset": 0
+        }
+      ],
+      "LE": [
+        {
+          "id": "LE/main",
+          "offset": 0
+        }
+      ],
+      "RL": [
+        {
+          "id": "RL/main",
+          "offset": 0
+        }
+      ],
+      "RE": [
+        {
+          "id": "RE/main",
+          "offset": 0
+        }
+      ],
+      "EL": [
+        {
+          "id": "EL/main",
+          "offset": 0
+        }
+      ],
+      "ER": [
+        {
+          "id": "ER/main",
+          "offset": 0
+        }
+      ],
+      "final-L": [
+        {
+          "id": "final-L/main",
+          "offset": 0
+        }
+      ],
+      "final-R": [
+        {
+          "id": "final-R/main",
+          "offset": 0
+        }
+      ],
+      "final-E": [
+        {
+          "id": "final-E/main",
+          "offset": 0
+        }
+      ],
+      "joined": [
+        {
+          "id": "joined/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "ready": "ready/main",
+      "L": "L/main",
+      "R": "R/main",
+      "E": "E/main",
+      "LR": "LR/main",
+      "LE": "LE/main",
+      "RL": "RL/main",
+      "RE": "RE/main",
+      "EL": "EL/main",
+      "ER": "ER/main",
+      "final-L": "final-L/main",
+      "final-R": "final-R/main",
+      "final-E": "final-E/main",
+      "joined": "joined/main"
+    }
+  },
+  "btimeline/timelines/sandoria.kdl": {
+    "events": {
+      "kirin-1": "kirin/main/kirin-1",
+      "kirin-2": "kirin/main/kirin-2",
+      "kirin-3": "kirin/main/kirin-3",
+      "kirin-4": "kirin/main/kirin-4",
+      "kirin-5": "kirin/main/kirin-5",
+      "kirin-6": "kirin/main/kirin-6",
+      "kirin-7": "kirin/main/kirin-7",
+      "kirin-quake-first": "kirin/main/shijin/quake/kirin-quake-first",
+      "kirin-quake-second": "kirin/main/shijin/quake/kirin-quake-second",
+      "kirin-quake-third": "kirin/main/shijin/quake/kirin-quake-third",
+      "kirin-quake-fourth": "kirin/main/shijin/quake/kirin-quake-fourth",
+      "kirin-quake-arms": "kirin/main/shijin/quake/kirin-quake-arms",
+      "kirin-stonega-first": "kirin/main/shijin/stonega/kirin-stonega-first",
+      "kirin-stonega-second": "kirin/main/shijin/stonega/kirin-stonega-second",
+      "kirin-stonega-arms": "kirin/main/shijin/stonega/kirin-stonega-arms",
+      "kirin-genbu-riddle": "kirin/main/shijin/genbu/kirin-genbu-riddle",
+      "kirin-genbu-arms": "kirin/main/shijin/genbu/kirin-genbu-arms",
+      "kirin-eastwind-riddle": "kirin/main/shijin/eastwind/kirin-eastwind-riddle",
+      "kirin-double-cast": "kirin/main/shijin/eastwind/kirin-double-cast",
+      "kirin-double-quake": "kirin/main/shijin/eastwind/kirin-double-quake",
+      "kirin-double-stonega": "kirin/main/shijin/eastwind/kirin-double-stonega",
+      "kirin-eastwind-arms": "kirin/main/shijin/eastwind/kirin-eastwind-arms",
+      "kirin-early-recovery-riddle": "kirin/main/shijin/eastwind-early-recovery/kirin-early-recovery-riddle",
+      "kirin-early-recovery-double-cast": "kirin/main/shijin/eastwind-early-recovery/kirin-early-recovery-double-cast",
+      "kirin-early-recovery-quake": "kirin/main/shijin/eastwind-early-recovery/kirin-early-recovery-quake",
+      "kirin-early-recovery-stonega": "kirin/main/shijin/eastwind-early-recovery/kirin-early-recovery-stonega",
+      "kirin-early-recovery-arms": "kirin/main/shijin/eastwind-early-recovery/kirin-early-recovery-arms",
+      "kirin-recovery-double-cast": "kirin/main/shijin/eastwind-recovery/kirin-recovery-double-cast",
+      "kirin-recovery-quake": "kirin/main/shijin/eastwind-recovery/kirin-recovery-quake",
+      "kirin-recovery-stonega": "kirin/main/shijin/eastwind-recovery/kirin-recovery-stonega",
+      "kirin-recovery-arms": "kirin/main/shijin/eastwind-recovery/kirin-recovery-arms",
+      "kirin-arms-return": "kirin/main/shijin/merge/kirin-arms-return",
+      "kirin-8": "kirin/main/shijin/merge/kirin-8",
+      "kirin-9": "kirin/main/shijin/merge/kirin-9",
+      "kirin-10": "kirin/main/shijin/merge/kirin-10",
+      "kirin-11": "kirin/main/shijin/merge/kirin-11",
+      "kirin-12": "kirin/main/shijin/merge/kirin-12",
+      "kirin-13": "kirin/main/shijin/merge/kirin-13",
+      "kirin-14": "kirin/main/shijin/merge/kirin-14",
+      "kirin-15": "kirin/main/shijin/merge/kirin-15",
+      "kirin-16": "kirin/main/shijin/merge/kirin-16",
+      "kirin-17": "kirin/main/shijin/merge/kirin-17",
+      "duo-1": "duo/main/duo-1",
+      "duo-2": "duo/main/duo-2",
+      "duo-3": "duo/main/duo-3",
+      "duo-4": "duo/main/duo-4",
+      "duo-5": "duo/main/duo-5",
+      "duo-6": "duo/main/duo-6",
+      "duo-7": "duo/main/duo-7",
+      "duo-8": "duo/main/duo-8",
+      "duo-9": "duo/main/duo-9",
+      "duo-10": "duo/main/duo-10",
+      "duo-11": "duo/main/duo-11",
+      "duo-12": "duo/main/duo-12",
+      "duo-13": "duo/main/duo-13",
+      "duo-14": "duo/main/duo-14",
+      "duo-15": "duo/main/duo-15",
+      "duo-16": "duo/main/duo-16",
+      "duo-17": "duo/main/duo-17",
+      "duo-18": "duo/main/duo-18",
+      "duo-19": "duo/main/duo-19",
+      "duo-20": "duo/main/duo-20",
+      "duo-21": "duo/main/duo-21",
+      "duo-22": "duo/main/duo-22",
+      "duo-23": "duo/main/duo-23",
+      "duo-24": "duo/main/duo-24",
+      "duo-25": "duo/main/duo-25",
+      "duo-26": "duo/main/duo-26",
+      "duo-27": "duo/main/duo-27",
+      "duo-28": "duo/main/duo-28",
+      "duo-29": "duo/main/duo-29",
+      "duo-30": "duo/main/duo-30",
+      "duo-31": "duo/main/duo-31",
+      "duo-32": "duo/main/duo-32",
+      "duo-33": "duo/main/duo-33",
+      "ultima-solo-mana-screen": "ultima-solo/main/reaction/mana-screen/ultima-solo-mana-screen",
+      "ultima-solo-energy-orb": "ultima-solo/main/reaction/energy-orb/ultima-solo-energy-orb",
+      "omega-solo-trajectory-projection": "omega-solo/main/reaction/trajectory-projection/omega-solo-trajectory-projection",
+      "kam-1": "kam/main/kam-1",
+      "kam-2": "kam/main/kam-2",
+      "kam-3": "kam/main/kam-3",
+      "kam-4": "kam/main/kam-4",
+      "kam-5": "kam/main/kam-5",
+      "kam-6": "kam/main/kam-6",
+      "kam-7": "kam/main/kam-7",
+      "kam-8": "kam/main/kam-8",
+      "kam-9": "kam/main/kam-9",
+      "kam-10": "kam/main/kam-10",
+      "kam-11": "kam/main/kam-11",
+      "kam-12": "kam/main/kam-12",
+      "kam-13": "kam/main/kam-13",
+      "kam-14": "kam/main/kam-14",
+      "kam-15": "kam/main/kam-15",
+      "kam-16": "kam/main/kam-16",
+      "kam-17": "kam/main/kam-17",
+      "kam-18": "kam/main/kam-18",
+      "kam-19": "kam/main/kam-19",
+      "kam-20": "kam/main/kam-20",
+      "kam-21": "kam/main/kam-21",
+      "kam-22": "kam/main/kam-22",
+      "kam-23": "kam/main/kam-23",
+      "kam-24": "kam/main/kam-24",
+      "kam-25": "kam/main/kam-25",
+      "kam-26": "kam/main/kam-26",
+      "kam-27": "kam/main/kam-27",
+      "kam-28": "kam/main/kam-28",
+      "kam-29": "kam/main/kam-29",
+      "kam-30": "kam/main/kam-30",
+      "kam-31": "kam/main/kam-31",
+      "kam-32": "kam/main/kam-32",
+      "kam-33": "kam/main/kam-33",
+      "kam-34": "kam/main/kam-34",
+      "kam-35": "kam/main/kam-35",
+      "kam-36": "kam/main/kam-36",
+      "eald-1": "eald/main/eald-1",
+      "eald-2": "eald/main/eald-2",
+      "eald-3": "eald/main/eald-3",
+      "eald-4": "eald/main/eald-4",
+      "eald-5": "eald/main/eald-5",
+      "eald-6": "eald/main/eald-6",
+      "eald-7": "eald/main/eald-7",
+      "eald-8": "eald/main/eald-8",
+      "eald-9": "eald/main/eald-9",
+      "eald-10": "eald/main/eald-10",
+      "eald-11": "eald/main/eald-11",
+      "eald-12": "eald/main/eald-12",
+      "eald-13": "eald/main/eald-13",
+      "eald-14": "eald/main/eald-14",
+      "eald-15": "eald/main/eald-15",
+      "eald-16": "eald/main/eald-16",
+      "eald-17": "eald/main/eald-17",
+      "eald-18": "eald/main/eald-18",
+      "eald-19": "eald/main/eald-19",
+      "eald-20": "eald/main/eald-20",
+      "eald-21": "eald/main/eald-21",
+      "eald-22": "eald/main/eald-22",
+      "eald-23": "eald/main/eald-23",
+      "eald-24": "eald/main/eald-24",
+      "eald-25": "eald/main/eald-25",
+      "eald-26": "eald/main/eald-26",
+      "eald-27": "eald/main/eald-27",
+      "eald-28": "eald/main/eald-28",
+      "eald-29": "eald/main/eald-29"
+    },
+    "controls": {
+      "kirin": [
+        {
+          "id": "kirin/main",
+          "offset": 0
+        }
+      ],
+      "duo": [
+        {
+          "id": "duo/main",
+          "offset": 0
+        }
+      ],
+      "ultima-solo": [
+        {
+          "id": "ultima-solo/main",
+          "offset": 0
+        }
+      ],
+      "omega-solo": [
+        {
+          "id": "omega-solo/main",
+          "offset": 0
+        }
+      ],
+      "kam": [
+        {
+          "id": "kam/main",
+          "offset": 0
+        }
+      ],
+      "eald": [
+        {
+          "id": "eald/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "kirin": "kirin/main",
+      "shijin": "kirin/main/shijin",
+      "duo": "duo/main",
+      "ultima-solo": "ultima-solo/main",
+      "mana-screen": "ultima-solo/main/reaction/mana-screen",
+      "energy-orb": "ultima-solo/main/reaction/energy-orb",
+      "omega-solo": "omega-solo/main",
+      "trajectory-projection": "omega-solo/main/reaction/trajectory-projection",
+      "kam": "kam/main",
+      "eald": "eald/main"
+    }
+  },
+  "btimeline/timelines/r12s.kdl": {
+    "events": {
+      "pre-checkpoint-the-fixer-lindwurm-b4d7-01": "pre-checkpoint/main/the-fixer-lindwurm-b4d7-01",
+      "pre-checkpoint-unknown-b7c4-lindwurm-b7c4-01": "pre-checkpoint/main/unknown-b7c4-lindwurm-b7c4-01",
+      "pre-checkpoint-mortal-slayer-lindwurm-b495-01": "pre-checkpoint/main/mortal-slayer-lindwurm-b495-01",
+      "pre-checkpoint-mortal-slayer-lindwurm-b496-01": "pre-checkpoint/main/mortal-slayer-lindwurm-b496-01",
+      "pre-checkpoint-mortal-slayer-lindwurm-b496-02": "pre-checkpoint/main/mortal-slayer-lindwurm-b496-02",
+      "pre-checkpoint-mortal-slayer-lindwurm-b496-03": "pre-checkpoint/main/mortal-slayer-lindwurm-b496-03",
+      "pre-checkpoint-mortal-slayer-lindwurm-b498-01": "pre-checkpoint/main/mortal-slayer-lindwurm-b498-01",
+      "pre-checkpoint-mortal-slayer-lindwurm-b496-04": "pre-checkpoint/main/mortal-slayer-lindwurm-b496-04",
+      "pre-checkpoint-unknown-b7c5-lindwurm-b7c5-01": "pre-checkpoint/main/unknown-b7c5-lindwurm-b7c5-01",
+      "pre-checkpoint-unknown-b9db-lindwurm-b9db": "pre-checkpoint/main/unknown-b9db-lindwurm-b9db",
+      "pre-checkpoint-grotesquerie-act-1-lindwurm-bebd": "pre-checkpoint/main/grotesquerie-act-1-lindwurm-bebd",
+      "pre-checkpoint-ravenous-reach-lindwurm-b469-01": "pre-checkpoint/main/ravenous-reach-lindwurm-b469-01",
+      "pre-checkpoint-phagocyte-spotlight-lindwurm-b49e-01": "pre-checkpoint/main/phagocyte-spotlight-lindwurm-b49e-01",
+      "pre-checkpoint-phagocyte-spotlight-lindwurm-b49e-02": "pre-checkpoint/main/phagocyte-spotlight-lindwurm-b49e-02",
+      "pre-checkpoint-phagocyte-spotlight-lindwurm-b49e-03": "pre-checkpoint/main/phagocyte-spotlight-lindwurm-b49e-03",
+      "pre-checkpoint-phagocyte-spotlight-lindwurm-b49e-04": "pre-checkpoint/main/phagocyte-spotlight-lindwurm-b49e-04",
+      "pre-checkpoint-unknown-b46e-lindwurm-b46e-01": "pre-checkpoint/main/unknown-b46e-lindwurm-b46e-01",
+      "pre-checkpoint-ravenous-reach-lindwurm-b49d-01": "pre-checkpoint/main/ravenous-reach-lindwurm-b49d-01",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4aa-01": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4aa-01",
+      "pre-checkpoint-fourth-wall-fusion-lindwurm-b4ae": "pre-checkpoint/main/fourth-wall-fusion-lindwurm-b4ae",
+      "pre-checkpoint-hemorrhagic-projection-lindwurm-b4af": "pre-checkpoint/main/hemorrhagic-projection-lindwurm-b4af",
+      "pre-checkpoint-burst-lindwurm-b49f-01": "pre-checkpoint/main/burst-lindwurm-b49f-01",
+      "pre-checkpoint-fourth-wall-fusion-lindwurm-b9b9": "pre-checkpoint/main/fourth-wall-fusion-lindwurm-b9b9",
+      "pre-checkpoint-visceral-burst-lindwurm-b4d6": "pre-checkpoint/main/visceral-burst-lindwurm-b4d6",
+      "pre-checkpoint-the-fixer-lindwurm-b4d7-02": "pre-checkpoint/main/the-fixer-lindwurm-b4d7-02",
+      "pre-checkpoint-grotesquerie-act-2-lindwurm-bebe": "pre-checkpoint/main/grotesquerie-act-2-lindwurm-bebe",
+      "pre-checkpoint-phagocyte-spotlight-lindwurm-b4b6-01": "pre-checkpoint/main/phagocyte-spotlight-lindwurm-b4b6-01",
+      "pre-checkpoint-phagocyte-spotlight-lindwurm-b4b6-02": "pre-checkpoint/main/phagocyte-spotlight-lindwurm-b4b6-02",
+      "pre-checkpoint-phagocyte-spotlight-lindwurm-b4b6-03": "pre-checkpoint/main/phagocyte-spotlight-lindwurm-b4b6-03",
+      "pre-checkpoint-cruel-coil-lindwurm-b4b9": "pre-checkpoint/main/cruel-coil-lindwurm-b4b9",
+      "pre-checkpoint-phagocyte-spotlight-lindwurm-b4b6-04": "pre-checkpoint/main/phagocyte-spotlight-lindwurm-b4b6-04",
+      "pre-checkpoint-unknown-b472-lindwurm-b472": "pre-checkpoint/main/unknown-b472-lindwurm-b472",
+      "pre-checkpoint-skinsplitter-lindwurm-b4bc-01": "pre-checkpoint/main/skinsplitter-lindwurm-b4bc-01",
+      "pre-checkpoint-skinsplitter-lindwurm-b53e-01": "pre-checkpoint/main/skinsplitter-lindwurm-b53e-01",
+      "pre-checkpoint-skinsplitter-lindwurm-b53e-02": "pre-checkpoint/main/skinsplitter-lindwurm-b53e-02",
+      "pre-checkpoint-unknown-b4c1-lindwurm-b4c1": "pre-checkpoint/main/unknown-b4c1-lindwurm-b4c1",
+      "pre-checkpoint-skinsplitter-lindwurm-b4bc-02": "pre-checkpoint/main/skinsplitter-lindwurm-b4bc-02",
+      "pre-checkpoint-skinsplitter-lindwurm-b53e-03": "pre-checkpoint/main/skinsplitter-lindwurm-b53e-03",
+      "pre-checkpoint-skinsplitter-lindwurm-b53e-04": "pre-checkpoint/main/skinsplitter-lindwurm-b53e-04",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-01": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-01",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-02": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-02",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-03": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-03",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b4-01": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b4-01",
+      "pre-checkpoint-skinsplitter-lindwurm-b4bc-03": "pre-checkpoint/main/skinsplitter-lindwurm-b4bc-03",
+      "pre-checkpoint-skinsplitter-lindwurm-b53e-05": "pre-checkpoint/main/skinsplitter-lindwurm-b53e-05",
+      "pre-checkpoint-skinsplitter-lindwurm-b53e-06": "pre-checkpoint/main/skinsplitter-lindwurm-b53e-06",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-04": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-04",
+      "pre-checkpoint-roiling-mass-blood-vessel-b4b7-01": "pre-checkpoint/main/roiling-mass-blood-vessel-b4b7-01",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-05": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-05",
+      "pre-checkpoint-roiling-mass-blood-vessel-b4b3-01": "pre-checkpoint/main/roiling-mass-blood-vessel-b4b3-01",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b4-02": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b4-02",
+      "pre-checkpoint-skinsplitter-lindwurm-b4bc-04": "pre-checkpoint/main/skinsplitter-lindwurm-b4bc-04",
+      "pre-checkpoint-skinsplitter-lindwurm-b53e-07": "pre-checkpoint/main/skinsplitter-lindwurm-b53e-07",
+      "pre-checkpoint-skinsplitter-lindwurm-b53e-08": "pre-checkpoint/main/skinsplitter-lindwurm-b53e-08",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-06": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-06",
+      "pre-checkpoint-roiling-mass-blood-vessel-b4b7-02": "pre-checkpoint/main/roiling-mass-blood-vessel-b4b7-02",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-07": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-07",
+      "pre-checkpoint-roiling-mass-blood-vessel-b4b3-02": "pre-checkpoint/main/roiling-mass-blood-vessel-b4b3-02",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-08": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-08",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b4-03": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b4-03",
+      "pre-checkpoint-skinsplitter-lindwurm-b4bc-05": "pre-checkpoint/main/skinsplitter-lindwurm-b4bc-05",
+      "pre-checkpoint-skinsplitter-lindwurm-b53e-09": "pre-checkpoint/main/skinsplitter-lindwurm-b53e-09",
+      "pre-checkpoint-skinsplitter-lindwurm-b53e-10": "pre-checkpoint/main/skinsplitter-lindwurm-b53e-10",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-09": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-09",
+      "pre-checkpoint-roiling-mass-blood-vessel-b4b7-03": "pre-checkpoint/main/roiling-mass-blood-vessel-b4b7-03",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-10": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-10",
+      "pre-checkpoint-roiling-mass-blood-vessel-b4b3-03": "pre-checkpoint/main/roiling-mass-blood-vessel-b4b3-03",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-11": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-11",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b4-04": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b4-04",
+      "pre-checkpoint-skinsplitter-lindwurm-b4bc-06": "pre-checkpoint/main/skinsplitter-lindwurm-b4bc-06",
+      "pre-checkpoint-skinsplitter-lindwurm-b53e-11": "pre-checkpoint/main/skinsplitter-lindwurm-b53e-11",
+      "pre-checkpoint-skinsplitter-lindwurm-b53e-12": "pre-checkpoint/main/skinsplitter-lindwurm-b53e-12",
+      "pre-checkpoint-roiling-mass-blood-vessel-b4b7-04": "pre-checkpoint/main/roiling-mass-blood-vessel-b4b7-04",
+      "pre-checkpoint-roiling-mass-blood-vessel-b4b3-04": "pre-checkpoint/main/roiling-mass-blood-vessel-b4b3-04",
+      "pre-checkpoint-skinsplitter-lindwurm-b4bc-07": "pre-checkpoint/main/skinsplitter-lindwurm-b4bc-07",
+      "pre-checkpoint-skinsplitter-lindwurm-b53e-13": "pre-checkpoint/main/skinsplitter-lindwurm-b53e-13",
+      "pre-checkpoint-skinsplitter-lindwurm-b53e-14": "pre-checkpoint/main/skinsplitter-lindwurm-b53e-14",
+      "pre-checkpoint-constrictor-lindwurm-b4be": "pre-checkpoint/main/constrictor-lindwurm-b4be",
+      "pre-checkpoint-constrictor-lindwurm-b4c2": "pre-checkpoint/main/constrictor-lindwurm-b4c2",
+      "pre-checkpoint-splattershed-lindwurm-b9c4": "pre-checkpoint/main/splattershed-lindwurm-b9c4",
+      "pre-checkpoint-splattershed-lindwurm-b9c6-01": "pre-checkpoint/main/splattershed-lindwurm-b9c6-01",
+      "pre-checkpoint-unknown-b4cb-lindwurm-b4cb": "pre-checkpoint/main/unknown-b4cb-lindwurm-b4cb",
+      "pre-checkpoint-grotesquerie-act-3-lindwurm-bebf": "pre-checkpoint/main/grotesquerie-act-3-lindwurm-bebf",
+      "pre-checkpoint-feral-fission-lindwurm-be09": "pre-checkpoint/main/feral-fission-lindwurm-be09",
+      "pre-checkpoint-grand-entrance-lindwurm-b4a3-01": "pre-checkpoint/main/grand-entrance-lindwurm-b4a3-01",
+      "pre-checkpoint-grand-entrance-lindwurm-b4a3-02": "pre-checkpoint/main/grand-entrance-lindwurm-b4a3-02",
+      "pre-checkpoint-grand-entrance-lindwurm-b4a3-03": "pre-checkpoint/main/grand-entrance-lindwurm-b4a3-03",
+      "pre-checkpoint-grand-entrance-lindwurm-b4a3-04": "pre-checkpoint/main/grand-entrance-lindwurm-b4a3-04",
+      "pre-checkpoint-grand-entrance-lindwurm-b4a3-05": "pre-checkpoint/main/grand-entrance-lindwurm-b4a3-05",
+      "pre-checkpoint-bring-down-the-house-lindwurm-be0a": "pre-checkpoint/main/bring-down-the-house-lindwurm-be0a",
+      "pre-checkpoint-bring-down-the-house-lindwurm-b4a4-01": "pre-checkpoint/main/bring-down-the-house-lindwurm-b4a4-01",
+      "pre-checkpoint-bring-down-the-house-lindwurm-b4a4-02": "pre-checkpoint/main/bring-down-the-house-lindwurm-b4a4-02",
+      "pre-checkpoint-bring-down-the-house-lindwurm-b4a6-01": "pre-checkpoint/main/bring-down-the-house-lindwurm-b4a6-01",
+      "pre-checkpoint-bring-down-the-house-lindwurm-b4a6-02": "pre-checkpoint/main/bring-down-the-house-lindwurm-b4a6-02",
+      "pre-checkpoint-metamitosis-lindwurm-b4b1": "pre-checkpoint/main/metamitosis-lindwurm-b4b1",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b0": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b0",
+      "pre-checkpoint-metamitosis-lindwurm-b923": "pre-checkpoint/main/metamitosis-lindwurm-b923",
+      "pre-checkpoint-split-scourge-lindwurm-b4ab": "pre-checkpoint/main/split-scourge-lindwurm-b4ab",
+      "pre-checkpoint-venomous-scourge-lindwurm-b4a8": "pre-checkpoint/main/venomous-scourge-lindwurm-b4a8",
+      "pre-checkpoint-unknown-b479-lindwurm-b479": "pre-checkpoint/main/unknown-b479-lindwurm-b479",
+      "pre-checkpoint-the-fixer-lindwurm-b4d7-03": "pre-checkpoint/main/the-fixer-lindwurm-b4d7-03",
+      "pre-checkpoint-grotesquerie-curtain-call-lindwurm-bec0": "pre-checkpoint/main/grotesquerie-curtain-call-lindwurm-bec0",
+      "pre-checkpoint-phagocyte-spotlight-lindwurm-b49e-05": "pre-checkpoint/main/phagocyte-spotlight-lindwurm-b49e-05",
+      "pre-checkpoint-ravenous-reach-lindwurm-b469-02": "pre-checkpoint/main/ravenous-reach-lindwurm-b469-02",
+      "pre-checkpoint-phagocyte-spotlight-lindwurm-b49e-06": "pre-checkpoint/main/phagocyte-spotlight-lindwurm-b49e-06",
+      "pre-checkpoint-phagocyte-spotlight-lindwurm-b49e-07": "pre-checkpoint/main/phagocyte-spotlight-lindwurm-b49e-07",
+      "pre-checkpoint-phagocyte-spotlight-lindwurm-b49e-08": "pre-checkpoint/main/phagocyte-spotlight-lindwurm-b49e-08",
+      "pre-checkpoint-phagocyte-spotlight-lindwurm-b49e-09": "pre-checkpoint/main/phagocyte-spotlight-lindwurm-b49e-09",
+      "pre-checkpoint-unknown-b46e-lindwurm-b46e-02": "pre-checkpoint/main/unknown-b46e-lindwurm-b46e-02",
+      "pre-checkpoint-ravenous-reach-lindwurm-b49d-02": "pre-checkpoint/main/ravenous-reach-lindwurm-b49d-02",
+      "pre-checkpoint-cell-shedding-lindwurm-b4ac": "pre-checkpoint/main/cell-shedding-lindwurm-b4ac",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4aa-02": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4aa-02",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-12": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-12",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-13": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-13",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-14": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-14",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b4-05": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b4-05",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-15": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-15",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b4-06": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b4-06",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b4-07": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b4-07",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-16": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-16",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-17": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-17",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-18": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-18",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b5-19": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b5-19",
+      "pre-checkpoint-dramatic-lysis-lindwurm-b4b4-08": "pre-checkpoint/main/dramatic-lysis-lindwurm-b4b4-08",
+      "pre-checkpoint-burst-lindwurm-b49f-02": "pre-checkpoint/main/burst-lindwurm-b49f-02",
+      "pre-checkpoint-splattershed-lindwurm-b9c3": "pre-checkpoint/main/splattershed-lindwurm-b9c3",
+      "pre-checkpoint-splattershed-lindwurm-b9c6-02": "pre-checkpoint/main/splattershed-lindwurm-b9c6-02",
+      "pre-checkpoint-unknown-b4cc-lindwurm-b4cc": "pre-checkpoint/main/unknown-b4cc-lindwurm-b4cc",
+      "pre-checkpoint-unknown-b7c4-lindwurm-b7c4-02": "pre-checkpoint/main/unknown-b7c4-lindwurm-b7c4-02",
+      "pre-checkpoint-mortal-slayer-lindwurm-b495-02": "pre-checkpoint/main/mortal-slayer-lindwurm-b495-02",
+      "pre-checkpoint-mortal-slayer-lindwurm-b496-05": "pre-checkpoint/main/mortal-slayer-lindwurm-b496-05",
+      "pre-checkpoint-mortal-slayer-lindwurm-b496-06": "pre-checkpoint/main/mortal-slayer-lindwurm-b496-06",
+      "pre-checkpoint-mortal-slayer-lindwurm-b498-02": "pre-checkpoint/main/mortal-slayer-lindwurm-b498-02",
+      "pre-checkpoint-mortal-slayer-lindwurm-b496-07": "pre-checkpoint/main/mortal-slayer-lindwurm-b496-07",
+      "pre-checkpoint-unknown-b7c5-lindwurm-b7c5-02": "pre-slaughtershed/main/pre-checkpoint-unknown-b7c5-lindwurm-b7c5-02",
+      "pre-tail-slaughtershed": "pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-slaughtershed",
+      "pre-tail-slaughtershed-impact": "pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-slaughtershed-impact",
+      "pre-tail-dramatic-lysis": "pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-dramatic-lysis",
+      "pre-tail-fourth-wall-fusion": "pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-fourth-wall-fusion",
+      "pre-tail-burst": "pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-burst",
+      "pre-tail-raptor-first": "pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-pair/raptor/pre-tail-raptor-first",
+      "pre-tail-raptor-second": "pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-pair/raptor/pre-tail-raptor-second",
+      "pre-tail-serpentine-first": "pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-pair/serpentine/pre-tail-serpentine-first",
+      "pre-tail-serpentine-second": "pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-pair/serpentine/pre-tail-serpentine-second",
+      "pre-checkpoint-refreshing-overkill-lindwurm-b538": "pre-slaughtershed/main/pre-checkpoint-refreshing-overkill-lindwurm-b538",
+      "post-checkpoint-arcadia-aflame-lindwurm-b528-01": "post-checkpoint/main/arcadia-aflame-lindwurm-b528-01",
+      "post-checkpoint-unknown-b4d9-lindwurm-b4d9-01": "post-checkpoint/main/unknown-b4d9-lindwurm-b4d9-01",
+      "post-checkpoint-replication-lindwurm-b4d8-01": "post-checkpoint/main/replication-lindwurm-b4d8-01",
+      "post-checkpoint-winged-scourge-lindschrat-b4da-01": "post-checkpoint/main/winged-scourge-lindschrat-b4da-01",
+      "post-checkpoint-mighty-magic-lindschrat-b4df-01": "post-checkpoint/main/mighty-magic-lindschrat-b4df-01",
+      "post-checkpoint-top-tier-slam-lindschrat-b4dd-01": "post-checkpoint/main/top-tier-slam-lindschrat-b4dd-01",
+      "post-checkpoint-winged-scourge-lindschrat-b4da-02": "post-checkpoint/main/winged-scourge-lindschrat-b4da-02",
+      "post-checkpoint-top-tier-slam-lindschrat-b4de-01": "post-checkpoint/main/top-tier-slam-lindschrat-b4de-01",
+      "post-checkpoint-winged-scourge-lindwurm-b4dc-01": "post-checkpoint/main/winged-scourge-lindwurm-b4dc-01",
+      "post-checkpoint-winged-scourge-lindwurm-b4dc-02": "post-checkpoint/main/winged-scourge-lindwurm-b4dc-02",
+      "post-checkpoint-winged-scourge-lindwurm-b4dc-03": "post-checkpoint/main/winged-scourge-lindwurm-b4dc-03",
+      "post-checkpoint-mighty-magic-lindwurm-b4e0-01": "post-checkpoint/main/mighty-magic-lindwurm-b4e0-01",
+      "post-checkpoint-snaking-kick-lindwurm-b527-01": "post-checkpoint/main/snaking-kick-lindwurm-b527-01",
+      "post-checkpoint-unknown-b4d9-lindschrat-b4d9-01": "post-checkpoint/main/unknown-b4d9-lindschrat-b4d9-01",
+      "post-checkpoint-unknown-b4d9-lindschrat-b4d9-02": "post-checkpoint/main/unknown-b4d9-lindschrat-b4d9-02",
+      "post-checkpoint-mighty-magic-lindschrat-b4df-02": "post-checkpoint/main/mighty-magic-lindschrat-b4df-02",
+      "post-checkpoint-top-tier-slam-lindschrat-b4dd-02": "post-checkpoint/main/top-tier-slam-lindschrat-b4dd-02",
+      "post-checkpoint-winged-scourge-lindschrat-b4da-03": "post-checkpoint/main/winged-scourge-lindschrat-b4da-03",
+      "post-checkpoint-winged-scourge-lindschrat-b4da-04": "post-checkpoint/main/winged-scourge-lindschrat-b4da-04",
+      "post-checkpoint-top-tier-slam-lindschrat-b4de-02": "post-checkpoint/main/top-tier-slam-lindschrat-b4de-02",
+      "post-checkpoint-winged-scourge-lindwurm-b4dc-04": "post-checkpoint/main/winged-scourge-lindwurm-b4dc-04",
+      "post-checkpoint-mighty-magic-lindwurm-b4e0-02": "post-checkpoint/main/mighty-magic-lindwurm-b4e0-02",
+      "post-checkpoint-double-sobat-lindwurm-b520-01": "post-checkpoint/main/double-sobat-lindwurm-b520-01",
+      "post-sobat-variant-01": "post-checkpoint/main/post-sobat-variant-01",
+      "post-checkpoint-double-sobat-lindwurm-b525-01": "post-checkpoint/main/double-sobat-lindwurm-b525-01",
+      "post-checkpoint-esoteric-finisher-lindwurm-b526-01": "post-checkpoint/main/esoteric-finisher-lindwurm-b526-01",
+      "post-checkpoint-staging-lindwurm-b4e1-01": "post-checkpoint/main/staging-lindwurm-b4e1-01",
+      "post-checkpoint-unknown-b4e2-lindwurm-b4e2-01": "post-checkpoint/main/unknown-b4e2-lindwurm-b4e2-01",
+      "post-checkpoint-replication-lindwurm-b4d8-02": "post-checkpoint/main/replication-lindwurm-b4d8-02",
+      "post-checkpoint-firefall-splash-lindwurm-b4e3": "post-checkpoint/main/firefall-splash-lindwurm-b4e3",
+      "post-checkpoint-firefall-splash-lindwurm-b4e4": "post-checkpoint/main/firefall-splash-lindwurm-b4e4",
+      "post-checkpoint-scalding-waves-lindwurm-b4e5": "post-checkpoint/main/scalding-waves-lindwurm-b4e5",
+      "post-checkpoint-mana-burst-lindschrat-b4e6": "post-checkpoint/main/mana-burst-lindschrat-b4e6",
+      "post-checkpoint-mana-burst-lindwurm-b4e6": "post-checkpoint/main/mana-burst-lindwurm-b4e6",
+      "post-checkpoint-mana-burst-lindwurm-b4e7": "post-checkpoint/main/mana-burst-lindwurm-b4e7",
+      "post-checkpoint-grotesquerie-lindschrat-b4e9": "post-checkpoint/main/grotesquerie-lindschrat-b4e9",
+      "post-checkpoint-heavy-slam-lindschrat-b4e8": "post-checkpoint/main/heavy-slam-lindschrat-b4e8",
+      "post-checkpoint-grotesquerie-lindwurm-b4ea-01": "post-checkpoint/main/grotesquerie-lindwurm-b4ea-01",
+      "post-checkpoint-grotesquerie-lindwurm-b4ea-02": "post-checkpoint/main/grotesquerie-lindwurm-b4ea-02",
+      "post-checkpoint-hemorrhagic-projection-lindwurm-b4eb": "post-checkpoint/main/hemorrhagic-projection-lindwurm-b4eb",
+      "post-checkpoint-snaking-kick-lindwurm-b527-02": "post-checkpoint/main/snaking-kick-lindwurm-b527-02",
+      "post-checkpoint-reenactment-lindwurm-b4ec-01": "post-checkpoint/main/reenactment-lindwurm-b4ec-01",
+      "post-checkpoint-grotesquerie-lindschrat-b4f1": "post-checkpoint/main/grotesquerie-lindschrat-b4f1",
+      "post-netherwrath-near": "post-checkpoint/main/post-netherwrath/near/post-netherwrath-near",
+      "post-netherwrath-far": "post-checkpoint/main/post-netherwrath/far/post-netherwrath-far",
+      "post-checkpoint-grotesquerie-lindwurm-b4ea-03": "post-checkpoint/main/grotesquerie-lindwurm-b4ea-03",
+      "post-checkpoint-timeless-spite-lindwurm-b530": "post-checkpoint/main/timeless-spite-lindwurm-b530",
+      "post-checkpoint-hemorrhagic-projection-lindwurm-b922": "post-checkpoint/main/hemorrhagic-projection-lindwurm-b922",
+      "post-checkpoint-mana-burst-lindschrat-b4ee-01": "post-checkpoint/main/mana-burst-lindschrat-b4ee-01",
+      "post-checkpoint-mana-burst-lindwurm-bbe3-01": "post-checkpoint/main/mana-burst-lindwurm-bbe3-01",
+      "post-checkpoint-firefall-splash-lindschrat-b4ed": "post-checkpoint/main/firefall-splash-lindschrat-b4ed",
+      "post-checkpoint-heavy-slam-lindschrat-b4ef-01": "post-checkpoint/main/heavy-slam-lindschrat-b4ef-01",
+      "post-checkpoint-heavy-slam-lindwurm-be5d-01": "post-checkpoint/main/heavy-slam-lindwurm-be5d-01",
+      "post-checkpoint-scalding-waves-lindwurm-b8e1": "post-checkpoint/main/scalding-waves-lindwurm-b8e1",
+      "post-checkpoint-unmitigated-impact-lindwurm-b4f0": "post-checkpoint/main/unmitigated-impact-lindwurm-b4f0",
+      "post-checkpoint-heavy-slam-lindschrat-b4ef-02": "post-checkpoint/main/heavy-slam-lindschrat-b4ef-02",
+      "post-checkpoint-mana-burst-lindschrat-b4ee-02": "post-checkpoint/main/mana-burst-lindschrat-b4ee-02",
+      "post-checkpoint-mana-burst-lindwurm-bbe3-02": "post-checkpoint/main/mana-burst-lindwurm-bbe3-02",
+      "post-checkpoint-heavy-slam-lindwurm-be5d-02": "post-checkpoint/main/heavy-slam-lindwurm-be5d-02",
+      "post-checkpoint-unknown-b4d9-lindwurm-b4d9-02": "post-checkpoint/main/unknown-b4d9-lindwurm-b4d9-02",
+      "post-checkpoint-mutating-cells-lindwurm-b505": "post-checkpoint/main/mutating-cells-lindwurm-b505",
+      "post-checkpoint-unknown-b506-lindwurm-b506": "post-checkpoint/main/unknown-b506-lindwurm-b506",
+      "post-checkpoint-blood-mana-lindwurm-b4fb": "post-checkpoint/main/blood-mana-lindwurm-b4fb",
+      "post-checkpoint-bloody-burst-lindwurm-b4fe-01": "post-checkpoint/main/bloody-burst-lindwurm-b4fe-01",
+      "post-checkpoint-dramatic-lysis-lindwurm-b507-01": "post-checkpoint/main/dramatic-lysis-lindwurm-b507-01",
+      "post-checkpoint-unmitigated-explosion-lindwurm-b508": "post-checkpoint/main/unmitigated-explosion-lindwurm-b508",
+      "post-checkpoint-bloody-burst-lindwurm-b4fe-02": "post-checkpoint/main/bloody-burst-lindwurm-b4fe-02",
+      "post-checkpoint-blood-wakening-lindwurm-b500": "post-checkpoint/main/blood-wakening-lindwurm-b500",
+      "post-checkpoint-lindwurm-s-aero-iii-lindwurm-b502-01": "post-checkpoint/main/lindwurm-s-aero-iii-lindwurm-b502-01",
+      "post-checkpoint-lindwurm-s-water-iii-lindwurm-b501-01": "post-checkpoint/main/lindwurm-s-water-iii-lindwurm-b501-01",
+      "post-checkpoint-sideways-fire-ii-lindwurm-b504-01": "post-checkpoint/main/sideways-fire-ii-lindwurm-b504-01",
+      "post-checkpoint-straightforward-thunder-ii-lindwurm-b503-01": "post-checkpoint/main/straightforward-thunder-ii-lindwurm-b503-01",
+      "post-checkpoint-lindwurm-s-aero-iii-lindwurm-b502-02": "post-checkpoint/main/lindwurm-s-aero-iii-lindwurm-b502-02",
+      "post-checkpoint-lindwurm-s-water-iii-lindwurm-b501-02": "post-checkpoint/main/lindwurm-s-water-iii-lindwurm-b501-02",
+      "post-checkpoint-sideways-fire-ii-lindwurm-b504-02": "post-checkpoint/main/sideways-fire-ii-lindwurm-b504-02",
+      "post-checkpoint-straightforward-thunder-ii-lindwurm-b503-02": "post-checkpoint/main/straightforward-thunder-ii-lindwurm-b503-02",
+      "post-checkpoint-netherworld-near-lindwurm-b52b": "post-checkpoint/main/netherworld-near-lindwurm-b52b",
+      "post-checkpoint-wailing-wave-lindwurm-b52d": "post-checkpoint/main/wailing-wave-lindwurm-b52d",
+      "post-checkpoint-dramatic-lysis-lindwurm-b507-02": "post-checkpoint/main/dramatic-lysis-lindwurm-b507-02",
+      "post-checkpoint-arcadia-aflame-lindwurm-b528-02": "post-checkpoint/main/arcadia-aflame-lindwurm-b528-02",
+      "post-checkpoint-double-sobat-lindwurm-b520-02": "post-checkpoint/main/double-sobat-lindwurm-b520-02",
+      "post-sobat-variant-02": "post-checkpoint/main/post-sobat-variant-02",
+      "post-checkpoint-double-sobat-lindwurm-b525-02": "post-checkpoint/main/double-sobat-lindwurm-b525-02",
+      "post-checkpoint-esoteric-finisher-lindwurm-b526-02": "post-checkpoint/main/esoteric-finisher-lindwurm-b526-02",
+      "post-checkpoint-unknown-b4d9-lindwurm-b4d9-03": "post-checkpoint/main/unknown-b4d9-lindwurm-b4d9-03",
+      "post-checkpoint-idyllic-dream-lindwurm-b509-01": "post-checkpoint/main/idyllic-dream-lindwurm-b509-01",
+      "post-checkpoint-staging-lindwurm-b4e1-02": "post-checkpoint/main/staging-lindwurm-b4e1-02",
+      "post-checkpoint-unknown-b4e2-lindwurm-b4e2-02": "post-checkpoint/main/unknown-b4e2-lindwurm-b4e2-02",
+      "post-checkpoint-twisted-vision-lindwurm-bbe2-01": "post-checkpoint/main/twisted-vision-lindwurm-bbe2-01",
+      "post-checkpoint-replication-lindwurm-b4d8-03": "post-checkpoint/main/replication-lindwurm-b4d8-03",
+      "post-checkpoint-twisted-vision-lindwurm-bbe2-02": "post-checkpoint/main/twisted-vision-lindwurm-bbe2-02",
+      "post-checkpoint-power-gusher-lindschrat-b50f": "post-checkpoint/main/power-gusher-lindschrat-b50f",
+      "post-checkpoint-power-gusher-lindschrat-b510-01": "post-checkpoint/main/power-gusher-lindschrat-b510-01",
+      "post-checkpoint-power-gusher-lindwurm-b512": "post-checkpoint/main/power-gusher-lindwurm-b512",
+      "post-checkpoint-snaking-kick-lindschrat-b511": "post-checkpoint/main/snaking-kick-lindschrat-b511",
+      "post-checkpoint-replication-lindwurm-b4d8-04": "post-checkpoint/main/replication-lindwurm-b4d8-04",
+      "post-checkpoint-twisted-vision-lindwurm-bbe2-03": "post-checkpoint/main/twisted-vision-lindwurm-bbe2-03",
+      "post-checkpoint-power-gusher-lindschrat-b513": "post-checkpoint/main/power-gusher-lindschrat-b513",
+      "post-checkpoint-power-gusher-lindschrat-b514-01": "post-checkpoint/main/power-gusher-lindschrat-b514-01",
+      "post-checkpoint-snaking-kick-lindschrat-b515-01": "post-checkpoint/main/snaking-kick-lindschrat-b515-01",
+      "post-checkpoint-snaking-kick-lindwurm-be95-01": "post-checkpoint/main/snaking-kick-lindwurm-be95-01",
+      "post-checkpoint-power-gusher-lindwurm-b516-01": "post-checkpoint/main/power-gusher-lindwurm-b516-01",
+      "post-checkpoint-lindwurm-s-meteor-lindwurm-b4f2": "post-checkpoint/main/lindwurm-s-meteor-lindwurm-b4f2",
+      "post-checkpoint-downfall-lindwurm-b4f3": "post-checkpoint/main/downfall-lindwurm-b4f3",
+      "post-checkpoint-arcadian-arcanum-lindwurm-b529": "post-checkpoint/main/arcadian-arcanum-lindwurm-b529",
+      "post-checkpoint-arcadian-arcanum-lindwurm-b9d9": "post-checkpoint/main/arcadian-arcanum-lindwurm-b9d9",
+      "post-checkpoint-twisted-vision-lindwurm-bbe2-04": "post-checkpoint/main/twisted-vision-lindwurm-bbe2-04",
+      "post-checkpoint-heavy-slam-lindschrat-b519-01": "post-checkpoint/main/heavy-slam-lindschrat-b519-01",
+      "post-checkpoint-mana-burst-lindschrat-b517-01": "post-checkpoint/main/mana-burst-lindschrat-b517-01",
+      "post-checkpoint-mana-burst-lindwurm-b518-01": "post-checkpoint/main/mana-burst-lindwurm-b518-01",
+      "post-checkpoint-heavy-slam-lindschrat-b519-02": "post-checkpoint/main/heavy-slam-lindschrat-b519-02",
+      "post-checkpoint-mana-burst-lindschrat-b517-02": "post-checkpoint/main/mana-burst-lindschrat-b517-02",
+      "post-checkpoint-mana-burst-lindwurm-b518-02": "post-checkpoint/main/mana-burst-lindwurm-b518-02",
+      "post-checkpoint-twisted-vision-lindwurm-bbe2-05": "post-cosmic-kiss/main/post-checkpoint-twisted-vision-lindwurm-bbe2-05",
+      "post-checkpoint-cosmic-kiss-lindwurm-b4f4": "post-cosmic-kiss/main/post-checkpoint-cosmic-kiss-lindwurm-b4f4",
+      "post-checkpoint-lindwurm-s-dark-ii-lindwurm-b4f6": "post-cosmic-kiss/main/post-checkpoint-lindwurm-s-dark-ii-lindwurm-b4f6",
+      "post-checkpoint-lindwurm-s-stone-iii-lindwurm-b4f7": "post-cosmic-kiss/main/post-checkpoint-lindwurm-s-stone-iii-lindwurm-b4f7",
+      "post-checkpoint-lindwurm-s-glare-lindwurm-b4f8": "post-cosmic-kiss/main/post-checkpoint-lindwurm-s-glare-lindwurm-b4f8",
+      "post-checkpoint-lindwurm-s-thunder-ii-lindwurm-b4fa": "post-cosmic-kiss/main/post-checkpoint-lindwurm-s-thunder-ii-lindwurm-b4fa",
+      "post-checkpoint-temporal-curtain-lindwurm-b51c": "post-cosmic-kiss/main/post-checkpoint-temporal-curtain-lindwurm-b51c",
+      "post-checkpoint-unknown-b51d-lindschrat-b51d": "post-cosmic-kiss/main/post-checkpoint-unknown-b51d-lindschrat-b51d",
+      "post-checkpoint-unknown-b4d9-lindschrat-b4d9-03": "post-cosmic-kiss/main/post-checkpoint-unknown-b4d9-lindschrat-b4d9-03",
+      "post-checkpoint-twisted-vision-lindwurm-bbe2-06": "post-cosmic-kiss/main/post-checkpoint-twisted-vision-lindwurm-bbe2-06",
+      "post-checkpoint-power-gusher-lindschrat-b510-02": "post-cosmic-kiss/main/post-checkpoint-power-gusher-lindschrat-b510-02",
+      "post-checkpoint-snaking-kick-lindschrat-bcaf": "post-cosmic-kiss/main/post-checkpoint-snaking-kick-lindschrat-bcaf",
+      "post-checkpoint-reenactment-lindwurm-b4ec-02": "post-cosmic-kiss/main/post-checkpoint-reenactment-lindwurm-b4ec-02",
+      "post-checkpoint-heavy-slam-lindschrat-b4ef-03": "post-cosmic-kiss/main/post-checkpoint-heavy-slam-lindschrat-b4ef-03",
+      "post-checkpoint-mana-burst-lindschrat-b4ee-03": "post-cosmic-kiss/main/post-checkpoint-mana-burst-lindschrat-b4ee-03",
+      "post-checkpoint-mana-burst-lindwurm-bbe3-03": "post-cosmic-kiss/main/post-checkpoint-mana-burst-lindwurm-bbe3-03",
+      "post-checkpoint-heavy-slam-lindwurm-be5d-03": "post-cosmic-kiss/main/post-checkpoint-heavy-slam-lindwurm-be5d-03",
+      "post-checkpoint-twisted-vision-lindwurm-bbe2-07": "post-cosmic-kiss/main/post-checkpoint-twisted-vision-lindwurm-bbe2-07",
+      "post-checkpoint-power-gusher-lindschrat-b514-02": "post-cosmic-kiss/main/post-checkpoint-power-gusher-lindschrat-b514-02",
+      "post-checkpoint-snaking-kick-lindschrat-b515-02": "post-cosmic-kiss/main/post-checkpoint-snaking-kick-lindschrat-b515-02",
+      "post-checkpoint-snaking-kick-lindwurm-be95-02": "post-cosmic-kiss/main/post-checkpoint-snaking-kick-lindwurm-be95-02",
+      "post-checkpoint-power-gusher-lindwurm-b516-02": "post-cosmic-kiss/main/post-checkpoint-power-gusher-lindwurm-b516-02",
+      "post-checkpoint-twisted-vision-lindwurm-bbe2-08": "post-cosmic-kiss/main/post-checkpoint-twisted-vision-lindwurm-bbe2-08",
+      "post-checkpoint-heavy-slam-lindschrat-b4ef-04": "post-cosmic-kiss/main/post-checkpoint-heavy-slam-lindschrat-b4ef-04",
+      "post-checkpoint-mana-burst-lindschrat-b4ee-04": "post-cosmic-kiss/main/post-checkpoint-mana-burst-lindschrat-b4ee-04",
+      "post-checkpoint-unknown-b51e-lindschrat-b51e": "post-cosmic-kiss/main/post-checkpoint-unknown-b51e-lindschrat-b51e",
+      "post-checkpoint-mana-burst-lindwurm-bbe3-04": "post-cosmic-kiss/main/post-checkpoint-mana-burst-lindwurm-bbe3-04",
+      "post-checkpoint-heavy-slam-lindwurm-be5d-04": "post-cosmic-kiss/main/post-checkpoint-heavy-slam-lindwurm-be5d-04",
+      "post-checkpoint-power-gusher-lindschrat-b51a": "post-cosmic-kiss/main/post-checkpoint-power-gusher-lindschrat-b51a",
+      "post-checkpoint-power-gusher-lindwurm-b516-03": "post-cosmic-kiss/main/post-checkpoint-power-gusher-lindwurm-b516-03",
+      "post-checkpoint-idyllic-dream-lindwurm-b509-02": "post-cosmic-kiss/main/post-checkpoint-idyllic-dream-lindwurm-b509-02",
+      "post-checkpoint-double-sobat-lindwurm-b520-03": "post-cosmic-kiss/main/post-checkpoint-double-sobat-lindwurm-b520-03",
+      "post-sobat-variant-03": "post-cosmic-kiss/main/post-sobat-variant-03",
+      "post-checkpoint-double-sobat-lindwurm-b525-03": "post-cosmic-kiss/main/post-checkpoint-double-sobat-lindwurm-b525-03",
+      "post-checkpoint-esoteric-finisher-lindwurm-b526-03": "post-cosmic-kiss/main/post-checkpoint-esoteric-finisher-lindwurm-b526-03",
+      "post-checkpoint-replication-lindwurm-b46c": "post-cosmic-kiss/main/post-checkpoint-replication-lindwurm-b46c",
+      "post-checkpoint-arcadian-hell-lindschrat-b534-01": "post-cosmic-kiss/main/post-checkpoint-arcadian-hell-lindschrat-b534-01",
+      "post-checkpoint-arcadian-hell-lindschrat-b534-02": "post-cosmic-kiss/main/post-checkpoint-arcadian-hell-lindschrat-b534-02",
+      "post-checkpoint-arcadian-hell-lindwurm-b533-01": "post-cosmic-kiss/main/post-checkpoint-arcadian-hell-lindwurm-b533-01",
+      "post-checkpoint-arcadian-hell-lindschrat-b535-01": "post-cosmic-kiss/main/post-checkpoint-arcadian-hell-lindschrat-b535-01",
+      "post-checkpoint-arcadian-hell-lindschrat-b535-02": "post-cosmic-kiss/main/post-checkpoint-arcadian-hell-lindschrat-b535-02",
+      "post-checkpoint-arcadian-hell-lindwurm-b533-02": "post-cosmic-kiss/main/post-checkpoint-arcadian-hell-lindwurm-b533-02",
+      "post-checkpoint-arcadian-hell-lindschrat-bec1-01": "post-cosmic-kiss/main/post-checkpoint-arcadian-hell-lindschrat-bec1-01",
+      "post-checkpoint-arcadian-hell-lindschrat-bec1-02": "post-cosmic-kiss/main/post-checkpoint-arcadian-hell-lindschrat-bec1-02",
+      "post-checkpoint-arcadian-hell-lindwurm-b537": "post-cosmic-kiss/main/post-checkpoint-arcadian-hell-lindwurm-b537"
+    },
+    "controls": {
+      "pre-checkpoint": [
+        {
+          "id": "pre-checkpoint/main",
+          "offset": 0
+        }
+      ],
+      "pre-slaughtershed": [
+        {
+          "id": "pre-slaughtershed/main",
+          "offset": 0
+        }
+      ],
+      "post-checkpoint": [
+        {
+          "id": "post-checkpoint/main",
+          "offset": 0
+        }
+      ],
+      "post-cosmic-kiss": [
+        {
+          "id": "post-cosmic-kiss/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "pre-checkpoint": "pre-checkpoint/main",
+      "pre-slaughtershed": "pre-slaughtershed/main",
+      "pre-tail-rotation": "pre-slaughtershed/main/loop/pre-tail-rotation",
+      "pre-tail-pair": "pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-pair",
+      "post-checkpoint": "post-checkpoint/main",
+      "post-netherwrath": "post-checkpoint/main/post-netherwrath",
+      "post-cosmic-kiss": "post-cosmic-kiss/main"
+    }
+  },
+  "btimeline/timelines/queen-eternal-hold.kdl": {
+    "events": {
+      "approach-shift": "hold/main/approach-shift",
+      "approach-coronation": "hold/main/approach-coronation",
+      "approach-aethertithe": "hold/main/approach-aethertithe",
+      "approach-regalia": "hold/main/approach-regalia",
+      "approach-cone-first": "hold/main/approach-cone-first",
+      "approach-cone-second": "hold/main/approach-cone-second",
+      "approach-cone-third": "hold/main/approach-cone-third",
+      "hold-prosecution": "hold/main/loop/castellation-hold/hold-prosecution",
+      "hold-force-first": "hold/main/loop/castellation-hold/hold-force-first",
+      "hold-force-second": "hold/main/loop/castellation-hold/hold-force-second",
+      "hold-royal": "hold/main/loop/castellation-hold/hold-royal",
+      "hold-force-third": "hold/main/loop/castellation-hold/hold-force-third",
+      "hold-force-fourth": "hold/main/loop/castellation-hold/hold-force-fourth",
+      "exit-shift": "castellation/main/exit-shift",
+      "exit-castellation-first": "castellation/main/exit-castellation-first",
+      "exit-besiegement-first": "castellation/main/exit-besiegement-first",
+      "exit-castellation-second": "castellation/main/exit-castellation-second",
+      "exit-besiegement-second": "castellation/main/exit-besiegement-second",
+      "exit-besiegement-third": "castellation/main/exit-besiegement-third",
+      "exit-force-first": "castellation/main/exit-force-first",
+      "exit-force-second": "castellation/main/exit-force-second",
+      "exit-return": "castellation/main/exit-return"
+    },
+    "controls": {
+      "hold": [
+        {
+          "id": "hold/main",
+          "offset": 0
+        }
+      ],
+      "castellation": [
+        {
+          "id": "castellation/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "hold": "hold/main",
+      "castellation-hold": "hold/main/loop/castellation-hold",
+      "castellation": "castellation/main"
+    }
+  },
+  "btimeline/timelines/mistwake.kdl": {
+    "events": {
+      "treno-opening-earthquake": "treno/main/treno-opening-earthquake",
+      "treno-opening-thunder-ii": "treno/main/treno-opening-thunder-ii",
+      "treno-opening-light": "treno/main/treno-opening-light",
+      "treno-opening-earthquake-second": "treno/main/treno-opening-earthquake-second",
+      "treno-opening-thunder-iii": "treno/main/treno-opening-thunder-iii",
+      "treno-opening-thunder-ii-second": "treno/main/treno-opening-thunder-ii-second",
+      "treno-opening-light-second": "treno/main/treno-opening-light-second",
+      "treno-opening-ray": "treno/main/treno-opening-ray",
+      "treno-opening-petribreath": "treno/main/treno-opening-petribreath",
+      "treno-opening-thunder-ii-third": "treno/main/treno-opening-thunder-ii-third",
+      "treno-opening-light-third": "treno/main/treno-opening-light-third",
+      "treno-opening-earthquake-third": "treno/main/treno-opening-earthquake-third",
+      "treno-earthquake": "treno/main/loop/treno-rotation/treno-earthquake",
+      "treno-thunder-iii": "treno/main/loop/treno-rotation/treno-thunder-iii",
+      "treno-thunder-ii": "treno/main/loop/treno-rotation/treno-thunder-ii",
+      "treno-light": "treno/main/loop/treno-rotation/treno-light",
+      "treno-ray": "treno/main/loop/treno-rotation/treno-ray",
+      "treno-petribreath": "treno/main/loop/treno-rotation/treno-petribreath",
+      "treno-earthquake-second": "treno/main/loop/treno-rotation/treno-earthquake-second",
+      "treno-thunder-ii-second": "treno/main/loop/treno-rotation/treno-thunder-ii-second",
+      "treno-light-second": "treno/main/loop/treno-rotation/treno-light-second",
+      "amdusias-opening-concerto": "amdusias/main/amdusias-opening-concerto",
+      "amdusias-opening-concerto-second": "amdusias/main/amdusias-opening-concerto-second",
+      "amdusias-opening-bio": "amdusias/main/amdusias-opening-bio",
+      "amdusias-opening-gallop": "amdusias/main/amdusias-opening-gallop",
+      "amdusias-thunder-iv": "amdusias/main/loop/amdusias-rotation/amdusias-thunder-iv",
+      "amdusias-shockbolt": "amdusias/main/loop/amdusias-rotation/amdusias-shockbolt",
+      "amdusias-concerto": "amdusias/main/loop/amdusias-rotation/amdusias-concerto",
+      "amdusias-thunder": "amdusias/main/loop/amdusias-rotation/amdusias-thunder",
+      "amdusias-thunder-iii": "amdusias/main/loop/amdusias-rotation/amdusias-thunder-iii",
+      "amdusias-bio": "amdusias/main/loop/amdusias-rotation/amdusias-bio",
+      "amdusias-gallop": "amdusias/main/loop/amdusias-rotation/amdusias-gallop",
+      "opening-thunderspark": "griffin/main/opening-thunderspark",
+      "opening-high-volts": "griffin/main/opening-high-volts",
+      "opening-roar-first": "griffin/main/opening-roar-first",
+      "opening-roar-second": "griffin/main/opening-roar-second",
+      "opening-golden-talons": "griffin/main/opening-golden-talons",
+      "opening-fulgurous-fall": "griffin/main/opening-fulgurous-fall",
+      "opening-electrogenetic-force": "griffin/main/opening-electrogenetic-force",
+      "opening-roar-last": "griffin/main/opening-roar-last",
+      "rotation-thunderspark": "griffin/main/loop/late-rotation/rotation-thunderspark",
+      "rotation-storm-surge": "griffin/main/loop/late-rotation/rotation-storm-surge",
+      "rotation-electrifying-flight": "griffin/main/loop/late-rotation/rotation-electrifying-flight",
+      "rotation-high-volts": "griffin/main/loop/late-rotation/rotation-high-volts",
+      "rotation-roar-first": "griffin/main/loop/late-rotation/rotation-roar-first",
+      "rotation-roar-second": "griffin/main/loop/late-rotation/rotation-roar-second",
+      "rotation-golden-talons": "griffin/main/loop/late-rotation/rotation-golden-talons",
+      "rotation-fulgurous-fall": "griffin/main/loop/late-rotation/rotation-fulgurous-fall",
+      "rotation-electrogenetic-force": "griffin/main/loop/late-rotation/rotation-electrogenetic-force",
+      "rotation-roar-last": "griffin/main/loop/late-rotation/rotation-roar-last"
+    },
+    "controls": {
+      "treno": [
+        {
+          "id": "treno/main",
+          "offset": 0
+        }
+      ],
+      "amdusias": [
+        {
+          "id": "amdusias/main",
+          "offset": 0
+        }
+      ],
+      "griffin": [
+        {
+          "id": "griffin/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "treno": "treno/main",
+      "treno-rotation": "treno/main/loop/treno-rotation",
+      "amdusias": "amdusias/main",
+      "amdusias-rotation": "amdusias/main/loop/amdusias-rotation",
+      "griffin": "griffin/main",
+      "late-rotation": "griffin/main/loop/late-rotation"
+    }
+  },
+  "btimeline/timelines/mistwake-griffin.kdl": {
+    "events": {
+      "opening-thunderspark": "griffin/main/opening-thunderspark",
+      "opening-high-volts": "griffin/main/opening-high-volts",
+      "opening-roar-first": "griffin/main/opening-roar-first",
+      "opening-roar-second": "griffin/main/opening-roar-second",
+      "opening-golden-talons": "griffin/main/opening-golden-talons",
+      "opening-fulgurous-fall": "griffin/main/opening-fulgurous-fall",
+      "opening-electrogenetic-force": "griffin/main/opening-electrogenetic-force",
+      "opening-roar-last": "griffin/main/opening-roar-last",
+      "rotation-thunderspark": "griffin/main/loop/late-rotation/rotation-thunderspark",
+      "rotation-storm-surge": "griffin/main/loop/late-rotation/rotation-storm-surge",
+      "rotation-electrifying-flight": "griffin/main/loop/late-rotation/rotation-electrifying-flight",
+      "rotation-high-volts": "griffin/main/loop/late-rotation/rotation-high-volts",
+      "rotation-roar-first": "griffin/main/loop/late-rotation/rotation-roar-first",
+      "rotation-roar-second": "griffin/main/loop/late-rotation/rotation-roar-second",
+      "rotation-golden-talons": "griffin/main/loop/late-rotation/rotation-golden-talons",
+      "rotation-fulgurous-fall": "griffin/main/loop/late-rotation/rotation-fulgurous-fall",
+      "rotation-electrogenetic-force": "griffin/main/loop/late-rotation/rotation-electrogenetic-force",
+      "rotation-roar-last": "griffin/main/loop/late-rotation/rotation-roar-last"
+    },
+    "controls": {
+      "griffin": [
+        {
+          "id": "griffin/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "griffin": "griffin/main",
+      "late-rotation": "griffin/main/loop/late-rotation"
+    }
+  },
+  "btimeline/timelines/dancing-mad.kdl": {
+    "events": {
+      "p1-kefka-revolting-ruin-iii-1": "p1-kefka/main/p1-kefka-revolting-ruin-iii-1",
+      "p1-kefka-revolting-ruin-iii-2": "p1-kefka/main/p1-kefka-revolting-ruin-iii-2",
+      "p1-kefka-middle": "p1-kefka/main/p1-kefka-middle",
+      "p1-kefka-graven-image-1": "p1-kefka/main/p1-kefka-graven-image-1",
+      "p1-kefka-pulse-wave": "p1-kefka/main/p1-kefka-pulse-wave",
+      "p1-kefka-mystery-magic": "p1-kefka/main/p1-kefka-mystery-magic",
+      "p1-kefka-blizzard-iii-blowout": "p1-kefka/main/p1-kefka-blizzard-iii-blowout",
+      "p1-kefka-flagrant-fire-iii": "p1-kefka/main/p1-kefka-flagrant-fire-iii",
+      "p1-kefka-wave-cannon": "p1-kefka/main/p1-kefka-wave-cannon",
+      "p1-kefka-double-trouble-trap-1": "p1-kefka/main/p1-kefka-double-trouble-trap-1",
+      "p1-kefka-explosion": "p1-kefka/main/p1-kefka-explosion",
+      "p1-kefka-knockback": "p1-kefka/main/p1-kefka-knockback",
+      "p1-kefka-double-trouble-trap-2": "p1-kefka/main/p1-kefka-double-trouble-trap-2",
+      "p1-kefka-mystery-magic-2": "p1-kefka/main/p1-kefka-mystery-magic-2",
+      "p1-kefka-thrumming-thunder-iii": "p1-kefka/main/p1-kefka-thrumming-thunder-iii",
+      "p1-kefka-blizzard-iii-blowout-2": "p1-kefka/main/p1-kefka-blizzard-iii-blowout-2",
+      "p1-kefka-light-of-judgment": "p1-kefka/main/p1-kefka-light-of-judgment",
+      "p1-kefka-hyperdrive-1": "p1-kefka/main/p1-kefka-hyperdrive-1",
+      "p1-kefka-hyperdrive-2": "p1-kefka/main/p1-kefka-hyperdrive-2",
+      "p1-kefka-hyperdrive-3": "p1-kefka/main/p1-kefka-hyperdrive-3",
+      "p1-kefka-middle-2": "p1-kefka/main/p1-kefka-middle-2",
+      "p1-kefka-graven-image-2": "p1-kefka/main/p1-kefka-graven-image-2",
+      "p1-kefka-blizzard-iii-blowout-3": "p1-kefka/main/p1-kefka-blizzard-iii-blowout-3",
+      "p1-kefka-gravitas": "p1-kefka/main/p1-kefka-gravitas",
+      "p1-kefka-vitrophyre": "p1-kefka/main/p1-kefka-vitrophyre",
+      "p1-kefka-revolting-ruin-iii-1-2": "p1-kefka/main/p1-kefka-revolting-ruin-iii-1-2",
+      "p1-kefka-revolting-ruin-iii-2-2": "p1-kefka/main/p1-kefka-revolting-ruin-iii-2-2",
+      "p1-kefka-intemperate-will-gravitational-wave": "p1-kefka/main/p1-kefka-intemperate-will-gravitational-wave",
+      "p1-kefka-gravitas-2": "p1-kefka/main/p1-kefka-gravitas-2",
+      "p1-kefka-vitrophyre-2": "p1-kefka/main/p1-kefka-vitrophyre-2",
+      "p1-kefka-intemperate-will-gravitational-wave-2": "p1-kefka/main/p1-kefka-intemperate-will-gravitational-wave-2",
+      "p1-kefka-gravity-iii-pop-window": "p1-kefka/main/p1-kefka-gravity-iii-pop-window",
+      "p1-kefka-knockback-2": "p1-kefka/main/p1-kefka-knockback-2",
+      "p1-kefka-double-trouble-trap-3": "p1-kefka/main/p1-kefka-double-trouble-trap-3",
+      "p1-kefka-light-of-judgment-2": "p1-kefka/main/p1-kefka-light-of-judgment-2",
+      "p1-kefka-hyperdrive-1-2": "p1-kefka/main/p1-kefka-hyperdrive-1-2",
+      "p1-kefka-hyperdrive-2-2": "p1-kefka/main/p1-kefka-hyperdrive-2-2",
+      "p1-kefka-hyperdrive-3-2": "p1-kefka/main/p1-kefka-hyperdrive-3-2",
+      "p1-kefka-tele-trouncing-castbar": "p1-kefka/main/p1-kefka-tele-trouncing-castbar",
+      "p1-kefka-tele-trouncing-1": "p1-kefka/main/p1-kefka-tele-trouncing-1",
+      "p1-kefka-tele-trouncing-2": "p1-kefka/main/p1-kefka-tele-trouncing-2",
+      "p1-kefka-graven-image-3": "p1-kefka/main/p1-kefka-graven-image-3",
+      "p1-kefka-knockback-3": "p1-kefka/main/p1-kefka-knockback-3",
+      "p1-kefka-indulgent-will": "p1-kefka/main/p1-kefka-indulgent-will",
+      "p1-kefka-idyllic-will": "p1-kefka/main/p1-kefka-idyllic-will",
+      "p1-kefka-sync-69": "p1-kefka/main/p1-kefka-sync-69",
+      "p1-kefka-middle-3": "p1-kefka/main/p1-kefka-middle-3",
+      "p1-kefka-mystery-magic-3": "p1-kefka/main/p1-kefka-mystery-magic-3",
+      "p1-kefka-thrumming-thunder-iii-2": "p1-kefka/main/p1-kefka-thrumming-thunder-iii-2",
+      "p1-kefka-ave-maria-indolent-will": "p1-kefka/main/p1-kefka-ave-maria-indolent-will",
+      "p1-kefka-flagrant-fire-iii-2": "p1-kefka/main/p1-kefka-flagrant-fire-iii-2",
+      "p2-god-kefka-ultimate-embrace": "p2-god-kefka/main/p2-god-kefka-ultimate-embrace",
+      "p2-god-kefka-forsaken": "p2-god-kefka/main/p2-god-kefka-forsaken",
+      "p2-god-kefka-the-path-of-light-1": "p2-god-kefka/main/p2-god-kefka-the-path-of-light-1",
+      "p2-god-kefka-spelldriver-spellscatter-spellwave": "p2-god-kefka/main/p2-god-kefka-spelldriver-spellscatter-spellwave",
+      "p2-god-kefka-future-s-end-past-s-end-1": "p2-god-kefka/main/p2-god-kefka-future-s-end-past-s-end-1",
+      "p2-god-kefka-the-path-of-light-2": "p2-god-kefka/main/p2-god-kefka-the-path-of-light-2",
+      "p2-god-kefka-spelldriver-spellscatter-spellwave-2": "p2-god-kefka/main/p2-god-kefka-spelldriver-spellscatter-spellwave-2",
+      "p2-god-kefka-all-things-ending": "p2-god-kefka/main/p2-god-kefka-all-things-ending",
+      "p2-god-kefka-the-path-of-light-3": "p2-god-kefka/main/p2-god-kefka-the-path-of-light-3",
+      "p2-god-kefka-spelldriver-spellscatter-spellwave-3": "p2-god-kefka/main/p2-god-kefka-spelldriver-spellscatter-spellwave-3",
+      "p2-god-kefka-future-s-end-past-s-end-2": "p2-god-kefka/main/p2-god-kefka-future-s-end-past-s-end-2",
+      "p2-god-kefka-the-path-of-light-4": "p2-god-kefka/main/p2-god-kefka-the-path-of-light-4",
+      "p2-god-kefka-spelldriver-spellscatter-spellwave-4": "p2-god-kefka/main/p2-god-kefka-spelldriver-spellscatter-spellwave-4",
+      "p2-god-kefka-all-things-ending-2": "p2-god-kefka/main/p2-god-kefka-all-things-ending-2",
+      "p2-god-kefka-the-path-of-light-5": "p2-god-kefka/main/p2-god-kefka-the-path-of-light-5",
+      "p2-god-kefka-spelldriver-spellscatter-spellwave-5": "p2-god-kefka/main/p2-god-kefka-spelldriver-spellscatter-spellwave-5",
+      "p2-god-kefka-future-s-end-past-s-end-3": "p2-god-kefka/main/p2-god-kefka-future-s-end-past-s-end-3",
+      "p2-god-kefka-the-path-of-light-6": "p2-god-kefka/main/p2-god-kefka-the-path-of-light-6",
+      "p2-god-kefka-spelldriver-spellscatter-spellwave-6": "p2-god-kefka/main/p2-god-kefka-spelldriver-spellscatter-spellwave-6",
+      "p2-god-kefka-all-things-ending-3": "p2-god-kefka/main/p2-god-kefka-all-things-ending-3",
+      "p2-god-kefka-the-path-of-light-7": "p2-god-kefka/main/p2-god-kefka-the-path-of-light-7",
+      "p2-god-kefka-spelldriver-spellscatter-spellwave-7": "p2-god-kefka/main/p2-god-kefka-spelldriver-spellscatter-spellwave-7",
+      "p2-god-kefka-future-s-end-past-s-end-4": "p2-god-kefka/main/p2-god-kefka-future-s-end-past-s-end-4",
+      "p2-god-kefka-the-path-of-light-8": "p2-god-kefka/main/p2-god-kefka-the-path-of-light-8",
+      "p2-god-kefka-spelldriver-spellscatter-spellwave-8": "p2-god-kefka/main/p2-god-kefka-spelldriver-spellscatter-spellwave-8",
+      "p2-god-kefka-all-things-ending-4": "p2-god-kefka/main/p2-god-kefka-all-things-ending-4",
+      "p2-god-kefka-light-of-judgment": "p2-god-kefka/main/p2-god-kefka-light-of-judgment",
+      "p2-god-kefka-trine": "p2-god-kefka/main/p2-god-kefka-trine",
+      "p2-god-kefka-wings-of-destruction": "p2-god-kefka/main/p2-god-kefka-wings-of-destruction",
+      "p2-god-kefka-trine-1": "p2-god-kefka/main/p2-god-kefka-trine-1",
+      "p2-god-kefka-trine-2": "p2-god-kefka/main/p2-god-kefka-trine-2",
+      "p2-god-kefka-trine-3": "p2-god-kefka/main/p2-god-kefka-trine-3",
+      "p2-god-kefka-wings-of-destruction-2": "p2-god-kefka/main/p2-god-kefka-wings-of-destruction-2",
+      "p2-god-kefka-ultimate-embrace-2": "p2-god-kefka/main/p2-god-kefka-ultimate-embrace-2",
+      "p2-god-kefka-untargetable": "p2-god-kefka/main/p2-god-kefka-untargetable",
+      "p3-chaos-exdeath-aero-iii-assault": "p3-chaos-exdeath/main/p3-chaos-exdeath-aero-iii-assault",
+      "p3-chaos-exdeath-down-for-the-count": "p3-chaos-exdeath/main/p3-chaos-exdeath-down-for-the-count",
+      "p3-chaos-exdeath-definition-of-insanity": "p3-chaos-exdeath/main/p3-chaos-exdeath-definition-of-insanity",
+      "p3-chaos-exdeath-both-targetable": "p3-chaos-exdeath/main/p3-chaos-exdeath-both-targetable",
+      "p3-chaos-exdeath-the-decisive-battle": "p3-chaos-exdeath/main/p3-chaos-exdeath-the-decisive-battle",
+      "p3-chaos-exdeath-single-target": "p3-chaos-exdeath/main/p3-chaos-exdeath-single-target",
+      "p3-chaos-exdeath-bowels-of-agony": "p3-chaos-exdeath/main/p3-chaos-exdeath-bowels-of-agony",
+      "p3-chaos-exdeath-both-targetable-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-both-targetable-2",
+      "p3-chaos-exdeath-stray-flames-stray-spray": "p3-chaos-exdeath/main/p3-chaos-exdeath-stray-flames-stray-spray",
+      "p3-chaos-exdeath-thunder-iii": "p3-chaos-exdeath/main/p3-chaos-exdeath-thunder-iii",
+      "p3-chaos-exdeath-inferno-tsunami": "p3-chaos-exdeath/main/p3-chaos-exdeath-inferno-tsunami",
+      "p3-chaos-exdeath-cyclone": "p3-chaos-exdeath/main/p3-chaos-exdeath-cyclone",
+      "p3-chaos-exdeath-thunder-iii-1": "p3-chaos-exdeath/main/p3-chaos-exdeath-thunder-iii-1",
+      "p3-chaos-exdeath-thunder-iii-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-thunder-iii-2",
+      "p3-chaos-exdeath-sync-182": "p3-chaos-exdeath/main/p3-chaos-exdeath-sync-182",
+      "p3-chaos-exdeath-trance": "p3-chaos-exdeath/main/p3-chaos-exdeath-trance",
+      "p3-chaos-exdeath-longitudinal-implosion-latitudinal-implosion-castbar": "p3-chaos-exdeath/main/p3-chaos-exdeath-longitudinal-implosion-latitudinal-implosion-castbar",
+      "p3-chaos-exdeath-shockwave-1": "p3-chaos-exdeath/main/p3-chaos-exdeath-shockwave-1",
+      "p3-chaos-exdeath-shockwave-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-shockwave-2",
+      "p3-chaos-exdeath-stray-spray-stray-flames": "p3-chaos-exdeath/main/p3-chaos-exdeath-stray-spray-stray-flames",
+      "p3-chaos-exdeath-tsunami-inferno": "p3-chaos-exdeath/main/p3-chaos-exdeath-tsunami-inferno",
+      "p3-chaos-exdeath-cyclone-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-cyclone-2",
+      "p3-chaos-exdeath-jump-baited": "p3-chaos-exdeath/main/p3-chaos-exdeath-jump-baited",
+      "p3-chaos-exdeath-ultima-blaster-1": "p3-chaos-exdeath/main/p3-chaos-exdeath-ultima-blaster-1",
+      "p3-chaos-exdeath-ultima-blaster-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-ultima-blaster-2",
+      "p3-chaos-exdeath-ultima-blaster-3": "p3-chaos-exdeath/main/p3-chaos-exdeath-ultima-blaster-3",
+      "p3-chaos-exdeath-umbra-smash": "p3-chaos-exdeath/main/p3-chaos-exdeath-umbra-smash",
+      "p3-chaos-exdeath-ultima-blaster-4": "p3-chaos-exdeath/main/p3-chaos-exdeath-ultima-blaster-4",
+      "p3-chaos-exdeath-vacuum-wave": "p3-chaos-exdeath/main/p3-chaos-exdeath-vacuum-wave",
+      "p3-chaos-exdeath-ultima-blaster-5": "p3-chaos-exdeath/main/p3-chaos-exdeath-ultima-blaster-5",
+      "p3-chaos-exdeath-numbers": "p3-chaos-exdeath/main/p3-chaos-exdeath-numbers",
+      "p3-chaos-exdeath-ultima-blaster-6": "p3-chaos-exdeath/main/p3-chaos-exdeath-ultima-blaster-6",
+      "p3-chaos-exdeath-cyclone-3": "p3-chaos-exdeath/main/p3-chaos-exdeath-cyclone-3",
+      "p3-chaos-exdeath-ultima-blaster-7": "p3-chaos-exdeath/main/p3-chaos-exdeath-ultima-blaster-7",
+      "p3-chaos-exdeath-aetherlink": "p3-chaos-exdeath/main/p3-chaos-exdeath-aetherlink",
+      "p3-chaos-exdeath-ultima-blaster-8": "p3-chaos-exdeath/main/p3-chaos-exdeath-ultima-blaster-8",
+      "p3-chaos-exdeath-ultima-blaster-1-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-ultima-blaster-1-2",
+      "p3-chaos-exdeath-ultima-blaster-2-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-ultima-blaster-2-2",
+      "p3-chaos-exdeath-ultima-blaster-3-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-ultima-blaster-3-2",
+      "p3-chaos-exdeath-ultima-blaster-4-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-ultima-blaster-4-2",
+      "p3-chaos-exdeath-ultima-blaster-5-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-ultima-blaster-5-2",
+      "p3-chaos-exdeath-ultima-blaster-6-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-ultima-blaster-6-2",
+      "p3-chaos-exdeath-ultima-blaster-7-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-ultima-blaster-7-2",
+      "p3-chaos-exdeath-ultima-blaster-8-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-ultima-blaster-8-2",
+      "p3-chaos-exdeath-thunder-iii-1-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-thunder-iii-1-2",
+      "p3-chaos-exdeath-thunder-iii-2-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-thunder-iii-2-2",
+      "p3-chaos-exdeath-the-decisive-battle-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-the-decisive-battle-2",
+      "p3-chaos-exdeath-single-target-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-single-target-2",
+      "p3-chaos-exdeath-thunder-iii-1-3": "p3-chaos-exdeath/main/p3-chaos-exdeath-thunder-iii-1-3",
+      "p3-chaos-exdeath-max": "p3-chaos-exdeath/main/p3-chaos-exdeath-max",
+      "p3-chaos-exdeath-thunder-iii-2-3": "p3-chaos-exdeath/main/p3-chaos-exdeath-thunder-iii-2-3",
+      "p3-chaos-exdeath-earthquake": "p3-chaos-exdeath/main/p3-chaos-exdeath-earthquake",
+      "p3-chaos-exdeath-accretion": "p3-chaos-exdeath/main/p3-chaos-exdeath-accretion",
+      "p3-chaos-exdeath-accretion-earthquake-1": "p3-chaos-exdeath/main/p3-chaos-exdeath-accretion-earthquake-1",
+      "p3-chaos-exdeath-accretion-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-accretion-2",
+      "p3-chaos-exdeath-accretion-earthquake-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-accretion-earthquake-2",
+      "p3-chaos-exdeath-slap-happy-castbar": "p3-chaos-exdeath/main/p3-chaos-exdeath-slap-happy-castbar",
+      "p3-chaos-exdeath-slap-happy-1": "p3-chaos-exdeath/main/p3-chaos-exdeath-slap-happy-1",
+      "p3-chaos-exdeath-slap-happy-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-slap-happy-2",
+      "p3-chaos-exdeath-slap-happy-3": "p3-chaos-exdeath/main/p3-chaos-exdeath-slap-happy-3",
+      "p3-chaos-exdeath-slap-happy-4": "p3-chaos-exdeath/main/p3-chaos-exdeath-slap-happy-4",
+      "p3-chaos-exdeath-shocking-impact-shockwave": "p3-chaos-exdeath/main/p3-chaos-exdeath-shocking-impact-shockwave",
+      "p3-chaos-exdeath-black-hole": "p3-chaos-exdeath/main/p3-chaos-exdeath-black-hole",
+      "p3-chaos-exdeath-1-tether": "p3-chaos-exdeath/main/p3-chaos-exdeath-1-tether",
+      "p3-chaos-exdeath-nothingness": "p3-chaos-exdeath/main/p3-chaos-exdeath-nothingness",
+      "p3-chaos-exdeath-2-tethers": "p3-chaos-exdeath/main/p3-chaos-exdeath-2-tethers",
+      "p3-chaos-exdeath-aetherlink-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-aetherlink-2",
+      "p3-chaos-exdeath-nothingness-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-nothingness-2",
+      "p3-chaos-exdeath-primordial-crust-quake": "p3-chaos-exdeath/main/p3-chaos-exdeath-primordial-crust-quake",
+      "p3-chaos-exdeath-thunder-iii-1-4": "p3-chaos-exdeath/main/p3-chaos-exdeath-thunder-iii-1-4",
+      "p3-chaos-exdeath-thunder-iii-2-4": "p3-chaos-exdeath/main/p3-chaos-exdeath-thunder-iii-2-4",
+      "p3-chaos-exdeath-damning-edict": "p3-chaos-exdeath/main/p3-chaos-exdeath-damning-edict",
+      "p3-chaos-exdeath-slap-happy-castbar-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-slap-happy-castbar-2",
+      "p3-chaos-exdeath-slap-happy-1-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-slap-happy-1-2",
+      "p3-chaos-exdeath-slap-happy-2-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-slap-happy-2-2",
+      "p3-chaos-exdeath-slap-happy-3-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-slap-happy-3-2",
+      "p3-chaos-exdeath-slap-happy-4-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-slap-happy-4-2",
+      "p3-chaos-exdeath-shocking-impact-shockwave-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-shocking-impact-shockwave-2",
+      "p3-chaos-exdeath-3-tethers": "p3-chaos-exdeath/main/p3-chaos-exdeath-3-tethers",
+      "p3-chaos-exdeath-nothingness-3": "p3-chaos-exdeath/main/p3-chaos-exdeath-nothingness-3",
+      "p3-chaos-exdeath-primordial-crust-quake-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-primordial-crust-quake-2",
+      "p3-chaos-exdeath-nothingness-4": "p3-chaos-exdeath/main/p3-chaos-exdeath-nothingness-4",
+      "p3-chaos-exdeath-primordial-crust-quake-3": "p3-chaos-exdeath/main/p3-chaos-exdeath-primordial-crust-quake-3",
+      "p3-chaos-exdeath-nothingness-5": "p3-chaos-exdeath/main/p3-chaos-exdeath-nothingness-5",
+      "p3-chaos-exdeath-primordial-crust-quake-4": "p3-chaos-exdeath/main/p3-chaos-exdeath-primordial-crust-quake-4",
+      "p3-chaos-exdeath-damning-edict-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-damning-edict-2",
+      "p3-chaos-exdeath-look-upon-me-and-despair-castbar": "p3-chaos-exdeath/main/p3-chaos-exdeath-look-upon-me-and-despair-castbar",
+      "p3-chaos-exdeath-look-upon-me-and-despair": "p3-chaos-exdeath/main/p3-chaos-exdeath-look-upon-me-and-despair",
+      "p3-chaos-exdeath-thunder-iii-1-5": "p3-chaos-exdeath/main/p3-chaos-exdeath-thunder-iii-1-5",
+      "p3-chaos-exdeath-thunder-iii-2-5": "p3-chaos-exdeath/main/p3-chaos-exdeath-thunder-iii-2-5",
+      "p3-chaos-exdeath-3-tethers-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-3-tethers-2",
+      "p3-chaos-exdeath-nothingness-6": "p3-chaos-exdeath/main/p3-chaos-exdeath-nothingness-6",
+      "p3-chaos-exdeath-primordial-crust-quake-5": "p3-chaos-exdeath/main/p3-chaos-exdeath-primordial-crust-quake-5",
+      "p3-chaos-exdeath-aetherlink-3": "p3-chaos-exdeath/main/p3-chaos-exdeath-aetherlink-3",
+      "p3-chaos-exdeath-nothingness-7": "p3-chaos-exdeath/main/p3-chaos-exdeath-nothingness-7",
+      "p3-chaos-exdeath-primordial-crust-quake-6": "p3-chaos-exdeath/main/p3-chaos-exdeath-primordial-crust-quake-6",
+      "p3-chaos-exdeath-nothingness-8": "p3-chaos-exdeath/main/p3-chaos-exdeath-nothingness-8",
+      "p3-chaos-exdeath-primordial-crust-quake-7": "p3-chaos-exdeath/main/p3-chaos-exdeath-primordial-crust-quake-7",
+      "p3-chaos-exdeath-white-hole": "p3-chaos-exdeath/main/p3-chaos-exdeath-white-hole",
+      "p3-chaos-exdeath-longitudinal-implosion-latitudinal-implosion-castbar-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-longitudinal-implosion-latitudinal-implosion-castbar-2",
+      "p3-chaos-exdeath-shockwave-1-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-shockwave-1-2",
+      "p3-chaos-exdeath-slap-happy-castbar-3": "p3-chaos-exdeath/main/p3-chaos-exdeath-slap-happy-castbar-3",
+      "p3-chaos-exdeath-slap-happy-1-3": "p3-chaos-exdeath/main/p3-chaos-exdeath-slap-happy-1-3",
+      "p3-chaos-exdeath-shockwave-2-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-shockwave-2-2",
+      "p3-chaos-exdeath-slap-happy-2-3": "p3-chaos-exdeath/main/p3-chaos-exdeath-slap-happy-2-3",
+      "p3-chaos-exdeath-slap-happy-3-3": "p3-chaos-exdeath/main/p3-chaos-exdeath-slap-happy-3-3",
+      "p3-chaos-exdeath-slap-happy-4-3": "p3-chaos-exdeath/main/p3-chaos-exdeath-slap-happy-4-3",
+      "p3-chaos-exdeath-shocking-impact-shockwave-3": "p3-chaos-exdeath/main/p3-chaos-exdeath-shocking-impact-shockwave-3",
+      "p3-chaos-exdeath-2-tethers-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-2-tethers-2",
+      "p3-chaos-exdeath-nothingness-9": "p3-chaos-exdeath/main/p3-chaos-exdeath-nothingness-9",
+      "p3-chaos-exdeath-primordial-crust-quake-8": "p3-chaos-exdeath/main/p3-chaos-exdeath-primordial-crust-quake-8",
+      "p3-chaos-exdeath-look-upon-me-and-despair-castbar-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-look-upon-me-and-despair-castbar-2",
+      "p3-chaos-exdeath-1-tether-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-1-tether-2",
+      "p3-chaos-exdeath-look-upon-me-and-despair-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-look-upon-me-and-despair-2",
+      "p3-chaos-exdeath-nothingness-10": "p3-chaos-exdeath/main/p3-chaos-exdeath-nothingness-10",
+      "p3-chaos-exdeath-primordial-crust-quake-9": "p3-chaos-exdeath/main/p3-chaos-exdeath-primordial-crust-quake-9",
+      "p3-chaos-exdeath-blizzard-iii-castbar": "p3-chaos-exdeath/main/p3-chaos-exdeath-blizzard-iii-castbar",
+      "p3-chaos-exdeath-blizzard-iii-1": "p3-chaos-exdeath/main/p3-chaos-exdeath-blizzard-iii-1",
+      "p3-chaos-exdeath-stomp-a-mole-castbar": "p3-chaos-exdeath/main/p3-chaos-exdeath-stomp-a-mole-castbar",
+      "p3-chaos-exdeath-stomp-a-mole-1": "p3-chaos-exdeath/main/p3-chaos-exdeath-stomp-a-mole-1",
+      "p3-chaos-exdeath-knock-down-1": "p3-chaos-exdeath/main/p3-chaos-exdeath-knock-down-1",
+      "p3-chaos-exdeath-blizzard-iii-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-blizzard-iii-2",
+      "p3-chaos-exdeath-stomp-a-mole-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-stomp-a-mole-2",
+      "p3-chaos-exdeath-stomp-a-mole-3": "p3-chaos-exdeath/main/p3-chaos-exdeath-stomp-a-mole-3",
+      "p3-chaos-exdeath-stomp-a-mole-4": "p3-chaos-exdeath/main/p3-chaos-exdeath-stomp-a-mole-4",
+      "p3-chaos-exdeath-knock-down-2": "p3-chaos-exdeath/main/p3-chaos-exdeath-knock-down-2",
+      "p3-chaos-exdeath-blizzard-iii": "p3-chaos-exdeath/main/p3-chaos-exdeath-blizzard-iii",
+      "p3-chaos-exdeath-big-bang": "p3-chaos-exdeath/main/p3-chaos-exdeath-big-bang",
+      "p3-chaos-dual-enrage": "p3-chaos-exdeath/main/reaction/chaos-dual-enrage/p3-chaos-dual-enrage",
+      "p3-exdeath-dual-enrage": "p3-chaos-exdeath/main/reaction/exdeath-dual-enrage/p3-exdeath-dual-enrage",
+      "p3-chaos-enrage": "p3-chaos-enrage/main/p3-chaos-enrage",
+      "p3-exdeath-enrage": "p3-exdeath-enrage/main/p3-exdeath-enrage",
+      "p4-grand-cross-kefka-says": "p4-grand-cross/main/p4-grand-cross-kefka-says",
+      "p4-grand-cross-middle": "p4-grand-cross/main/p4-grand-cross-middle",
+      "p4-grand-cross-mystery-magic-1": "p4-grand-cross/main/p4-grand-cross-mystery-magic-1",
+      "p4-grand-cross-thrumming-thunder-iii": "p4-grand-cross/main/p4-grand-cross-thrumming-thunder-iii",
+      "p4-grand-cross-blizzard-iii-blowout": "p4-grand-cross/main/p4-grand-cross-blizzard-iii-blowout",
+      "p4-grand-cross-grand-cross": "p4-grand-cross/main/p4-grand-cross-grand-cross",
+      "p4-grand-cross-first-debuffs": "p4-grand-cross/main/p4-grand-cross-first-debuffs",
+      "p4-grand-cross-inferno-tsunami": "p4-grand-cross/main/p4-grand-cross-inferno-tsunami",
+      "p4-grand-cross-mystery-magic-2": "p4-grand-cross/main/p4-grand-cross-mystery-magic-2",
+      "p4-grand-cross-thrumming-thunder-iii-2": "p4-grand-cross/main/p4-grand-cross-thrumming-thunder-iii-2",
+      "p4-grand-cross-blizzard-iii-blowout-2": "p4-grand-cross/main/p4-grand-cross-blizzard-iii-blowout-2",
+      "p4-grand-cross-grand-cross-2": "p4-grand-cross/main/p4-grand-cross-grand-cross-2",
+      "p4-grand-cross-second-debuffs": "p4-grand-cross/main/p4-grand-cross-second-debuffs",
+      "p4-grand-cross-tsunami-inferno": "p4-grand-cross/main/p4-grand-cross-tsunami-inferno",
+      "p4-grand-cross-mystery-magic-3": "p4-grand-cross/main/p4-grand-cross-mystery-magic-3",
+      "p4-grand-cross-thrumming-thunder-iii-3": "p4-grand-cross/main/p4-grand-cross-thrumming-thunder-iii-3",
+      "p4-grand-cross-blizzard-iii-blowout-3": "p4-grand-cross/main/p4-grand-cross-blizzard-iii-blowout-3",
+      "p4-grand-cross-grand-cross-3": "p4-grand-cross/main/p4-grand-cross-grand-cross-3",
+      "p4-grand-cross-third-debuffs": "p4-grand-cross/main/p4-grand-cross-third-debuffs",
+      "p4-grand-cross-sync-364": "p4-grand-cross/main/p4-grand-cross-sync-364",
+      "p4-grand-cross-flood-of-naught": "p4-grand-cross/main/p4-grand-cross-flood-of-naught",
+      "p4-grand-cross-edge-of-death": "p4-grand-cross/main/p4-grand-cross-edge-of-death",
+      "p4-grand-cross-white-antilight": "p4-grand-cross/main/p4-grand-cross-white-antilight",
+      "p4-grand-cross-black-antilight": "p4-grand-cross/main/p4-grand-cross-black-antilight",
+      "p4-grand-cross-sync-370": "p4-grand-cross/main/p4-grand-cross-sync-370",
+      "p4-grand-cross-death-surge": "p4-grand-cross/main/p4-grand-cross-death-surge",
+      "p4-grand-cross-mana-charge": "p4-grand-cross/main/p4-grand-cross-mana-charge",
+      "p4-grand-cross-short-debuffs": "p4-grand-cross/main/p4-grand-cross-short-debuffs",
+      "p4-grand-cross-death-bolt": "p4-grand-cross/main/p4-grand-cross-death-bolt",
+      "p4-grand-cross-death-wave": "p4-grand-cross/main/p4-grand-cross-death-wave",
+      "p4-grand-cross-thrumming-thunder-iii-4": "p4-grand-cross/main/p4-grand-cross-thrumming-thunder-iii-4",
+      "p4-grand-cross-death-shriek": "p4-grand-cross/main/p4-grand-cross-death-shriek",
+      "p4-grand-cross-twisters-donuts": "p4-grand-cross/main/p4-grand-cross-twisters-donuts",
+      "p4-grand-cross-ultima-upsurge": "p4-grand-cross/main/p4-grand-cross-ultima-upsurge",
+      "p4-grand-cross-stray-flames": "p4-grand-cross/main/p4-grand-cross-stray-flames",
+      "p4-grand-cross-long-debuffs": "p4-grand-cross/main/p4-grand-cross-long-debuffs",
+      "p4-grand-cross-death-wave-2": "p4-grand-cross/main/p4-grand-cross-death-wave-2",
+      "p4-grand-cross-death-bolt-2": "p4-grand-cross/main/p4-grand-cross-death-bolt-2",
+      "p4-grand-cross-blizzard-iii-blowout-4": "p4-grand-cross/main/p4-grand-cross-blizzard-iii-blowout-4",
+      "p4-grand-cross-death-shriek-2": "p4-grand-cross/main/p4-grand-cross-death-shriek-2",
+      "p4-grand-cross-twisters-donuts-2": "p4-grand-cross/main/p4-grand-cross-twisters-donuts-2",
+      "p4-grand-cross-mana-release": "p4-grand-cross/main/p4-grand-cross-mana-release",
+      "p4-grand-cross-stray-spray": "p4-grand-cross/main/p4-grand-cross-stray-spray",
+      "p4-grand-cross-thrumming-thunder-iii-5": "p4-grand-cross/main/p4-grand-cross-thrumming-thunder-iii-5",
+      "p4-grand-cross-blizzard-iii-blowout-5": "p4-grand-cross/main/p4-grand-cross-blizzard-iii-blowout-5",
+      "p5-final-kefka-ultima-upsurge": "p5-final-kefka/main/p5-final-kefka-ultima-upsurge",
+      "p5-final-kefka-untargetable": "p5-final-kefka/main/p5-final-kefka-untargetable",
+      "p5-final-kefka-targetable": "p5-final-kefka/main/p5-final-kefka-targetable",
+      "p5-final-kefka-sync-410": "p5-final-kefka/main/p5-final-kefka-sync-410",
+      "p5-final-kefka-ultima-repeater-castbar": "p5-final-kefka/main/p5-final-kefka-ultima-repeater-castbar",
+      "p5-final-kefka-ultima-repeater-1": "p5-final-kefka/main/p5-final-kefka-ultima-repeater-1",
+      "p5-final-kefka-ultima-repeater-2": "p5-final-kefka/main/p5-final-kefka-ultima-repeater-2",
+      "p5-final-kefka-ultima-repeater-3": "p5-final-kefka/main/p5-final-kefka-ultima-repeater-3",
+      "p5-final-kefka-ultima-repeater-4": "p5-final-kefka/main/p5-final-kefka-ultima-repeater-4",
+      "p5-final-kefka-fell-forces-1": "p5-final-kefka/main/p5-final-kefka-fell-forces-1",
+      "p5-final-kefka-fell-forces-2": "p5-final-kefka/main/p5-final-kefka-fell-forces-2",
+      "p5-final-kefka-fell-forces-3": "p5-final-kefka/main/p5-final-kefka-fell-forces-3",
+      "p5-final-kefka-flood-tell-1": "p5-final-kefka/main/p5-final-kefka-flood-tell-1",
+      "p5-final-kefka-flood-tell-2": "p5-final-kefka/main/p5-final-kefka-flood-tell-2",
+      "p5-final-kefka-flood-tell-3": "p5-final-kefka/main/p5-final-kefka-flood-tell-3",
+      "p5-final-kefka-flood-tell-4": "p5-final-kefka/main/p5-final-kefka-flood-tell-4",
+      "p5-final-kefka-flood-castbar": "p5-final-kefka/main/p5-final-kefka-flood-castbar",
+      "p5-final-kefka-chaotic-flood-x4": "p5-final-kefka/main/p5-final-kefka-chaotic-flood-x4",
+      "p5-final-kefka-flood-1": "p5-final-kefka/main/p5-final-kefka-flood-1",
+      "p5-final-kefka-flood-2": "p5-final-kefka/main/p5-final-kefka-flood-2",
+      "p5-final-kefka-flood-3": "p5-final-kefka/main/p5-final-kefka-flood-3",
+      "p5-final-kefka-flood-4": "p5-final-kefka/main/p5-final-kefka-flood-4",
+      "p5-final-kefka-maddening-orchestra": "p5-final-kefka/main/p5-final-kefka-maddening-orchestra",
+      "p5-final-kefka-holy": "p5-final-kefka/main/p5-final-kefka-holy",
+      "p5-final-kefka-flare": "p5-final-kefka/main/p5-final-kefka-flare",
+      "p5-final-kefka-maddening-orchestra-2": "p5-final-kefka/main/p5-final-kefka-maddening-orchestra-2",
+      "p5-final-kefka-holy-2": "p5-final-kefka/main/p5-final-kefka-holy-2",
+      "p5-final-kefka-chaotic-flare": "p5-final-kefka/main/p5-final-kefka-chaotic-flare",
+      "p5-final-kefka-chaotic-holy": "p5-final-kefka/main/p5-final-kefka-chaotic-holy",
+      "p5-final-kefka-flare-diffusion": "p5-final-kefka/main/p5-final-kefka-flare-diffusion",
+      "p5-final-kefka-fell-forces-1-2": "p5-final-kefka/main/p5-final-kefka-fell-forces-1-2",
+      "p5-final-kefka-fell-forces-2-2": "p5-final-kefka/main/p5-final-kefka-fell-forces-2-2",
+      "p5-final-kefka-celestriad": "p5-final-kefka/main/p5-final-kefka-celestriad",
+      "p5-final-kefka-1st-tower": "p5-final-kefka/main/p5-final-kefka-1st-tower",
+      "p5-final-kefka-catastrophic-choice": "p5-final-kefka/main/p5-final-kefka-catastrophic-choice",
+      "p5-final-kefka-2nd-tower": "p5-final-kefka/main/p5-final-kefka-2nd-tower",
+      "p5-final-kefka-fire-iii-blizzard-iii-thunder-iii": "p5-final-kefka/main/p5-final-kefka-fire-iii-blizzard-iii-thunder-iii",
+      "p5-final-kefka-quake-tornado": "p5-final-kefka/main/p5-final-kefka-quake-tornado",
+      "p5-final-kefka-3rd-tower": "p5-final-kefka/main/p5-final-kefka-3rd-tower",
+      "p5-final-kefka-fire-iii-blizzard-iii-thunder-iii-2": "p5-final-kefka/main/p5-final-kefka-fire-iii-blizzard-iii-thunder-iii-2",
+      "p5-final-kefka-catastrophic-choice-2": "p5-final-kefka/main/p5-final-kefka-catastrophic-choice-2",
+      "p5-final-kefka-fire-iii-blizzard-iii-thunder-iii-3": "p5-final-kefka/main/p5-final-kefka-fire-iii-blizzard-iii-thunder-iii-3",
+      "p5-final-kefka-quake-tornado-2": "p5-final-kefka/main/p5-final-kefka-quake-tornado-2",
+      "p5-final-kefka-ultima-repeater-castbar-2": "p5-final-kefka/main/p5-final-kefka-ultima-repeater-castbar-2",
+      "p5-final-kefka-ultima-repeater-1-2": "p5-final-kefka/main/p5-final-kefka-ultima-repeater-1-2",
+      "p5-final-kefka-ultima-repeater-2-2": "p5-final-kefka/main/p5-final-kefka-ultima-repeater-2-2",
+      "p5-final-kefka-ultima-repeater-3-2": "p5-final-kefka/main/p5-final-kefka-ultima-repeater-3-2",
+      "p5-final-kefka-ultima-repeater-4-2": "p5-final-kefka/main/p5-final-kefka-ultima-repeater-4-2",
+      "p5-final-kefka-fell-forces-1-3": "p5-final-kefka/main/p5-final-kefka-fell-forces-1-3",
+      "p5-final-kefka-fell-forces-2-3": "p5-final-kefka/main/p5-final-kefka-fell-forces-2-3",
+      "p5-final-kefka-stray-apocalypse-castbar": "p5-final-kefka/main/p5-final-kefka-stray-apocalypse-castbar",
+      "p5-final-kefka-stray-apocalypse-1-x6": "p5-final-kefka/main/p5-final-kefka-stray-apocalypse-1-x6",
+      "p5-final-kefka-stray-apocalypse-2-x6": "p5-final-kefka/main/p5-final-kefka-stray-apocalypse-2-x6",
+      "p5-final-kefka-stray-apocalypse-3-x6": "p5-final-kefka/main/p5-final-kefka-stray-apocalypse-3-x6",
+      "p5-final-kefka-stray-apocalypse-4-x6": "p5-final-kefka/main/p5-final-kefka-stray-apocalypse-4-x6",
+      "p5-final-kefka-stray-apocalypse-5-x6": "p5-final-kefka/main/p5-final-kefka-stray-apocalypse-5-x6",
+      "p5-final-kefka-stray-apocalypse-6-x6": "p5-final-kefka/main/p5-final-kefka-stray-apocalypse-6-x6",
+      "p5-final-kefka-stray-entropy-castbar": "p5-final-kefka/main/p5-final-kefka-stray-entropy-castbar",
+      "p5-final-kefka-stray-entropy": "p5-final-kefka/main/p5-final-kefka-stray-entropy",
+      "p5-final-kefka-maddening-orchestra-3": "p5-final-kefka/main/p5-final-kefka-maddening-orchestra-3",
+      "p5-final-kefka-holy-3": "p5-final-kefka/main/p5-final-kefka-holy-3",
+      "p5-final-kefka-flare-2": "p5-final-kefka/main/p5-final-kefka-flare-2",
+      "p5-final-kefka-maddening-orchestra-4": "p5-final-kefka/main/p5-final-kefka-maddening-orchestra-4",
+      "p5-final-kefka-holy-4": "p5-final-kefka/main/p5-final-kefka-holy-4",
+      "p5-final-kefka-chaotic-flare-2": "p5-final-kefka/main/p5-final-kefka-chaotic-flare-2",
+      "p5-final-kefka-flare-diffusion-2": "p5-final-kefka/main/p5-final-kefka-flare-diffusion-2",
+      "p5-final-kefka-chaotic-holy-2": "p5-final-kefka/main/p5-final-kefka-chaotic-holy-2",
+      "p5-final-kefka-sync-495": "p5-final-kefka/main/p5-final-kefka-sync-495",
+      "p5-final-kefka-fell-forces-1-4": "p5-final-kefka/main/p5-final-kefka-fell-forces-1-4",
+      "p5-final-kefka-fell-forces-2-4": "p5-final-kefka/main/p5-final-kefka-fell-forces-2-4",
+      "p5-final-kefka-fell-forces-3-2": "p5-final-kefka/main/p5-final-kefka-fell-forces-3-2",
+      "p5-final-kefka-forsaken-1": "p5-final-kefka/main/p5-final-kefka-forsaken-1",
+      "p5-final-kefka-forsaken-ground-forsaken-bonds-1": "p5-final-kefka/main/p5-final-kefka-forsaken-ground-forsaken-bonds-1",
+      "p5-final-kefka-forsaken-2": "p5-final-kefka/main/p5-final-kefka-forsaken-2",
+      "p5-final-kefka-forsaken-ground-forsaken-bonds-2": "p5-final-kefka/main/p5-final-kefka-forsaken-ground-forsaken-bonds-2",
+      "p5-final-kefka-forsaken-3": "p5-final-kefka/main/p5-final-kefka-forsaken-3",
+      "p5-final-kefka-forsaken-ground-forsaken-bonds-3": "p5-final-kefka/main/p5-final-kefka-forsaken-ground-forsaken-bonds-3",
+      "p5-final-kefka-forsaken-4": "p5-final-kefka/main/p5-final-kefka-forsaken-4",
+      "p5-final-kefka-forsaken-ground-forsaken-bonds-4": "p5-final-kefka/main/p5-final-kefka-forsaken-ground-forsaken-bonds-4",
+      "p5-final-kefka-sync-511": "p5-final-kefka/main/p5-final-kefka-sync-511",
+      "p5-final-kefka-forsaken-null-enrage": "p5-final-kefka/main/p5-final-kefka-forsaken-null-enrage",
+      "p5-final-kefka-untargetable-2": "p5-final-kefka/main/p5-final-kefka-untargetable-2",
+      "p1-enrage-light-of-judgment": "p1-enrage/main/p1-enrage-light-of-judgment",
+      "p2-enrage-light-of-judgment": "p2-enrage/main/p2-enrage-light-of-judgment",
+      "p4-enrage-light-of-judgment": "p4-enrage/main/p4-enrage-light-of-judgment"
+    },
+    "controls": {
+      "p1-kefka": [
+        {
+          "id": "p1-kefka/main",
+          "offset": 0
+        }
+      ],
+      "p2-god-kefka": [
+        {
+          "id": "p2-god-kefka/main",
+          "offset": 0
+        }
+      ],
+      "p3-chaos-exdeath": [
+        {
+          "id": "p3-chaos-exdeath/main",
+          "offset": 0
+        }
+      ],
+      "p3-chaos-enrage": [
+        {
+          "id": "p3-chaos-enrage/main",
+          "offset": 0
+        }
+      ],
+      "p3-exdeath-enrage": [
+        {
+          "id": "p3-exdeath-enrage/main",
+          "offset": 0
+        }
+      ],
+      "p4-grand-cross": [
+        {
+          "id": "p4-grand-cross/main",
+          "offset": 0
+        }
+      ],
+      "p5-final-kefka": [
+        {
+          "id": "p5-final-kefka/main",
+          "offset": 0
+        }
+      ],
+      "p1-enrage": [
+        {
+          "id": "p1-enrage/main",
+          "offset": 0
+        }
+      ],
+      "p2-enrage": [
+        {
+          "id": "p2-enrage/main",
+          "offset": 0
+        }
+      ],
+      "p4-enrage": [
+        {
+          "id": "p4-enrage/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "p1-kefka": "p1-kefka/main",
+      "p2-god-kefka": "p2-god-kefka/main",
+      "p3-chaos-exdeath": "p3-chaos-exdeath/main",
+      "chaos-dual-enrage": "p3-chaos-exdeath/main/reaction/chaos-dual-enrage",
+      "exdeath-dual-enrage": "p3-chaos-exdeath/main/reaction/exdeath-dual-enrage",
+      "p3-chaos-enrage": "p3-chaos-enrage/main",
+      "p3-exdeath-enrage": "p3-exdeath-enrage/main",
+      "p4-grand-cross": "p4-grand-cross/main",
+      "p5-final-kefka": "p5-final-kefka/main",
+      "p1-enrage": "p1-enrage/main",
+      "p2-enrage": "p2-enrage/main",
+      "p4-enrage": "p4-enrage/main"
+    }
+  },
+  "btimeline/timelines/clyteum.kdl": {
+    "events": {
+      "eye-opening-eyes": "eye/main/eye-opening-eyes",
+      "eye-opening-beam-first": "eye/main/eye-opening-beam-first",
+      "eye-opening-beam-second": "eye/main/eye-opening-beam-second",
+      "eye-opening-eyes-second": "eye/main/eye-opening-eyes-second",
+      "eye-opening-scanner": "eye/main/eye-opening-scanner",
+      "eye-opening-ballistic-first": "eye/main/eye-opening-ballistic-first",
+      "eye-opening-penetrator": "eye/main/eye-opening-penetrator",
+      "eye-opening-ballistic-second": "eye/main/eye-opening-ballistic-second",
+      "eye-opening-surface-first": "eye/main/eye-opening-surface-first",
+      "eye-opening-surface-second": "eye/main/eye-opening-surface-second",
+      "eye-opening-beam-third": "eye/main/eye-opening-beam-third",
+      "eye-opening-eyes-third": "eye/main/eye-opening-eyes-third",
+      "eye-opening-scanner-second": "eye/main/eye-opening-scanner-second",
+      "eye-opening-antipersonnel": "eye/main/eye-opening-antipersonnel",
+      "eye-eyes-first": "eye/main/loop/eye-rotation/eye-eyes-first",
+      "eye-ballistic": "eye/main/loop/eye-rotation/eye-ballistic",
+      "eye-surface-first": "eye/main/loop/eye-rotation/eye-surface-first",
+      "eye-surface-second": "eye/main/loop/eye-rotation/eye-surface-second",
+      "eye-beam": "eye/main/loop/eye-rotation/eye-beam",
+      "eye-eyes-second": "eye/main/loop/eye-rotation/eye-eyes-second",
+      "eye-scanner": "eye/main/loop/eye-rotation/eye-scanner",
+      "eye-antipersonnel": "eye/main/loop/eye-rotation/eye-antipersonnel",
+      "chort-opening-ripples": "chort/main/chort-opening-ripples",
+      "chort-opening-mortifying": "chort/main/chort-opening-mortifying",
+      "chort-opening-mortifying-followup": "chort/main/chort-opening-mortifying-followup",
+      "chort-opening-body": "chort/main/chort-opening-body",
+      "chort-opening-vomit": "chort/main/chort-opening-vomit",
+      "chort-opening-body-sequence": "chort/main/chort-opening-body-sequence",
+      "chort-opening-ripples-second": "chort/main/chort-opening-ripples-second",
+      "chort-opening-mortifying-second": "chort/main/chort-opening-mortifying-second",
+      "chort-opening-mortifying-followup-second": "chort/main/chort-opening-mortifying-followup-second",
+      "chort-opening-mortifying-followup-third": "chort/main/chort-opening-mortifying-followup-third",
+      "chort-opening-body-second": "chort/main/chort-opening-body-second",
+      "chort-opening-emission": "chort/main/chort-opening-emission",
+      "chort-opening-pressure": "chort/main/chort-opening-pressure",
+      "chort-opening-vomit-second": "chort/main/chort-opening-vomit-second",
+      "chort-opening-body-sequence-second": "chort/main/chort-opening-body-sequence-second",
+      "chort-opening-ripples-third": "chort/main/chort-opening-ripples-third",
+      "chort-emission": "chort/main/loop/chort-rotation/chort-emission",
+      "chort-pressure": "chort/main/loop/chort-rotation/chort-pressure",
+      "chort-vomit": "chort/main/loop/chort-rotation/chort-vomit",
+      "chort-ripples": "chort/main/loop/chort-rotation/chort-ripples",
+      "chort-body-sequence": "chort/main/loop/chort-rotation/chort-body-sequence",
+      "malphas-opening-rubbish": "malphas/main/malphas-opening-rubbish",
+      "malphas-opening-void": "malphas/main/malphas-opening-void",
+      "malphas-opening-scrap": "malphas/main/malphas-opening-scrap",
+      "malphas-opening-strings-first": "malphas/main/malphas-opening-strings-first",
+      "malphas-opening-helper-first": "malphas/main/malphas-opening-helper-first",
+      "malphas-opening-strings-second": "malphas/main/malphas-opening-strings-second",
+      "malphas-opening-helper-second": "malphas/main/malphas-opening-helper-second",
+      "malphas-opening-wire": "malphas/main/malphas-opening-wire",
+      "malphas-opening-rubbish-second": "malphas/main/malphas-opening-rubbish-second",
+      "malphas-opening-scrap-second": "malphas/main/malphas-opening-scrap-second",
+      "malphas-pair": "malphas/main/loop/malphas-rotation/malphas-pair",
+      "malphas-pair-helpers": "malphas/main/loop/malphas-rotation/malphas-pair-helpers",
+      "malphas-void-first": "malphas/main/loop/malphas-rotation/malphas-void-first",
+      "malphas-string-up": "malphas/main/loop/malphas-rotation/malphas-string-up",
+      "malphas-shadow": "malphas/main/loop/malphas-rotation/malphas-shadow",
+      "malphas-rubbish-first": "malphas/main/loop/malphas-rotation/malphas-rubbish-first",
+      "malphas-scrap-first": "malphas/main/loop/malphas-rotation/malphas-scrap-first",
+      "malphas-mastery-first": "malphas/main/loop/malphas-rotation/malphas-mastery-first",
+      "malphas-mastery-helpers-first": "malphas/main/loop/malphas-rotation/malphas-mastery-helpers-first",
+      "malphas-void-second": "malphas/main/loop/malphas-rotation/malphas-void-second",
+      "malphas-mastery-second": "malphas/main/loop/malphas-rotation/malphas-mastery-second",
+      "malphas-mastery-helpers-second": "malphas/main/loop/malphas-rotation/malphas-mastery-helpers-second",
+      "malphas-void-third": "malphas/main/loop/malphas-rotation/malphas-void-third",
+      "malphas-rubbish-second": "malphas/main/loop/malphas-rotation/malphas-rubbish-second",
+      "malphas-scrap-second": "malphas/main/loop/malphas-rotation/malphas-scrap-second"
+    },
+    "controls": {
+      "eye": [
+        {
+          "id": "eye/main",
+          "offset": 0
+        }
+      ],
+      "chort": [
+        {
+          "id": "chort/main",
+          "offset": 0
+        }
+      ],
+      "malphas": [
+        {
+          "id": "malphas/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "eye": "eye/main",
+      "eye-rotation": "eye/main/loop/eye-rotation",
+      "chort": "chort/main",
+      "chort-rotation": "chort/main/loop/chort-rotation",
+      "malphas": "malphas/main",
+      "malphas-rotation": "malphas/main/loop/malphas-rotation"
+    }
+  },
+  "btimeline/docs/examples/susano-fflogs-smoke.kdl": {
+    "events": {
+      "second-cast": "sample/main/second-cast"
+    },
+    "controls": {
+      "sample": [
+        {
+          "id": "sample/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "sample": "sample/main"
+    }
+  },
+  "btimeline/tests/fixtures/timeline/varis-choice-windows.kdl": {
+    "events": {
+      "loaded-gunshield": "loaded/main/loaded-gunshield",
+      "reinforced-gunshield": "reinforced/main/reinforced-gunshield",
+      "electrified-gunshield": "electrified/main/electrified-gunshield"
+    },
+    "controls": {
+      "random-groups": [
+        {
+          "id": "random-groups/main",
+          "offset": 0
+        }
+      ],
+      "loaded": [
+        {
+          "id": "loaded/main",
+          "offset": 0
+        }
+      ],
+      "reinforced": [
+        {
+          "id": "reinforced/main",
+          "offset": 0
+        }
+      ],
+      "electrified": [
+        {
+          "id": "electrified/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "random-groups": "random-groups/main",
+      "loaded": "loaded/main",
+      "reinforced": "reinforced/main",
+      "electrified": "electrified/main"
+    }
+  },
+  "btimeline/tests/fixtures/timeline/shared-scheduled-sequence.kdl": {
+    "events": {
+      "scheduled-hit": "main/main/scheduled-hit",
+      "left-hit": "main/main/choice/left/left-hit",
+      "pulse": "main/main/loop/pulses/pulse",
+      "parent-hit": "main/main/parent-hit"
+    },
+    "controls": {
+      "main": [
+        {
+          "id": "main/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "main": "main/main",
+      "choice": "main/main/choice",
+      "pulses": "main/main/loop/pulses"
+    }
+  },
+  "btimeline/tests/fixtures/timeline/shared-phase-control.kdl": {
+    "events": {
+      "first-hit": "first/main/first-hit",
+      "cancelled": "first/main/cancelled",
+      "second-zero": "second/main/second-zero",
+      "second-hit": "second/main/second-hit",
+      "third-hit": "third/main/third-hit",
+      "root": "root"
+    },
+    "controls": {
+      "first": [
+        {
+          "id": "first/main",
+          "offset": 0
+        }
+      ],
+      "second": [
+        {
+          "id": "second/main",
+          "offset": 0
+        }
+      ],
+      "third": [
+        {
+          "id": "third/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "first": "first/main",
+      "second": "second/main",
+      "third": "third/main"
+    }
+  },
+  "btimeline/tests/fixtures/timeline/shared-forward-transition.kdl": {
+    "events": {
+      "crossed": "second/main/crossed",
+      "on-time": "second/main/on-time",
+      "tail": "second/main/tail"
+    },
+    "controls": {
+      "first": [
+        {
+          "id": "first/main",
+          "offset": 0
+        }
+      ],
+      "second": [
+        {
+          "id": "second/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "first": "first/main",
+      "second": "second/main"
+    }
+  },
+  "btimeline/tests/fixtures/timeline/shared-body.kdl": {
+    "events": {
+      "left-hit": "fight/opening/choice/left/left-hit",
+      "left-common": "fight/opening/choice/shared/common",
+      "right-hit": "fight/opening/choice/right/right-hit",
+      "right-common": "fight/opening/choice/shared/common",
+      "joined": "fight/continuation/joined",
+      "recovered": "recovery/main/recovered"
+    },
+    "controls": {
+      "opening": [
+        {
+          "id": "fight/opening",
+          "offset": 0
+        }
+      ],
+      "choice": [
+        {
+          "id": "fight/opening",
+          "offset": 5
+        },
+        {
+          "id": "fight/opening/choice/left",
+          "offset": 0
+        },
+        {
+          "id": "fight/opening/choice/right",
+          "offset": 0
+        }
+      ],
+      "left": [
+        {
+          "id": "fight/opening/choice/left",
+          "offset": 0
+        }
+      ],
+      "right": [
+        {
+          "id": "fight/opening/choice/right",
+          "offset": 0
+        }
+      ],
+      "continuation": [
+        {
+          "id": "fight/continuation",
+          "offset": 0
+        }
+      ],
+      "fight": [
+        {
+          "id": "fight/opening",
+          "offset": 0
+        },
+        {
+          "id": "fight/opening/choice/left",
+          "offset": 0
+        },
+        {
+          "id": "fight/opening/choice/right",
+          "offset": 0
+        },
+        {
+          "id": "fight/continuation",
+          "offset": 0
+        }
+      ],
+      "recovery": [
+        {
+          "id": "recovery/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "opening": "fight/opening",
+      "choice": "fight/opening/choice",
+      "continuation": "fight/continuation",
+      "recovery": "recovery/main"
+    },
+    "removedEvents": {
+      "uncertain": "Removed synthetic preview (fight/opening/choice/preview/uncertain); alternatives derive from real option events"
+    }
+  },
+  "btimeline/tests/fixtures/timeline/option-loop.kdl": {
+    "events": {
+      "pulse": "boss/main/choice/left/loop/left-loop/pulse",
+      "other": "boss/main/choice/right/loop/right-loop/other",
+      "shared": "boss/main/choice/merge/shared"
+    },
+    "controls": {
+      "boss": [
+        {
+          "id": "boss/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "boss": "boss/main",
+      "choice": "boss/main/choice",
+      "left-loop": "boss/main/choice/left/loop/left-loop",
+      "right-loop": "boss/main/choice/right/loop/right-loop"
+    }
+  },
+  "btimeline/tests/fixtures/timeline/meso-terminal-loop.kdl": {
+    "events": {
+      "no-mans-land": "rotation/main/loop/chirurgeon-rotation/no-mans-land",
+      "sensory-deprivation": "rotation/main/loop/chirurgeon-rotation/sensory-deprivation",
+      "sphere-or-aerosol-first": "rotation/main/loop/chirurgeon-rotation/sphere-or-aerosol-first",
+      "sphere-or-aerosol-second": "rotation/main/loop/chirurgeon-rotation/sphere-or-aerosol-second",
+      "biochemical-front": "rotation/main/loop/chirurgeon-rotation/biochemical-front",
+      "medicine-field": "rotation/main/loop/chirurgeon-rotation/medicine-field",
+      "concentrated-dose": "rotation/main/loop/chirurgeon-rotation/concentrated-dose"
+    },
+    "controls": {
+      "rotation": [
+        {
+          "id": "rotation/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "rotation": "rotation/main",
+      "chirurgeon-rotation": "rotation/main/loop/chirurgeon-rotation"
+    }
+  },
+  "btimeline/tests/fixtures/timeline/flow-sequence.kdl": {
+    "events": {
+      "left-hit": "fight/opening/choice/left/left-hit",
+      "right-hit": "fight/opening/choice/right/right-hit",
+      "joined": "fight/continuation/joined",
+      "recovered": "recovery/main/recovered"
+    },
+    "controls": {
+      "opening": [
+        {
+          "id": "fight/opening",
+          "offset": 0
+        }
+      ],
+      "choice": [
+        {
+          "id": "fight/opening",
+          "offset": 5
+        },
+        {
+          "id": "fight/opening/choice/left",
+          "offset": 0
+        },
+        {
+          "id": "fight/opening/choice/right",
+          "offset": 0
+        }
+      ],
+      "left": [
+        {
+          "id": "fight/opening/choice/left",
+          "offset": 0
+        }
+      ],
+      "right": [
+        {
+          "id": "fight/opening/choice/right",
+          "offset": 0
+        }
+      ],
+      "continuation": [
+        {
+          "id": "fight/continuation",
+          "offset": 0
+        }
+      ],
+      "fight": [
+        {
+          "id": "fight/opening",
+          "offset": 0
+        },
+        {
+          "id": "fight/opening/choice/left",
+          "offset": 0
+        },
+        {
+          "id": "fight/opening/choice/right",
+          "offset": 0
+        },
+        {
+          "id": "fight/continuation",
+          "offset": 0
+        }
+      ],
+      "recovery": [
+        {
+          "id": "recovery/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "opening": "fight/opening",
+      "choice": "fight/opening/choice",
+      "continuation": "fight/continuation",
+      "recovery": "recovery/main"
+    },
+    "removedEvents": {
+      "uncertain": "Removed synthetic preview (fight/opening/choice/preview/uncertain); alternatives derive from real option events"
+    }
+  },
+  "btimeline/tests/fixtures/timeline/fflogs-native.kdl": {
+    "events": {
+      "second-cast": "boss/main/second-cast"
+    },
+    "controls": {
+      "boss": [
+        {
+          "id": "boss/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "boss": "boss/main"
+    }
+  },
+  "btimeline/tests/fixtures/timeline/branch-loop.kdl": {
+    "events": {
+      "phase-hit": "boss/main/phase-hit",
+      "left-hit": "boss/main/choice/left/left-hit",
+      "right-hit": "boss/main/choice/right/right-hit",
+      "pulse": "boss/main/loop/rotation/pulse"
+    },
+    "controls": {
+      "boss": [
+        {
+          "id": "boss/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "boss": "boss/main",
+      "choice": "boss/main/choice",
+      "rotation": "boss/main/loop/rotation"
+    }
+  },
+  "btimeline/tests/fixtures/timeline/branch-join.kdl": {
+    "events": {
+      "left-hit": "fight/opening/choice/left/left-hit",
+      "right-hit": "fight/opening/choice/right/right-hit",
+      "joined": "fight/continuation/joined",
+      "recovered": "recovery/main/recovered"
+    },
+    "controls": {
+      "opening": [
+        {
+          "id": "fight/opening",
+          "offset": 0
+        }
+      ],
+      "choice": [
+        {
+          "id": "fight/opening",
+          "offset": 5
+        },
+        {
+          "id": "fight/opening/choice/left",
+          "offset": 0
+        },
+        {
+          "id": "fight/opening/choice/right",
+          "offset": 0
+        }
+      ],
+      "left": [
+        {
+          "id": "fight/opening/choice/left",
+          "offset": 0
+        }
+      ],
+      "right": [
+        {
+          "id": "fight/opening/choice/right",
+          "offset": 0
+        }
+      ],
+      "continuation": [
+        {
+          "id": "fight/continuation",
+          "offset": 0
+        }
+      ],
+      "fight": [
+        {
+          "id": "fight/opening",
+          "offset": 0
+        },
+        {
+          "id": "fight/opening/choice/left",
+          "offset": 0
+        },
+        {
+          "id": "fight/opening/choice/right",
+          "offset": 0
+        },
+        {
+          "id": "fight/continuation",
+          "offset": 0
+        }
+      ],
+      "recovery": [
+        {
+          "id": "recovery/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "opening": "fight/opening",
+      "choice": "fight/opening/choice",
+      "continuation": "fight/continuation",
+      "recovery": "recovery/main"
+    },
+    "removedEvents": {
+      "uncertain": "Removed synthetic preview (fight/opening/choice/preview/uncertain); alternatives derive from real option events"
+    }
+  },
+  "btimeline/tests/fixtures/timeline/basic.kdl": {
+    "events": {
+      "opening-hit": "opening/main/opening-hit",
+      "after-sync": "opening/main/after-sync",
+      "cancelled-by-phase": "opening/main/cancelled-by-phase",
+      "second-start": "second/main/second-start",
+      "second-hit": "second/main/second-hit",
+      "beyond-recording": "second/main/beyond-recording"
+    },
+    "controls": {
+      "opening": [
+        {
+          "id": "opening/main",
+          "offset": 0
+        }
+      ],
+      "second": [
+        {
+          "id": "second/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "opening": "opening/main",
+      "second": "second/main"
+    }
+  },
+  "btimeline/tests/fixtures/authored/doomtrain-inferred-pilot.kdl": {
+    "events": {
+      "turret-first": "train/main/turret-first",
+      "emission-a": "train/main/emission-a",
+      "emission-b": "train/main/emission-b",
+      "runaway": "train/main/runaway",
+      "turret-second": "train/main/turret-second",
+      "emission-b-late": "train/main/emission-b-late",
+      "emission-a-late": "train/main/emission-a-late"
+    },
+    "controls": {
+      "train": [
+        {
+          "id": "train/main",
+          "offset": 0
+        }
+      ]
+    },
+    "owners": {
+      "train": "train/main"
+    }
+  }
+}

@@ -75,6 +75,10 @@ fn repeated_openings_enter_once_and_preserve_each_boss_clock(#[case] mode: &str)
         let repeated: Vec<_> = phase
             .children()
             .unwrap()
+            .get("step")
+            .unwrap()
+            .children()
+            .unwrap()
             .nodes()
             .iter()
             .filter(|node| {

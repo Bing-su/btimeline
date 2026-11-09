@@ -3,7 +3,7 @@
   "observations": "all_casts",
   "segments": [
     {
-      "phase": "treno",
+      "phase": "treno/main",
       "source": "Treno Catoblepas",
       "entry": ["A93F"],
       "completion": "defeat",
@@ -11,49 +11,55 @@
         "A93F": {
           "name": "Earthquake",
           "events": [
-            "treno-opening-earthquake",
-            "treno-opening-earthquake-second",
-            "treno-opening-earthquake-third",
-            "treno-earthquake",
-            "treno-earthquake-second"
+            "treno/main/treno-opening-earthquake",
+            "treno/main/treno-opening-earthquake-second",
+            "treno/main/treno-opening-earthquake-third",
+            "treno/main/loop/treno-rotation/treno-earthquake",
+            "treno/main/loop/treno-rotation/treno-earthquake-second"
           ]
         },
         "A943": {
           "name": "Thunder II",
           "events": [
-            "treno-opening-thunder-ii",
-            "treno-opening-thunder-ii-second",
-            "treno-opening-thunder-ii-third",
-            "treno-thunder-ii",
-            "treno-thunder-ii-second"
+            "treno/main/treno-opening-thunder-ii",
+            "treno/main/treno-opening-thunder-ii-second",
+            "treno/main/treno-opening-thunder-ii-third",
+            "treno/main/loop/treno-rotation/treno-thunder-ii",
+            "treno/main/loop/treno-rotation/treno-thunder-ii-second"
           ]
         },
         "A942": {
           "name": "Bedeviling Light",
           "events": [
-            "treno-opening-light",
-            "treno-opening-light-second",
-            "treno-opening-light-third",
-            "treno-light",
-            "treno-light-second"
+            "treno/main/treno-opening-light",
+            "treno/main/treno-opening-light-second",
+            "treno/main/treno-opening-light-third",
+            "treno/main/loop/treno-rotation/treno-light",
+            "treno/main/loop/treno-rotation/treno-light-second"
           ]
         },
         "A941": {
           "name": "Thunder III",
-          "events": ["treno-opening-thunder-iii", "treno-thunder-iii"]
+          "events": [
+            "treno/main/treno-opening-thunder-iii",
+            "treno/main/loop/treno-rotation/treno-thunder-iii"
+          ]
         },
         "AF19": {
           "name": "Ray of Lightning",
-          "events": ["treno-opening-ray", "treno-ray"]
+          "events": ["treno/main/treno-opening-ray", "treno/main/loop/treno-rotation/treno-ray"]
         },
         "A947": {
           "name": "Petribreath",
-          "events": ["treno-opening-petribreath", "treno-petribreath"]
+          "events": [
+            "treno/main/treno-opening-petribreath",
+            "treno/main/loop/treno-rotation/treno-petribreath"
+          ]
         }
       }
     },
     {
-      "phase": "amdusias",
+      "phase": "amdusias/main",
       "source": "Amdusias",
       "entry": ["B118", "B11D"],
       "completion": "defeat",
@@ -61,90 +67,111 @@
         "B118": {
           "name": "Thunderclap Concerto",
           "events": [
-            "amdusias-opening-concerto",
-            "amdusias-opening-concerto-second",
-            "amdusias-concerto"
+            "amdusias/main/amdusias-opening-concerto",
+            "amdusias/main/amdusias-opening-concerto-second",
+            "amdusias/main/loop/amdusias-rotation/amdusias-concerto"
           ]
         },
         "B11D": {
           "name": "Thunderclap Concerto",
           "events": [
-            "amdusias-opening-concerto",
-            "amdusias-opening-concerto-second",
-            "amdusias-concerto"
+            "amdusias/main/amdusias-opening-concerto",
+            "amdusias/main/amdusias-opening-concerto-second",
+            "amdusias/main/loop/amdusias-rotation/amdusias-concerto"
           ]
         },
         "B120": {
           "name": "Bio II",
-          "events": ["amdusias-opening-bio", "amdusias-bio"]
+          "events": [
+            "amdusias/main/amdusias-opening-bio",
+            "amdusias/main/loop/amdusias-rotation/amdusias-bio"
+          ]
         },
         "B122": {
           "name": "Galloping Thunder",
-          "events": ["amdusias-opening-gallop", "amdusias-gallop"]
+          "events": [
+            "amdusias/main/amdusias-opening-gallop",
+            "amdusias/main/loop/amdusias-rotation/amdusias-gallop"
+          ]
         },
         "B126": {
           "name": "Thunder IV",
-          "events": ["amdusias-thunder-iv"]
+          "events": ["amdusias/main/loop/amdusias-rotation/amdusias-thunder-iv"]
         },
         "B12B": {
           "name": "Shockbolt",
-          "events": ["amdusias-shockbolt"]
+          "events": ["amdusias/main/loop/amdusias-rotation/amdusias-shockbolt"]
         },
         "B11F": {
           "name": "Thunder",
-          "events": ["amdusias-thunder"]
+          "events": ["amdusias/main/loop/amdusias-rotation/amdusias-thunder"]
         },
         "B129": {
           "name": "Thunder III",
-          "events": ["amdusias-thunder-iii"]
+          "events": ["amdusias/main/loop/amdusias-rotation/amdusias-thunder-iii"]
         }
       }
     },
     {
-      "phase": "griffin",
+      "phase": "griffin/main",
       "source": "Thundergust Griffin",
       "entry": ["B0EB"],
       "completion": "defeat",
       "targets": {
         "B0EB": {
           "name": "Thunderspark",
-          "events": ["opening-thunderspark", "rotation-thunderspark"]
+          "events": [
+            "griffin/main/opening-thunderspark",
+            "griffin/main/loop/late-rotation/rotation-thunderspark"
+          ]
         },
         "B0EC": {
           "name": "High Volts",
-          "events": ["opening-high-volts", "rotation-high-volts"]
+          "events": [
+            "griffin/main/opening-high-volts",
+            "griffin/main/loop/late-rotation/rotation-high-volts"
+          ]
         },
         "B0EF": {
           "name": "Thundering Roar",
           "events": [
-            "opening-roar-first",
-            "opening-roar-second",
-            "opening-roar-last",
-            "rotation-roar-first",
-            "rotation-roar-second",
-            "rotation-roar-last"
+            "griffin/main/opening-roar-first",
+            "griffin/main/opening-roar-second",
+            "griffin/main/opening-roar-last",
+            "griffin/main/loop/late-rotation/rotation-roar-first",
+            "griffin/main/loop/late-rotation/rotation-roar-second",
+            "griffin/main/loop/late-rotation/rotation-roar-last"
           ]
         },
         "B0F3": {
           "name": "Storm Surge",
-          "events": ["rotation-storm-surge"]
+          "events": ["griffin/main/loop/late-rotation/rotation-storm-surge"]
         },
         "B0F4": {
           "name": "Electrifying Flight",
           "source": "Shock Storm",
-          "events": ["rotation-electrifying-flight"]
+          "events": ["griffin/main/loop/late-rotation/rotation-electrifying-flight"]
         },
         "B0F5": {
           "name": "Fulgurous Fall",
-          "events": ["opening-fulgurous-fall", "rotation-fulgurous-fall"]
+          "events": [
+            "griffin/main/opening-fulgurous-fall",
+            "griffin/main/loop/late-rotation/rotation-fulgurous-fall"
+          ]
         },
         "B0F8": {
           "name": "Electrogenetic Force",
-          "events": ["opening-electrogenetic-force", "rotation-electrogenetic-force"]
+          "events": [
+            "griffin/main/opening-electrogenetic-force",
+            "griffin/main/loop/late-rotation/rotation-electrogenetic-force"
+          ]
         },
         "B0F9": {
           "name": "Golden Talons",
-          "events": ["opening-golden-talons", "rotation-golden-talons"]
+          "events": [
+            "griffin/main/opening-golden-talons",
+            "griffin/main/loop/late-rotation/rotation-golden-talons"
+          ]
         }
       }
     }

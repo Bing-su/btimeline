@@ -1,0 +1,29 @@
+timeline 2 "Shared phase control" {
+    start "Pull"
+    wipe "Wipe"
+    event "root" 7 name="Root"
+    phase first {
+        step main {
+            enter "Pull"
+            sync 1 "Anchor" before=0.1 after=0.1
+            event first-hit 2 name="First"
+            event cancelled 5 name="Cancelled"
+        }
+    }
+    phase second {
+        step main {
+            enter "Next" from="first/main" at=5 before=0.2 after=1
+            after 5 from="first/main"
+            sync 2 "SecondAnchor" before=1 after=1
+            event second-zero 0 name="Zero"
+            event second-hit 3 name="Second"
+        }
+    }
+    phase third {
+        step main {
+            enter "Recover" from="first/main"
+            enter "Recover" from="second/main"
+            event third-hit 6 name="Third"
+        }
+    }
+}

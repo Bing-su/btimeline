@@ -3,50 +3,65 @@
   "observations": "all_casts",
   "segments": [
     {
-      "phase": "griffin",
+      "phase": "griffin/main",
       "source": "Thundergust Griffin",
       "entry": ["B0EB"],
       "completion": "defeat",
       "targets": {
         "B0EB": {
           "name": "Thunderspark",
-          "events": ["opening-thunderspark", "rotation-thunderspark"]
+          "events": [
+            "griffin/main/opening-thunderspark",
+            "griffin/main/loop/late-rotation/rotation-thunderspark"
+          ]
         },
         "B0EC": {
           "name": "High Volts",
-          "events": ["opening-high-volts", "rotation-high-volts"]
+          "events": [
+            "griffin/main/opening-high-volts",
+            "griffin/main/loop/late-rotation/rotation-high-volts"
+          ]
         },
         "B0EF": {
           "name": "Thundering Roar",
           "events": [
-            "opening-roar-first",
-            "opening-roar-second",
-            "opening-roar-last",
-            "rotation-roar-first",
-            "rotation-roar-second",
-            "rotation-roar-last"
+            "griffin/main/opening-roar-first",
+            "griffin/main/opening-roar-second",
+            "griffin/main/opening-roar-last",
+            "griffin/main/loop/late-rotation/rotation-roar-first",
+            "griffin/main/loop/late-rotation/rotation-roar-second",
+            "griffin/main/loop/late-rotation/rotation-roar-last"
           ]
         },
         "B0F3": {
           "name": "Storm Surge",
-          "events": ["rotation-storm-surge"]
+          "events": ["griffin/main/loop/late-rotation/rotation-storm-surge"]
         },
         "B0F4": {
           "name": "Electrifying Flight",
           "source": "Shock Storm",
-          "events": ["rotation-electrifying-flight"]
+          "events": ["griffin/main/loop/late-rotation/rotation-electrifying-flight"]
         },
         "B0F5": {
           "name": "Fulgurous Fall",
-          "events": ["opening-fulgurous-fall", "rotation-fulgurous-fall"]
+          "events": [
+            "griffin/main/opening-fulgurous-fall",
+            "griffin/main/loop/late-rotation/rotation-fulgurous-fall"
+          ]
         },
         "B0F8": {
           "name": "Electrogenetic Force",
-          "events": ["opening-electrogenetic-force", "rotation-electrogenetic-force"]
+          "events": [
+            "griffin/main/opening-electrogenetic-force",
+            "griffin/main/loop/late-rotation/rotation-electrogenetic-force"
+          ]
         },
         "B0F9": {
           "name": "Golden Talons",
-          "events": ["opening-golden-talons", "rotation-golden-talons"]
+          "events": [
+            "griffin/main/opening-golden-talons",
+            "griffin/main/loop/late-rotation/rotation-golden-talons"
+          ]
         }
       }
     }

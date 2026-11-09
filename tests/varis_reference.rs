@@ -12,9 +12,9 @@ const ORDERS: [[usize; 3]; 6] = [
     [2, 1, 0],
 ];
 const PHASES: [(&str, &str, i64); 3] = [
-    ("loaded", "4CD8", 54300),
-    ("reinforced", "4CD9", 52800),
-    ("electrified", "4CD7", 58700),
+    ("loaded/main", "4CD8", 54300),
+    ("reinforced/main", "4CD9", 52800),
+    ("electrified/main", "4CD7", 58700),
 ];
 
 #[rstest::rstest]
@@ -34,7 +34,7 @@ fn previous_gunshield_controls_the_next_window(#[case] order: [usize; 3]) {
     .unwrap();
     let mut observations = vec![json!({"at_ms":0,"type":"InCombat","fields":{"inGameCombat":"1"}})];
     let mut at = 14200;
-    let mut expected = vec![(0, "random-groups")];
+    let mut expected = vec![(0, "random-groups/main")];
     for (index, choice) in order.iter().enumerate() {
         let (phase, id, _) = PHASES[*choice];
         if index > 0 {

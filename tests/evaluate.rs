@@ -13,11 +13,23 @@ fn hash(bytes: &[u8]) -> String {
         .collect()
 }
 fn setup(directory: &Path) -> Value {
-    let timeline=b"timeline 1 \"Test\" { start \"Ability\" id=\"B528\"; phase \"boss\" { enter \"Ability\" id=\"B528\"; event \"first\" 0.0 name=\"Hit\"; event \"second\" 4.0 name=\"Hit\"; event \"third\" 8.0 name=\"Hit\"; }; }";
+    let timeline = br###"
+timeline 2 "Test" {
+    start "Ability" id="B528"
+    phase boss {
+        step main {
+            enter "Ability" id="B528"
+            event first 0.0 name="Hit"
+            event second 4.0 name="Hit"
+            event third 8.0 name="Hit"
+        }
+    }
+}
+"###;
     let raw = include_bytes!("fixtures/pull.json");
     fs::write(directory.join("timeline.kdl"), timeline).expect("valid test fixture");
     fs::write(directory.join("input.json"), raw).expect("valid test fixture");
-    fs::write(directory.join("profile.json"),serde_json::to_vec(&json!({"version":1,"observations":"all_casts","segments":[{"phase":"boss","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Hit","events":["first","second","third"]}}}],"not_checked":[]})).expect("valid test fixture")).expect("valid test fixture");
+    fs::write(directory.join("profile.json"),serde_json::to_vec(&json!({"version":1,"observations":"all_casts","segments":[{"phase":"boss/main","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Hit","events":["boss/main/first","boss/main/second","boss/main/third"]}}}],"not_checked":[]})).expect("valid test fixture")).expect("valid test fixture");
     json!({"timeline":"timeline.kdl","timeline_sha256":hash(timeline),"role":"test","forecast_lead_ms":5000,"horizon_ms":6500,"tolerance_ms":1500,"inputs":[{"input":"input.json","sha256":hash(raw)}]})
 }
 fn save(directory: &Path, manifest: &Value) {
@@ -60,18 +72,20 @@ fn inferred_evaluation_requires_one_observed_phase_and_impact_binding(
     };
     let middle_sync = sync.replace("8.0", "4.0");
     let timeline = format!(
-        r#"timeline 1 "Test" {{
+        r###"timeline 2 "Test" {{
         start "Ability" id="B528" source="Synthetic Boss"
-        phase "boss" {{
+	phase boss {{        step main {{
             enter "Ability" id="B528" source="Synthetic Boss"
-            event "first" 0.0 name="{opening_name}"
-            event "second" 4.0 name="Middle impact" {middle_sync}
-            event "third" 8.0 name="Bound impact" {sync}
-        }}
-        phase "other" {{
+            event first 0.0 name="{opening_name}"
+            event second 4.0 name="Middle impact" {middle_sync}
+            event third 8.0 name="Bound impact" {sync}
+		}}
+	}}
+	phase other {{        step main {{
             enter "Ability" id="{other_entry}" source="Synthetic Boss"
-        }}
-    }}"#
+		}}
+	}}
+}}"###
     );
     fs::write(directory.path().join("timeline.kdl"), &timeline).unwrap();
     manifest["timeline_sha256"] = json!(hash(timeline.as_bytes()));
@@ -97,7 +111,7 @@ fn inferred_evaluation_requires_one_observed_phase_and_impact_binding(
             .as_array()
             .unwrap();
         assert_eq!(candidates.len(), 2);
-        assert_eq!(candidates[1]["phase"], "other");
+        assert_eq!(candidates[1]["phase"], "other/main");
     }
     cargo_bin_cmd!("btimeline")
         .current_dir(directory.path())
@@ -133,9 +147,11 @@ fn inferred_sequential_phases_require_an_observed_boundary(
     let third = if reuse {
         r#"
         phase "third" {
-            enter "StartsUsing" id="B530" source="Synthetic Boss" from="second" at=7.0
-            enter "StartsUsing" id="B531" source="Synthetic Boss" from="first" at=24.0
+            step main {
+            enter "StartsUsing" id="B530" source="Synthetic Boss" from="second/main" at=7.0
+            enter "StartsUsing" id="B531" source="Synthetic Boss" from="first/main" at=24.0
             event "third-impact" 6.0 name="Third impact" { sync 6.0 "Ability" id="B531" source="Synthetic Boss"; }
+            }
         }
     "#
     } else {
@@ -144,13 +160,13 @@ fn inferred_sequential_phases_require_an_observed_boundary(
     let (source, entry, source_id) = if same_source {
         (
             "Synthetic Boss",
-            r#"enter "StartsUsing" id="B530" source="Synthetic Boss" from="first" at=8.0"#,
+            r#"enter "StartsUsing" id="B530" source="Synthetic Boss" from="first/main" at=8.0"#,
             10,
         )
     } else if guarded_handoff {
         (
             "Other Boss",
-            r#"enter "Ability" id="B530" source="Other Boss" from="first" at=8.0"#,
+            r#"enter "Ability" id="B530" source="Other Boss" from="first/main" at=8.0"#,
             11,
         )
     } else {
@@ -163,24 +179,28 @@ fn inferred_sequential_phases_require_an_observed_boundary(
     let competitor = competing_at.map_or_else(String::new, |at| {
         format!(
             r#"phase "competitor" {{
-            enter "StartsUsing" id="B530" source="Synthetic Boss" from="first" at={at}.0
+            step main {{
+            enter "StartsUsing" id="B530" source="Synthetic Boss" from="first/main" at={at}.0
+            }}
         }}"#
         )
     });
     let timeline = format!(
-        r#"timeline 1 "Two phases" {{
+        r###"timeline 2 "Two phases" {{
             start "Ability" id="B528" source="Synthetic Boss"
-            phase "second" {{
+	phase second {{            step main {{
                 {entry}
-                event "second-impact" 6.0 name="Second impact" {{ sync 6.0 "Ability" id="B531" source="{source}"; }}
-            }}
-            phase "first" {{
+                event second-impact 6.0 name="Second impact" {{ sync 6.0 "Ability" id="B531" source="{source}";			}}
+		}}
+	}}
+	phase first {{            step main {{
                 enter "Ability" id="B528" source="Synthetic Boss" resume-at=0.0
-                event "first-impact" 6.0 name="First impact" {{ sync 6.0 "Ability" id="B529" source="Synthetic Boss"; }}
-            }}
+                event first-impact 6.0 name="First impact" {{ sync 6.0 "Ability" id="B529" source="Synthetic Boss";			}}
+		}}
+	}}
             {third}
             {competitor}
-        }}"#
+}}"###
     );
     let mut raw: Value = serde_json::from_slice(include_bytes!("fixtures/pull.json")).unwrap();
     raw["report"]["masterData"]["actors"]
@@ -241,7 +261,7 @@ fn inferred_sequential_phases_require_an_observed_boundary(
     if passed {
         assert_eq!(trace["passed"], true, "{trace}");
         result.success();
-        assert_eq!(trace["bosses"][0]["phase"], "first");
+        assert_eq!(trace["bosses"][0]["phase"], "first/main");
         assert_eq!(
             trace["bosses"][0]["end_ms"],
             if same_source || guarded_handoff {
@@ -250,9 +270,9 @@ fn inferred_sequential_phases_require_an_observed_boundary(
                 7000
             }
         );
-        assert_eq!(trace["bosses"][1]["phase"], "second");
+        assert_eq!(trace["bosses"][1]["phase"], "second/main");
         if reuse {
-            assert_eq!(trace["bosses"][2]["phase"], "third");
+            assert_eq!(trace["bosses"][2]["phase"], "third/main");
             assert_eq!(trace["bosses"][2]["entry_ms"], 15000);
         }
         assert_eq!(trace["safe_entry"], true);
@@ -266,9 +286,9 @@ fn inferred_sequential_phases_require_an_observed_boundary(
         assert_eq!(
             trace["evidence"]["entry_candidates"][0]["phase"],
             if competing_at.is_some() {
-                "second"
+                "second/main"
             } else {
-                "first"
+                "first/main"
             }
         );
     }
@@ -281,18 +301,32 @@ fn inferred_alias_profile_follows_guarded_choice_into_shared_continuation(#[case
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path();
     let mut manifest = setup(path);
-    let timeline = r#"timeline 1 "Shared continuation" {
-        start "Ability" id="B528" source="Opening NPC"
-        phase "ready" { enter "Ability" id="B528" source="Opening NPC"; }
-        phase "choice" {
-            enter "StartsUsing" id="B528" source="Boss" from="ready" at=2.0
-            event "choice-impact" 6.0 name="Choice impact" { sync 6.0 "Ability" id="B528" source="Boss"; }
+    let timeline = r###"
+timeline 2 "Shared continuation" {
+    start "Ability" id="B528" source="Opening NPC"
+    phase ready {
+        step main {
+            enter "Ability" id="B528" source="Opening NPC"
         }
-        phase "joined" {
+    }
+    phase choice {
+        step main {
+            enter "StartsUsing" id="B528" source="Boss" from="ready/main" at=2.0
+            event choice-impact 6.0 name="Choice impact" {
+                sync 6.0 "Ability" id="B528" source="Boss"
+            }
+        }
+    }
+    phase joined {
+        step main {
             enter "StartsUsing" id="B529" source="Boss"
-            event "joined-impact" 6.0 name="Joined impact" { sync 6.0 "Ability" id="B528" source="Boss"; }
+            event joined-impact 6.0 name="Joined impact" {
+                sync 6.0 "Ability" id="B528" source="Boss"
+            }
         }
-    }"#;
+    }
+}
+"###;
     let mut raw: Value = serde_json::from_slice(include_bytes!("fixtures/pull.json")).unwrap();
     raw["report"]["masterData"]["actors"]
         .as_array_mut()
@@ -320,7 +354,7 @@ fn inferred_alias_profile_follows_guarded_choice_into_shared_continuation(#[case
     fs::write(
         path.join("profile.json"),
         json!({
-            "version":1, "observations":"all_casts_and_starts", "segments":[], "infer_segments":true, "continuations":["joined"],
+            "version":1, "observations":"all_casts_and_starts", "segments":[], "infer_segments":true, "continuations":["joined/main"],
             "source_aliases":{"opening npc":"Opening NPC","Synthetic Boss":"Boss"}, "not_checked":[]
         })
         .to_string(),
@@ -347,10 +381,10 @@ fn inferred_alias_profile_follows_guarded_choice_into_shared_continuation(#[case
         return;
     }
     assert_eq!(trace["safe_entry"], true, "{trace}");
-    assert_eq!(trace["unverified_phases"], json!(["ready"]));
-    assert_eq!(trace["bosses"][1]["phase"], "choice");
+    assert_eq!(trace["unverified_phases"], json!(["ready/main"]));
+    assert_eq!(trace["bosses"][1]["phase"], "choice/main");
     assert_eq!(trace["bosses"][1]["end_ms"], 8999);
-    assert_eq!(trace["bosses"][2]["phase"], "joined");
+    assert_eq!(trace["bosses"][2]["phase"], "joined/main");
 }
 
 #[test]
@@ -358,21 +392,27 @@ fn explicit_profile_splits_on_the_observed_entry_from_transition() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path();
     let mut manifest = setup(path);
-    let timeline = br#"timeline 1 "Linked profile" {
-        start "Ability" id="B528"
-        phase "boss" {
+    let timeline = br###"
+timeline 2 "Linked profile" {
+    start "Ability" id="B528"
+    phase boss {
+        step main {
             enter "Ability" id="B528" resume-at=0.0
-            event "first" 0.0 name="Hit"
+            event first 0.0 name="Hit"
         }
-        phase "later" {
-            enter "Ability" id="B528" source="Synthetic Boss" from="boss" at=4.0
-            event "second" 0.0 name="Hit"
-            event "third" 4.0 name="Hit"
+    }
+    phase later {
+        step main {
+            enter "Ability" id="B528" source="Synthetic Boss" from="boss/main" at=4.0
+            event second 0.0 name="Hit"
+            event third 4.0 name="Hit"
         }
-    }"#;
+    }
+}
+"###;
     let profile = json!({"version":1,"observations":"all_casts","segments":[
-        {"phase":"boss","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Hit","events":["first"]}}},
-        {"phase":"later","source":"Synthetic Boss","entry":["B528"],"entry_from":"boss","completion":"fight_end","targets":{"B528":{"name":"Hit","events":["second","third"]}}}
+        {"phase":"boss/main","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Hit","events":["boss/main/first"]}}},
+        {"phase":"later/main","source":"Synthetic Boss","entry":["B528"],"entry_from":"boss/main","completion":"fight_end","targets":{"B528":{"name":"Hit","events":["later/main/second","later/main/third"]}}}
     ],"not_checked":[]});
     fs::write(path.join("timeline.kdl"), timeline).unwrap();
     fs::write(
@@ -396,10 +436,16 @@ fn review_reports_phase_entry_mismatch_before_forecast_failures() {
     let path = directory.path();
     let mut manifest = setup(path);
     let timeline_path = path.join("timeline.kdl");
-    let timeline = fs::read_to_string(&timeline_path).unwrap().replace(
-        r#"phase "boss" { enter "Ability" id="B528""#,
-        r#"phase "opening" { enter "Ability" id="B528"; }; phase "boss" { enter "Ability" id="B528" from="opening" at=4.0"#,
-    );
+    let timeline = fs::read_to_string(&timeline_path)
+        .unwrap()
+        .replace(
+            r#"enter "Ability" id="B528""#,
+            r#"enter "Ability" id="B528" from="opening/main" at=4.0"#,
+        )
+        .replace(
+            "phase boss",
+            r#"phase opening { step main { enter "Ability" id="B528"; }; }; phase boss"#,
+        );
     fs::write(timeline_path, &timeline).unwrap();
     manifest["timeline_sha256"] = json!(hash(timeline.as_bytes()));
     save(path, &manifest);
@@ -417,8 +463,8 @@ fn review_reports_phase_entry_mismatch_before_forecast_failures() {
         review["review"]["issues"][0]["entry_mismatch"],
         json!({
             "index":0,
-            "expected":{"phase":"boss","at_ms":0,"raw_index":0},
-            "replayed":{"phase":"opening","at_ms":0,"raw_index":0}
+            "expected":{"phase":"boss/main","at_ms":0,"raw_index":0},
+            "replayed":{"phase":"opening/main","at_ms":0,"raw_index":0}
         })
     );
 }
@@ -523,7 +569,7 @@ fn a_scope_with_no_matching_targets_keeps_entry_evidence_without_passing() {
     let mut profile: Value =
         serde_json::from_slice(&fs::read(&path).expect("profile")).expect("JSON");
     profile["segments"][0]["targets"] =
-        json!({"FFFF":{"name":"Never observed","events":["first"]}});
+        json!({"FFFF":{"name":"Never observed","events":["boss/main/first"]}});
     fs::write(path, serde_json::to_vec(&profile).expect("JSON")).expect("profile");
     command(directory.path()).assert().failure();
     let report: Value =
@@ -535,7 +581,7 @@ fn a_scope_with_no_matching_targets_keeps_entry_evidence_without_passing() {
     assert_eq!(trace["status"], "unverified");
     assert_eq!(trace["safe_entry"], true);
     assert_eq!(trace["passed"], Value::Null);
-    assert_eq!(trace["unverified_phases"], json!(["boss"]));
+    assert_eq!(trace["unverified_phases"], json!(["boss/main"]));
 }
 
 #[test]
@@ -795,7 +841,7 @@ fn review_prioritizes_failures_over_exclusions_and_clips_error_text() {
     let report = json!({
         "summary":{"selected":3,"excluded":1,"eligible":2,"passed_traces":1,"passed":false},
         "traces":[
-            {"input":"warning","status":"evaluated","passed":true,"bosses":[{"phase":"boss","targets":[],"unmatched_displays":[{"kind":"unbound","display":{"event":{"id":"tail"},"at_ms":1000}}]}]},
+            {"input":"warning","status":"evaluated","passed":true,"bosses":[{"phase":"boss/main","targets":[],"unmatched_displays":[{"kind":"unbound","display":{"event":{"id":"tail"},"at_ms":1000}}]}]},
             {"input":"missing","status":"excluded","passed":null,"error":"Missing"},
             {"input":"broken","status":"error","passed":false,"error":"오류".repeat(3000)}
         ]
@@ -835,7 +881,7 @@ fn review_groups_missing_displays_by_observed_occurrence() {
     let trace = |input, passed, targets| {
         json!({
             "input":input,"status":"evaluated","passed":passed,
-            "bosses":[{"phase":"boss","targets":targets}]
+            "bosses":[{"phase":"boss/main","targets":targets}]
         })
     };
     let report = json!({
@@ -859,7 +905,7 @@ fn review_groups_missing_displays_by_observed_occurrence() {
     assert_eq!(
         review["review"]["missing_occurrences"],
         json!([{
-            "phase":"boss","id":"A001","occurrence":2,"observed":2,"missing":1,
+            "phase":"boss/main","id":"A001","occurrence":2,"observed":2,"missing":1,
             "example":{"input":"long","raw_index":2,"at_ms":2000}
         }])
     );
@@ -872,7 +918,7 @@ fn unclassified_groups_can_be_paged_without_unbounded_output() {
     let report = json!({
         "version":1,"summary":{"selected":1,"excluded":0,"eligible":1,"passed_traces":1,"passed":true},
         "traces":[{"input":"source.json","status":"evaluated","passed":true,"bosses":[{
-            "phase":"boss","targets":[{"raw_index":0,"at_ms":0,"id":"A001","error_ms":0,"forecast":null,"passed":true}],
+            "phase":"boss/main","targets":[{"raw_index":0,"at_ms":0,"id":"A001","error_ms":0,"forecast":null,"passed":true}],
             "audit":{"declared_sources":["Boss"],"observed_casts":4,"target_casts":1,"ignored_casts":0,"unclassified_casts":3,
                 "unclassified":(2..5).map(|n|json!({"source":"Boss","id":format!("A00{n}"),"name":"Unknown","count":1,"first_raw_index":n,"last_raw_index":n,"first_at_ms":n*1000,"last_at_ms":n*1000})).collect::<Vec<_>>()}
         }]}]
@@ -925,10 +971,21 @@ fn one_display_cannot_satisfy_two_packets_without_an_explicit_summary_group() {
         let bytes = serde_json::to_vec(&raw).unwrap();
         fs::write(directory.path().join("input.json"), &bytes).unwrap();
         manifest["inputs"][0]["sha256"] = json!(hash(&bytes));
-        let timeline = b"timeline 1 \"Packets\" { start \"Ability\" id=\"B528\"; phase \"boss\" { enter \"Ability\" id=\"B528\"; event \"first\" 0.0 name=\"Hit\"; event \"second\" 4.0 name=\"Hit\"; }; }";
+        let timeline = br###"
+timeline 2 "Packets" {
+    start "Ability" id="B528"
+    phase boss {
+        step main {
+            enter "Ability" id="B528"
+            event first 0.0 name="Hit"
+            event second 4.0 name="Hit"
+        }
+    }
+}
+"###;
         fs::write(directory.path().join("timeline.kdl"), timeline).unwrap();
         manifest["timeline_sha256"] = json!(hash(timeline));
-        let mut rule = json!({"name":"Hit","events":["first","second"]});
+        let mut rule = json!({"name":"Hit","events":["boss/main/first","boss/main/second"]});
         if collapsed {
             rule["group"] = json!("packet-wave");
         }
@@ -936,7 +993,7 @@ fn one_display_cannot_satisfy_two_packets_without_an_explicit_summary_group() {
         if let Some(group) = alias_group {
             other["group"] = json!(group);
         }
-        let profile = json!({"version":1,"observations":"all_casts","segments":[{"phase":"boss","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":rule,"B529":other}}],"not_checked":[]});
+        let profile = json!({"version":1,"observations":"all_casts","segments":[{"phase":"boss/main","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":rule,"B529":other}}],"not_checked":[]});
         fs::write(
             directory.path().join("profile.json"),
             serde_json::to_vec(&profile).unwrap(),
@@ -972,17 +1029,27 @@ fn coverage_counts_signal_choices_and_matched_anchors_separately_from_timer_iter
     let directory = tempfile::tempdir().unwrap();
     let mut manifest = setup(directory.path());
     manifest["evidence_role"] = json!("synthetic");
-    let timeline = br#"timeline 1 "Coverage" {
-        start "Ability" id="B528"
-        phase "boss" {
+    let timeline = br###"
+timeline 2 "Coverage" {
+    start "Ability" id="B528"
+    phase boss {
+        step main {
             enter "Ability" id="B528"
-            loop "rotation" start=0.0 every=4.0 { event "pulse" 0.0 name="Hit"; }
-            branch "choice" open=1.0 close=5.0 {
-                option "left" { when "Ability" id="B529"; }
-                option "right" fallback=#true { when "Ability" id="B52A"; }
+            loop rotation start=0.0 every=4.0 {
+                event pulse 0.0 name="Hit"
+            }
+            branch choice open=1.0 close=5.0 {
+                option left {
+                    when "Ability" id="B529"
+                }
+                option right fallback=#true {
+                    when "Ability" id="B52A"
+                }
             }
         }
-    }"#;
+    }
+}
+"###;
     fs::write(directory.path().join("timeline.kdl"), timeline).unwrap();
     manifest["timeline_sha256"] = json!(hash(timeline));
     let mut raw: Value = serde_json::from_slice(include_bytes!("fixtures/pull.json")).unwrap();
@@ -998,7 +1065,7 @@ fn coverage_counts_signal_choices_and_matched_anchors_separately_from_timer_iter
     let bytes = serde_json::to_vec(&raw).unwrap();
     fs::write(directory.path().join("input.json"), &bytes).unwrap();
     manifest["inputs"][0]["sha256"] = json!(hash(&bytes));
-    let profile = json!({"version":1,"observations":"all_casts","segments":[{"phase":"boss","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Hit","events":["pulse"]}},"ignored":{"B529":"Choice marker, no displayed mechanic"}}],"not_checked":[]});
+    let profile = json!({"version":1,"observations":"all_casts","segments":[{"phase":"boss/main","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Hit","events":["boss/main/loop/rotation/pulse"]}},"ignored":{"B529":"Choice marker, no displayed mechanic"}}],"not_checked":[]});
     fs::write(
         directory.path().join("profile.json"),
         serde_json::to_vec(&profile).unwrap(),
@@ -1096,7 +1163,7 @@ fn check_fallback_and_unresolved(directory: &Path, mut raw: Value, mut manifest:
     command(directory).assert().failure();
     assert_eq!(
         review()["review"]["coverage"]["unresolved_branches"][0]["branch"],
-        "choice"
+        "boss/main/choice"
     );
 }
 

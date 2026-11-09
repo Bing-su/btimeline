@@ -63,6 +63,7 @@ function query(
     ),
   );
   assert.equal(result.status, "active", file);
+  assert.equal(result.truncated, false, file);
   return result;
 }
 const clean = (rows: Row[]) =>

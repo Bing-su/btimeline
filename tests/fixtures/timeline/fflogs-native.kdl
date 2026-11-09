@@ -1,9 +1,11 @@
-timeline 1 "FFLogs native" {
+timeline 2 "FFLogs native" {
     start "FFLogs.cast" id="B528" source="Synthetic Boss"
-    phase "boss" {
-        enter "FFLogs.cast" id="B528" source="Synthetic Boss"
-        event "second-cast" 4.0 name="Second cast" {
-            sync 4.0 "FFLogs.cast" id="B528" source="Synthetic Boss"
+    phase boss {
+        step main {
+            enter "FFLogs.cast" id="B528" source="Synthetic Boss"
+            event second-cast 4.0 name="Second cast" {
+                sync 4.0 "FFLogs.cast" id="B528" source="Synthetic Boss"
+            }
         }
     }
 }

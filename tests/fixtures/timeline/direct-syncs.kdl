@@ -1,0 +1,24 @@
+timeline 2 "Direct option and merge anchors" {
+    start Pull
+    phase fight {
+        step main {
+            enter Pull
+            branch pick open=0 close=1 {
+                option left {
+                    when Left
+                    sync 1 Adjust
+                    event hit 2 name=Left
+                }
+                option right {
+                    when Right
+                    event hit 2 name=Right
+                }
+                merge {
+                    when Merge at=4 before=1 after=1
+                    sync 1 MergeAdjust
+                    event hit 2 name=Merged
+                }
+            }
+        }
+    }
+}

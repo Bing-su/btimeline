@@ -35,8 +35,18 @@ fn forecast_target(
     lead: i64,
     manifest: &Manifest,
 ) -> Result<Value> {
-    let result =
-        crate::timeline::forecast(model, recording, target.at_ms - lead, manifest.horizon_ms)?;
+    let result = crate::timeline::forecast(
+        model,
+        recording,
+        target.at_ms - lead,
+        manifest.horizon_ms,
+        10000,
+    )?;
+    ensure!(
+        !result.truncated,
+        "Forecast truncated: {:?}",
+        result.truncation_reason
+    );
     let executed_id = expected
         .execution
         .and_then(|row| row.event.as_ref())
@@ -52,6 +62,7 @@ fn forecast_target(
         })
         .unwrap_or_else(|| target.event_ids.iter().map(String::as_str).collect());
     let executed_context = expected.execution.and_then(|row| row.context.as_ref());
+    // Conditional alternatives are display candidates, never successful committed forecasts.
     let matched = result
         .events
         .iter()
@@ -66,8 +77,8 @@ fn forecast_target(
                         && actual.sequence_instance == event.context.sequence_instance
                 })
         })
-        .min_by_key(|event| event.at_ms.abs_diff(target.at_ms));
-    let error = matched.map(|event| (event.at_ms - target.at_ms).abs());
+        .min_by_key(|event| target.timing_error(event.at_ms, event.duration_ms));
+    let error = matched.map(|event| target.timing_error(event.at_ms, event.duration_ms));
     let passed = result.phase.as_deref() == Some(expected.phase)
         && result.status == "active"
         && error.is_some_and(|error| error <= manifest.tolerance_ms);
@@ -120,9 +131,12 @@ fn target_result(
     entry_ms: i64,
     manifest: &Manifest,
 ) -> Result<Value> {
-    let error = expected
-        .execution
-        .map(|row| (row.at_ms - target.at_ms).abs());
+    let error = expected.execution.map(|row| {
+        target.timing_error(
+            row.at_ms,
+            row.event.as_ref().map_or(0, |event| event.duration_ms),
+        )
+    });
     let lead = target.lead_ms.unwrap_or(manifest.forecast_lead_ms);
     let forecast = if target.at_ms - entry_ms >= lead {
         forecast_target(
@@ -144,7 +158,7 @@ fn target_result(
                     .and_then(Value::as_array)
                     .is_some_and(Vec::is_empty)));
     Ok(
-        json!({"raw_index":target.raw_index,"at_ms":target.at_ms,"id":target.id,"name":target.name,"event_ids":target.event_ids,"error_ms":error,"failure_reasons":failure_reasons(error,&forecast,manifest.tolerance_ms),"forecast":forecast,"passed":passed,"matched_event":expected.execution.map(event_view)}),
+        json!({"raw_index":target.raw_index,"raw_indices":target.raw_indices,"at_ms":target.at_ms,"id":target.id,"name":target.name,"reference":target.reference,"event_ids":target.event_ids,"error_ms":error,"failure_reasons":failure_reasons(error,&forecast,manifest.tolerance_ms),"forecast":forecast,"passed":passed,"matched_event":expected.execution.map(event_view)}),
     )
 }
 
@@ -195,9 +209,12 @@ fn segment_score<'a>(
             if let Some(index) = index {
                 used.insert(*index);
             }
-            if let Some(record) =
-                execution.filter(|row| (row.at_ms - target.at_ms).abs() <= manifest.tolerance_ms)
-            {
+            if let Some(record) = execution.filter(|row| {
+                target.timing_error(
+                    row.at_ms,
+                    row.event.as_ref().map_or(0, |event| event.duration_ms),
+                ) <= manifest.tolerance_ms
+            }) {
                 support.push(Support {
                     record,
                     raw_index: target.raw_index,
@@ -296,7 +313,12 @@ pub(super) fn score(
 
 fn first_entry_mismatch(bosses: &[Segment], rows: &[Record]) -> Option<Value> {
     let mut expected = bosses.iter();
-    let mut replayed = rows.iter().filter(|row| row.action == "phase");
+    let mut replayed = rows.iter().filter(|row| {
+        row.action == "phase"
+            && bosses
+                .iter()
+                .any(|boss| row.at_ms >= boss.entry_ms && row.at_ms <= boss.end_ms)
+    });
     for index in 0.. {
         let (boss, row) = (expected.next(), replayed.next());
         if boss.is_none() && row.is_none() {

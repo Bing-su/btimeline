@@ -3,7 +3,7 @@
   "observations": "scoped_casts_and_starts",
   "segments": [
     {
-      "phase": "kirin",
+      "phase": "kirin/main",
       "encounter": 2067,
       "source": "Faithbound Kirin",
       "other_sources": [],
@@ -16,136 +16,148 @@
         "ADCA": {
           "name": "Stonega IV",
           "group": "Stonega IV",
-          "events": ["kirin-1", "kirin-10"]
+          "events": ["kirin/main/kirin-1", "kirin/main/shijin/merge/kirin-10"]
         },
         "AD91": {
           "name": "Wrought Arms",
           "group": "Wrought Arms",
           "events": [
-            "kirin-2",
-            "kirin-quake-arms",
-            "kirin-stonega-arms",
-            "kirin-genbu-arms",
-            "kirin-eastwind-arms",
-            "kirin-arms-return",
-            "kirin-recovery-arms",
-            "kirin-early-recovery-arms"
+            "kirin/main/kirin-2",
+            "kirin/main/shijin/quake/kirin-quake-arms",
+            "kirin/main/shijin/stonega/kirin-stonega-arms",
+            "kirin/main/shijin/genbu/kirin-genbu-arms",
+            "kirin/main/shijin/eastwind/kirin-eastwind-arms",
+            "kirin/main/shijin/merge/kirin-arms-return",
+            "kirin/main/shijin/eastwind-recovery/kirin-recovery-arms",
+            "kirin/main/shijin/eastwind-early-recovery/kirin-early-recovery-arms"
           ],
           "equivalents": [
             [
-              "kirin-quake-arms",
-              "kirin-stonega-arms",
-              "kirin-genbu-arms",
-              "kirin-eastwind-arms",
-              "kirin-arms-return",
-              "kirin-recovery-arms",
-              "kirin-early-recovery-arms"
+              "kirin/main/shijin/quake/kirin-quake-arms",
+              "kirin/main/shijin/stonega/kirin-stonega-arms",
+              "kirin/main/shijin/genbu/kirin-genbu-arms",
+              "kirin/main/shijin/eastwind/kirin-eastwind-arms",
+              "kirin/main/shijin/merge/kirin-arms-return",
+              "kirin/main/shijin/eastwind-recovery/kirin-recovery-arms",
+              "kirin/main/shijin/eastwind-early-recovery/kirin-early-recovery-arms"
             ]
           ]
         },
         "AD95": {
           "name": "Synchronized Strike",
           "group": "Synchronized Strike",
-          "events": ["kirin-3", "kirin-4"]
+          "events": ["kirin/main/kirin-3", "kirin/main/kirin-4"]
         },
         "AFF4": {
           "name": "Crimson Riddle",
           "group": "Crimson Riddle",
           "events": [
-            "kirin-5",
-            "kirin-6",
-            "kirin-genbu-riddle",
-            "kirin-eastwind-riddle",
-            "kirin-early-recovery-riddle"
+            "kirin/main/kirin-5",
+            "kirin/main/kirin-6",
+            "kirin/main/shijin/genbu/kirin-genbu-riddle",
+            "kirin/main/shijin/eastwind/kirin-eastwind-riddle",
+            "kirin/main/shijin/eastwind-early-recovery/kirin-early-recovery-riddle"
           ]
         },
         "AFF5": {
           "name": "Crimson Riddle",
           "group": "Crimson Riddle",
           "events": [
-            "kirin-5",
-            "kirin-6",
-            "kirin-genbu-riddle",
-            "kirin-eastwind-riddle",
-            "kirin-early-recovery-riddle"
+            "kirin/main/kirin-5",
+            "kirin/main/kirin-6",
+            "kirin/main/shijin/genbu/kirin-genbu-riddle",
+            "kirin/main/shijin/eastwind/kirin-eastwind-riddle",
+            "kirin/main/shijin/eastwind-early-recovery/kirin-early-recovery-riddle"
           ]
         },
         "AD7E": {
           "name": "Summon Shijin",
           "group": "Summon Shijin",
-          "events": ["kirin-7"]
+          "events": ["kirin/main/kirin-7"]
         },
         "B07B": {
           "name": "Quake",
           "group": "Quake",
           "lead_ms": 2000,
           "events": [
-            "kirin-quake-first",
-            "kirin-quake-second",
-            "kirin-quake-third",
-            "kirin-quake-fourth",
-            "kirin-double-quake",
-            "kirin-recovery-quake",
-            "kirin-early-recovery-quake"
+            "kirin/main/shijin/quake/kirin-quake-first",
+            "kirin/main/shijin/quake/kirin-quake-second",
+            "kirin/main/shijin/quake/kirin-quake-third",
+            "kirin/main/shijin/quake/kirin-quake-fourth",
+            "kirin/main/shijin/eastwind/kirin-double-quake",
+            "kirin/main/shijin/eastwind-recovery/kirin-recovery-quake",
+            "kirin/main/shijin/eastwind-early-recovery/kirin-early-recovery-quake"
           ]
         },
         "B07C": {
           "name": "Quake",
           "group": "Quake",
           "events": [
-            "kirin-quake-first",
-            "kirin-quake-second",
-            "kirin-quake-third",
-            "kirin-quake-fourth",
-            "kirin-double-quake",
-            "kirin-recovery-quake",
-            "kirin-early-recovery-quake"
+            "kirin/main/shijin/quake/kirin-quake-first",
+            "kirin/main/shijin/quake/kirin-quake-second",
+            "kirin/main/shijin/quake/kirin-quake-third",
+            "kirin/main/shijin/quake/kirin-quake-fourth",
+            "kirin/main/shijin/eastwind/kirin-double-quake",
+            "kirin/main/shijin/eastwind-recovery/kirin-recovery-quake",
+            "kirin/main/shijin/eastwind-early-recovery/kirin-early-recovery-quake"
           ]
         },
         "AD92": {
           "name": "Wringer",
           "group": "Wringer",
-          "events": ["kirin-8"]
+          "events": ["kirin/main/shijin/merge/kirin-8"]
         },
         "AD94": {
           "name": "Striking Right / Striking Left",
           "group": "Striking Right / Striking Left",
-          "events": ["kirin-9"]
+          "events": ["kirin/main/shijin/merge/kirin-9"]
         },
         "ADAD": {
           "name": "Wringer / Synchronized Strike / Striking Left / Striking Right",
           "group": "Wringer / Synchronized Strike",
-          "events": ["kirin-11", "kirin-12", "kirin-14"]
+          "events": [
+            "kirin/main/shijin/merge/kirin-11",
+            "kirin/main/shijin/merge/kirin-12",
+            "kirin/main/shijin/merge/kirin-14"
+          ]
         },
         "ADB0": {
           "name": "Wringer / Synchronized Strike / Striking Left / Striking Right",
           "group": "Wringer / Synchronized Strike",
-          "events": ["kirin-11", "kirin-12", "kirin-14"]
+          "events": [
+            "kirin/main/shijin/merge/kirin-11",
+            "kirin/main/shijin/merge/kirin-12",
+            "kirin/main/shijin/merge/kirin-14"
+          ]
         },
         "AD9D": {
           "name": "Synchronized Sequence / Double Wringer / Smiting Sequence",
           "group": "Synchronized Sequence / Double Wringer",
-          "events": ["kirin-13"]
+          "events": ["kirin/main/shijin/merge/kirin-13"]
         },
         "ADA5": {
           "name": "Wringer / Synchronized Strike / Striking Left / Striking Right",
           "group": "Wringer / Synchronized Strike",
-          "events": ["kirin-11", "kirin-12", "kirin-14"]
+          "events": [
+            "kirin/main/shijin/merge/kirin-11",
+            "kirin/main/shijin/merge/kirin-12",
+            "kirin/main/shijin/merge/kirin-14"
+          ]
         },
         "ADB1": {
           "name": "Mighty Grip",
           "group": "Mighty Grip",
-          "events": ["kirin-15"]
+          "events": ["kirin/main/shijin/merge/kirin-15"]
         },
         "ADB2": {
           "name": "Deadly Hold",
           "group": "Deadly Hold",
-          "events": ["kirin-16"]
+          "events": ["kirin/main/shijin/merge/kirin-16"]
         },
         "ADBF": {
           "name": "Bury",
           "group": "Bury",
-          "events": ["kirin-17"],
+          "events": ["kirin/main/shijin/merge/kirin-17"],
           "source": "Chiseled Arm"
         },
         "B079": {
@@ -153,106 +165,126 @@
           "group": "Stonega III",
           "lead_ms": 2000,
           "events": [
-            "kirin-stonega-first",
-            "kirin-stonega-second",
-            "kirin-double-stonega",
-            "kirin-recovery-stonega",
-            "kirin-early-recovery-stonega"
+            "kirin/main/shijin/stonega/kirin-stonega-first",
+            "kirin/main/shijin/stonega/kirin-stonega-second",
+            "kirin/main/shijin/eastwind/kirin-double-stonega",
+            "kirin/main/shijin/eastwind-recovery/kirin-recovery-stonega",
+            "kirin/main/shijin/eastwind-early-recovery/kirin-early-recovery-stonega"
           ]
         },
         "B07A": {
           "name": "Stonega III",
           "group": "Stonega III",
           "events": [
-            "kirin-stonega-first",
-            "kirin-stonega-second",
-            "kirin-double-stonega",
-            "kirin-recovery-stonega",
-            "kirin-early-recovery-stonega"
+            "kirin/main/shijin/stonega/kirin-stonega-first",
+            "kirin/main/shijin/stonega/kirin-stonega-second",
+            "kirin/main/shijin/eastwind/kirin-double-stonega",
+            "kirin/main/shijin/eastwind-recovery/kirin-recovery-stonega",
+            "kirin/main/shijin/eastwind-early-recovery/kirin-early-recovery-stonega"
           ]
         },
         "AD93": {
           "name": "Striking Right / Striking Left",
           "group": "Striking Right / Striking Left",
-          "events": ["kirin-9"]
+          "events": ["kirin/main/shijin/merge/kirin-9"]
         },
         "ADA0": {
           "name": "Synchronized Sequence / Double Wringer / Smiting Sequence",
           "group": "Synchronized Sequence / Double Wringer",
-          "events": ["kirin-13"]
+          "events": ["kirin/main/shijin/merge/kirin-13"]
         },
         "ADA2": {
           "name": "Wringer / Synchronized Strike / Striking Left / Striking Right",
           "group": "Wringer / Synchronized Strike",
-          "events": ["kirin-11", "kirin-12", "kirin-14"]
+          "events": [
+            "kirin/main/shijin/merge/kirin-11",
+            "kirin/main/shijin/merge/kirin-12",
+            "kirin/main/shijin/merge/kirin-14"
+          ]
         },
         "A916": {
           "name": "Double Cast",
           "group": "Double Cast",
           "events": [
-            "kirin-double-cast",
-            "kirin-recovery-double-cast",
-            "kirin-early-recovery-double-cast"
+            "kirin/main/shijin/eastwind/kirin-double-cast",
+            "kirin/main/shijin/eastwind-recovery/kirin-recovery-double-cast",
+            "kirin/main/shijin/eastwind-early-recovery/kirin-early-recovery-double-cast"
           ]
         },
         "A917": {
           "name": "Stonega III",
           "group": "Stonega III",
           "events": [
-            "kirin-stonega-first",
-            "kirin-stonega-second",
-            "kirin-double-stonega",
-            "kirin-recovery-stonega",
-            "kirin-early-recovery-stonega"
+            "kirin/main/shijin/stonega/kirin-stonega-first",
+            "kirin/main/shijin/stonega/kirin-stonega-second",
+            "kirin/main/shijin/eastwind/kirin-double-stonega",
+            "kirin/main/shijin/eastwind-recovery/kirin-recovery-stonega",
+            "kirin/main/shijin/eastwind-early-recovery/kirin-early-recovery-stonega"
           ]
         },
         "A918": {
           "name": "Quake",
           "group": "Quake",
           "events": [
-            "kirin-quake-first",
-            "kirin-quake-second",
-            "kirin-quake-third",
-            "kirin-quake-fourth",
-            "kirin-double-quake",
-            "kirin-recovery-quake",
-            "kirin-early-recovery-quake"
+            "kirin/main/shijin/quake/kirin-quake-first",
+            "kirin/main/shijin/quake/kirin-quake-second",
+            "kirin/main/shijin/quake/kirin-quake-third",
+            "kirin/main/shijin/quake/kirin-quake-fourth",
+            "kirin/main/shijin/eastwind/kirin-double-quake",
+            "kirin/main/shijin/eastwind-recovery/kirin-recovery-quake",
+            "kirin/main/shijin/eastwind-early-recovery/kirin-early-recovery-quake"
           ]
         },
         "ADAE": {
           "name": "Wringer / Synchronized Strike / Striking Left / Striking Right",
           "group": "Wringer / Synchronized Strike",
-          "events": ["kirin-11", "kirin-12", "kirin-14"]
+          "events": [
+            "kirin/main/shijin/merge/kirin-11",
+            "kirin/main/shijin/merge/kirin-12",
+            "kirin/main/shijin/merge/kirin-14"
+          ]
         },
         "ADAF": {
           "name": "Wringer / Synchronized Strike / Striking Left / Striking Right",
           "group": "Wringer / Synchronized Strike",
-          "events": ["kirin-11", "kirin-12", "kirin-14"]
+          "events": [
+            "kirin/main/shijin/merge/kirin-11",
+            "kirin/main/shijin/merge/kirin-12",
+            "kirin/main/shijin/merge/kirin-14"
+          ]
         },
         "ADA3": {
           "name": "Wringer / Synchronized Strike / Striking Left / Striking Right",
           "group": "Wringer / Synchronized Strike",
-          "events": ["kirin-11", "kirin-12", "kirin-14"]
+          "events": [
+            "kirin/main/shijin/merge/kirin-11",
+            "kirin/main/shijin/merge/kirin-12",
+            "kirin/main/shijin/merge/kirin-14"
+          ]
         },
         "ADA4": {
           "name": "Wringer / Synchronized Strike / Striking Left / Striking Right",
           "group": "Wringer / Synchronized Strike",
-          "events": ["kirin-11", "kirin-12", "kirin-14"]
+          "events": [
+            "kirin/main/shijin/merge/kirin-11",
+            "kirin/main/shijin/merge/kirin-12",
+            "kirin/main/shijin/merge/kirin-14"
+          ]
         },
         "AD9E": {
           "name": "Synchronized Sequence / Double Wringer / Smiting Sequence",
           "group": "Synchronized Sequence / Double Wringer",
-          "events": ["kirin-13"]
+          "events": ["kirin/main/shijin/merge/kirin-13"]
         },
         "AD9F": {
           "name": "Synchronized Sequence / Double Wringer / Smiting Sequence",
           "group": "Synchronized Sequence / Double Wringer",
-          "events": ["kirin-13"]
+          "events": ["kirin/main/shijin/merge/kirin-13"]
         }
       }
     },
     {
-      "phase": "duo",
+      "phase": "duo/main",
       "encounter": 2068,
       "source": "Omega, the One",
       "other_sources": ["Ultima, the Feared"],
@@ -265,112 +297,118 @@
         "AD2B": {
           "name": "Omega: Ion Efflux",
           "group": "Omega: Ion Efflux",
-          "events": ["duo-1"]
+          "events": ["duo/main/duo-1"]
         },
         "AD27": {
           "name": "Omega: Fore-to-Aft Fire / Aft-to-Fore Fire",
           "group": "Omega: Fore-to-Aft Fire / Aft-to-Fore Fire",
-          "events": ["duo-4", "duo-33"]
+          "events": ["duo/main/duo-4", "duo/main/duo-33"]
         },
         "B087": {
           "name": "Omega: Anti-Personnel Missile",
           "group": "Omega: Anti-Personnel Missile",
-          "events": ["duo-6", "duo-9", "duo-29"]
+          "events": ["duo/main/duo-6", "duo/main/duo-9", "duo/main/duo-29"]
         },
         "B075": {
           "name": "Omega: Surface Missile",
           "group": "Omega: Surface Missile",
-          "events": ["duo-7", "duo-31"]
+          "events": ["duo/main/duo-7", "duo/main/duo-31"]
         },
         "AD23": {
           "name": "Omega: Trajectory Projection",
           "group": "Omega: Trajectory Projection",
-          "events": ["duo-13", "duo-24"]
+          "events": ["duo/main/duo-13", "duo/main/duo-24"]
         },
         "AD24": {
           "name": "Omega: Guided Missile",
           "group": "Omega: Guided Missile",
-          "events": ["duo-14", "duo-26"]
+          "events": ["duo/main/duo-14", "duo/main/duo-26"]
         },
         "AFEB": {
           "name": "Omega: Multi-Missile",
           "group": "Omega: Multi-Missile",
-          "events": ["duo-16", "duo-18", "duo-19", "duo-20"]
+          "events": ["duo/main/duo-16", "duo/main/duo-18", "duo/main/duo-19", "duo/main/duo-20"]
         },
         "AD2F": {
           "name": "Omega: Hyper Pulse",
           "group": "Omega: Hyper Pulse",
-          "events": ["duo-22"]
+          "events": ["duo/main/duo-22"]
         },
         "AD25": {
           "name": "Omega: Fore-to-Aft Fire / Aft-to-Fore Fire",
           "group": "Omega: Fore-to-Aft Fire / Aft-to-Fore Fire",
-          "events": ["duo-4", "duo-33"]
+          "events": ["duo/main/duo-4", "duo/main/duo-33"]
         },
         "AD10": {
           "name": "Ultima: Antimatter",
           "group": "Ultima: Antimatter",
           "source": "Ultima, the Feared",
-          "events": ["duo-2"]
+          "events": ["duo/main/duo-2"]
         },
         "AD08": {
           "name": "Ultima: Energy Orb",
           "group": "Ultima: Energy Orb",
           "source": "Ultima, the Feared",
-          "events": ["duo-3", "duo-8", "duo-11", "duo-27", "duo-32"]
+          "events": [
+            "duo/main/duo-3",
+            "duo/main/duo-8",
+            "duo/main/duo-11",
+            "duo/main/duo-27",
+            "duo/main/duo-32"
+          ]
         },
         "AD06": {
           "name": "Ultima: Tractor Beam",
           "group": "Ultima: Tractor Beam",
           "source": "Ultima, the Feared",
-          "events": ["duo-5", "duo-23"]
+          "events": ["duo/main/duo-5", "duo/main/duo-23"]
         },
         "AD09": {
           "name": "Ultima: Mana Screen",
           "group": "Ultima: Mana Screen",
           "source": "Ultima, the Feared",
-          "events": ["duo-10", "duo-25"]
+          "events": ["duo/main/duo-10", "duo/main/duo-25"]
         },
         "AD0D": {
           "name": "Ultima: Energy Ray",
           "group": "Ultima: Energy Ray",
           "source": "Ultima, the Feared",
-          "events": ["duo-12", "duo-28"]
+          "events": ["duo/main/duo-12", "duo/main/duo-28"]
         },
         "AD12": {
           "name": "Ultima: Tractor Field",
           "group": "Ultima: Tractor Field",
           "source": "Ultima, the Feared",
-          "events": ["duo-15"]
+          "events": ["duo/main/duo-15"]
         },
         "AD14": {
           "name": "Ultima: Citadel Siege",
           "group": "Ultima: Citadel Siege",
           "source": "Ultima, the Feared",
-          "events": ["duo-17"]
+          "events": ["duo/main/duo-17"]
         },
         "AD1B": {
           "name": "Ultima: Citadel Buster",
           "group": "Ultima: Citadel Buster",
           "source": "Ultima, the Feared",
-          "events": ["duo-21"]
+          "events": ["duo/main/duo-21"]
         },
         "AD0C": {
           "name": "Ultima: Energy Ray",
           "group": "Ultima: Energy Ray",
           "source": "Ultima, the Feared",
-          "events": ["duo-12", "duo-28"]
+          "events": ["duo/main/duo-12", "duo/main/duo-28"]
         },
         "AD0E": {
           "name": "Ultima: Chemical Bomb",
           "group": "Ultima: Chemical Bomb",
           "source": "Ultima, the Feared",
-          "events": ["duo-30"]
+          "events": ["duo/main/duo-30"]
         }
       }
     },
     {
-      "phase": "kam",
+      "phase": "kam/main",
       "encounter": 2069,
       "source": "Kam'lanaut",
       "other_sources": [],
@@ -383,127 +421,127 @@
         "ACBD": {
           "name": "Enspirited Swordplay",
           "group": "Enspirited Swordplay",
-          "events": ["kam-1", "kam-11", "kam-34"]
+          "events": ["kam/main/kam-1", "kam/main/kam-11", "kam/main/kam-34"]
         },
         "B009": {
           "name": "Proving Ground",
           "group": "Proving Ground",
-          "events": ["kam-2", "kam-27"]
+          "events": ["kam/main/kam-2", "kam/main/kam-27"]
         },
         "AC91": {
           "name": "Elemental Blade",
           "group": "Elemental Blade",
-          "events": ["kam-3", "kam-5", "kam-28"]
+          "events": ["kam/main/kam-3", "kam/main/kam-5", "kam/main/kam-28"]
         },
         "B00A": {
           "name": "Sublime Elements",
           "group": "Sublime Elements",
-          "events": ["kam-4", "kam-6", "kam-29"]
+          "events": ["kam/main/kam-4", "kam/main/kam-6", "kam/main/kam-29"]
         },
         "ACBB": {
           "name": "Princely Blow",
           "group": "Princely Blow",
-          "events": ["kam-7", "kam-26"]
+          "events": ["kam/main/kam-7", "kam/main/kam-26"]
         },
         "ACAB": {
           "name": "Light Blade",
           "group": "Light Blade",
-          "events": ["kam-8", "kam-30"]
+          "events": ["kam/main/kam-8", "kam/main/kam-30"]
         },
         "ACAF": {
           "name": "Great Wheel",
           "group": "Great Wheel",
-          "events": ["kam-9", "kam-10", "kam-32", "kam-33"]
+          "events": ["kam/main/kam-9", "kam/main/kam-10", "kam/main/kam-32", "kam/main/kam-33"]
         },
         "ACB1": {
           "name": "Great Wheel",
           "group": "Great Wheel",
-          "events": ["kam-9", "kam-10", "kam-32", "kam-33"]
+          "events": ["kam/main/kam-9", "kam/main/kam-10", "kam/main/kam-32", "kam/main/kam-33"]
         },
         "ACB2": {
           "name": "Esoteric Scrivening",
           "group": "Esoteric Scrivening",
-          "events": ["kam-12"]
+          "events": ["kam/main/kam-12"]
         },
         "ACB3": {
           "name": "Shockwave",
           "group": "Shockwave",
-          "events": ["kam-13"]
+          "events": ["kam/main/kam-13"]
         },
         "ACB4": {
           "name": "Transcendent Union",
           "group": "Transcendent Union",
-          "events": ["kam-14", "kam-15"]
+          "events": ["kam/main/kam-14", "kam/main/kam-15"]
         },
         "ACB5": {
           "name": "Transcendent Union",
           "group": "Transcendent Union",
-          "events": ["kam-14", "kam-15"]
+          "events": ["kam/main/kam-14", "kam/main/kam-15"]
         },
         "ACB6": {
           "name": "Esoteric Palisade",
           "group": "Esoteric Palisade",
-          "events": ["kam-16", "kam-35"]
+          "events": ["kam/main/kam-16", "kam/main/kam-35"]
         },
         "ACB7": {
           "name": "Crystalline Resonance",
           "group": "Crystalline Resonance",
-          "events": ["kam-17", "kam-36"]
+          "events": ["kam/main/kam-17", "kam/main/kam-36"]
         },
         "ACB8": {
           "name": "Elemental Resonance",
           "group": "Elemental Resonance",
-          "events": ["kam-18", "kam-19", "kam-20"]
+          "events": ["kam/main/kam-18", "kam/main/kam-19", "kam/main/kam-20"]
         },
         "ACB9": {
           "name": "Illumed Facet",
           "group": "Illumed Facet",
-          "events": ["kam-21"]
+          "events": ["kam/main/kam-21"]
         },
         "ACBF": {
           "name": "Empyreal Banish III",
           "group": "Empyreal Banish III",
-          "events": ["kam-22", "kam-31"]
+          "events": ["kam/main/kam-22", "kam/main/kam-31"]
         },
         "ACBA": {
           "name": "Illumed Estoc",
           "group": "Illumed Estoc",
-          "events": ["kam-23"]
+          "events": ["kam/main/kam-23"]
         },
         "ACBE": {
           "name": "Shield Bash",
           "group": "Shield Bash",
-          "events": ["kam-24"]
+          "events": ["kam/main/kam-24"]
         },
         "AF6B": {
           "name": "Empyreal Banish IV",
           "group": "Empyreal Banish IV",
-          "events": ["kam-25"]
+          "events": ["kam/main/kam-25"]
         },
         "AC92": {
           "name": "Elemental Blade",
           "group": "Elemental Blade",
-          "events": ["kam-3", "kam-5", "kam-28"]
+          "events": ["kam/main/kam-3", "kam/main/kam-5", "kam/main/kam-28"]
         },
         "ACAE": {
           "name": "Great Wheel",
           "group": "Great Wheel",
-          "events": ["kam-9", "kam-10", "kam-32", "kam-33"]
+          "events": ["kam/main/kam-9", "kam/main/kam-10", "kam/main/kam-32", "kam/main/kam-33"]
         },
         "ACB0": {
           "name": "Great Wheel",
           "group": "Great Wheel",
-          "events": ["kam-9", "kam-10", "kam-32", "kam-33"]
+          "events": ["kam/main/kam-9", "kam/main/kam-10", "kam/main/kam-32", "kam/main/kam-33"]
         },
         "ACAD": {
           "name": "Great Wheel",
           "group": "Great Wheel",
-          "events": ["kam-9", "kam-10", "kam-32", "kam-33"]
+          "events": ["kam/main/kam-9", "kam/main/kam-10", "kam/main/kam-32", "kam/main/kam-33"]
         }
       }
     },
     {
-      "phase": "eald",
+      "phase": "eald/main",
       "encounter": 2070,
       "source": "Eald'narche",
       "other_sources": [],
@@ -516,92 +554,108 @@
         "AD51": {
           "name": "Uranos Cascade",
           "group": "Uranos Cascade",
-          "events": ["eald-1", "eald-20"]
+          "events": ["eald/main/eald-1", "eald/main/eald-20"]
         },
         "AD49": {
           "name": "Cronos Sling",
           "group": "Cronos Sling",
-          "events": ["eald-2", "eald-4", "eald-26"]
+          "events": ["eald/main/eald-2", "eald/main/eald-4", "eald/main/eald-26"]
         },
         "AD6D": {
           "name": "Empyreal Vortex",
           "group": "Empyreal Vortex",
-          "events": ["eald-3"]
+          "events": ["eald/main/eald-3"]
         },
         "AD4B": {
           "name": "Cronos Sling",
           "group": "Cronos Sling",
-          "events": ["eald-2", "eald-4", "eald-26"]
+          "events": ["eald/main/eald-2", "eald/main/eald-4", "eald/main/eald-26"]
         },
         "AD56": {
           "name": "Warp",
           "group": "Warp",
-          "events": ["eald-5"]
+          "events": ["eald/main/eald-5"]
         },
         "AD58": {
           "name": "Sleepga",
           "group": "Sleepga",
-          "events": ["eald-6"]
+          "events": ["eald/main/eald-6"]
         },
         "AD53": {
           "name": "Gaea Stream",
           "group": "Gaea Stream",
-          "events": ["eald-7", "eald-19", "eald-25"]
+          "events": ["eald/main/eald-7", "eald/main/eald-19", "eald/main/eald-25"]
         },
         "AD5C": {
           "name": "Omega Javelin",
           "group": "Omega Javelin",
-          "events": ["eald-8", "eald-24"]
+          "events": ["eald/main/eald-8", "eald/main/eald-24"]
         },
         "AD77": {
           "name": "Duplicate",
           "group": "Duplicate",
-          "events": ["eald-9", "eald-10", "eald-14", "eald-16", "eald-21", "eald-23", "eald-29"]
+          "events": [
+            "eald/main/eald-9",
+            "eald/main/eald-10",
+            "eald/main/eald-14",
+            "eald/main/eald-16",
+            "eald/main/eald-21",
+            "eald/main/eald-23",
+            "eald/main/eald-29"
+          ]
         },
         "B040": {
           "name": "Excelsior",
           "group": "Excelsior",
-          "events": ["eald-11"]
+          "events": ["eald/main/eald-11"]
         },
         "AD59": {
           "name": "Phase Shift",
           "group": "Phase Shift",
-          "events": ["eald-12", "eald-13"]
+          "events": ["eald/main/eald-12", "eald/main/eald-13"]
         },
         "AD5A": {
           "name": "Phase Shift",
           "group": "Phase Shift",
-          "events": ["eald-12", "eald-13"]
+          "events": ["eald/main/eald-12", "eald/main/eald-13"]
         },
         "AD75": {
           "name": "Visions of Paradise",
           "group": "Visions of Paradise",
-          "events": ["eald-15", "eald-22"]
+          "events": ["eald/main/eald-15", "eald/main/eald-22"]
         },
         "AD76": {
           "name": "Duplicate",
           "group": "Duplicate",
-          "events": ["eald-9", "eald-10", "eald-14", "eald-16", "eald-21", "eald-23", "eald-29"]
+          "events": [
+            "eald/main/eald-9",
+            "eald/main/eald-10",
+            "eald/main/eald-14",
+            "eald/main/eald-16",
+            "eald/main/eald-21",
+            "eald/main/eald-23",
+            "eald/main/eald-29"
+          ]
         },
         "AD72": {
           "name": "Stellar Burst",
           "group": "Stellar Burst",
-          "events": ["eald-17", "eald-27"]
+          "events": ["eald/main/eald-17", "eald/main/eald-27"]
         },
         "AD5F": {
           "name": "Ancient Triad",
           "group": "Ancient Triad",
-          "events": ["eald-18", "eald-28"]
+          "events": ["eald/main/eald-18", "eald/main/eald-28"]
         },
         "AD4A": {
           "name": "Cronos Sling",
           "group": "Cronos Sling",
-          "events": ["eald-2", "eald-4", "eald-26"]
+          "events": ["eald/main/eald-2", "eald/main/eald-4", "eald/main/eald-26"]
         },
         "AD4C": {
           "name": "Cronos Sling",
           "group": "Cronos Sling",
-          "events": ["eald-2", "eald-4", "eald-26"]
+          "events": ["eald/main/eald-2", "eald/main/eald-4", "eald/main/eald-26"]
         }
       }
     }

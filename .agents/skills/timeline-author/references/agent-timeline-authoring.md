@@ -22,7 +22,7 @@
 | 작업        | 명령                                                                              | 해석                                                                            |
 | ----------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | 관측 확인   | `btimeline inspect TRAIN.json --json`                                             | 원본 관측·보스·시도 범위 확인. 큰 로그는 대상 구간을 골라 읽음                  |
-| 발생 그래프 | `btimeline mine TRAIN.json -o observations.kdl`                                   | 검토용 `process 1`. 실행용 `timeline 1`과 구분                                  |
+| 발생 그래프 | `btimeline mine TRAIN.json -o observations.kdl`                                   | 검토용 `process 1`. 실행용 `timeline 2`과 구분                                  |
 | 선택적 초안 | `btimeline generate TRAIN.json --mode dungeon -o draft.kdl`                       | 지원하는 경로의 초안·evidence. 경로 학습 실패는 원본 해석을 계속할 수 있는 진단 |
 | 구조 검사   | `btimeline validate authored.kdl`                                                 | 문법·작성 제약 검사. 실제 전투 정확성 판정과 구분                               |
 | 실행 확인   | `btimeline compare authored.kdl recording.json --json`                            | 정규화된 관측으로 실행 기록 확인. 성공 종료만으로 품질 통과를 주장하지 않음     |
@@ -36,7 +36,7 @@ Mistwake·Clyteum·산도리아의 투영·재생·사전 조회는 Rust `btimel
 
 `compare`에 FFLogs JSON을 직접 넣으면 `FFLogs.cast` 등으로 재생하며 자동으로 ACT의 `Ability`가 되지 않는다. 생성 KDL의 제어 신호를 시험하려면 [재생 입력 계약](offline-replay.md#입력-관측)에 맞는 정규화 기록을 만들고 변환·시작·종료 신호 가정을 명시한다. KDL의 실행 신호를 FFLogs 전용 신호로 바꿔 통과시키지 않는다.
 
-`forecast`는 현재 경로에서 추가 신호가 없을 때의 미래 일정을 조회한다. [미래 조회 계약](offline-replay.md#미래-일정-조회)에 따라 관측 cutoff·보정된 시각·예고 간격을 확인하고 미래의 미선택 분기나 전환은 추측하지 않는다. 실제 UI에서 몇 초 전에 보였는지 검증한 것과 구분하며, 실용성 종합 판정·일반 오류 구간 피드백은 후속 도구 과제다.
+`forecast`는 현재 경로에서 추가 신호가 없을 때의 미래 일정을 조회한다. [미래 조회 계약](offline-replay.md#미래-일정-조회)에 따라 관측 cutoff·보정된 시각·예고 간격을 확인하고 미래 선택 결과나 관측 전환은 추측하지 않는다. 현재 경로의 `events`와 미선택 choice의 조건부 `alternatives`를 구분하며, 대안을 확정 예고나 평가 성공으로 집계하지 않는다. 실제 UI에서 몇 초 전에 보였는지 검증한 것과 구분하며, 실용성 종합 판정·일반 오류 구간 피드백은 후속 도구 과제다.
 
 ## 산출물과 근거
 

@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "end_ms": 15000,
+  "observations": [
+    { "at_ms": 0, "type": "Pull", "fields": {} },
+    { "at_ms": 5500, "type": "Anchor", "fields": {} },
+    { "at_ms": 8000, "type": "Left", "fields": {} }
+  ]
+}

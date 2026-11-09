@@ -14,22 +14,24 @@ FFLogs 전투 로그를 수집하고 타임라인을 작성하기 위한 도구�
 
 ## 현재 사용 가능한 명령
 
-`btimeline forecast timeline.kdl recording.json --at-ms 10000 --horizon-ms 30000`으로 특정 시점까지의 관측에 따른 미래 표시 일정을 JSON으로 조회할 수 있습니다. 관측 기록의 후반은 실행에 사용하지 않으며, 아직 선택되지 않은 경로나 실제 UI 표시는 예측하지 않습니다. [조회 범위와 가정](.agents/skills/timeline-author/references/offline-replay.md#미래-일정-조회)을 확인하세요.
+`btimeline forecast timeline.kdl recording.json --at-ms 10000 --horizon-ms 30000`으로 특정 시점까지의 관측에 따른 미래 표시 일정을 JSON으로 조회할 수 있습니다. 관측 기록의 후반은 실행에 사용하지 않습니다. 현재 경로는 `events`, 미선택 choice의 조건부 일정은 `alternatives`로 반환하며 선택 결과나 실제 UI 가시성은 추측하지 않습니다. [조회 범위와 가정](.agents/skills/timeline-author/references/offline-replay.md#미래-일정-조회)을 확인하세요.
 
-| 명령                                                         | 용도                                             |
-| ------------------------------------------------------------ | ------------------------------------------------ |
-| `btimeline fflogs`                                           | 보고서의 전투 목록 확인 및 로그 다운로드         |
-| `btimeline fflogs-collect`                                   | 보고서·전투 후보를 찾아 다운로드 계획 저장       |
-| `btimeline fflogs-download`                                  | 저장된 계획에 따라 다운로드 또는 재개            |
-| `btimeline inspect LOG.json...`                              | 수집된 로그를 검사하고 전투별 요약 출력          |
-| `btimeline inspect LOG.json... --json`                       | 원본 근거와 정규화 관측을 JSON으로 출력          |
-| `btimeline mine LOG.json... -o process.kdl`                  | 관측된 활동 후보와 인접 관계를 KDL 그래프로 저장 |
-| `btimeline generate LOG.json... --mode raid -o timeline.kdl` | FFLogs 분석으로 선택적 KDL 초안 생성             |
-| `btimeline validate timeline.kdl`                            | 타임라인의 구조·참조·명확한 범위 검사            |
-| `btimeline compare timeline.kdl recording.json...`           | 정규화 관측 또는 수집 FFLogs의 오프라인 재생     |
-| `btimeline evaluate MANIFEST --profile PROFILE -o REPORT`    | 고정한 입력으로 작성 KDL의 예고와 실행 평가      |
-| `btimeline review REPORT`                                    | 평가 보고서의 문제와 미분류 관측 요약            |
-| `btimeline evidence INPUT --around-index N`                  | 원본 이벤트 인덱스 주변의 관측 조회              |
+| 명령                                                         | 용도                                                       |
+| ------------------------------------------------------------ | ---------------------------------------------------------- |
+| `btimeline fflogs`                                           | 보고서의 전투 목록 확인 및 로그 다운로드                   |
+| `btimeline fflogs-collect`                                   | 보고서·전투 후보를 찾아 다운로드 계획 저장                 |
+| `btimeline fflogs-download`                                  | 저장된 계획에 따라 다운로드 또는 재개                      |
+| `btimeline inspect LOG.json...`                              | 수집된 로그를 검사하고 전투별 요약 출력                    |
+| `btimeline inspect LOG.json... --json`                       | 원본 근거와 정규화 관측을 JSON으로 출력                    |
+| `btimeline mine LOG.json... -o process.kdl`                  | 관측된 활동 후보와 인접 관계를 KDL 그래프로 저장           |
+| `btimeline generate LOG.json... --mode raid -o timeline.kdl` | FFLogs 분석으로 선택적 KDL 초안 생성                       |
+| `btimeline validate timeline.kdl`                            | 타임라인의 구조·참조·명확한 범위 검사                      |
+| `btimeline expand timeline.kdl -o expanded.kdl`              | 예정 묶음·진행 분기를 독립 KDL로 펼침                      |
+| `btimeline compare timeline.kdl recording.json...`           | 정규화 관측 또는 수집 FFLogs의 오프라인 재생               |
+| `btimeline evaluate MANIFEST --profile PROFILE -o REPORT`    | 고정한 입력으로 작성 KDL의 예고와 실행 평가                |
+| `btimeline project TIMELINE INPUT --profile PROFILE -o JSON` | 기존 평가 프로필의 검증용 관측과 출처를 외부 실행기로 전달 |
+| `btimeline review REPORT`                                    | 평가 보고서의 문제와 미분류 관측 요약                      |
+| `btimeline evidence INPUT --around-index N`                  | 원본 이벤트 인덱스 주변의 관측 조회                        |
 
 각 명령에 `--help`를 붙여 사용법을 확인하세요. FFLogs 인증 정보는 환경 변수 `FFLOGS_CLIENT_ID`, `FFLOGS_CLIENT_SECRET` 또는 작업 디렉터리의 `.env`에서 읽습니다. 기존 환경 변수가 우선합니다.
 
@@ -80,6 +82,8 @@ FFLogs 전투 로그를 수집하고 타임라인을 작성하기 위한 도구�
 완료 로그가 3개 이상이면 생성기가 검증용 한 개를 자동으로 고릅니다. 그 로그를 뺀 임시 모델로 대응을 검사하고, 최종 KDL은 모든 완료 로그로 생성합니다. 선택·검사 결과와 미해결 관측은 근거에 남깁니다. 완료 로그가 2개면 독립 검증 자료 부족을 명시합니다. 이 분석은 최종 KDL의 실제 ACT 실행이나 일정 정확성 검증을 대체하지 않습니다.
 
 ## 개발
+
+현재 저작 문법과 ID·예측·오류 계약은 [timeline v2](docs/timeline-v2.md)를 따릅니다. v1 KDL은 거부하며 기존 검증 보고서·동결 manifest는 당시 입력의 역사적 결과로 보존합니다.
 
 ```sh
 cargo test

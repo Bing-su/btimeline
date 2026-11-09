@@ -83,7 +83,8 @@ struct SegmentRule {
     require_main_actor: bool,
     #[serde(default)]
     reject_health_reset: bool,
-    targets: BTreeMap<String, TargetRule>,
+    #[serde(deserialize_with = "target_rules")]
+    targets: BTreeMap<String, Vec<TargetRule>>,
     #[serde(default)]
     ignored: BTreeMap<String, String>,
 }
@@ -97,15 +98,82 @@ struct TargetRule {
     source: Option<String>,
     group: Option<String>,
     lead_ms: Option<i64>,
+    #[serde(default)]
+    reference: Reference,
+    #[serde(default = "default_group_window")]
+    group_window_ms: i64,
+    window: Option<TargetWindow>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TargetWindow {
+    anchor: String,
+    occurrence: usize,
+    duration_ms: i64,
+}
+
+fn target_rules<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<BTreeMap<String, Vec<TargetRule>>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Rules {
+        One(TargetRule),
+        Many(Vec<TargetRule>),
+    }
+    BTreeMap::<String, Rules>::deserialize(deserializer).map(|rules| {
+        rules
+            .into_iter()
+            .map(|(id, rules)| {
+                (
+                    id,
+                    match rules {
+                        Rules::One(rule) => vec![rule],
+                        Rules::Many(rules) => rules,
+                    },
+                )
+            })
+            .collect()
+    })
+}
+
+fn default_group_window() -> i64 {
+    100
+}
+
+#[derive(Clone, Copy, Default, PartialEq, Eq, Deserialize, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum Reference {
+    #[default]
+    EventStart,
+    ActiveWindow,
 }
 pub(super) struct Target {
     pub raw_index: usize,
+    pub raw_indices: Vec<usize>,
     pub at_ms: i64,
     pub id: String,
     pub name: String,
     pub lead_ms: Option<i64>,
     pub event_ids: Vec<String>,
     pub equivalents: Vec<Vec<String>>,
+    pub reference: Reference,
+}
+
+impl Target {
+    pub fn timing_error(&self, at_ms: i64, duration_ms: i64) -> i64 {
+        match self.reference {
+            Reference::EventStart => (at_ms - self.at_ms).abs(),
+            Reference::ActiveWindow => {
+                if self.at_ms < at_ms {
+                    at_ms - self.at_ms
+                } else {
+                    (self.at_ms - at_ms - duration_ms.max(1) + 1).max(0)
+                }
+            }
+        }
+    }
 }
 pub(super) struct Segment {
     pub phase: String,
@@ -165,6 +233,31 @@ impl Profile {
 }
 
 impl SegmentRule {
+    fn target_at<'r, 's>(
+        &'r self,
+        id: &str,
+        event: &Event,
+        log: &CollectedLog,
+        source: &impl Fn(Option<i64>) -> Option<&'s str>,
+    ) -> Result<Option<(&'r str, &'r TargetRule)>> {
+        let Some((key, rules)) = self.targets.get_key_value(id) else {
+            return Ok(None);
+        };
+        let matching = rules
+            .iter()
+            .filter(|target| {
+                source(event.source_id) == Some(target.source.as_deref().unwrap_or(&self.source))
+                    && target.in_window(event, log, source, &self.source)
+            })
+            .collect::<Vec<_>>();
+        ensure!(
+            matching.len() <= 1,
+            "Overlapping target windows for {id} at {}",
+            event.timestamp
+        );
+        Ok(matching.first().map(|target| (key.as_str(), *target)))
+    }
+
     fn infer(model: &crate::timeline::Timeline, entry: CastEntry<'_>) -> Self {
         let CastEntry {
             phase,
@@ -211,6 +304,9 @@ impl SegmentRule {
                 source: None,
                 group: None,
                 lead_ms: None,
+                reference: Reference::EventStart,
+                group_window_ms: default_group_window(),
+                window: None,
             });
             target.events.push(definition.event.id.clone());
         }
@@ -230,7 +326,10 @@ impl SegmentRule {
             max_duration_ms: None,
             require_main_actor: true,
             reject_health_reset: true,
-            targets,
+            targets: targets
+                .into_iter()
+                .map(|(id, target)| (id, vec![target]))
+                .collect(),
             ignored: BTreeMap::new(),
         }
     }
@@ -323,7 +422,11 @@ impl Profile {
                     "Ignored IDs require a reason and must not overlap targets"
                 );
             }
-            for target in segment.targets.values() {
+            ensure!(
+                segment.targets.values().all(|rules| !rules.is_empty()),
+                "Target rules cannot be empty"
+            );
+            for target in segment.targets.values().flatten() {
                 target.validate()?;
             }
         }
@@ -718,41 +821,14 @@ fn project_segment(
             .rposition(|e| e.timestamp <= end)
             .context("Empty scope")?
     };
-    let mut last = BTreeMap::<(bool, &str), i64>::new();
-    let mut targets = Vec::new();
-    for (raw_index, event) in log
-        .events
-        .iter()
-        .enumerate()
-        .filter(|(_, e)| e.kind == "cast" && e.timestamp >= start && e.timestamp <= end)
-    {
-        // Entry opens the scope and cannot establish an advance warning.
-        if inferred && raw_index == entry_event {
-            continue;
-        }
-        let id = ability(event)?;
-        let Some((id_key, target)) = rule.targets.get_key_value(&id) else {
-            continue;
-        };
-        let expected = target.source.as_deref().unwrap_or(&rule.source);
-        if source(event.source_id) != Some(expected) {
-            continue;
-        }
-        // Alias packets share only explicitly declared groups, e.g. C3FF and C400 form one Beam wave.
-        // Keep explicit groups separate from implicit ability keys, e.g. group="B528" is not ID B528.
-        let group = (
-            target.group.is_some(),
-            target.group.as_deref().unwrap_or(id_key),
-        );
-        if last
-            .get(&group)
-            .is_some_and(|before| event.timestamp - before <= 100)
-        {
-            continue;
-        }
-        last.insert(group, event.timestamp);
-        targets.push(target.project(raw_index, event.timestamp - origin, id));
-    }
+    let targets = project_targets(
+        log,
+        rule,
+        start..=end,
+        origin,
+        &source,
+        inferred.then_some(entry_event),
+    )?;
     let audit = audit_segment(log, rule, start..=end, origin)?;
     Ok(Segment {
         phase: rule.phase.clone(),
@@ -765,17 +841,78 @@ fn project_segment(
     })
 }
 
+fn project_targets<'s>(
+    log: &CollectedLog,
+    rule: &SegmentRule,
+    range: std::ops::RangeInclusive<i64>,
+    origin: i64,
+    source: &impl Fn(Option<i64>) -> Option<&'s str>,
+    inferred_entry: Option<usize>,
+) -> Result<Vec<Target>> {
+    let mut last = BTreeMap::<(bool, &str, &str), (i64, usize)>::new();
+    let mut targets = Vec::<Target>::new();
+    for (raw_index, event) in log
+        .events
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| e.kind == "cast" && range.contains(&e.timestamp))
+    {
+        // Entry opens the scope and cannot establish an advance warning.
+        if inferred_entry == Some(raw_index) {
+            continue;
+        }
+        let id = ability(event)?;
+        let Some((id_key, target)) = rule.target_at(&id, event, log, &source)? else {
+            continue;
+        };
+        // Alias packets share only explicitly declared groups, e.g. C3FF and C400 form one Beam wave.
+        // Keep explicit groups separate from implicit ability keys, e.g. group="B528" is not ID B528.
+        let group = (
+            target.group.is_some(),
+            target.group.as_deref().unwrap_or(id_key),
+            if target.group.is_some() {
+                ""
+            } else {
+                target.source.as_deref().unwrap_or(&rule.source)
+            },
+        );
+        if let Some((_, index)) = last
+            .get(&group)
+            .filter(|(before, _)| event.timestamp - before <= target.group_window_ms)
+        {
+            targets
+                .get_mut(*index)
+                .context("Missing grouped target")?
+                .raw_indices
+                .push(raw_index);
+            continue;
+        }
+        last.insert(group, (event.timestamp, targets.len()));
+        targets.push(target.project(raw_index, event.timestamp - origin, id));
+    }
+    Ok(targets)
+}
+
 fn audit_segment(
     log: &CollectedLog,
     rule: &SegmentRule,
     range: std::ops::RangeInclusive<i64>,
     origin: i64,
 ) -> Result<super::audit::Audit> {
+    let names = log
+        .report
+        .master_data
+        .actors
+        .iter()
+        .map(|actor| (actor.id, actor.name.as_str()))
+        .collect::<BTreeMap<_, _>>();
+    let source_name = |id: Option<i64>| id.and_then(|id| names.get(&id).copied());
     let sources = std::iter::once(rule.source.as_str())
         .chain(rule.other_sources.iter().map(String::as_str))
         .chain(
             rule.targets
                 .values()
+                .flatten()
                 .filter_map(|target| target.source.as_deref()),
         )
         .collect();
@@ -784,10 +921,13 @@ fn audit_segment(
         range,
         origin,
         &sources,
-        |source, id| {
-            rule.targets
-                .get(id)
-                .is_some_and(|target| source == target.source.as_deref().unwrap_or(&rule.source))
+        |source, id, event| {
+            rule.targets.get(id).is_some_and(|targets| {
+                targets.iter().any(|target| {
+                    source == target.source.as_deref().unwrap_or(&rule.source)
+                        && target.in_window(event, log, &source_name, &rule.source)
+                })
+            })
         },
         &rule.ignored,
     )
@@ -921,7 +1061,48 @@ fn recording(
 }
 
 impl TargetRule {
+    fn in_window<'a>(
+        &self,
+        event: &Event,
+        log: &CollectedLog,
+        source: &impl Fn(Option<i64>) -> Option<&'a str>,
+        default_source: &str,
+    ) -> bool {
+        let Some(window) = &self.window else {
+            return true;
+        };
+        let anchor = log
+            .events
+            .iter()
+            .filter(|candidate| {
+                candidate.kind == "cast"
+                    && source(candidate.source_id) == Some(default_source)
+                    && ability(candidate).is_ok_and(|id| id == window.anchor)
+            })
+            .nth(window.occurrence - 1);
+        anchor.is_some_and(|anchor| {
+            event.timestamp >= anchor.timestamp
+                && event.timestamp - anchor.timestamp < window.duration_ms
+        })
+    }
+
     fn validate(&self) -> Result<()> {
+        ensure!(
+            (0..=2000).contains(&self.group_window_ms),
+            "group_window_ms must be between 0 and 2000"
+        );
+        if let Some(window) = &self.window {
+            ensure!(
+                window.occurrence > 0
+                    && (1..=MAX_MS).contains(&window.duration_ms)
+                    && !window.anchor.is_empty()
+                    && window
+                        .anchor
+                        .bytes()
+                        .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_lowercase()),
+                "Invalid target observation window"
+            );
+        }
         let unique = self
             .events
             .iter()
@@ -949,6 +1130,7 @@ impl TargetRule {
     fn project(&self, raw_index: usize, at_ms: i64, id: String) -> Target {
         Target {
             raw_index,
+            raw_indices: vec![raw_index],
             at_ms,
             id,
             name: self.name.clone(),
@@ -961,6 +1143,7 @@ impl TargetRule {
                 .into_iter()
                 .collect(),
             equivalents: self.equivalents.clone(),
+            reference: self.reference,
         }
     }
 }
@@ -974,7 +1157,11 @@ impl SegmentRule {
             .collect::<BTreeMap<_, _>>();
         let mut sets = Vec::<std::collections::BTreeSet<&str>>::new();
         let mut groups = BTreeMap::new();
-        for (id, target) in &self.targets {
+        for (id, target) in self
+            .targets
+            .iter()
+            .flat_map(|(id, rules)| rules.iter().map(move |target| (id, target)))
+        {
             let events = target
                 .events
                 .iter()
@@ -990,6 +1177,10 @@ impl SegmentRule {
                     "Binding {event} must be visible and belong to phase {}",
                     self.phase
                 );
+                ensure!(
+                    target.reference != Reference::ActiveWindow || definition.event.duration_ms > 0,
+                    "Active-window binding {event} requires a positive display duration"
+                );
             }
             ensure!(
                 sets.iter()
@@ -998,10 +1189,24 @@ impl SegmentRule {
                 self.phase
             );
             if let Some(group) = &target.group
-                && let Some(previous) = groups.insert(group, (&target.name, events.clone()))
+                && let Some(previous) = groups.insert(
+                    group,
+                    (
+                        &target.name,
+                        events.clone(),
+                        target.reference,
+                        target.group_window_ms,
+                    ),
+                )
             {
                 ensure!(
-                    previous == (&target.name, events.clone()),
+                    previous
+                        == (
+                            &target.name,
+                            events.clone(),
+                            target.reference,
+                            target.group_window_ms
+                        ),
                     "Collapsed group {group} must share name and event bindings"
                 );
             }

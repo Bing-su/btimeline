@@ -36,8 +36,16 @@ pub(crate) struct EventDefinition {
     pub event: EventData,
     pub at_ms: i64,
     pub owner: Owner,
+    pub source_span: SourceSpan,
+    pub declaration_order: usize,
     #[serde(skip)]
     pub cast: Option<(String, String)>,
+}
+#[derive(Debug, Serialize)]
+pub(crate) struct SourceSpan {
+    pub file: String,
+    pub start: usize,
+    pub end: usize,
 }
 #[derive(Debug, Serialize)]
 pub(crate) struct BranchDefinition {
@@ -68,7 +76,11 @@ fn event_values<S: Serializer>(
     events.values().collect::<Vec<_>>().serialize(serializer)
 }
 impl Catalog {
-    pub(super) fn from_timeline(timeline: &Timeline) -> Self {
+    pub(super) fn from_timeline(
+        timeline: &Timeline,
+        source: &str,
+        declarations: &BTreeMap<usize, usize>,
+    ) -> Self {
         let mut catalog = Self::default();
         catalog.body(&timeline.events, &[], &[], &Owner::default());
         for phase in &timeline.phases {
@@ -89,6 +101,19 @@ impl Catalog {
                 );
             }
         }
+        for event in catalog.events.values_mut() {
+            event.declaration_order = declarations[&event.source_span.start];
+            event.source_span.start = source
+                .get(..event.source_span.start)
+                .expect("KDL span starts on a character boundary")
+                .encode_utf16()
+                .count();
+            event.source_span.end = source
+                .get(..event.source_span.end)
+                .expect("KDL span ends on a character boundary")
+                .encode_utf16()
+                .count();
+        }
         catalog
     }
 
@@ -105,6 +130,12 @@ impl Catalog {
                     },
                     at_ms: event.at * 100,
                     owner: owner.clone(),
+                    source_span: SourceSpan {
+                        file: "<timeline>".into(),
+                        start: event.source_start,
+                        end: event.source_end,
+                    },
+                    declaration_order: 0,
                     cast: impact_cast(event),
                 },
             );

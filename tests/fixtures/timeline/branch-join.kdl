@@ -1,0 +1,33 @@
+timeline 2 "Shared progression sequence" {
+    start "Pull"
+    phase "fight" {
+        step opening {
+            enter "Pull"
+            choice choice at=5 {
+                join "fight/continuation" after=3 {
+                    when "Join" before=1 after=1
+                }
+                option left {
+                    when "Left"
+                    event left-hit 1 name="Left"
+                }
+                option right {
+                    when "Right"
+                    event right-hit 1 name="Right"
+                }
+            }
+        }
+        step continuation {
+            event joined 1 name="Joined"
+        }
+    }
+    phase recovery {
+        step main {
+            enter "Recover" from="fight/opening"
+            enter "Recover" from="fight/opening/choice/left"
+            enter "Recover" from="fight/opening/choice/right"
+            enter "Recover" from="fight/continuation"
+            event recovered 1 name="Recovered"
+        }
+    }
+}

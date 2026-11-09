@@ -167,6 +167,10 @@ fn later_correlated_choices_are_not_generated_as_independent_combinations() {
         phase
             .children()
             .unwrap()
+            .get("step")
+            .unwrap()
+            .children()
+            .unwrap()
             .nodes()
             .iter()
             .filter(|node| node.name().value() == "branch")

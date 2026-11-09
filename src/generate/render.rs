@@ -412,6 +412,92 @@ impl Rendered {
     }
 }
 
+// Resolve evidence references from the same authored ownership used by the compiler.
+fn collect_references(
+    node: &KdlNode,
+    owner: &str,
+    references: &mut BTreeMap<String, String>,
+) -> Result<()> {
+    let role = node.name().value();
+    let local = node.get(0).and_then(KdlValue::as_string);
+    let path = match (role, local) {
+        ("event" | "branch" | "option", Some(id)) => format!("{owner}/{id}"),
+        ("loop", Some(id)) => format!("{owner}/loop/{id}"),
+        ("merge", _) => format!("{owner}/merge"),
+        _ => owner.to_owned(),
+    };
+    if matches!(role, "event" | "branch" | "loop")
+        && let Some(id) = local
+    {
+        ensure!(
+            references.insert(id.to_owned(), path.clone()).is_none(),
+            "Generated reference collision: {id}"
+        );
+    }
+    for child in node.children().into_iter().flat_map(|body| body.nodes()) {
+        collect_references(child, &path, references)?;
+    }
+    Ok(())
+}
+
+fn evidence_references(value: &mut Value, references: &BTreeMap<String, String>) {
+    match value {
+        Value::Object(fields) => {
+            for key in ["event", "phase", "branch"] {
+                if let Some(current) = fields.get(key).and_then(Value::as_str)
+                    && let Some(reference) = references.get(current)
+                {
+                    fields.insert(key.into(), reference.clone().into());
+                }
+            }
+            if let Some(events) = fields.get_mut("events") {
+                evidence_references(events, references);
+            }
+        }
+        Value::Array(rows) => {
+            for row in rows {
+                evidence_references(row, references);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn group_steps(rendered: &mut Rendered) -> Result<()> {
+    let mut references = BTreeMap::new();
+    for node in &mut rendered.nodes {
+        if node.name().value() != "step" {
+            continue;
+        }
+        let id = node
+            .get(0)
+            .and_then(KdlValue::as_string)
+            .context("Missing generated step ID")?
+            .to_owned();
+        let path = format!("{id}/main");
+        references.insert(id.clone(), path.clone());
+        for child in node.children().into_iter().flat_map(|body| body.nodes()) {
+            collect_references(child, &path, &mut references)?;
+        }
+        let mut step = node.clone();
+        *step.get_mut(0).context("Missing generated step ID")? = KdlValue::String("main".into());
+        let mut phase = KdlNode::new("phase");
+        phase.push(id);
+        phase.ensure_children().nodes_mut().push(step);
+        *node = phase;
+    }
+    for row in rendered.events.iter_mut().chain(&mut rendered.origins) {
+        evidence_references(row, &references);
+    }
+    for row in &mut rendered.loops {
+        if let Some(id) = row["id"].as_str().and_then(|id| references.get(id)) {
+            row["id"] = id.clone().into();
+        }
+        evidence_references(row, &references);
+    }
+    Ok(())
+}
+
 // Boss metadata supplies scope boundaries; travel and preceding trash never share a boss clock.
 fn compose(
     analysis: &Analysis,
@@ -478,7 +564,7 @@ fn compose(
                 phase_ids.insert(phase_id.clone()),
                 "Boss phase ID collision: {phase_id}"
             );
-            let mut phase = KdlNode::new("phase");
+            let mut phase = KdlNode::new("step");
             phase.push(phase_id.clone());
             if matches!(mode, Mode::Raid) {
                 phase.ensure_children().nodes_mut().push(signal(
@@ -603,7 +689,8 @@ pub(crate) fn generate(inputs: &[Utf8PathBuf], mode: Mode, output: &Path) -> Res
     let count = rendered.event_count();
     ensure!(count > 0, "No common cast events after the selected origin");
     let mut timeline_root = KdlNode::new("timeline");
-    timeline_root.push(1_i128);
+    group_steps(&mut rendered)?;
+    timeline_root.push(2_i128);
     timeline_root.push(analysis.name()?);
     timeline_root
         .ensure_children()

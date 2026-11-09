@@ -1,22 +1,23 @@
 ---
 source: tests/dungeon_loop_reference.rs
-expression: "if missing_boundary\n{\n    events.into_iter().filter(|row| row[\"event\"] ==\n    \"no-mans-land\").collect::<Vec<_>>()\n} else { events }"
+assertion_line: 56
+expression: "if missing_boundary\n{\n    events.into_iter().filter(|row| row[\"event\"] ==\n    \"rotation/main/loop/chirurgeon-rotation/no-mans-land\").collect::<Vec<_>>()\n} else { events }"
 ---
 [
   {
     "at_ms": 0,
-    "event": "no-mans-land"
+    "event": "rotation/main/loop/chirurgeon-rotation/no-mans-land"
   },
   {
     "at_ms": 52134,
-    "event": "no-mans-land"
+    "event": "rotation/main/loop/chirurgeon-rotation/no-mans-land"
   },
   {
     "at_ms": 103634,
-    "event": "no-mans-land"
+    "event": "rotation/main/loop/chirurgeon-rotation/no-mans-land"
   },
   {
     "at_ms": 155134,
-    "event": "no-mans-land"
+    "event": "rotation/main/loop/chirurgeon-rotation/no-mans-land"
   }
 ]

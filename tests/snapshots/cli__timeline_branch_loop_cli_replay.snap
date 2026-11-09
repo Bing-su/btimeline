@@ -1,5 +1,6 @@
 ---
 source: tests/cli.rs
+assertion_line: 883
 expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][recording], \"not_checked\":\n    output[\"not_checked\"]\n})"
 ---
 {
@@ -22,10 +23,10 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "iteration": null,
         "loop_id": null,
         "option": null,
-        "phase": "boss",
+        "phase": "boss/main",
         "phase_instance": 1
       },
-      "detail": "boss",
+      "detail": "boss/main",
       "run": 1
     },
     {
@@ -34,15 +35,15 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
       "context": {
         "branch": null,
         "iteration": 1,
-        "loop_id": "rotation",
+        "loop_id": "boss/main/loop/rotation",
         "option": null,
-        "phase": "boss",
+        "phase": "boss/main",
         "phase_instance": 1
       },
-      "detail": "pulse: Pulse (visible=true, duration=0.0s)",
+      "detail": "boss/main/loop/rotation/pulse: Pulse (visible=true, duration=0.0s)",
       "event": {
         "duration_ms": 0,
-        "id": "pulse",
+        "id": "boss/main/loop/rotation/pulse",
         "name": "Pulse",
         "visible": true
       },
@@ -52,37 +53,37 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
       "action": "option",
       "at_ms": 1000,
       "context": {
-        "branch": "choice",
+        "branch": "boss/main/choice",
         "iteration": null,
         "loop_id": null,
         "option": "left",
-        "phase": "boss",
+        "phase": "boss/main",
         "phase_instance": 1
       },
-      "detail": "choice/left",
+      "detail": "boss/main/choice/left",
       "run": 1
     },
     {
       "action": "sync",
       "at_ms": 2000,
-      "detail": "boss -> 3.0s",
+      "detail": "boss/main -> 3.0s",
       "run": 1
     },
     {
       "action": "event",
       "at_ms": 2000,
       "context": {
-        "branch": "choice",
+        "branch": "boss/main/choice",
         "iteration": null,
         "loop_id": null,
         "option": "left",
-        "phase": "boss",
+        "phase": "boss/main",
         "phase_instance": 1
       },
-      "detail": "left-hit: Left attack (visible=true, duration=0.0s)",
+      "detail": "boss/main/choice/left/left-hit: Left attack (visible=true, duration=0.0s)",
       "event": {
         "duration_ms": 0,
-        "id": "left-hit",
+        "id": "boss/main/choice/left/left-hit",
         "name": "Left attack",
         "visible": true
       },
@@ -94,15 +95,15 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
       "context": {
         "branch": null,
         "iteration": 2,
-        "loop_id": "rotation",
+        "loop_id": "boss/main/loop/rotation",
         "option": null,
-        "phase": "boss",
+        "phase": "boss/main",
         "phase_instance": 1
       },
-      "detail": "pulse: Pulse (visible=true, duration=0.0s)",
+      "detail": "boss/main/loop/rotation/pulse: Pulse (visible=true, duration=0.0s)",
       "event": {
         "duration_ms": 0,
-        "id": "pulse",
+        "id": "boss/main/loop/rotation/pulse",
         "name": "Pulse",
         "visible": true
       },
@@ -114,12 +115,12 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
       "context": {
         "branch": null,
         "iteration": 2,
-        "loop_id": "rotation",
+        "loop_id": "boss/main/loop/rotation",
         "option": null,
-        "phase": "boss",
+        "phase": "boss/main",
         "phase_instance": 1
       },
-      "detail": "rotation",
+      "detail": "boss/main/loop/rotation",
       "run": 1
     },
     {
@@ -130,13 +131,13 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "iteration": null,
         "loop_id": null,
         "option": null,
-        "phase": "boss",
+        "phase": "boss/main",
         "phase_instance": 1
       },
-      "detail": "phase-hit: Phase attack (visible=true, duration=0.0s)",
+      "detail": "boss/main/phase-hit: Phase attack (visible=true, duration=0.0s)",
       "event": {
         "duration_ms": 0,
-        "id": "phase-hit",
+        "id": "boss/main/phase-hit",
         "name": "Phase attack",
         "visible": true
       },

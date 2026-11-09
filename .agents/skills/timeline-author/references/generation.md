@@ -1,5 +1,7 @@
 # FFLogs에서 KDL 생성
 
+출력 문법은 [timeline v2](../../../../docs/timeline-v2.md)다. 진행 구간은 `phase ID { step main { ... } }`으로 출력하며 evidence의 event/phase/branch 참조도 정규 경로로 출력한다. 원본 관측 ID와 학습 모델 내부 식별자는 바꾸지 않는다.
+
 이 문서는 선택적 자동 초안 도구인 `generate`의 동작을 정의한다. 최종 KDL의 작성과 독립 검증은 [에이전트 작성 합의](agent-timeline-authoring.md)를 따른다.
 
 `generate`는 FFLogs JSON 파일들을 직접 받는다. 입력 검사 → 공통 프로세스 분석·그래프 구성 → mode 정책 적용 → KDL 생성 → 구조 검증 → 저장을 한 번에 수행한다. 템플릿, 작성한 기준점, 중간 그래프 파일은 입력으로 요구하지 않는다.

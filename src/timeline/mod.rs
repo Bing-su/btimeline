@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 
 pub(crate) use catalog::{CastEntry, Catalog, EventData, ExecutionContext, LoopDefinition, Owner};
 pub(crate) use fflogs::from_fflogs;
-pub(crate) use parse::parse;
+pub(crate) use parse::{expanded, parse, parse_with_file};
 use regress::Regex;
 pub(crate) use replay::forecast::forecast;
 pub(crate) use replay::{Observation, Record, Recording, replay};
@@ -39,7 +39,7 @@ impl Signal {
     fn matches(&self, kind: &str, fields: &BTreeMap<String, String>, time: Tick) -> bool {
         self.kind == kind
             && self.at.is_none_or(|at| {
-                time >= at - self.before && self.after.is_none_or(|after| time <= at + after)
+                time >= at - self.before && self.after.is_none_or(|after| time < at + after)
             })
             && self.fields.iter().all(|(name, condition)| {
                 fields.get(name).is_some_and(|value| match condition {
@@ -53,6 +53,8 @@ impl Signal {
 #[derive(Debug)]
 pub(crate) struct Event {
     order: usize,
+    source_start: usize,
+    source_end: usize,
     id: String,
     at: Tick,
     name: String,
@@ -69,6 +71,14 @@ pub(crate) struct Phase {
     branches: Vec<Branch>,
     loops: Vec<Loop>,
     sequences: Vec<Sequence>,
+    after: Vec<PhaseAfter>,
+    syncs: Vec<(usize, Signal)>,
+}
+
+#[derive(Debug)]
+struct PhaseAfter {
+    from: String,
+    at: Tick,
 }
 
 #[derive(Debug)]
@@ -76,6 +86,7 @@ struct Sequence {
     id: String,
     starts: Vec<Signal>,
     events: Vec<Event>,
+    syncs: Vec<(usize, Signal)>,
 }
 
 #[derive(Debug)]
@@ -89,6 +100,7 @@ struct Branch {
 
 #[derive(Debug)]
 struct BranchOption {
+    syncs: Vec<(usize, Signal)>,
     id: String,
     fallback: bool,
     whens: Vec<Signal>,
@@ -99,6 +111,7 @@ struct BranchOption {
 
 #[derive(Debug)]
 struct Loop {
+    syncs: Vec<(usize, Signal)>,
     order: usize,
     id: String,
     start: Tick,
@@ -111,15 +124,26 @@ struct Loop {
 
 #[derive(Debug)]
 struct Merge {
+    syncs: Vec<(usize, Signal)>,
     whens: Vec<Signal>,
     events: Vec<Event>,
 }
 
 #[derive(Debug)]
+pub(crate) struct Choice {
+    id: String,
+    step_id: String,
+    at: Tick,
+    option_ids: Vec<String>,
+}
+
+#[derive(Debug)]
 pub(crate) struct Timeline {
+    choices: Vec<Choice>,
     pub(crate) name: String,
     lifecycle: BTreeMap<String, Vec<Signal>>,
     events: Vec<Event>,
+    syncs: Vec<(usize, Signal)>,
     phases: Vec<Phase>,
     pub(crate) event_count: usize,
     pub(crate) catalog: Catalog,

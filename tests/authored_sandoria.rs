@@ -268,7 +268,7 @@ fn early_kirin_marker_only_selects_within_its_window() {
             at,
             7000,
         );
-        let expected_id = "kirin-early-recovery-riddle";
+        let expected_id = "kirin/main/shijin/eastwind-early-recovery/kirin-early-recovery-riddle";
         let events = result["events"].as_array().expect("events");
         assert_eq!(
             events.iter().any(|event| event["id"] == expected_id),
@@ -291,7 +291,10 @@ fn double_cast_recovers_the_paired_forecast_without_the_wheel_signal() {
     assert_eq!(result["diagnostics"], json!([]));
     assert_eq!(result["projection_diagnostics"], json!([]));
     let events = result["events"].as_array().expect("events");
-    for id in ["kirin-recovery-quake", "kirin-recovery-stonega"] {
+    for id in [
+        "kirin/main/shijin/eastwind-recovery/kirin-recovery-quake",
+        "kirin/main/shijin/eastwind-recovery/kirin-recovery-stonega",
+    ] {
         assert!(
             events
                 .iter()
@@ -319,19 +322,19 @@ fn first_sling_resumes_eald_and_later_sling_preserves_the_clock() {
     );
     assert!(
         rows.iter()
-            .any(|row| row["action"] == "skipped" && row["detail"] == "eald-1")
+            .any(|row| row["action"] == "skipped" && row["detail"] == "eald/main/eald-1")
     );
     assert!(
         rows.iter()
-            .any(|row| row["event"]["id"] == "eald-2" && row["at_ms"] == 21007)
+            .any(|row| row["event"]["id"] == "eald/main/eald-2" && row["at_ms"] == 21007)
     );
     assert!(
         rows.iter()
-            .any(|row| row["event"]["id"] == "eald-3" && row["at_ms"] == 37707)
+            .any(|row| row["event"]["id"] == "eald/main/eald-3" && row["at_ms"] == 37707)
     );
     assert!(
         rows.iter()
-            .any(|row| row["event"]["id"] == "eald-4" && row["at_ms"] == 54807)
+            .any(|row| row["event"]["id"] == "eald/main/eald-4" && row["at_ms"] == 54807)
     );
 }
 
@@ -392,18 +395,18 @@ fn joint_schedule_cancels_only_on_a_named_boss_defeat(#[case] target: &str, #[ca
 #[case(
     "AD09",
     5153,
-    "ultima-solo-mana-screen",
+    "ultima-solo/main/reaction/mana-screen/ultima-solo-mana-screen",
     "AD08",
     10261,
-    "ultima-solo-energy-orb"
+    "ultima-solo/main/reaction/energy-orb/ultima-solo-energy-orb"
 )]
 #[case(
     "AD08",
     4365,
-    "ultima-solo-energy-orb",
+    "ultima-solo/main/reaction/energy-orb/ultima-solo-energy-orb",
     "AD09",
     9813,
-    "ultima-solo-mana-screen"
+    "ultima-solo/main/reaction/mana-screen/ultima-solo-mana-screen"
 )]
 fn ultima_solo_forecasts_only_observed_new_casts(
     #[case] first_id: &str,
@@ -423,7 +426,7 @@ fn ultima_solo_forecasts_only_observed_new_casts(
     ];
     // The cast already in progress has no newly observed start after the handoff.
     let waiting = run("forecast", observations.clone(), boundary + 2700, 5000);
-    assert_eq!(waiting["phase"], "ultima-solo");
+    assert_eq!(waiting["phase"], "ultima-solo/main");
     assert_eq!(waiting["events"], json!([]));
     observations.push(signal(
         boundary + first_start,
@@ -474,7 +477,10 @@ fn ultima_can_forecast_two_consecutive_mana_screens_in_one_phase() {
         signal(100000, "StartsUsing", "AD09", "Ultima, the Feared"),
     ];
     let forecast = run("forecast", observations.clone(), 100000, 4000);
-    assert_eq!(forecast["events"][0]["id"], "ultima-solo-mana-screen");
+    assert_eq!(
+        forecast["events"][0]["id"],
+        "ultima-solo/main/reaction/mana-screen/ultima-solo-mana-screen"
+    );
     assert_eq!(forecast["events"][0]["at_ms"], 103000);
     assert_eq!(forecast["events"][0]["context"]["sequence_instance"], 2);
     let rows = run("compare", observations, 100000, 4000);
@@ -482,7 +488,9 @@ fn ultima_can_forecast_two_consecutive_mana_screens_in_one_phase() {
         .as_array()
         .unwrap()
         .iter()
-        .filter(|row| row["event"]["id"] == "ultima-solo-mana-screen")
+        .filter(|row| {
+            row["event"]["id"] == "ultima-solo/main/reaction/mana-screen/ultima-solo-mana-screen"
+        })
         .map(|row| {
             (
                 &row["at_ms"],
@@ -494,8 +502,8 @@ fn ultima_can_forecast_two_consecutive_mana_screens_in_one_phase() {
     assert_eq!(
         executions,
         [
-            (&json!(98000), &json!("ultima-solo"), &json!(1)),
-            (&json!(103000), &json!("ultima-solo"), &json!(2)),
+            (&json!(98000), &json!("ultima-solo/main"), &json!(1)),
+            (&json!(103000), &json!("ultima-solo/main"), &json!(2)),
         ]
     );
 }
@@ -510,12 +518,15 @@ fn ultima_first_defeat_arms_omega_cast_and_cancels_on_omega_defeat() {
         json!({"at_ms":95259,"type":"WasDefeated","fields":{"target":"Ultima, the Feared"}}),
     ];
     let waiting = run("forecast", observations.clone(), 95000, 5000);
-    assert_eq!(waiting["phase"], "omega-solo");
+    assert_eq!(waiting["phase"], "omega-solo/main");
     assert_eq!(waiting["events"], json!([]));
     let forecast = run("forecast", observations.clone(), 95659, 5000);
     let events = forecast["events"].as_array().unwrap();
     assert_eq!(events.len(), 1, "{forecast}");
-    assert_eq!(events[0]["id"], "omega-solo-trajectory-projection");
+    assert_eq!(
+        events[0]["id"],
+        "omega-solo/main/reaction/trajectory-projection/omega-solo-trajectory-projection"
+    );
     assert_eq!(events[0]["at_ms"], 98659);
     observations.push(json!({
         "at_ms":97000,

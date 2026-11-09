@@ -1,22 +1,26 @@
-timeline 1 "Option loop" {
+timeline 2 "Option loop" {
     start "InCombat" inGameCombat="1"
-    phase "boss" {
-        enter "InCombat" inGameCombat="1"
-        branch "choice" open=0.0 close=3.0 {
-            option "left" {
-                when "StartsUsing" id="2001" source="The Boss"
-                loop "left-loop" start=0.0 every=1.0 {
-                    until "StartsUsing" id="2002" source="The Boss" at=1.5 before=0.0
-                    event "pulse" 0.0 name="Pulse"
+    phase boss {
+        step main {
+            enter "InCombat" inGameCombat="1"
+            branch choice open=0.0 close=3.0 {
+                option left {
+                    when "StartsUsing" id="2001" source="The Boss"
+                    loop left-loop start=0.0 every=1.0 {
+                        until "StartsUsing" id="2002" source="The Boss" at=1.5 before=0.0
+                        event pulse 0.0 name="Pulse"
+                    }
                 }
-            }
-            option "right" {
-                when "StartsUsing" id="2003" source="The Boss"
-                loop "right-loop" start=0.0 every=1.0 { event "other" 0.0 name="Other"; }
-            }
-            merge {
-                when "StartsUsing" id="2004" source="The Boss"
-                event "shared" 0.0 name="Shared"
+                option right {
+                    when "StartsUsing" id="2003" source="The Boss"
+                    loop right-loop start=0.0 every=1.0 {
+                        event other 0.0 name="Other"
+                    }
+                }
+                merge {
+                    when "StartsUsing" id="2004" source="The Boss"
+                    event shared 0.0 name="Shared"
+                }
             }
         }
     }

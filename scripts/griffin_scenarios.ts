@@ -22,7 +22,9 @@ function eventIds(samples: readonly Sample[]) {
     }
     const label = id === "B0EF" ? `roar-${["first", "second", "last"][roars++]}` : labels[id];
     assert(label && !label.includes("undefined"), `Unknown mechanic position: ${id}`);
-    return `${sparks === 1 ? "opening" : "rotation"}-${label}`;
+    return sparks === 1
+      ? `griffin/main/opening-${label}`
+      : `griffin/main/loop/late-rotation/rotation-${label}`;
   });
 }
 

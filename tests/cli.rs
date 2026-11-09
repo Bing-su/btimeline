@@ -6,6 +6,70 @@ use serde_json::Value;
 const INPUT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/pull.json");
 
 #[test]
+fn project_exports_profile_observations_with_provenance_without_overwriting() {
+    let directory = tempfile::tempdir().unwrap();
+    let timeline = directory.path().join("timeline.kdl");
+    let profile = directory.path().join("profile.json");
+    let output = directory.path().join("projection.json");
+    fs::write(
+        &timeline,
+        r###"
+timeline 2 "Projection" {
+    start "Ability" id="B528" source="Synthetic Boss"
+    phase boss {
+        step main {
+            enter "Ability" id="B528" source="Synthetic Boss"
+            event hit 4 name="Hit" {
+                sync 4 "Ability" id="B528" source="Synthetic Boss"
+            }
+        }
+    }
+}
+"###,
+    )
+    .unwrap();
+    fs::write(&profile, serde_json::to_vec(&serde_json::json!({
+        "version":1,"observations":"all_casts_and_starts","not_checked":["ACT"],
+        "segments":[{"phase":"boss/main","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end",
+          "targets":{"B528":{"name":"Hit","events":["boss/main/hit"]}}}]
+    })).unwrap()).unwrap();
+    cargo_bin_cmd!("btimeline")
+        .arg("project")
+        .arg(&timeline)
+        .arg(INPUT)
+        .arg("--profile")
+        .arg(&profile)
+        .arg("-o")
+        .arg(&output)
+        .assert()
+        .success();
+    let bytes = fs::read(&output).unwrap();
+    let result: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(
+        result["recording"]["observations"][0]["source_event_index"],
+        0
+    );
+    assert_eq!(result["recording"]["observations"][0]["type"], "Ability");
+    assert_eq!(
+        result["recording"]["observations"][0]["fields"]["id"],
+        "B528"
+    );
+    assert_eq!(result["origin_timestamp_ms"], 2000);
+    assert_eq!(result["input_sha256"].as_str().unwrap().len(), 64);
+    cargo_bin_cmd!("btimeline")
+        .arg("project")
+        .arg(&timeline)
+        .arg(INPUT)
+        .arg("--profile")
+        .arg(&profile)
+        .arg("-o")
+        .arg(&output)
+        .assert()
+        .failure();
+    assert_eq!(fs::read(&output).unwrap(), bytes);
+}
+
+#[test]
 fn inspect_defaults_to_a_human_summary_and_keeps_json_explicit() {
     let result = cargo_bin_cmd!("btimeline")
         .args(["inspect", INPUT])

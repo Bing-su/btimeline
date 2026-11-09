@@ -1,0 +1,25 @@
+timeline 2 "Scheduled sequence uses the parent clock" {
+    start Pull
+    phase main {
+        step main {
+            enter Pull
+            section mechanic at=5 {
+                sync 0 Anchor after=1 before=0.5
+                event scheduled-hit 2 name=Scheduled
+                branch choice close=4 open=2 {
+                    option left {
+                        when Left after=1 at=3 before=1
+                        event left-hit 1 name=Left
+                    }
+                    option right {
+                        when Right
+                    }
+                }
+                loop pulses count=2 every=2 start=5 {
+                    event pulse 0 name=Pulse
+                }
+            }
+            event parent-hit 14 name=Parent
+        }
+    }
+}

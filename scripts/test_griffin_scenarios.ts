@@ -20,7 +20,7 @@ assert(omitted.observations.some((row) => row[1] === "B0EC" && row[0] === 12000)
 assert(!omitted.observations.some((row) => row[1] === "B0EC" && row[0] > omitted.onset_ms));
 assert.equal(omitted.end_ms, 172000);
 assert.equal(omitted.targets.at(-1)?.[2], 8);
-assert.equal(omitted.event_ids[3], "rotation-storm-surge");
+assert.equal(omitted.event_ids[3], "griffin/main/loop/late-rotation/rotation-storm-surge");
 const roars = griffinScenarios(
   [
     [0, "B0EB", 1],
@@ -31,9 +31,9 @@ const roars = griffinScenarios(
   ],
   140000,
 )[0];
-assert.equal(roars.event_ids[1], "opening-roar-first");
-assert.equal(roars.event_ids[3], "rotation-roar-first");
-assert.equal(roars.event_ids[4], "rotation-roar-second");
+assert.equal(roars.event_ids[1], "griffin/main/opening-roar-first");
+assert.equal(roars.event_ids[3], "griffin/main/loop/late-rotation/rotation-roar-first");
+assert.equal(roars.event_ids[4], "griffin/main/loop/late-rotation/rotation-roar-second");
 assert.equal(JSON.stringify(samples), original);
 assert.equal(scenarios.find((row) => row.name === "early")?.onset_ms, 77000);
 assert.throws(() => griffinScenarios([[0, "B0EB", 1]], 1000));

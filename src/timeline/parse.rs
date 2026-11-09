@@ -1,5 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+mod expand;
+
 use anyhow::{Context, Result, bail, ensure};
 use kdl::{KdlNode, KdlValue};
 use regress::Regex;
@@ -20,6 +22,22 @@ use super::{
 
 fn children(node: &KdlNode) -> &[KdlNode] {
     node.children().map_or(&[], |doc| doc.nodes())
+}
+
+fn check_schedule_syncs(
+    syncs: &[(usize, Signal)],
+    latest: Tick,
+    every: Option<Tick>,
+) -> Result<()> {
+    if let Some(every) = every {
+        for (_, signal) in syncs {
+            ensure!(
+                signal.at.is_some_and(|at| latest + at < every),
+                "Sync crosses the iteration boundary"
+            );
+        }
+    }
+    Ok(())
 }
 
 fn args(node: &KdlNode) -> Vec<&KdlValue> {
@@ -92,6 +110,104 @@ fn arg_time(node: &KdlNode, index: usize) -> Result<Tick> {
     ticks(args(node).get(index).context("Missing time argument")?)
 }
 
+fn shift_property(node: &mut KdlNode, key: &str, offset: Tick) -> Result<()> {
+    if let Some(value) = node.get_mut(key) {
+        *value = KdlValue::Float((ticks(value)? + offset) as f64 / 10.0);
+    }
+    Ok(())
+}
+
+fn shift_argument(node: &mut KdlNode, index: usize, offset: Tick) -> Result<()> {
+    let value = node.get_mut(index).context("Missing scheduled time")?;
+    *value = KdlValue::Float((ticks(value)? + offset) as f64 / 10.0);
+    Ok(())
+}
+
+fn shift_scheduled(node: &mut KdlNode, offset: Tick) -> Result<()> {
+    match node.name().value() {
+        "sync" => shift_argument(node, 0, offset)?,
+        "event" => {
+            shift_argument(node, 1, offset)?;
+            if let Some(body) = node.children_mut() {
+                for sync in body.nodes_mut() {
+                    shift_argument(sync, 0, offset)?;
+                }
+            }
+        }
+        "branch" => {
+            shift_property(node, "open", offset)?;
+            shift_property(node, "close", offset)?;
+            if let Some(body) = node.children_mut() {
+                for choice in body.nodes_mut() {
+                    shift_choice_windows(choice, offset)?;
+                }
+            }
+        }
+        "loop" => {
+            shift_property(node, "start", offset)?;
+            if let Some(body) = node.children_mut() {
+                for child in body
+                    .nodes_mut()
+                    .iter_mut()
+                    .filter(|child| child.name().value() == "until")
+                {
+                    shift_property(child, "at", offset)?;
+                }
+            }
+        }
+        name => bail!("Unsupported scheduled sequence child: {name}"),
+    }
+    Ok(())
+}
+
+fn shift_choice_windows(choice: &mut KdlNode, offset: Tick) -> Result<()> {
+    if let Some(body) = choice.children_mut() {
+        for child in body
+            .nodes_mut()
+            .iter_mut()
+            .filter(|child| child.name().value() == "when")
+        {
+            shift_property(child, "at", offset)?;
+        }
+    }
+    Ok(())
+}
+
+fn scheduled_phase(node: &KdlNode) -> Result<KdlNode> {
+    let mut result = node.clone();
+    let mut body = Vec::new();
+    let mut sequences = BTreeSet::new();
+    for child in children(node) {
+        if child.name().value() != "sequence" {
+            body.push(child.clone());
+            continue;
+        }
+        let sequence_id = arg_string(child, 0)?;
+        ensure!(
+            sequences.insert(sequence_id.clone()),
+            "Duplicate sequence ID {sequence_id} in phase"
+        );
+        let Some(at) = property_time(child, "at")? else {
+            body.push(child.clone());
+            continue;
+        };
+        shape(child, 1, &["at"])?;
+        ensure!(
+            !children(child).is_empty(),
+            "Scheduled sequence requires a body"
+        );
+        for part in children(child) {
+            let mut part = part.clone();
+            shift_scheduled(&mut part, at)?;
+            body.push(part);
+        }
+    }
+    if let Some(document) = result.children_mut() {
+        *document.nodes_mut() = body;
+    }
+    Ok(result)
+}
+
 fn location(source: &str, node: &KdlNode) -> String {
     let prefix = source.get(..node.span().offset()).unwrap_or("");
     let line = prefix.bytes().filter(|b| *b == b'\n').count() + 1;
@@ -105,8 +221,12 @@ fn literal_signals_overlap(left: &Signal, right: &Signal) -> bool {
         return false;
     }
     if let Some((a, b)) = left.at.zip(right.at)
-        && (left.after.is_some_and(|after| a + after < b - right.before)
-            || right.after.is_some_and(|after| b + after < a - left.before))
+        && (left
+            .after
+            .is_some_and(|after| a + after <= b - right.before)
+            || right
+                .after
+                .is_some_and(|after| b + after <= a - left.before))
     {
         return false;
     }
@@ -150,7 +270,7 @@ fn validate_option_overlaps(node: &KdlNode, open: Tick, close: Tick) -> Result<(
     // Only a conflict inside the branch window can select two entry points.
     let active = |signal: &&Signal| {
         signal.at.is_none_or(|at| {
-            at - signal.before < close && signal.after.is_none_or(|after| at + after >= open)
+            at - signal.before < close && signal.after.is_none_or(|after| at + after > open)
         })
     };
     for (index, (left_id, left, left_requires)) in candidates.iter().enumerate() {
@@ -197,6 +317,9 @@ fn signal_fields(node: &KdlNode, reserved: &[&str]) -> Result<BTreeMap<String, F
         }
     }
     for child in children(node) {
+        if node.name().value() == "enter" && child.name().value() == "from" {
+            continue;
+        }
         ensure!(
             matches!(child.name().value(), "field" | "regex"),
             "Unknown signal child {}",
@@ -243,6 +366,10 @@ fn signal_fields(node: &KdlNode, reserved: &[&str]) -> Result<BTreeMap<String, F
 }
 
 fn signal(node: &KdlNode, role: &str) -> Result<Signal> {
+    signal_from(node, role, None)
+}
+
+fn signal_from(node: &KdlNode, role: &str, source: Option<String>) -> Result<Signal> {
     if role == "on" {
         ensure!(
             ["at", "before", "after", "from", "resume-at"]
@@ -285,6 +412,11 @@ fn signal(node: &KdlNode, role: &str) -> Result<Signal> {
     } else {
         None
     };
+    ensure!(
+        after
+            .is_none_or(|width| before.unwrap_or(if role == "until" { 0 } else { 25 }) + width > 0),
+        "Window must have positive width"
+    );
     if role == "until" {
         ensure!(at.is_some(), "until requires at");
     } else {
@@ -295,7 +427,7 @@ fn signal(node: &KdlNode, role: &str) -> Result<Signal> {
         ensure!(at.is_some() || before.is_none(), "Window requires at");
     }
     let from = if matches!(role, "enter" | "boss-complete") {
-        node.get("from").map(string).transpose()?
+        source.or(node.get("from").map(string).transpose()?)
     } else {
         None
     };
@@ -326,8 +458,36 @@ fn signal(node: &KdlNode, role: &str) -> Result<Signal> {
     })
 }
 
+fn enter_signals(node: &KdlNode) -> Result<Vec<Signal>> {
+    let lists: Vec<_> = children(node)
+        .iter()
+        .filter(|child| child.name().value() == "from")
+        .collect();
+    ensure!(lists.len() <= 1, "enter permits one from list");
+    let Some(list) = lists.first() else {
+        return Ok(vec![signal(node, "enter")?]);
+    };
+    ensure!(
+        node.get("from").is_none(),
+        "Specify from as a property or a list, not both"
+    );
+    ensure!(!args(list).is_empty(), "from requires at least one phase");
+    shape(list, args(list).len(), &[])?;
+    ensure!(children(list).is_empty(), "from cannot have children");
+    let mut seen = BTreeSet::new();
+    args(list)
+        .into_iter()
+        .map(|value| {
+            let from = string(value)?;
+            ensure!(seen.insert(from.clone()), "Duplicate phase in from list");
+            signal_from(node, "enter", Some(from))
+        })
+        .collect()
+}
+
 #[derive(Default)]
 struct Validation {
+    shared_sources: BTreeMap<String, usize>,
     ids: BTreeMap<String, BTreeSet<String>>,
     options: BTreeMap<String, BTreeSet<String>>,
     requires: Vec<(String, String, String)>,
@@ -353,7 +513,17 @@ impl Validation {
 
     fn event(&mut self, node: &KdlNode, latest: Tick, every: Option<Tick>) -> Result<Event> {
         shape(node, 2, &["name", "duration", "visible"])?;
-        let id = self.id(node)?;
+        let candidate = arg_string(node, 0)?;
+        let shared = candidate.split('/').any(|part| part == "shared");
+        let id = if shared && self.shared_sources.get(&candidate) == Some(&node.span().offset()) {
+            candidate
+        } else {
+            let id = self.id(node)?;
+            if shared {
+                self.shared_sources.insert(id.clone(), node.span().offset());
+            }
+            id
+        };
         let at = arg_time(node, 1)?;
         if let Some(every) = every {
             ensure!(
@@ -385,7 +555,9 @@ impl Validation {
         }
         self.event_count += 1;
         Ok(Event {
-            order: node.span().offset(),
+            order: self.event_count,
+            source_start: node.span().offset(),
+            source_end: node.span().offset() + node.span().len(),
             id,
             at,
             name,
@@ -468,8 +640,10 @@ impl Validation {
         let mut body = Vec::new();
         let mut whens = Vec::new();
         let mut requires = Vec::new();
+        let mut syncs = Vec::new();
         for part in children(child) {
             match part.name().value() {
+                "sync" => syncs.push((part.span().offset(), signal(part, "sync")?)),
                 "when" => {
                     whens.push(signal(part, "when")?);
                 }
@@ -496,12 +670,14 @@ impl Validation {
         }
         ensure!(!whens.is_empty(), "option requires at least one when");
         let events = self.body(&body, "option", every.is_some(), close - 1, every, source)?;
+        check_schedule_syncs(&syncs, close - 1, every)?;
         let loops = self.take_loops(&body)?;
         ensure!(
             loops.is_empty() || whens.iter().all(|signal| signal.resume_at.is_none()),
             "option resume-at requires a body without loops"
         );
         Ok(BranchOption {
+            syncs,
             id: option,
             fallback,
             whens,
@@ -524,7 +700,12 @@ impl Validation {
         let mut body = Vec::new();
         let mut whens = Vec::new();
         let mut latest_merge = 0;
+        let mut syncs = Vec::new();
         for part in children(child) {
+            if part.name().value() == "sync" {
+                syncs.push((part.span().offset(), signal(part, "sync")?));
+                continue;
+            }
             if part.name().value() != "when" {
                 body.push(part.clone());
                 continue;
@@ -541,22 +722,46 @@ impl Validation {
         }
         ensure!(!whens.is_empty(), "merge requires when");
         let events = self.body(&body, "merge", in_loop, latest_merge, every, source)?;
-        Ok(Merge { whens, events })
+        check_schedule_syncs(&syncs, latest_merge, every)?;
+        Ok(Merge {
+            whens,
+            events,
+            syncs,
+        })
     }
 
     // Keep phase-local signals and their source diagnostics together.
     fn phase_node(&mut self, node: &KdlNode, source: &str) -> Result<Phase> {
+        let expanded = scheduled_phase(node)?;
+        let node = &expanded;
         shape(node, 1, &[])?;
         let id = self.id(node)?;
         let mut enters = Vec::new();
         let mut sequences = Vec::new();
         let mut sequence_ids = BTreeSet::new();
         let mut body = Vec::new();
+        let mut after = Vec::new();
+        let mut syncs = Vec::new();
         for child in children(node) {
             if child.name().value() == "enter" {
-                let s = signal(child, "enter").with_context(|| location(source, child))?;
-                self.phase_refs.extend(s.from.iter().cloned());
-                enters.push(s);
+                let signals = enter_signals(child).with_context(|| location(source, child))?;
+                self.phase_refs.extend(
+                    signals
+                        .iter()
+                        .flat_map(|signal| signal.from.iter().cloned()),
+                );
+                enters.extend(signals);
+            } else if child.name().value() == "sync" {
+                syncs.push((child.span().offset(), signal(child, "sync")?));
+            } else if child.name().value() == "after" {
+                shape(child, 1, &["from"])?;
+                ensure!(children(child).is_empty(), "after cannot have children");
+                let at = arg_time(child, 0)?;
+                let from = string(child.get("from").context("after requires from")?)?;
+                ensure!(at > 0, "after must be positive");
+                ensure!(from != id, "Timed phase transition cannot target itself");
+                self.phase_refs.push(from.clone());
+                after.push(super::PhaseAfter { from, at });
             } else if child.name().value() == "sequence" {
                 let sequence = self
                     .sequence_node(child)
@@ -571,7 +776,10 @@ impl Validation {
                 body.push(child.clone());
             }
         }
-        ensure!(!enters.is_empty(), "phase requires enter");
+        ensure!(
+            !enters.is_empty() || !after.is_empty(),
+            "phase requires enter or after"
+        );
         let events = self.body(&body, "phase", false, 0, None, source)?;
         let branches = body
             .iter()
@@ -590,6 +798,8 @@ impl Validation {
             branches,
             loops,
             sequences,
+            after,
+            syncs,
         })
     }
 
@@ -598,10 +808,12 @@ impl Validation {
         let id = arg_string(node, 0)?;
         let mut starts = Vec::new();
         let mut events = Vec::new();
+        let mut syncs = Vec::new();
         for child in children(node) {
             match child.name().value() {
                 "on" => starts.push(signal(child, "on")?),
                 "event" => events.push(self.event(child, 0, None)?),
+                "sync" => syncs.push((child.span().offset(), signal(child, "sync")?)),
                 name => bail!("Unknown sequence child {name}"),
             }
         }
@@ -609,7 +821,12 @@ impl Validation {
             !starts.is_empty() && !events.is_empty(),
             "sequence requires on and event"
         );
-        Ok(super::Sequence { id, starts, events })
+        Ok(super::Sequence {
+            id,
+            starts,
+            events,
+            syncs,
+        })
     }
 
     fn branch(
@@ -686,8 +903,10 @@ impl Validation {
             .transpose()?;
         let mut body = Vec::new();
         let mut untils = Vec::new();
+        let mut syncs = Vec::new();
         for child in children(node) {
             match child.name().value() {
+                "sync" => syncs.push((child.span().offset(), signal(child, "sync")?)),
                 "until" => {
                     untils.push(signal(child, "until")?);
                 }
@@ -695,6 +914,7 @@ impl Validation {
             }
         }
         let events = self.body(&body, "loop", true, 0, Some(every), source)?;
+        check_schedule_syncs(&syncs, 0, Some(every))?;
         let branches = body
             .iter()
             .filter(|node| node.name().value() == "branch")
@@ -707,6 +927,7 @@ impl Validation {
         self.loops.insert(
             id.clone(),
             Loop {
+                syncs,
                 order: node.span().offset(),
                 id,
                 start,
@@ -778,10 +999,18 @@ impl Validation {
     }
 }
 
+pub(crate) fn parse_with_file(source: &str, file: &str) -> Result<Timeline> {
+    let mut timeline = parse(source)?;
+    for event in timeline.catalog.events.values_mut() {
+        event.source_span.file = file.into();
+    }
+    Ok(timeline)
+}
+
 pub(crate) fn parse(source: &str) -> Result<Timeline> {
-    let doc: kdl::KdlDocument = source
-        .parse()
-        .map_err(|e| anyhow::anyhow!("Invalid KDL: {e:?}"))?;
+    let mut declarations = BTreeMap::new();
+    let mut choices = Vec::new();
+    let doc = expand::document(source, &mut declarations, &mut choices)?;
     let [root] = doc.nodes() else {
         bail!("Expected one timeline root");
     };
@@ -792,15 +1021,17 @@ pub(crate) fn parse(source: &str) -> Result<Timeline> {
     );
     shape(root, 2, &[])?;
     ensure!(
-        args(root).first().and_then(|v| v.as_integer()) == Some(1),
-        "Unsupported timeline version; expected 1"
+        args(root).first().and_then(|v| v.as_integer()) == Some(2),
+        "Unsupported timeline version; expected 2"
     );
     let name = arg_string(root, 1)?;
     let mut v = Validation::default();
     let mut timeline = Timeline {
+        choices,
         name,
         lifecycle: BTreeMap::new(),
         events: Vec::new(),
+        syncs: Vec::new(),
         phases: Vec::new(),
         event_count: 0,
         catalog: super::Catalog::default(),
@@ -818,6 +1049,9 @@ pub(crate) fn parse(source: &str) -> Result<Timeline> {
                         .push(signal);
                 }
                 "event" => timeline.events.push(v.event(node, 0, None)?),
+                "sync" => timeline
+                    .syncs
+                    .push((node.span().offset(), signal(node, "sync")?)),
                 "phase" => {
                     timeline.phases.push(v.phase_node(node, source)?);
                 }
@@ -828,7 +1062,70 @@ pub(crate) fn parse(source: &str) -> Result<Timeline> {
         .with_context(|| location(source, node))?;
     }
     v.references()?;
+    let mut timed_sources = BTreeSet::new();
+    for phase in &timeline.phases {
+        for after in &phase.after {
+            ensure!(
+                timed_sources.insert(after.from.as_str()),
+                "Duplicate timed transition from phase {}",
+                after.from
+            );
+        }
+    }
     timeline.event_count = v.event_count;
-    timeline.catalog = super::Catalog::from_timeline(&timeline);
+    order_events(&mut timeline);
+    timeline.catalog = super::Catalog::from_timeline(&timeline, source, &declarations);
     Ok(timeline)
+}
+
+fn order_events(timeline: &mut Timeline) {
+    fn body<'a>(
+        events: &'a mut [Event],
+        branches: &'a mut [Branch],
+        loops: &'a mut [Loop],
+        result: &mut Vec<&'a mut Event>,
+    ) {
+        result.extend(events);
+        for branch in branches {
+            for option in &mut branch.options {
+                body(&mut option.events, &mut [], &mut option.loops, result);
+            }
+            if let Some(merge) = &mut branch.merge {
+                result.extend(&mut merge.events);
+            }
+        }
+        for repeat in loops {
+            body(&mut repeat.events, &mut repeat.branches, &mut [], result);
+        }
+    }
+    let mut events = Vec::new();
+    events.extend(&mut timeline.events);
+    for phase in &mut timeline.phases {
+        body(
+            &mut phase.events,
+            &mut phase.branches,
+            &mut phase.loops,
+            &mut events,
+        );
+        for reaction in &mut phase.sequences {
+            events.extend(&mut reaction.events);
+        }
+    }
+    events.sort_by_key(|event| (event.source_start, event.order));
+    for (order, event) in events.into_iter().enumerate() {
+        event.order = order;
+    }
+}
+
+pub(crate) fn expanded(source: &str) -> Result<String> {
+    parse(source)?;
+    let mut document: kdl::KdlDocument = source.parse()?;
+    let root = document
+        .nodes_mut()
+        .first_mut()
+        .context("Missing timeline root")?;
+    expand::event_syncs(root)?;
+    document.clear_format_recursive();
+    document.autoformat();
+    Ok(document.to_string())
 }

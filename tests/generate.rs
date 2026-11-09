@@ -555,6 +555,10 @@ fn boss_origin_alternatives_are_inferred_without_dropping_close_opening_casts() 
         .unwrap()
         .children()
         .unwrap()
+        .get("step")
+        .unwrap()
+        .children()
+        .unwrap()
         .nodes();
     assert_eq!(
         nodes

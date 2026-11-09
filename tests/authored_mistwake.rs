@@ -54,9 +54,9 @@ fn all_bosses_restart_after_control_signals_and_cancel_travel_predictions(
     assert_eq!(
         phases,
         vec![
-            json!([0, "treno", 1]),
-            json!([300000, "amdusias", 2]),
-            json!([600000, "griffin", 3])
+            json!([0, "treno/main", 1]),
+            json!([300000, "amdusias/main", 2]),
+            json!([600000, "griffin/main", 3])
         ]
     );
     // Arena unseal and other explicit controls must cancel old loops throughout travel and after the final boss.

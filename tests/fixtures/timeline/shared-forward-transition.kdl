@@ -1,0 +1,18 @@
+timeline 2 "Forward correction across transition" {
+    start "Pull"
+    phase first {
+        step main {
+            enter "Pull"
+            sync 6 "Jump" before=6 after=1
+        }
+    }
+    phase second {
+        step main {
+            after 5 from="first/main"
+            sync 0.5 "Reverse" before=1 after=2
+            event crossed 0 name="Crossed"
+            event on-time 1 name="On time"
+            event tail 3 name="Tail"
+        }
+    }
+}

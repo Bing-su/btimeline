@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "end_ms": 16000,
+  "observations": [
+    { "at_ms": 0, "type": "Pull", "fields": {} },
+    { "at_ms": 1100, "type": "Anchor", "fields": {} },
+    { "at_ms": 5500, "type": "Next", "fields": {} },
+    { "at_ms": 5600, "type": "Next", "fields": {} },
+    { "at_ms": 9000, "type": "Recover", "fields": {} },
+    { "at_ms": 9500, "type": "SecondAnchor", "fields": {} },
+    { "at_ms": 10000, "type": "Wipe", "fields": {} }
+  ]
+}

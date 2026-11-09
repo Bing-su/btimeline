@@ -1,8 +1,9 @@
 ---
 source: tests/generate.rs
+assertion_line: 67
 expression: "fs::read_to_string(&output).unwrap()"
 ---
-timeline 1 "Unknown Encounter" {
+timeline 2 "Unknown Encounter" {
     start InCombat inGameCombat="1"
     wipe ActorControl command="4000000F"
     wipe ActorControl command="40000010"

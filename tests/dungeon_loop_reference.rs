@@ -49,7 +49,7 @@ fn reference_loop_keeps_predicting_before_the_next_boundary_signal(#[case] missi
     assert_eq!(
         events
             .iter()
-            .filter(|row| row["event"] == "no-mans-land")
+            .filter(|row| row["event"] == "rotation/main/loop/chirurgeon-rotation/no-mans-land")
             .count(),
         if missing_boundary { 4 } else { 2 }
     );
@@ -62,7 +62,7 @@ fn reference_loop_keeps_predicting_before_the_next_boundary_signal(#[case] missi
         if missing_boundary {
             events
                 .into_iter()
-                .filter(|row| row["event"] == "no-mans-land")
+                .filter(|row| row["event"] == "rotation/main/loop/chirurgeon-rotation/no-mans-land")
                 .collect::<Vec<_>>()
         } else {
             events

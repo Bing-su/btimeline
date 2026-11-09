@@ -22,16 +22,39 @@ pub enum MainCommands {
     Generate(GenerateCommand),
     /// Check timeline structure and authored constraints.
     Validate(ValidateCommand),
+    /// Expand event sync times and scheduled sections while preserving v2 flow.
+    Expand(ExpandCommand),
     /// Replay normalized recorded signals against a timeline.
     Compare(CompareCommand),
     /// Query upcoming visible events using observations only through a cutoff.
     Forecast(ForecastCommand),
     /// Evaluate an authored timeline against FFLogs inputs and an explicit projection profile.
     Evaluate(crate::evaluate::EvaluateCommand),
+    /// Export validated profile observations for an external timeline executor.
+    Project(crate::evaluate::ProjectCommand),
     /// Show a bounded raw cast window with original event indices.
     Evidence(crate::evaluate::EvidenceCommand),
     /// Summarize a saved evaluation with bounded failure and unclassified examples.
     Review(crate::evaluate::ReviewCommand),
+}
+
+#[derive(Args)]
+pub struct ExpandCommand {
+    #[usage(arg)]
+    timeline: Utf8PathBuf,
+    /// New standalone KDL file; existing files are preserved.
+    #[usage(short = 'o', long)]
+    output: Utf8PathBuf,
+}
+
+impl Run for ExpandCommand {
+    type Output = Result<()>;
+
+    fn run(self) -> Self::Output {
+        let source = std::fs::read_to_string(&self.timeline)?;
+        let expanded = crate::timeline::expanded(&source)?;
+        crate::output::write_new(&[(self.output.as_std_path(), expanded.as_bytes())])
+    }
 }
 
 #[derive(Args)]
@@ -48,7 +71,7 @@ impl Run for ValidateCommand {
 
     fn run(self) -> Self::Output {
         let text = std::fs::read_to_string(&self.timeline)?;
-        let model = crate::timeline::parse(&text)
+        let model = crate::timeline::parse_with_file(&text, self.timeline.as_str())
             .with_context(|| format!("Validating {}", self.timeline))?;
         if self.json {
             println!(
@@ -90,8 +113,11 @@ impl Run for CompareCommand {
             !self.recordings.is_empty(),
             "Provide at least one normalized signal recording"
         );
-        let model = crate::timeline::parse(&std::fs::read_to_string(&self.timeline)?)
-            .with_context(|| format!("Validating {}", self.timeline))?;
+        let model = crate::timeline::parse_with_file(
+            &std::fs::read_to_string(&self.timeline)?,
+            self.timeline.as_str(),
+        )
+        .with_context(|| format!("Validating {}", self.timeline))?;
         let mut results = std::collections::BTreeMap::new();
         let mut summaries = std::collections::BTreeMap::new();
         let mut has_fflogs = false;
@@ -161,20 +187,27 @@ pub struct ForecastCommand {
     /// Query cutoff in raw milliseconds, including observations at that time.
     #[usage(long)]
     at_ms: i64,
-    /// Positive lookahead duration in milliseconds.
+    /// Nonnegative lookahead duration in milliseconds.
     #[usage(long)]
     horizon_ms: i64,
+    /// Maximum projected rows; truncation is reported explicitly.
+    #[usage(long, default = "10000")]
+    max_rows: usize,
 }
 
 impl Run for ForecastCommand {
     type Output = Result<()>;
 
     fn run(self) -> Self::Output {
-        let model = crate::timeline::parse(&std::fs::read_to_string(&self.timeline)?)
-            .with_context(|| format!("Validating {}", self.timeline))?;
+        let model = crate::timeline::parse_with_file(
+            &std::fs::read_to_string(&self.timeline)?,
+            self.timeline.as_str(),
+        )
+        .with_context(|| format!("Validating {}", self.timeline))?;
         let input = serde_json::from_slice(&std::fs::read(&self.recording)?)
             .with_context(|| format!("Reading normalized recording {}", self.recording))?;
-        let forecast = crate::timeline::forecast(&model, &input, self.at_ms, self.horizon_ms)?;
+        let forecast =
+            crate::timeline::forecast(&model, &input, self.at_ms, self.horizon_ms, self.max_rows)?;
         serde_json::to_writer_pretty(std::io::stdout().lock(), &forecast)?;
         println!();
         Ok(())

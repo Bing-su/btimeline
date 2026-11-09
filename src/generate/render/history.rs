@@ -85,12 +85,12 @@ fn entry(activity: &Signal, from: &str) -> Result<KdlNode> {
             ),
         ],
     );
-    prop(&mut node, "from", from);
+    prop(&mut node, "from", format!("{from}/main"));
     Ok(node)
 }
 
 fn phase(id: &str) -> KdlNode {
-    let mut node = KdlNode::new("phase");
+    let mut node = KdlNode::new("step");
     node.push(id);
     node
 }
@@ -371,7 +371,7 @@ fn build(
     let controls = existing
         .nodes
         .iter()
-        .filter(|node| node.name().value() != "phase" && node.name().value() != "event")
+        .filter(|node| node.name().value() != "step" && node.name().value() != "event")
         .cloned();
     result.nodes.splice(0..0, controls);
     result.events.append(&mut evidence);

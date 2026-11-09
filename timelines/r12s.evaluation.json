@@ -3,7 +3,7 @@
   "observations": "scoped_casts_and_starts",
   "segments": [
     {
-      "phase": "pre-checkpoint",
+      "phase": "pre-checkpoint/main",
       "encounter": 104,
       "source": "Lindwurm",
       "other_sources": ["Lindschrat"],
@@ -13,23 +13,23 @@
         "B4D7": {
           "name": "The Fixer",
           "events": [
-            "pre-checkpoint-the-fixer-lindwurm-b4d7-01",
-            "pre-checkpoint-the-fixer-lindwurm-b4d7-02",
-            "pre-checkpoint-the-fixer-lindwurm-b4d7-03"
+            "pre-checkpoint/main/the-fixer-lindwurm-b4d7-01",
+            "pre-checkpoint/main/the-fixer-lindwurm-b4d7-02",
+            "pre-checkpoint/main/the-fixer-lindwurm-b4d7-03"
           ]
         },
         "BEBF": {
           "name": "Grotesquerie: Act 3",
-          "events": ["pre-checkpoint-grotesquerie-act-3-lindwurm-bebf"]
+          "events": ["pre-checkpoint/main/grotesquerie-act-3-lindwurm-bebf"]
         },
         "B9C3": {
           "name": "Splattershed",
-          "events": ["pre-checkpoint-splattershed-lindwurm-b9c3"]
+          "events": ["pre-checkpoint/main/splattershed-lindwurm-b9c3"]
         }
       }
     },
     {
-      "phase": "pre-slaughtershed",
+      "phase": "pre-slaughtershed/main",
       "encounter": 104,
       "source": "Lindwurm",
       "other_sources": ["Lindschrat"],
@@ -38,47 +38,53 @@
       "targets": {
         "B538": {
           "name": "Refreshing Overkill",
-          "events": ["pre-checkpoint-refreshing-overkill-lindwurm-b538"]
+          "events": ["pre-slaughtershed/main/pre-checkpoint-refreshing-overkill-lindwurm-b538"]
         },
         "B9C7": {
           "name": "Raptor Knuckles",
           "lead_ms": 500,
-          "events": ["pre-tail-raptor-first", "pre-tail-raptor-second"]
+          "events": [
+            "pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-pair/raptor/pre-tail-raptor-first",
+            "pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-pair/raptor/pre-tail-raptor-second"
+          ]
         },
         "B9BC": {
           "name": "Serpentine Scourge",
           "lead_ms": 500,
-          "events": ["pre-tail-serpentine-first", "pre-tail-serpentine-second"]
+          "events": [
+            "pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-pair/serpentine/pre-tail-serpentine-first",
+            "pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-pair/serpentine/pre-tail-serpentine-second"
+          ]
         },
         "B4C3": {
           "name": "Slaughtershed",
-          "events": ["pre-tail-slaughtershed"]
+          "events": ["pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-slaughtershed"]
         },
         "B4C6": {
           "name": "Slaughtershed",
-          "events": ["pre-tail-slaughtershed"]
+          "events": ["pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-slaughtershed"]
         },
         "ADC9": {
           "name": "Slaughtershed",
-          "events": ["pre-tail-slaughtershed-impact"]
+          "events": ["pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-slaughtershed-impact"]
         },
         "B4D4": {
           "name": "Dramatic Lysis",
-          "events": ["pre-tail-dramatic-lysis"]
+          "events": ["pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-dramatic-lysis"]
         },
         "B4D5": {
           "name": "Fourth-Wall Fusion",
-          "events": ["pre-tail-fourth-wall-fusion"]
+          "events": ["pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-fourth-wall-fusion"]
         },
         "B49F": {
           "name": "Burst",
-          "events": ["pre-tail-burst"]
+          "events": ["pre-slaughtershed/main/loop/pre-tail-rotation/pre-tail-burst"]
         }
       },
       "entry_from": "pre-checkpoint"
     },
     {
-      "phase": "post-checkpoint",
+      "phase": "post-checkpoint/main",
       "encounter": 105,
       "source": "Lindwurm",
       "other_sources": ["Lindschrat"],
@@ -88,40 +94,52 @@
         "B528": {
           "name": "Arcadia Aflame",
           "events": [
-            "post-checkpoint-arcadia-aflame-lindwurm-b528-01",
-            "post-checkpoint-arcadia-aflame-lindwurm-b528-02"
+            "post-checkpoint/main/arcadia-aflame-lindwurm-b528-01",
+            "post-checkpoint/main/arcadia-aflame-lindwurm-b528-02"
           ]
         },
         "B524": {
           "name": "Double Sobat",
-          "events": ["post-sobat-variant-01", "post-sobat-variant-02"]
+          "events": [
+            "post-checkpoint/main/post-sobat-variant-01",
+            "post-checkpoint/main/post-sobat-variant-02"
+          ]
         },
         "B521": {
           "name": "Double Sobat",
-          "events": ["post-sobat-variant-01", "post-sobat-variant-02"]
+          "events": [
+            "post-checkpoint/main/post-sobat-variant-01",
+            "post-checkpoint/main/post-sobat-variant-02"
+          ]
         },
         "B522": {
           "name": "Double Sobat",
-          "events": ["post-sobat-variant-01", "post-sobat-variant-02"]
+          "events": [
+            "post-checkpoint/main/post-sobat-variant-01",
+            "post-checkpoint/main/post-sobat-variant-02"
+          ]
         },
         "B523": {
           "name": "Double Sobat",
-          "events": ["post-sobat-variant-01", "post-sobat-variant-02"]
+          "events": [
+            "post-checkpoint/main/post-sobat-variant-01",
+            "post-checkpoint/main/post-sobat-variant-02"
+          ]
         },
         "B52E": {
           "name": "Netherwrath Near",
           "lead_ms": 4500,
-          "events": ["post-netherwrath-near"]
+          "events": ["post-checkpoint/main/post-netherwrath/near/post-netherwrath-near"]
         },
         "B52F": {
           "name": "Netherwrath Far",
           "lead_ms": 4500,
-          "events": ["post-netherwrath-far"]
+          "events": ["post-checkpoint/main/post-netherwrath/far/post-netherwrath-far"]
         }
       }
     },
     {
-      "phase": "post-cosmic-kiss",
+      "phase": "post-cosmic-kiss/main",
       "encounter": 105,
       "source": "Lindwurm",
       "other_sources": ["Lindschrat"],
@@ -130,31 +148,31 @@
       "targets": {
         "B46C": {
           "name": "Replication",
-          "events": ["post-checkpoint-replication-lindwurm-b46c"]
+          "events": ["post-cosmic-kiss/main/post-checkpoint-replication-lindwurm-b46c"]
         },
         "B537": {
           "name": "Arcadian Hell",
-          "events": ["post-checkpoint-arcadian-hell-lindwurm-b537"]
+          "events": ["post-cosmic-kiss/main/post-checkpoint-arcadian-hell-lindwurm-b537"]
         },
         "B521": {
           "name": "Double Sobat",
-          "events": ["post-sobat-variant-03"]
+          "events": ["post-cosmic-kiss/main/post-sobat-variant-03"]
         },
         "B522": {
           "name": "Double Sobat",
-          "events": ["post-sobat-variant-03"]
+          "events": ["post-cosmic-kiss/main/post-sobat-variant-03"]
         },
         "B523": {
           "name": "Double Sobat",
-          "events": ["post-sobat-variant-03"]
+          "events": ["post-cosmic-kiss/main/post-sobat-variant-03"]
         },
         "B524": {
           "name": "Double Sobat",
-          "events": ["post-sobat-variant-03"]
+          "events": ["post-cosmic-kiss/main/post-sobat-variant-03"]
         },
         "B4F4": {
           "name": "Cosmic Kiss",
-          "events": ["post-checkpoint-cosmic-kiss-lindwurm-b4f4"],
+          "events": ["post-cosmic-kiss/main/post-checkpoint-cosmic-kiss-lindwurm-b4f4"],
           "lead_ms": 3500
         }
       },

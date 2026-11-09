@@ -68,8 +68,8 @@ try {
       const safeEntry =
         JSON.stringify(transitions) ===
         JSON.stringify([
-          [0, "ready"],
-          ...projected.blocks.map((block) => [block.entry_ms, block.phase]),
+          [0, "ready/main"],
+          ...projected.blocks.map((block) => [block.entry_ms, `${block.phase}/main`]),
         ]);
       const blocks = projected.blocks.map((block) => ({
         ...block,
@@ -115,7 +115,8 @@ try {
             query_error_ms: Number.isFinite(error) ? error : null,
             diagnostics: queryDiagnostics,
             passed:
-              forecast.phase === block.phase &&
+              !forecast.truncated &&
+              forecast.phase === `${block.phase}/main` &&
               forecast.status === "active" &&
               error <= manifest.tolerance_ms &&
               replayError <= manifest.tolerance_ms &&

@@ -2,6 +2,135 @@ use super::*;
 use crate::fflogs::model::CollectedLog;
 use crate::timeline::Timeline;
 
+#[test]
+fn target_windows_keep_reused_ids_in_their_own_mechanic() {
+    let p: Profile = serde_json::from_value(json!({
+        "version":1,"observations":"all_casts_and_starts","not_checked":["ACT"],
+        "segments":[{"phase":"p","source":"Boss","entry":["100"],"completion":"fight_end",
+            "targets":{"200":[
+                {"name":"First","events":["first"],"window":{"anchor":"101","occurrence":1,"duration_ms":1000}},
+                {"name":"Second","events":["second"],"window":{"anchor":"101","occurrence":2,"duration_ms":1000}}
+            ]}}]
+    })).unwrap();
+    p.validate().unwrap();
+    let input = log(
+        1,
+        &["Boss"],
+        json!([
+            cast(100, 1, 0x100),
+            cast(200, 1, 0x101),
+            cast(300, 1, 0x200),
+            cast(1300, 1, 0x200),
+            cast(2000, 1, 0x101),
+            cast(2100, 1, 0x200)
+        ]),
+    );
+    let projected = projection::project(&input, &p, None).unwrap();
+    let ids: Vec<_> = projected.bosses[0]
+        .targets
+        .iter()
+        .map(|target| target.event_ids.clone())
+        .collect();
+    assert_eq!(ids, [vec!["first"], vec!["second"]]);
+    assert_eq!(
+        projected.bosses[0]
+            .audit
+            .unclassified
+            .iter()
+            .find(|row| row.id == "200")
+            .unwrap()
+            .count,
+        1
+    );
+}
+
+#[test]
+fn target_window_anchors_require_canonical_ability_ids() {
+    for anchor in ["a01", "A01"] {
+        let profile: Profile = serde_json::from_value(json!({
+            "version":1,"observations":"all_casts","not_checked":[],
+            "segments":[{"phase":"p","source":"Boss","entry":["100"],"completion":"fight_end",
+                "targets":{"200":{"name":"Hit","events":["hit"],
+                    "window":{"anchor":anchor,"occurrence":1,"duration_ms":1000}}}}]
+        }))
+        .unwrap();
+        assert_eq!(profile.validate().is_ok(), anchor == "A01");
+    }
+}
+
+#[test]
+fn an_active_display_window_is_distinct_from_its_start() {
+    let target = projection::Target {
+        raw_index: 0,
+        raw_indices: vec![0],
+        at_ms: 2500,
+        id: "100".into(),
+        name: "Position".into(),
+        lead_ms: None,
+        event_ids: vec!["position".into()],
+        equivalents: vec![],
+        reference: projection::Reference::ActiveWindow,
+    };
+    assert_eq!(target.timing_error(2000, 1600), 0);
+    assert_eq!(target.timing_error(2600, 1600), 100);
+    assert_eq!(target.timing_error(900, 1600), 1);
+}
+
+#[test]
+fn overlapping_context_rules_are_errors_instead_of_first_match_wins() {
+    let p: Profile = serde_json::from_value(json!({
+        "version":1,"observations":"all_casts","not_checked":["ACT"],
+        "segments":[{"phase":"p","source":"Boss","entry":["100"],"completion":"fight_end",
+            "targets":{"200":[
+                {"name":"First","events":["first"]},
+                {"name":"Second","events":["second"]}
+            ]}}]
+    }))
+    .unwrap();
+    p.validate().unwrap();
+    let input = log(
+        1,
+        &["Boss"],
+        json!([cast(100, 1, 0x100), cast(200, 1, 0x200)]),
+    );
+    assert!(
+        format!(
+            "{:#}",
+            projection::project(&input, &p, None)
+                .err()
+                .expect("overlapping rules must fail")
+        )
+        .contains("Overlapping target windows")
+    );
+}
+
+#[test]
+fn explicit_groups_retain_all_raw_members_without_chaining_separate_waves() {
+    let p: Profile = serde_json::from_value(json!({
+        "version":1,"observations":"all_casts","not_checked":["ACT"],
+        "segments":[{"phase":"p","source":"Boss","entry":["100"],"completion":"fight_end",
+            "targets":{"200":{"name":"Wave","events":["wave"],"group":"wave","group_window_ms":1600}}}]
+    })).unwrap();
+    p.validate().unwrap();
+    let input = log(
+        1,
+        &["Boss"],
+        json!([
+            cast(100, 1, 0x100),
+            cast(200, 1, 0x200),
+            cast(1700, 1, 0x200),
+            cast(3200, 1, 0x200)
+        ]),
+    );
+    let result = projection::project(&input, &p, None).unwrap();
+    let members: Vec<_> = result.bosses[0]
+        .targets
+        .iter()
+        .map(|target| target.raw_indices.clone())
+        .collect();
+    assert_eq!(members, [vec![1, 2], vec![3]]);
+}
+
 fn profile(name: &str) -> Profile {
     let text = match name {
         "mistwake" => include_str!("../../timelines/mistwake.evaluation.json"),
@@ -249,10 +378,26 @@ fn empty_eligible_set_and_tool_errors_cannot_pass() {
 
 #[test]
 fn future_observations_do_not_repair_a_five_second_forecast() {
-    let p:Profile=serde_json::from_value(json!({"version":1,"observations":"scoped_casts","segments":[{"phase":"boss","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Hit","events":["first","second"]}}}],"not_checked":[]})).expect("valid test fixture");
+    let p:Profile=serde_json::from_value(json!({"version":1,"observations":"scoped_casts","segments":[{"phase":"boss/main","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Hit","events":["boss/main/first","boss/main/second"]}}}],"not_checked":[]})).expect("valid test fixture");
     let raw: CollectedLog = serde_json::from_str(include_str!("../../tests/fixtures/pull.json"))
         .expect("valid test fixture");
-    let model:Timeline=crate::timeline::parse("timeline 1 \"Test\" { start \"Ability\" id=\"B528\"; phase \"boss\" { enter \"Ability\" id=\"B528\"; event \"first\" 0.0 name=\"Hit\"; event \"second\" 10.0 name=\"Hit\" { sync 10.0 \"Ability\" id=\"B528\" before=3.0 after=1.0; }; }; }").expect("valid test fixture");
+    let model: Timeline = crate::timeline::parse(
+        r###"
+timeline 2 "Test" {
+    start "Ability" id="B528"
+    phase boss {
+        step main {
+            enter "Ability" id="B528"
+            event first 0.0 name="Hit"
+            event second 10.0 name="Hit" {
+                sync 10.0 "Ability" id="B528" before=3.0 after=1.0
+            }
+        }
+    }
+}
+"###,
+    )
+    .expect("valid test fixture");
     let projected = projection::project(&raw, &p, None).expect("valid test fixture");
     let manifest:Manifest=serde_json::from_value(json!({"timeline":"unused","timeline_sha256":"unused","role":"test","forecast_lead_ms":5000,"horizon_ms":6500,"tolerance_ms":1500,"inputs":[]})).expect("valid test fixture");
     let result = score::score(&model, &projected, &manifest).expect("valid test fixture");
@@ -277,23 +422,31 @@ fn edited_evaluation_sources_are_rejected() {
 }
 
 #[test]
-fn hypothetical_unresolved_diagnostics_are_kept_separate_from_current_failures() {
-    let p: Profile = serde_json::from_value(json!({"version":1,"observations":"scoped_casts","segments":[{"phase":"boss","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Hit","events":["first","second"]}}}],"not_checked":[]})).expect("profile");
+fn projection_does_not_execute_hypothetical_branch_closures() {
+    let p: Profile = serde_json::from_value(json!({"version":1,"observations":"scoped_casts","segments":[{"phase":"boss/main","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Hit","events":["boss/main/first","boss/main/second"]}}}],"not_checked":[]})).expect("profile");
     let raw: CollectedLog =
         serde_json::from_str(include_str!("../../tests/fixtures/pull.json")).expect("fixture");
     let model = crate::timeline::parse(
-        r#"timeline 1 "Test" {
-        start "Ability" id="B528"
-        phase "boss" {
+        r###"
+timeline 2 "Test" {
+    start "Ability" id="B528"
+    phase boss {
+        step main {
             enter "Ability" id="B528"
-            event "first" 0.0 name="Hit"
-            event "second" 8.0 name="Hit"
-            branch "choice" open=1.0 close=4.0 {
-                option "left" { when "Left"; }
-                option "right" { when "Right"; }
+            event first 0.0 name="Hit"
+            event second 8.0 name="Hit"
+            branch choice open=1.0 close=4.0 {
+                option left {
+                    when "Left"
+                }
+                option right {
+                    when "Right"
+                }
             }
         }
-    }"#,
+    }
+}
+"###,
     )
     .expect("timeline");
     let projected = projection::project(&raw, &p, None).expect("projection");
@@ -301,17 +454,14 @@ fn hypothetical_unresolved_diagnostics_are_kept_separate_from_current_failures()
     let result = score::score(&model, &projected, &manifest).expect("score");
     let target = &result["bosses"][0]["targets"][2];
     assert_eq!(target["forecast"]["current_diagnostics"], json!([]));
-    assert_eq!(
-        target["forecast"]["projection_diagnostics"][0]["action"],
-        "unresolved"
-    );
-    assert_eq!(target["failure_reasons"], json!(["projection_diagnostic"]));
+    assert_eq!(target["forecast"]["projection_diagnostics"], json!([]));
+    assert_eq!(target["failure_reasons"], json!([]));
     assert_eq!(target["forecast"]["lead_ms"], 5000);
 }
 
 #[test]
 fn a_same_name_future_bar_cannot_stand_in_for_a_different_event_identity() {
-    let p: Profile = serde_json::from_value(json!({"version":1,"observations":"scoped_casts","segments":[{"phase":"boss","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Label is not a matcher","events":["opening","other","repair"]}}}],"not_checked":[]})).expect("profile");
+    let p: Profile = serde_json::from_value(json!({"version":1,"observations":"scoped_casts","segments":[{"phase":"boss/main","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Label is not a matcher","events":["boss/main/opening","boss/main/other","boss/main/repair"]}}}],"not_checked":[]})).expect("profile");
     let raw = log(
         1,
         &["Synthetic Boss"],
@@ -322,15 +472,21 @@ fn a_same_name_future_bar_cannot_stand_in_for_a_different_event_identity() {
         ]),
     );
     let model = crate::timeline::parse(
-        r#"timeline 1 "Test" {
-        start "Ability" id="B528"
-        phase "boss" {
+        r###"
+timeline 2 "Test" {
+    start "Ability" id="B528"
+    phase boss {
+        step main {
             enter "Ability" id="B528"
-            event "opening" 0.0 name="Hit"
-            event "other" 8.0 name="Hit"
-            event "repair" 12.0 name="Hit" { sync 12.0 "Ability" id="B529" before=5.0 after=1.0; }
+            event opening 0.0 name="Hit"
+            event other 8.0 name="Hit"
+            event repair 12.0 name="Hit" {
+                sync 12.0 "Ability" id="B529" before=5.0 after=1.0
+            }
         }
-    }"#,
+    }
+}
+"###,
     )
     .expect("timeline");
     p.validate_bindings(&model).expect("bindings");
@@ -338,7 +494,7 @@ fn a_same_name_future_bar_cannot_stand_in_for_a_different_event_identity() {
     let manifest: Manifest = serde_json::from_value(json!({"timeline":"unused","timeline_sha256":"unused","role":"test","forecast_lead_ms":5000,"horizon_ms":6500,"tolerance_ms":1500,"inputs":[]})).expect("manifest");
     let result = score::score(&model, &projected, &manifest).expect("score");
     let target = &result["bosses"][0]["targets"][1];
-    assert_eq!(target["matched_event"]["event"]["id"], "repair");
+    assert_eq!(target["matched_event"]["event"]["id"], "boss/main/repair");
     assert_eq!(target["error_ms"], 0);
     assert_eq!(target["forecast"]["passed"], false);
 }
@@ -355,22 +511,40 @@ fn option_to_merge_replacement_requires_an_explicit_equivalence_group() {
             cast(10000, 1, 0xb528)
         ]),
     );
-    let model = crate::timeline::parse(r#"timeline 1 "Test" {
-        start "Ability" id="B528"
-        phase "boss" {
+    let model = crate::timeline::parse(
+        r###"
+timeline 2 "Test" {
+    start "Ability" id="B528"
+    phase boss {
+        step main {
             enter "Ability" id="B528"
-            event "opening" 0.0 name="Hit"
-            branch "choice" open=0.0 close=3.0 {
-                option "left" { when "Ability" id="B529"; event "option" 9.0 name="Hit"; }
-                option "right" { when "Ability" id="B52B"; }
-                merge { when "Ability" id="B52A" at=7.0 before=1.0 after=1.0; event "common" 3.0 name="Hit"; }
+            event opening 0.0 name="Hit"
+            branch choice open=0.0 close=3.0 {
+                option left {
+                    when "Ability" id="B529"
+                    event option 9.0 name="Hit"
+                }
+                option right {
+                    when "Ability" id="B52B"
+                }
+                merge {
+                    when "Ability" id="B52A" at=7.0 before=1.0 after=1.0
+                    event common 3.0 name="Hit"
+                }
             }
         }
-    }"#).expect("timeline");
+    }
+}
+"###,
+    )
+    .expect("timeline");
     for handoff in [false, true] {
-        let mut config = json!({"version":1,"observations":"scoped_casts","segments":[{"phase":"boss","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Hit","events":["opening","option","common"]}}}],"not_checked":[]});
+        let mut config = json!({"version":1,"observations":"scoped_casts","segments":[{"phase":"boss/main","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end","targets":{"B528":{"name":"Hit","events":["boss/main/opening","boss/main/choice/left/option","boss/main/choice/merge/common"]}}}],"not_checked":[]});
         if handoff {
-            config["segments"][0]["targets"]["B528"]["equivalents"] = json!([["option", "common"]]);
+            config["segments"][0]["targets"]["B528"]["equivalents"] = json!([[
+                "boss/main/choice/left/option",
+                "boss/main/choice/merge/common"
+            ]]);
         }
         let p: Profile = serde_json::from_value(config).expect("profile");
         p.validate_bindings(&model).expect("bindings");
@@ -378,29 +552,52 @@ fn option_to_merge_replacement_requires_an_explicit_equivalence_group() {
         let manifest: Manifest = serde_json::from_value(json!({"timeline":"unused","timeline_sha256":"unused","role":"test","forecast_lead_ms":5000,"horizon_ms":6500,"tolerance_ms":1500,"inputs":[]})).expect("manifest");
         let result = score::score(&model, &projected, &manifest).expect("score");
         let target = &result["bosses"][0]["targets"][1];
-        assert_eq!(target["matched_event"]["event"]["id"], "common");
+        assert_eq!(
+            target["matched_event"]["event"]["id"],
+            "boss/main/choice/merge/common"
+        );
         assert_eq!(target["forecast"]["passed"], handoff);
         if handoff {
-            assert_eq!(target["forecast"]["matched_event"]["id"], "option");
+            assert_eq!(
+                target["forecast"]["matched_event"]["id"],
+                "boss/main/choice/left/option"
+            );
         }
     }
 }
 
 #[test]
 fn bindings_reject_unknown_hidden_foreign_and_overlapping_definitions() {
-    let model = crate::timeline::parse(r#"timeline 1 "Bindings" {
-        phase "boss" { enter "Begin"; event "a" 0.0 name="A"; event "b" 1.0 name="B"; event "hidden" 2.0 name="Control" visible=#false; }
-        phase "other" { enter "Other"; event "foreign" 0.0 name="A"; }
-    }"#).unwrap();
+    let model = crate::timeline::parse(
+        r###"
+timeline 2 "Bindings" {
+    phase boss {
+        step main {
+            enter "Begin"
+            event a 0.0 name="A"
+            event b 1.0 name="B"
+            event hidden 2.0 name="Control" visible=#false
+        }
+    }
+    phase other {
+        step main {
+            enter "Other"
+            event foreign 0.0 name="A"
+        }
+    }
+}
+"###,
+    )
+    .unwrap();
     for targets in [
         json!({"A001":{"name":"A","events":["unknown"]}}),
-        json!({"A001":{"name":"A","events":["hidden"]}}),
-        json!({"A001":{"name":"A","events":["foreign"]}}),
-        json!({"A001":{"name":"A","events":["a","b"]},"A002":{"name":"A","events":["b"]}}),
-        json!({"A001":{"name":"A","events":["a"],"group":"wave"},"A002":{"name":"A","events":["b"],"group":"wave"}}),
-        json!({"A001":{"name":"A","events":["a","b"],"equivalents":[["a","foreign"]]}}),
+        json!({"A001":{"name":"A","events":["boss/main/hidden"]}}),
+        json!({"A001":{"name":"A","events":["other/main/foreign"]}}),
+        json!({"A001":{"name":"A","events":["boss/main/a","boss/main/b"]},"A002":{"name":"A","events":["boss/main/b"]}}),
+        json!({"A001":{"name":"A","events":["boss/main/a"],"group":"wave"},"A002":{"name":"A","events":["boss/main/b"],"group":"wave"}}),
+        json!({"A001":{"name":"A","events":["boss/main/a","boss/main/b"],"equivalents":[["boss/main/a","other/main/foreign"]]}}),
     ] {
-        let p: Profile = serde_json::from_value(json!({"version":1,"observations":"scoped_casts","segments":[{"phase":"boss","source":"Boss","entry":["A001"],"completion":"fight_end","targets":targets}],"not_checked":[]})).unwrap();
+        let p: Profile = serde_json::from_value(json!({"version":1,"observations":"scoped_casts","segments":[{"phase":"boss/main","source":"Boss","entry":["A001"],"completion":"fight_end","targets":targets}],"not_checked":[]})).unwrap();
         assert!(
             p.validate()
                 .and_then(|()| p.validate_bindings(&model))
@@ -449,8 +646,8 @@ fn sandoria_scores_variant_casts_and_helper_bury_without_counting_duplicate_arms
 fn a_restarted_sequence_requires_its_own_forecast(#[case] lead_ms: i64, #[case] passed: bool) {
     let profile: Profile = serde_json::from_value(json!({
         "version":1,"observations":"scoped_casts","not_checked":[],
-        "segments":[{"phase":"boss","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end",
-        "targets":{"B529":{"name":"Hit","events":["hit"]}}}]
+        "segments":[{"phase":"boss/main","source":"Synthetic Boss","entry":["B528"],"completion":"fight_end",
+        "targets":{"B529":{"name":"Hit","events":["boss/main/reaction/reaction/hit"]}}}]
     })).unwrap();
     let raw = log(
         1,
@@ -463,16 +660,20 @@ fn a_restarted_sequence_requires_its_own_forecast(#[case] lead_ms: i64, #[case] 
         ]),
     );
     let model = crate::timeline::parse(
-        r#"timeline 1 "Test" {
-        start "Ability" id="B528"
-        phase "boss" {
+        r###"
+timeline 2 "Test" {
+    start "Ability" id="B528"
+    phase boss {
+        step main {
             enter "Ability" id="B528"
-            sequence "reaction" {
+            reaction reaction {
                 on "Ability" id="B530"
-                event "hit" 3.0 name="Hit"
+                event hit 3.0 name="Hit"
             }
         }
-    }"#,
+    }
+}
+"###,
     )
     .unwrap();
     profile.validate_bindings(&model).unwrap();

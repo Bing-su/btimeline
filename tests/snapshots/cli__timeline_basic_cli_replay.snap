@@ -1,5 +1,6 @@
 ---
 source: tests/cli.rs
+assertion_line: 855
 expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][recording], \"not_checked\":\n    output[\"not_checked\"]\n})"
 ---
 {
@@ -22,10 +23,10 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "iteration": null,
         "loop_id": null,
         "option": null,
-        "phase": "opening",
+        "phase": "opening/main",
         "phase_instance": 1
       },
-      "detail": "opening",
+      "detail": "opening/main",
       "run": 1
     },
     {
@@ -36,13 +37,13 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "iteration": null,
         "loop_id": null,
         "option": null,
-        "phase": "opening",
+        "phase": "opening/main",
         "phase_instance": 1
       },
-      "detail": "opening-hit: Opening hit (visible=true, duration=0.0s)",
+      "detail": "opening/main/opening-hit: Opening hit (visible=true, duration=0.0s)",
       "event": {
         "duration_ms": 0,
-        "id": "opening-hit",
+        "id": "opening/main/opening-hit",
         "name": "Opening hit",
         "visible": true
       },
@@ -51,7 +52,7 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
     {
       "action": "sync",
       "at_ms": 4000,
-      "detail": "opening -> 3.0s",
+      "detail": "opening/main -> 3.0s",
       "run": 1
     },
     {
@@ -62,13 +63,13 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "iteration": null,
         "loop_id": null,
         "option": null,
-        "phase": "opening",
+        "phase": "opening/main",
         "phase_instance": 1
       },
-      "detail": "after-sync: After sync (visible=true, duration=0.0s)",
+      "detail": "opening/main/after-sync: After sync (visible=true, duration=0.0s)",
       "event": {
         "duration_ms": 0,
-        "id": "after-sync",
+        "id": "opening/main/after-sync",
         "name": "After sync",
         "visible": true
       },
@@ -82,10 +83,10 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "iteration": null,
         "loop_id": null,
         "option": null,
-        "phase": "second",
+        "phase": "second/main",
         "phase_instance": 2
       },
-      "detail": "second",
+      "detail": "second/main",
       "run": 1
     },
     {
@@ -96,13 +97,13 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "iteration": null,
         "loop_id": null,
         "option": null,
-        "phase": "second",
+        "phase": "second/main",
         "phase_instance": 2
       },
-      "detail": "second-start: Second phase (visible=true, duration=0.0s)",
+      "detail": "second/main/second-start: Second phase (visible=true, duration=0.0s)",
       "event": {
         "duration_ms": 0,
-        "id": "second-start",
+        "id": "second/main/second-start",
         "name": "Second phase",
         "visible": true
       },
@@ -116,13 +117,13 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "iteration": null,
         "loop_id": null,
         "option": null,
-        "phase": "second",
+        "phase": "second/main",
         "phase_instance": 2
       },
-      "detail": "second-hit: Second hit (visible=true, duration=0.0s)",
+      "detail": "second/main/second-hit: Second hit (visible=true, duration=0.0s)",
       "event": {
         "duration_ms": 0,
-        "id": "second-hit",
+        "id": "second/main/second-hit",
         "name": "Second hit",
         "visible": true
       },
@@ -131,7 +132,7 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
     {
       "action": "unobserved",
       "at_ms": 10500,
-      "detail": "beyond-recording",
+      "detail": "second/main/beyond-recording",
       "run": 1
     },
     {
@@ -154,28 +155,28 @@ expression: "serde_json::json!({\n    \"records\": output[\"recordings\"][record
         "iteration": null,
         "loop_id": null,
         "option": null,
-        "phase": "opening",
+        "phase": "opening/main",
         "phase_instance": 3
       },
-      "detail": "opening",
+      "detail": "opening/main",
       "run": 2
     },
     {
       "action": "unobserved",
       "at_ms": 11000,
-      "detail": "opening-hit",
+      "detail": "opening/main/opening-hit",
       "run": 2
     },
     {
       "action": "unobserved",
       "at_ms": 11000,
-      "detail": "after-sync",
+      "detail": "opening/main/after-sync",
       "run": 2
     },
     {
       "action": "unobserved",
       "at_ms": 11000,
-      "detail": "cancelled-by-phase",
+      "detail": "opening/main/cancelled-by-phase",
       "run": 2
     }
   ]

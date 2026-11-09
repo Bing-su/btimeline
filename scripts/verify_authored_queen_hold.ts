@@ -62,14 +62,14 @@ try {
       const safeExit =
         phases.length === 2 &&
         phases[0].at_ms === 0 &&
-        phases[0].detail === "hold" &&
+        phases[0].detail === "hold/main" &&
         phases[1].at_ms === projected.exit_ms &&
-        phases[1].detail === "castellation" &&
+        phases[1].detail === "castellation/main" &&
         !rows.some(
           (row: any) =>
             row.action === "event" &&
-            ((row.at_ms >= projected.exit_ms && row.detail.startsWith("hold-")) ||
-              (row.at_ms < projected.exit_ms && row.detail.startsWith("exit-"))),
+            ((row.at_ms >= projected.exit_ms && row.context.phase === "hold/main") ||
+              (row.at_ms < projected.exit_ms && row.context.phase === "castellation/main")),
         );
       const targets = projected.targets.map((target: any) => {
         const candidates = rows.filter(
@@ -106,12 +106,13 @@ try {
           );
           queryDiagnostics = [...forecast.diagnostics, ...forecast.projection_diagnostics];
           safeQuery =
-            forecast.phase === (at < projected.exit_ms ? "hold" : "castellation") &&
+            !forecast.truncated &&
+            forecast.phase === (at < projected.exit_ms ? "hold/main" : "castellation/main") &&
             forecast.status === "active" &&
             forecast.observations_used ===
               observations.filter((item: any) => item.at_ms <= at).length &&
             (at < projected.exit_ms ||
-              forecast.events.every((row: any) => !row.id.startsWith("hold-")));
+              forecast.events.every((row: any) => row.context.phase !== "hold/main"));
         }
         return {
           raw_index: target.raw_index,

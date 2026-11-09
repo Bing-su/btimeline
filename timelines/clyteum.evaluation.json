@@ -3,7 +3,7 @@
   "observations": "scoped_casts",
   "segments": [
     {
-      "phase": "eye",
+      "phase": "eye/main",
       "source": "Eye of the Scorpion",
       "entry": ["BF00"],
       "completion": "defeat",
@@ -13,62 +13,73 @@
         "BF00": {
           "name": "Eyes on Me",
           "events": [
-            "eye-opening-eyes",
-            "eye-opening-eyes-second",
-            "eye-opening-eyes-third",
-            "eye-eyes-first",
-            "eye-eyes-second"
+            "eye/main/eye-opening-eyes",
+            "eye/main/eye-opening-eyes-second",
+            "eye/main/eye-opening-eyes-third",
+            "eye/main/loop/eye-rotation/eye-eyes-first",
+            "eye/main/loop/eye-rotation/eye-eyes-second"
           ]
         },
         "C3FF": {
           "name": "Petrifying Beam",
           "group": "beam",
           "events": [
-            "eye-opening-beam-first",
-            "eye-opening-beam-second",
-            "eye-opening-beam-third",
-            "eye-beam"
+            "eye/main/eye-opening-beam-first",
+            "eye/main/eye-opening-beam-second",
+            "eye/main/eye-opening-beam-third",
+            "eye/main/loop/eye-rotation/eye-beam"
           ]
         },
         "C400": {
           "name": "Petrifying Beam",
           "group": "beam",
           "events": [
-            "eye-opening-beam-first",
-            "eye-opening-beam-second",
-            "eye-opening-beam-third",
-            "eye-beam"
+            "eye/main/eye-opening-beam-first",
+            "eye/main/eye-opening-beam-second",
+            "eye/main/eye-opening-beam-third",
+            "eye/main/loop/eye-rotation/eye-beam"
           ]
         },
         "BEFD": {
           "name": "Motion Scanner",
-          "events": ["eye-opening-scanner", "eye-opening-scanner-second", "eye-scanner"]
+          "events": [
+            "eye/main/eye-opening-scanner",
+            "eye/main/eye-opening-scanner-second",
+            "eye/main/loop/eye-rotation/eye-scanner"
+          ]
         },
         "BF01": {
           "name": "Ballistic Missile",
-          "events": ["eye-opening-ballistic-first", "eye-opening-ballistic-second", "eye-ballistic"]
+          "events": [
+            "eye/main/eye-opening-ballistic-first",
+            "eye/main/eye-opening-ballistic-second",
+            "eye/main/loop/eye-rotation/eye-ballistic"
+          ]
         },
         "BF05": {
           "name": "Penetrator Missile",
-          "events": ["eye-opening-penetrator"]
+          "events": ["eye/main/eye-opening-penetrator"]
         },
         "BF02": {
           "name": "Surface Missile",
           "events": [
-            "eye-opening-surface-first",
-            "eye-opening-surface-second",
-            "eye-surface-first",
-            "eye-surface-second"
+            "eye/main/eye-opening-surface-first",
+            "eye/main/eye-opening-surface-second",
+            "eye/main/loop/eye-rotation/eye-surface-first",
+            "eye/main/loop/eye-rotation/eye-surface-second"
           ]
         },
         "BF03": {
           "name": "Anti-Personnel Missile",
-          "events": ["eye-opening-antipersonnel", "eye-antipersonnel"]
+          "events": [
+            "eye/main/eye-opening-antipersonnel",
+            "eye/main/loop/eye-rotation/eye-antipersonnel"
+          ]
         }
       }
     },
     {
-      "phase": "chort",
+      "phase": "chort/main",
       "source": "Chort",
       "entry": ["BEF4"],
       "completion": "defeat",
@@ -78,102 +89,112 @@
         "BEF4": {
           "name": "Ripples of Gloom",
           "events": [
-            "chort-opening-ripples",
-            "chort-opening-ripples-second",
-            "chort-opening-ripples-third",
-            "chort-ripples"
+            "chort/main/chort-opening-ripples",
+            "chort/main/chort-opening-ripples-second",
+            "chort/main/chort-opening-ripples-third",
+            "chort/main/loop/chort-rotation/chort-ripples"
           ]
         },
         "BEE4": {
           "name": "Mortifying Flesh",
           "group": "mortifying",
           "events": [
-            "chort-opening-mortifying",
-            "chort-opening-mortifying-followup",
-            "chort-opening-mortifying-second",
-            "chort-opening-mortifying-followup-second",
-            "chort-opening-mortifying-followup-third"
+            "chort/main/chort-opening-mortifying",
+            "chort/main/chort-opening-mortifying-followup",
+            "chort/main/chort-opening-mortifying-second",
+            "chort/main/chort-opening-mortifying-followup-second",
+            "chort/main/chort-opening-mortifying-followup-third"
           ]
         },
         "BEE5": {
           "name": "Mortifying Flesh",
           "group": "mortifying",
           "events": [
-            "chort-opening-mortifying",
-            "chort-opening-mortifying-followup",
-            "chort-opening-mortifying-second",
-            "chort-opening-mortifying-followup-second",
-            "chort-opening-mortifying-followup-third"
+            "chort/main/chort-opening-mortifying",
+            "chort/main/chort-opening-mortifying-followup",
+            "chort/main/chort-opening-mortifying-second",
+            "chort/main/chort-opening-mortifying-followup-second",
+            "chort/main/chort-opening-mortifying-followup-third"
           ]
         },
         "BEE6": {
           "name": "Mortifying Flesh",
           "group": "mortifying",
           "events": [
-            "chort-opening-mortifying",
-            "chort-opening-mortifying-followup",
-            "chort-opening-mortifying-second",
-            "chort-opening-mortifying-followup-second",
-            "chort-opening-mortifying-followup-third"
+            "chort/main/chort-opening-mortifying",
+            "chort/main/chort-opening-mortifying-followup",
+            "chort/main/chort-opening-mortifying-second",
+            "chort/main/chort-opening-mortifying-followup-second",
+            "chort/main/chort-opening-mortifying-followup-third"
           ]
         },
         "BEE7": {
           "name": "Mortifying Flesh",
           "group": "mortifying",
           "events": [
-            "chort-opening-mortifying",
-            "chort-opening-mortifying-followup",
-            "chort-opening-mortifying-second",
-            "chort-opening-mortifying-followup-second",
-            "chort-opening-mortifying-followup-third"
+            "chort/main/chort-opening-mortifying",
+            "chort/main/chort-opening-mortifying-followup",
+            "chort/main/chort-opening-mortifying-second",
+            "chort/main/chort-opening-mortifying-followup-second",
+            "chort/main/chort-opening-mortifying-followup-third"
           ]
         },
         "BEEC": {
           "name": "Mortifying Flesh",
           "events": [
-            "chort-opening-mortifying",
-            "chort-opening-mortifying-followup",
-            "chort-opening-mortifying-second",
-            "chort-opening-mortifying-followup-second",
-            "chort-opening-mortifying-followup-third"
+            "chort/main/chort-opening-mortifying",
+            "chort/main/chort-opening-mortifying-followup",
+            "chort/main/chort-opening-mortifying-second",
+            "chort/main/chort-opening-mortifying-followup-second",
+            "chort/main/chort-opening-mortifying-followup-third"
           ]
         },
         "BEEE": {
           "name": "Bodyweight Exorcism",
           "events": [
-            "chort-opening-body",
-            "chort-opening-body-sequence",
-            "chort-opening-body-second",
-            "chort-opening-body-sequence-second",
-            "chort-body-sequence"
+            "chort/main/chort-opening-body",
+            "chort/main/chort-opening-body-sequence",
+            "chort/main/chort-opening-body-second",
+            "chort/main/chort-opening-body-sequence-second",
+            "chort/main/loop/chort-rotation/chort-body-sequence"
           ]
         },
         "C4B9": {
           "name": "Basic Vomit",
-          "events": ["chort-opening-vomit", "chort-opening-vomit-second", "chort-vomit"]
+          "events": [
+            "chort/main/chort-opening-vomit",
+            "chort/main/chort-opening-vomit-second",
+            "chort/main/loop/chort-rotation/chort-vomit"
+          ]
         },
         "BEEF": {
           "name": "Bodyweight Exorcism",
           "events": [
-            "chort-opening-body",
-            "chort-opening-body-sequence",
-            "chort-opening-body-second",
-            "chort-opening-body-sequence-second",
-            "chort-body-sequence"
+            "chort/main/chort-opening-body",
+            "chort/main/chort-opening-body-sequence",
+            "chort/main/chort-opening-body-second",
+            "chort/main/chort-opening-body-sequence-second",
+            "chort/main/loop/chort-rotation/chort-body-sequence"
           ]
         },
         "C4F1": {
           "name": "Evil Emission",
-          "events": ["chort-opening-emission", "chort-emission"]
+          "events": [
+            "chort/main/chort-opening-emission",
+            "chort/main/loop/chort-rotation/chort-emission"
+          ]
         },
         "BEF6": {
           "name": "Profane Pressure",
-          "events": ["chort-opening-pressure", "chort-pressure"]
+          "events": [
+            "chort/main/chort-opening-pressure",
+            "chort/main/loop/chort-rotation/chort-pressure"
+          ]
         }
       }
     },
     {
-      "phase": "malphas",
+      "phase": "malphas/main",
       "source": "Malphas",
       "entry": ["BF18"],
       "completion": "defeat",
@@ -183,81 +204,93 @@
         "BF18": {
           "name": "Rubbish Disposal",
           "events": [
-            "malphas-opening-rubbish",
-            "malphas-opening-rubbish-second",
-            "malphas-rubbish-first",
-            "malphas-rubbish-second"
+            "malphas/main/malphas-opening-rubbish",
+            "malphas/main/malphas-opening-rubbish-second",
+            "malphas/main/loop/malphas-rotation/malphas-rubbish-first",
+            "malphas/main/loop/malphas-rotation/malphas-rubbish-second"
           ]
         },
         "C489": {
           "name": "Void Dark",
           "events": [
-            "malphas-opening-void",
-            "malphas-void-first",
-            "malphas-void-second",
-            "malphas-void-third"
+            "malphas/main/malphas-opening-void",
+            "malphas/main/loop/malphas-rotation/malphas-void-first",
+            "malphas/main/loop/malphas-rotation/malphas-void-second",
+            "malphas/main/loop/malphas-rotation/malphas-void-third"
           ]
         },
         "BF19": {
           "name": "Scrap Meddle",
           "events": [
-            "malphas-opening-scrap",
-            "malphas-opening-scrap-second",
-            "malphas-scrap-first",
-            "malphas-scrap-second"
+            "malphas/main/malphas-opening-scrap",
+            "malphas/main/malphas-opening-scrap-second",
+            "malphas/main/loop/malphas-rotation/malphas-scrap-first",
+            "malphas/main/loop/malphas-rotation/malphas-scrap-second"
           ]
         },
         "BF1A": {
           "name": "Puppet Strings",
-          "events": ["malphas-opening-strings-first", "malphas-opening-strings-second"]
+          "events": [
+            "malphas/main/malphas-opening-strings-first",
+            "malphas/main/malphas-opening-strings-second"
+          ]
         },
         "BF21": {
           "name": "Gluttonous Wire",
-          "events": ["malphas-opening-wire"]
+          "events": ["malphas/main/malphas-opening-wire"]
         },
         "BF1B": {
           "name": "Puppet Pair",
-          "events": ["malphas-pair"]
+          "events": ["malphas/main/loop/malphas-rotation/malphas-pair"]
         },
         "BF23": {
           "name": "String Up",
-          "events": ["malphas-string-up"]
+          "events": ["malphas/main/loop/malphas-rotation/malphas-string-up"]
         },
         "C48B": {
           "name": "Shadow Play",
-          "events": ["malphas-shadow"]
+          "events": ["malphas/main/loop/malphas-rotation/malphas-shadow"]
         },
         "BF1D": {
           "name": "Puppet Mastery",
-          "events": ["malphas-mastery-first", "malphas-mastery-second"]
+          "events": [
+            "malphas/main/loop/malphas-rotation/malphas-mastery-first",
+            "malphas/main/loop/malphas-rotation/malphas-mastery-second"
+          ]
         },
         "BF27": {
           "name": "Puppet Strings / Pair helper wave",
           "group": "malphas-strings-pair-helpers",
           "events": [
-            "malphas-opening-helper-first",
-            "malphas-opening-helper-second",
-            "malphas-pair-helpers"
+            "malphas/main/malphas-opening-helper-first",
+            "malphas/main/malphas-opening-helper-second",
+            "malphas/main/loop/malphas-rotation/malphas-pair-helpers"
           ]
         },
         "BF29": {
           "name": "Puppet Strings / Pair helper wave",
           "group": "malphas-strings-pair-helpers",
           "events": [
-            "malphas-opening-helper-first",
-            "malphas-opening-helper-second",
-            "malphas-pair-helpers"
+            "malphas/main/malphas-opening-helper-first",
+            "malphas/main/malphas-opening-helper-second",
+            "malphas/main/loop/malphas-rotation/malphas-pair-helpers"
           ]
         },
         "BF2C": {
           "name": "Puppet Mastery helper wave",
           "group": "malphas-mastery-helpers",
-          "events": ["malphas-mastery-helpers-first", "malphas-mastery-helpers-second"]
+          "events": [
+            "malphas/main/loop/malphas-rotation/malphas-mastery-helpers-first",
+            "malphas/main/loop/malphas-rotation/malphas-mastery-helpers-second"
+          ]
         },
         "BF2F": {
           "name": "Puppet Mastery helper wave",
           "group": "malphas-mastery-helpers",
-          "events": ["malphas-mastery-helpers-first", "malphas-mastery-helpers-second"]
+          "events": [
+            "malphas/main/loop/malphas-rotation/malphas-mastery-helpers-first",
+            "malphas/main/loop/malphas-rotation/malphas-mastery-helpers-second"
+          ]
         }
       }
     }

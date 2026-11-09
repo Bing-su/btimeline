@@ -32,7 +32,7 @@ pub(super) fn collect(
     range: std::ops::RangeInclusive<i64>,
     origin: i64,
     sources: &BTreeSet<&str>,
-    selected: impl Fn(&str, &str) -> bool,
+    selected: impl Fn(&str, &str, &crate::fflogs::model::Event) -> bool,
     ignored: &BTreeMap<String, String>,
 ) -> Result<Audit> {
     let actors = log
@@ -69,7 +69,7 @@ pub(super) fn collect(
         };
         let id = super::projection::ability(event)?;
         audit.observed_casts += 1;
-        if selected(source, &id) {
+        if selected(source, &id, event) {
             audit.target_casts += 1;
             continue;
         }

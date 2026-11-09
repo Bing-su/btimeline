@@ -71,7 +71,11 @@ fn all_six_orders_forecast_only_the_selected_history_and_join(#[case] order: &st
         for (target_at, name, phase) in targets {
             // Only choice signals are supplied: follow-up mechanics must be predicted before their own observations.
             let forecast = query(json!(observations), target_at - 5000);
-            assert_eq!(forecast["phase"], phase, "{order} at {scale}%");
+            assert_eq!(
+                forecast["phase"],
+                format!("{phase}/main"),
+                "{order} at {scale}%"
+            );
             let events = forecast["events"].as_array().expect("events");
             assert!(
                 events
@@ -82,17 +86,18 @@ fn all_six_orders_forecast_only_the_selected_history_and_join(#[case] order: &st
                 event["id"]
                     .as_str()
                     .expect("event ID")
-                    .starts_with(&format!("{phase}-"))
+                    .starts_with(&format!("{phase}/main/"))
             }));
         }
         let forecast = query(json!(observations), join + 5500);
-        assert_eq!(forecast["phase"], "joined");
+        assert_eq!(forecast["phase"], "joined/main");
         assert!(
             forecast["events"]
                 .as_array()
                 .expect("events")
                 .iter()
-                .any(|event| event["id"] == "joined-first" && event["at_ms"] == join + 10500)
+                .any(|event| event["id"] == "joined/main/joined-first"
+                    && event["at_ms"] == join + 10500)
         );
     }
 }
@@ -114,9 +119,9 @@ fn missing_or_reused_choice_cannot_invent_history_but_shared_marker_recovers(#[c
     );
     assert_eq!(
         query(json!(observations), 125000)["phase"],
-        if reused { "LR" } else { "L" }
+        if reused { "LR/main" } else { "L/main" }
     );
-    assert_eq!(query(json!(observations), 205500)["phase"], "joined");
+    assert_eq!(query(json!(observations), 205500)["phase"], "joined/main");
 }
 
 #[test]

@@ -13,24 +13,26 @@ use super::{
     MAX_MS,
     Owner,
     Phase,
+    Signal,
     Tick,
     Timeline,
 };
 
 pub(super) mod forecast;
+mod projection;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Observation {
     pub(crate) at_ms: i64,
     #[serde(rename = "type")]
     pub(crate) kind: String,
     pub(crate) fields: BTreeMap<String, String>,
-    #[serde(skip)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) source_event_index: Option<usize>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Recording {
     pub(crate) version: u32,
@@ -99,6 +101,7 @@ pub(crate) struct Record {
 
 #[derive(Clone, Default)]
 struct Clock {
+    scheduled: bool,
     base_ms: i64,
     not_before: i64,
     zero_at: Option<i64>,
@@ -111,7 +114,7 @@ struct Clock {
 
 #[derive(Clone)]
 struct ActivePath {
-    anchor: Tick,
+    anchor: i64,
     clock: Clock,
 }
 
@@ -125,6 +128,23 @@ struct BranchState {
 }
 
 impl BranchState {
+    fn sync_paths<'a>(
+        &'a self,
+        branch: &'a Branch,
+    ) -> impl Iterator<Item = (&'a [(usize, Signal)], &'a ActivePath)> {
+        let option = self
+            .selected
+            .and_then(|index| branch.options.get(index))
+            .zip(self.option.as_ref())
+            .map(|(option, path)| (option.syncs.as_slice(), path));
+        let merge = branch
+            .merge
+            .as_ref()
+            .zip(self.merge.as_ref())
+            .map(|(merge, path)| (merge.syncs.as_slice(), path));
+        option.into_iter().chain(merge)
+    }
+
     fn paths<'a>(
         &'a self,
         branch: &'a Branch,
@@ -168,6 +188,7 @@ struct PhaseState<'a> {
     repeats: Vec<RepeatState>,
     sequences: Vec<Option<Clock>>,
     sequence_entries: usize,
+    entry_syncs: Vec<&'a super::Signal>,
 }
 
 struct LoopRef<'a> {
@@ -178,7 +199,7 @@ struct LoopRef<'a> {
 #[derive(Clone, Default)]
 struct RepeatState {
     phase_instance: usize,
-    anchor: Option<Tick>,
+    anchor: Option<i64>,
     not_before: i64,
     zero_start: Option<i64>,
     current: Option<Clock>,
@@ -205,6 +226,15 @@ enum SyncOwner<'a> {
     Sequence(usize, &'a str),
 }
 
+impl SyncOwner<'_> {
+    fn name(&self) -> &str {
+        match self {
+            Self::Fight => "fight",
+            Self::Phase(id) | Self::Repeat(id) | Self::Sequence(_, id) => id,
+        }
+    }
+}
+
 fn matches_any(signals: &[super::Signal], observation: &Observation, time: Tick) -> bool {
     signals
         .iter()
@@ -213,11 +243,11 @@ fn matches_any(signals: &[super::Signal], observation: &Observation, time: Tick)
 
 fn active_path(parent: &Clock, at: i64) -> ActivePath {
     let base_ms = parent.base_ms;
-    let anchor = elapsed(base_ms, at);
+    let anchor = at - base_ms;
     ActivePath {
         anchor,
         clock: Clock {
-            base_ms: base_ms + anchor * 100,
+            base_ms: at,
             not_before: at,
             zero_at: Some(at),
             phase_instance: parent.phase_instance,
@@ -236,7 +266,7 @@ fn option_path(
     let mut path = active_path(parent, at);
     if let Some(offset) = resume_at {
         // Move only this path's anchor and consume displays through the entry point.
-        path.anchor -= offset;
+        path.anchor -= offset * 100;
         path.clock.base_ms -= offset * 100;
         path.clock.resume_after = Some(offset);
         path.clock.processed.extend(
@@ -253,7 +283,7 @@ fn option_path(
 
 fn repeat_start(base_ms: i64, repeat: &Loop, state: &RepeatState) -> Option<i64> {
     state.anchor.map(|anchor| {
-        let nominal = base_ms + (anchor + repeat.start) * 100;
+        let nominal = base_ms + anchor + repeat.start * 100;
         if repeat.start == 0 {
             state.zero_start.unwrap_or(nominal)
         } else {
@@ -342,6 +372,20 @@ fn option_actions(
 }
 
 impl<'a> PhaseState<'a> {
+    fn consume_entry_sync(&mut self, observation: &Observation, target_ms: i64) {
+        if target_ms == 0
+            && self.entry_syncs.iter().any(|signal| {
+                signal.matches(
+                    &observation.kind,
+                    &observation.fields,
+                    signal.at.unwrap_or(0) + elapsed(self.clock.base_ms, observation.at_ms),
+                )
+            })
+        {
+            self.entry_syncs.clear();
+        }
+    }
+
     fn new(definition: &'a Phase, at: i64, phase_instance: usize) -> Self {
         let mut loops: Vec<_> = definition
             .loops
@@ -385,6 +429,7 @@ impl<'a> PhaseState<'a> {
             repeats,
             sequences: vec![None; definition.sequences.len()],
             sequence_entries: 0,
+            entry_syncs: Vec::new(),
         }
     }
 
@@ -431,7 +476,17 @@ impl<'a> PhaseState<'a> {
                     .as_ref()
                     .filter(|_| !matches_any(&sequence.starts, observation, 0))
                     .into_iter()
-                    .flat_map(move |clock| sync_targets(&sequence.events, clock, observation))
+                    .flat_map(move |clock| {
+                        schedule_sync_candidates(
+                            &sequence.events,
+                            &sequence.syncs,
+                            clock,
+                            observation,
+                        )
+                        .into_iter()
+                        .min()
+                        .map(|(_, _, _, target)| target)
+                    })
                     .map(move |target| (SyncOwner::Sequence(index, sequence.id.as_str()), target))
             })
             .collect()
@@ -458,7 +513,7 @@ impl<'a> PhaseState<'a> {
         let sequence = self.definition.sequences.get(index);
         let clock = self.sequences.get_mut(index).and_then(Option::as_mut);
         if let Some((sequence, clock)) = sequence.zip(clock) {
-            correct(&sequence.events, clock, at, target, out, run);
+            correct_ms(&sequence.events, clock, at, target, out, run);
         }
     }
 
@@ -485,9 +540,9 @@ impl<'a> PhaseState<'a> {
     }
 }
 
-// Round relative observations without changing raw input order, e.g. 1049ms -> 1.0s.
+// Authored boundaries are tenths; flooring preserves their exact raw millisecond edges.
 fn elapsed(base_ms: i64, at_ms: i64) -> Tick {
-    (at_ms - base_ms + 50).div_euclid(100)
+    (at_ms - base_ms).div_euclid(100)
 }
 
 fn record(out: &mut Vec<Record>, at_ms: i64, action: &str, detail: impl Into<String>, run: usize) {
@@ -600,24 +655,25 @@ fn emit(
     }
 }
 
-fn correct(
+fn correct_ms(
     events: &[Event],
     clock: &mut Clock,
     at_ms: i64,
-    target: Tick,
+    target: i64,
     out: &mut Vec<Record>,
     run: usize,
 ) {
-    let previous = elapsed(clock.base_ms, at_ms);
+    let previous = at_ms - clock.base_ms;
     if target > previous {
         for (i, event) in events.iter().enumerate() {
-            if event.at < target && !clock.processed.contains(&i) {
+            if event.at * 100 < target && !clock.processed.contains(&i) {
                 clock.processed.insert(i);
                 record(out, at_ms, "skipped", event.id.clone(), run);
             }
         }
     }
-    clock.base_ms = at_ms - target * 100;
+    clock.base_ms = at_ms - target;
+    clock.scheduled = false;
     clock.zero_at = None;
 }
 
@@ -647,14 +703,113 @@ fn validate_recording(input: &Recording) -> Result<()> {
 }
 
 // Compute candidates before applying a correction so overlapping windows see the same clock.
-fn sync_targets(events: &[Event], clock: &Clock, observation: &Observation) -> BTreeSet<Tick> {
+fn event_sync_candidates(
+    events: &[Event],
+    clock: &Clock,
+    observation: &Observation,
+    anchor: Tick,
+) -> Vec<(i64, usize, usize, Tick)> {
     let time = elapsed(clock.base_ms, observation.at_ms);
     events
         .iter()
         .filter(|event| clock.resume_after.is_none_or(|offset| event.at > offset))
-        .flat_map(|e| &e.syncs)
-        .filter(|s| s.matches(&observation.kind, &observation.fields, time))
-        .filter_map(|s| s.at)
+        .flat_map(|event| {
+            event
+                .syncs
+                .iter()
+                .enumerate()
+                .map(move |(order, signal)| (event.source_start, order, signal))
+        })
+        .filter(|(_, _, s)| s.matches(&observation.kind, &observation.fields, time))
+        .filter_map(|(order, index, s)| {
+            s.at.map(|at| {
+                (
+                    clock.base_ms + (at + s.after.unwrap_or(MAX_MS / 100)) * 100,
+                    order,
+                    index,
+                    anchor + at * 100,
+                )
+            })
+        })
+        .collect()
+}
+
+fn schedule_sync_candidates(
+    events: &[Event],
+    syncs: &[(usize, Signal)],
+    clock: &Clock,
+    observation: &Observation,
+) -> Vec<(i64, usize, usize, Tick)> {
+    let mut candidates = event_sync_candidates(events, clock, observation, 0);
+    let time = elapsed(clock.base_ms, observation.at_ms);
+    for (order, signal) in syncs {
+        if signal.matches(&observation.kind, &observation.fields, time)
+            && let Some(at) = signal.at
+        {
+            candidates.push((
+                clock.base_ms + (at + signal.after.unwrap_or(MAX_MS / 100)) * 100,
+                *order,
+                0,
+                at * 100,
+            ));
+        }
+    }
+    candidates
+}
+
+fn path_sync_candidates(
+    syncs: &[(usize, Signal)],
+    path: &ActivePath,
+    observation: &Observation,
+) -> Vec<(i64, usize, usize, Tick)> {
+    schedule_sync_candidates(&[], syncs, &path.clock, observation)
+        .into_iter()
+        .map(|(end, order, index, target)| (end, order, index, target + path.anchor))
+        .collect()
+}
+
+fn phase_sync_targets(phase: &PhaseState<'_>, observation: &Observation) -> BTreeSet<Tick> {
+    let mut candidates = schedule_sync_candidates(
+        &phase.definition.events,
+        &phase.definition.syncs,
+        &phase.clock,
+        observation,
+    );
+    let time = elapsed(phase.clock.base_ms, observation.at_ms);
+    for (branch, state) in phase.definition.branches.iter().zip(&phase.branches) {
+        for (syncs, path) in state.sync_paths(branch) {
+            candidates.extend(path_sync_candidates(syncs, path, observation));
+        }
+        for (events, path) in state.paths(branch) {
+            candidates.extend(event_sync_candidates(
+                events,
+                &path.clock,
+                observation,
+                path.anchor,
+            ));
+        }
+    }
+    for signal in &phase.entry_syncs {
+        if time >= 0
+            && signal.matches(
+                &observation.kind,
+                &observation.fields,
+                signal.at.unwrap_or(0) + time,
+            )
+        {
+            candidates.push((
+                phase.clock.base_ms + signal.after.unwrap_or(25) * 100,
+                0,
+                0,
+                0,
+            ));
+        }
+    }
+    candidates
+        .into_iter()
+        .min()
+        .map(|(_, _, _, target)| target)
+        .into_iter()
         .collect()
 }
 
@@ -681,29 +836,6 @@ fn advance_paths(
             emit(events, &mut path.clock, at, inclusive, out, run);
         }
     }
-}
-
-fn branch_sync_targets<'a>(
-    phase: &PhaseState<'a>,
-    observation: &Observation,
-) -> Vec<(SyncOwner<'a>, Tick)> {
-    phase
-        .definition
-        .branches
-        .iter()
-        .zip(&phase.branches)
-        .flat_map(|(branch, state)| state.paths(branch))
-        .flat_map(|(events, path)| {
-            sync_targets(events, &path.clock, observation)
-                .into_iter()
-                .map(move |target| {
-                    (
-                        SyncOwner::Phase(phase.definition.id.as_str()),
-                        path.anchor + target,
-                    )
-                })
-        })
-        .collect()
 }
 
 fn repeat_sync_targets<'a>(
@@ -769,24 +901,34 @@ fn repeat_sync_targets_one<'a>(
         state.current.as_ref()
     };
     if let Some(clock) = clock {
-        targets.extend(
-            sync_targets(&repeat.events, clock, observation)
-                .into_iter()
-                .map(|t| (SyncOwner::Repeat(repeat.id.as_str()), t)),
-        );
+        targets.extend(schedule_sync_candidates(
+            &repeat.events,
+            &repeat.syncs,
+            clock,
+            observation,
+        ));
     }
     if !boundary && state.current.is_some() {
         for (branch, branch_state) in repeat.branches.iter().zip(&state.branches) {
+            for (syncs, path) in branch_state.sync_paths(branch) {
+                targets.extend(path_sync_candidates(syncs, path, observation));
+            }
             for (events, path) in branch_state.paths(branch) {
-                targets.extend(
-                    sync_targets(events, &path.clock, observation)
-                        .into_iter()
-                        .map(|t| (SyncOwner::Repeat(repeat.id.as_str()), path.anchor + t)),
-                );
+                targets.extend(event_sync_candidates(
+                    events,
+                    &path.clock,
+                    observation,
+                    path.anchor,
+                ));
             }
         }
     }
     targets
+        .into_iter()
+        .min()
+        .map(|(_, _, _, target)| (SyncOwner::Repeat(repeat.id.as_str()), target))
+        .into_iter()
+        .collect()
 }
 
 // At a boundary the observation can synchronize the new iteration before its zero-time event.
@@ -836,7 +978,7 @@ fn correct_paths(
 ) {
     for (branch, state) in phase.definition.branches.iter().zip(&mut phase.branches) {
         for (events, path) in state.paths_mut(branch) {
-            correct(events, &mut path.clock, at, target - path.anchor, out, run);
+            correct_ms(events, &mut path.clock, at, target - path.anchor, out, run);
         }
     }
 }
@@ -861,9 +1003,14 @@ fn enter_repeat_after_jump(
                 && state.current.is_none()
                 && state
                     .anchor
-                    .is_some_and(|anchor| target > anchor + entry.definition.start)
+                    .is_some_and(|anchor| target > anchor + entry.definition.start * 100)
         })
-        .map(|(index, (entry, state))| (state.anchor.unwrap_or(0) + entry.definition.start, index))
+        .map(|(index, (entry, state))| {
+            (
+                state.anchor.unwrap_or(0) + entry.definition.start * 100,
+                index,
+            )
+        })
         .collect();
     pending.sort_unstable();
     let mut running = phase.repeats.iter().any(|state| state.current.is_some());
@@ -877,7 +1024,7 @@ fn enter_repeat_after_jump(
         let offset = target - state.anchor.unwrap_or(0);
         let exhausted = repeat
             .count
-            .is_some_and(|count| (offset - repeat.start) / repeat.every >= count);
+            .is_some_and(|count| (offset - repeat.start * 100) / (repeat.every * 100) >= count);
         if running && !exhausted {
             state.blocked = true;
             record(
@@ -904,17 +1051,17 @@ fn enter_repeat_after_jump_one(
     run: usize,
     history: &mut BTreeMap<String, Option<String>>,
 ) -> Result<()> {
-    let offset = target - repeat.start;
-    let completed = offset / repeat.every;
+    let offset = target - repeat.start * 100;
+    let completed = offset / (repeat.every * 100);
     let exhausted = repeat.count.is_some_and(|count| completed >= count);
     let completed = repeat.count.map_or(completed, |count| count.min(completed));
-    let position = offset % repeat.every;
+    let position = offset % (repeat.every * 100);
     let event_count = i64::try_from(repeat.events.len()).unwrap_or(i64::MAX);
     let partial_count = i64::try_from(
         repeat
             .events
             .iter()
-            .filter(|event| event.at < position)
+            .filter(|event| event.at * 100 < position)
             .count(),
     )
     .unwrap_or(i64::MAX);
@@ -923,7 +1070,7 @@ fn enter_repeat_after_jump_one(
         repeat
             .branches
             .iter()
-            .filter(|branch| branch.close <= position)
+            .filter(|branch| branch.close * 100 <= position)
             .count(),
     )
     .unwrap_or(i64::MAX);
@@ -954,14 +1101,14 @@ fn enter_repeat_after_jump_one(
         return Ok(());
     }
     let mut clock = Clock {
-        base_ms: at - position * 100,
+        base_ms: at - position,
         phase_instance: state.phase_instance,
         iteration: Some(u64::try_from(completed)? + 1),
         not_before: at,
         ..Clock::default()
     };
     for (index, event) in events {
-        if event.at < position {
+        if event.at * 100 < position {
             clock.processed.insert(index);
             record(out, at, "skipped", event.id.clone(), run);
         }
@@ -996,7 +1143,7 @@ fn correct_phase(
             state.zero_start = None;
         }
     }
-    correct(
+    correct_ms(
         &phase.definition.events,
         &mut phase.clock,
         at,
@@ -1025,7 +1172,8 @@ fn activate_repeat(definition: &Loop, state: &mut RepeatState, phase_base: i64) 
         return false;
     };
     state.current = Some(Clock {
-        base_ms: phase_base + (anchor + definition.start) * 100,
+        scheduled: true,
+        base_ms: phase_base + anchor + definition.start * 100,
         phase_instance: state.phase_instance,
         iteration: Some(1),
         not_before: state.not_before,
@@ -1151,10 +1299,10 @@ fn correct_repeat(
     let Some(clock) = &mut state.current else {
         return;
     };
-    correct(&definition.events, clock, at, target, out, run);
+    correct_ms(&definition.events, clock, at, target, out, run);
     for (branch, branch_state) in definition.branches.iter().zip(&mut state.branches) {
         for (events, path) in branch_state.paths_mut(branch) {
-            correct(events, &mut path.clock, at, target - path.anchor, out, run);
+            correct_ms(events, &mut path.clock, at, target - path.anchor, out, run);
         }
     }
     let previous_len = out.len();
@@ -1206,6 +1354,7 @@ fn advance_repeat(
             return;
         }
         clock.base_ms += period;
+        clock.scheduled = true;
         clock.iteration = clock.iteration.map(|iteration| iteration + 1);
         clock.zero_at = None;
         clock.processed.clear();
@@ -1286,7 +1435,7 @@ fn repeat_unresolved(
         repeat_unresolved_one(
             entry.definition,
             state,
-            phase.clock.base_ms + anchor * 100,
+            phase.clock.base_ms + anchor,
             at,
             corrected,
             out,
@@ -1319,6 +1468,7 @@ fn unobserved_repeat_one(
 }
 
 struct Replay<'a> {
+    at_ms: i64,
     timeline: &'a Timeline,
     fight: Option<Clock>,
     phase: Option<PhaseState<'a>>,
@@ -1326,6 +1476,7 @@ struct Replay<'a> {
     run: usize,
     phase_entries: usize,
     out: Vec<Record>,
+    suspended: bool,
 }
 
 fn nested_actions_for_loop(
@@ -1372,8 +1523,94 @@ fn nested_actions_for_loop(
 }
 
 impl<'a> Replay<'a> {
+    fn suspend_on_fault(&mut self, first: usize) {
+        let fault = self
+            .out
+            .iter()
+            .skip(first)
+            .filter(|row| {
+                row.action == "violation"
+                    || (row.action == "ambiguous"
+                        && !row.detail.starts_with("Multiple sync destinations"))
+            })
+            .map(|row| row.at_ms)
+            .min();
+        if let Some(at) = fault {
+            self.suspended = true;
+            self.phase = None;
+            self.fight = None;
+            self.history.clear();
+            self.out
+                .retain(|row| row.at_ms < at || (row.at_ms == at && row.event.is_none()));
+        }
+    }
+
+    fn timed_destination(&self) -> Option<(&'a Phase, i64, Tick)> {
+        let active = self.phase.as_ref()?;
+        projection::successor(self.timeline, &active.definition.id, active.clock.base_ms)
+    }
+
     // Advance only currently active schedules, preserving cancellation at transition timestamps.
-    fn advance(&mut self, at: i64, inclusive: bool) {
+    fn advance(&mut self, at: i64, inclusive: bool) -> Result<()> {
+        for _ in 0..10_000 {
+            let next = self.timed_destination();
+            let Some((destination, deadline, offset)) =
+                next.filter(|(_, deadline, _)| due(*deadline, at, inclusive))
+            else {
+                self.emit_schedules(at, inclusive);
+                self.at_ms = at;
+                return Ok(());
+            };
+            if deadline >= self.at_ms {
+                self.emit_schedules(deadline, false);
+            }
+            if self.suspended {
+                self.at_ms = at;
+                return Ok(());
+            }
+            let from = self
+                .phase
+                .as_ref()
+                .map(|phase| phase.definition.id.as_str());
+            let inherited = destination
+                .enters
+                .iter()
+                .filter(|signal| signal.from.as_deref() == from && signal.at == Some(offset))
+                .collect();
+            self.phase_entries += 1;
+            let mut state = PhaseState::new(destination, deadline, self.phase_entries);
+            state.clock.scheduled = true;
+            state.entry_syncs = inherited;
+            if deadline < self.at_ms {
+                state.clock.base_ms = self.at_ms;
+                correct_phase(
+                    &mut state,
+                    self.at_ms,
+                    self.at_ms - deadline,
+                    &mut self.out,
+                    self.run,
+                    &mut self.history,
+                )?;
+            }
+            record_control(
+                &mut self.out,
+                deadline,
+                "phase",
+                destination.id.clone(),
+                self.run,
+                &state.clock,
+                Owner {
+                    phase: Some(destination.id.clone()),
+                    ..Owner::default()
+                },
+            );
+            self.phase = Some(state);
+        }
+        anyhow::bail!("Timed phase transition budget exceeded");
+    }
+
+    fn emit_schedules(&mut self, at: i64, inclusive: bool) {
+        let first = self.out.len();
         if let Some(clock) = self.fight.as_mut() {
             emit(
                 &self.timeline.events,
@@ -1404,6 +1641,7 @@ impl<'a> Replay<'a> {
                 &mut self.history,
             );
         }
+        self.suspend_on_fault(first);
     }
 
     // Prepare a new iteration for a signal at its boundary without firing zero-time events.
@@ -1441,6 +1679,7 @@ impl<'a> Replay<'a> {
                 return None;
             }
             clock.base_ms = at;
+            clock.scheduled = true;
             clock.iteration = clock.iteration.map(|iteration| iteration + 1);
             clock.zero_at = None;
             clock.processed.clear();
@@ -1467,9 +1706,7 @@ impl<'a> Replay<'a> {
         let Some(phase) = &self.phase else {
             return false;
         };
-        if sync_targets(&phase.definition.events, &phase.clock, observation).is_empty()
-            && branch_sync_targets(phase, observation).is_empty()
-        {
+        if phase_sync_targets(phase, observation).is_empty() {
             return false;
         }
         let at = observation.at_ms;
@@ -1519,7 +1756,6 @@ impl<'a> Replay<'a> {
         let Some(phase) = &self.phase else {
             return Vec::new();
         };
-        let time = elapsed(phase.clock.base_ms, observation.at_ms);
         phase
             .loops
             .iter()
@@ -1528,8 +1764,12 @@ impl<'a> Replay<'a> {
             .filter(|(_, (entry, state))| {
                 !state.exited
                     && state.anchor.is_some_and(|anchor| {
-                        time >= anchor
-                            && matches_any(&entry.definition.untils, observation, time - anchor)
+                        observation.at_ms >= phase.clock.base_ms + anchor
+                            && matches_any(
+                                &entry.definition.untils,
+                                observation,
+                                elapsed(phase.clock.base_ms + anchor, observation.at_ms),
+                            )
                     })
             })
             .map(|(index, _)| index)
@@ -1549,7 +1789,7 @@ impl<'a> Replay<'a> {
         let Some(anchor) = state.anchor else {
             return false;
         };
-        let time = elapsed(phase.clock.base_ms, observation.at_ms) - anchor;
+        let time = elapsed(phase.clock.base_ms + anchor, observation.at_ms);
         if state.exited || time < 0 || !matches_any(&definition.untils, observation, time) {
             return false;
         }
@@ -1960,13 +2200,16 @@ impl<'a> Replay<'a> {
         ["zone-exit", "wipe", "finish", "boss-complete", "start"]
             .into_iter()
             .find(|role| {
-                (*role != "start" || self.fight.is_none())
+                (*role != "start" || (self.fight.is_none() && !self.suspended))
                     && self.matches_lifecycle(role, observation)
             })
     }
 
     // Reset only lifecycle-owned state; boss completion preserves the fight clock and run.
     fn apply_lifecycle(&mut self, role: &str, at: i64) {
+        if matches!(role, "start" | "wipe" | "finish" | "zone-exit") {
+            self.suspended = false;
+        }
         if role == "wipe" {
             self.record_unobserved(at);
         }
@@ -1998,7 +2241,7 @@ impl<'a> Replay<'a> {
                 correct_phase(
                     &mut state,
                     at,
-                    *offset,
+                    *offset * 100,
                     &mut self.out,
                     self.run,
                     &mut self.history,
@@ -2034,18 +2277,25 @@ impl<'a> Replay<'a> {
         let mut targets = BTreeSet::new();
         if let Some(clock) = self.fight.as_ref() {
             targets.extend(
-                sync_targets(&self.timeline.events, clock, observation)
-                    .into_iter()
-                    .map(|t| (SyncOwner::Fight, t)),
+                schedule_sync_candidates(
+                    &self.timeline.events,
+                    &self.timeline.syncs,
+                    clock,
+                    observation,
+                )
+                .into_iter()
+                .min()
+                .map(|(_, _, _, target)| target)
+                .into_iter()
+                .map(|t| (SyncOwner::Fight, t)),
             );
         }
         if let Some(phase) = self.phase.as_ref() {
             targets.extend(
-                sync_targets(&phase.definition.events, &phase.clock, observation)
+                phase_sync_targets(phase, observation)
                     .into_iter()
                     .map(|t| (SyncOwner::Phase(phase.definition.id.as_str()), t)),
             );
-            targets.extend(branch_sync_targets(phase, observation));
             targets.extend(repeat_sync_targets(phase, observation));
             targets.extend(phase.sequence_sync_targets(observation));
         }
@@ -2063,15 +2313,18 @@ impl<'a> Replay<'a> {
             return Ok(());
         };
         match (owner, self.phase.as_mut(), self.fight.as_mut()) {
-            (SyncOwner::Phase(_), Some(phase), _) => correct_phase(
-                phase,
-                at,
-                *target,
-                &mut self.out,
-                self.run,
-                &mut self.history,
-            )?,
-            (SyncOwner::Fight, _, Some(clock)) => correct(
+            (SyncOwner::Phase(_), Some(phase), _) => {
+                phase.consume_entry_sync(observation, *target);
+                correct_phase(
+                    phase,
+                    at,
+                    *target,
+                    &mut self.out,
+                    self.run,
+                    &mut self.history,
+                )?;
+            }
+            (SyncOwner::Fight, _, Some(clock)) => correct_ms(
                 &self.timeline.events,
                 clock,
                 at,
@@ -2112,14 +2365,7 @@ impl<'a> Replay<'a> {
             &mut self.out,
             at,
             "sync",
-            format!(
-                "{} -> {:.1}s",
-                match owner {
-                    SyncOwner::Fight => "fight",
-                    SyncOwner::Phase(id) | SyncOwner::Repeat(id) | SyncOwner::Sequence(_, id) => id,
-                },
-                *target as f64 / 10.0
-            ),
+            format!("{} -> {:.1}s", owner.name(), *target as f64 / 1000.0),
             self.run,
         );
         Ok(())
@@ -2128,7 +2374,7 @@ impl<'a> Replay<'a> {
     // Apply observations in source order before firing events at the same raw timestamp.
     fn observe(&mut self, observation: &Observation) -> Result<()> {
         let at = observation.at_ms;
-        self.advance(at, false);
+        self.advance(at, false)?;
         self.advance_branches(at, false);
         if let Some(phase) = &mut self.phase {
             repeat_unresolved(phase, at, false, &mut self.out, self.run);
@@ -2140,12 +2386,14 @@ impl<'a> Replay<'a> {
             self.apply_lifecycle(role, at);
         }
         let terminal = matches!(lifecycle, Some("zone-exit" | "wipe" | "finish"));
-        let enter = !terminal && self.fight.is_some() && !candidates.is_empty();
+        let enter = !terminal && !self.suspended && self.fight.is_some() && !candidates.is_empty();
         if enter {
             self.enter_phase(&candidates, at)?;
+            self.suspend_on_fault(first_signal_record);
         }
         if lifecycle.is_none() && !enter && self.fight.is_some() {
             self.observe_control(observation)?;
+            self.suspend_on_fault(first_signal_record);
             if let Some(phase) = &mut self.phase {
                 phase.start_sequences(observation, &mut self.out, self.run);
             }
@@ -2248,16 +2496,17 @@ impl<'a> Replay<'a> {
         }
     }
 
-    fn settle(&mut self, end_ms: i64) {
-        self.advance(end_ms, true);
+    fn settle(&mut self, end_ms: i64) -> Result<()> {
+        self.advance(end_ms, true)?;
         self.advance_branches(end_ms, false);
         if let Some(phase) = &mut self.phase {
             repeat_unresolved(phase, end_ms, false, &mut self.out, self.run);
         }
+        Ok(())
     }
 
-    fn finish(mut self, end_ms: i64) -> Vec<Record> {
-        self.settle(end_ms);
+    fn finish(mut self, end_ms: i64) -> Result<Vec<Record>> {
+        self.settle(end_ms)?;
         self.record_unobserved(end_ms);
         for row in &mut self.out {
             // Attach definition ownership after execution so identity metadata cannot alter path scheduling.
@@ -2276,7 +2525,7 @@ impl<'a> Replay<'a> {
                 record.event_order,
             )
         });
-        self.out
+        Ok(self.out)
     }
 }
 
@@ -2322,12 +2571,14 @@ fn replay_until<'a>(timeline: &'a Timeline, input: &Recording, at_ms: i64) -> Re
     validate_recording(input)?;
     validate_repeat_support(timeline, at_ms)?;
     let mut state = Replay {
+        at_ms: 0,
         timeline,
         fight: None,
         phase: None,
         history: BTreeMap::new(),
         run: 0,
         phase_entries: 0,
+        suspended: false,
         out: Vec::new(),
     };
     let mut observations = input
@@ -2341,12 +2592,12 @@ fn replay_until<'a>(timeline: &'a Timeline, input: &Recording, at_ms: i64) -> Re
             .peek()
             .is_none_or(|next| next.at_ms != observation.at_ms)
         {
-            state.advance(observation.at_ms, true);
+            state.advance(observation.at_ms, true)?;
         }
     }
     Ok(state)
 }
 
 pub(crate) fn replay(timeline: &Timeline, input: &Recording) -> Result<Vec<Record>> {
-    Ok(replay_until(timeline, input, input.end_ms)?.finish(input.end_ms))
+    replay_until(timeline, input, input.end_ms)?.finish(input.end_ms)
 }

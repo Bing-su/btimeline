@@ -62,14 +62,14 @@ fn early_and_late_exit_cancel_cycles_and_keep_exit_clock_independent(
     assert_eq!(
         phases,
         [
-            (&json!("hold"), &json!(0)),
-            (&json!("castellation"), &json!(exit))
+            (&json!("hold/main"), &json!(0)),
+            (&json!("castellation/main"), &json!(exit))
         ]
     );
     let events: Vec<_> = rows.iter().filter(|row| row["action"] == "event").collect();
     let hold: Vec<_> = events
         .iter()
-        .filter(|row| row["detail"].as_str().expect("detail").starts_with("hold-"))
+        .filter(|row| row["context"]["loop_id"] == "hold/main/loop/castellation-hold")
         .collect();
     assert!(
         hold.iter()
@@ -86,7 +86,7 @@ fn early_and_late_exit_cancel_cycles_and_keep_exit_clock_independent(
                 .filter(|row| row["detail"]
                     .as_str()
                     .expect("detail")
-                    .starts_with("hold-prosecution:"))
+                    .starts_with("hold/main/loop/castellation-hold/hold-prosecution:"))
                 .count()
                 >= 3
         );
@@ -99,7 +99,7 @@ fn early_and_late_exit_cancel_cycles_and_keep_exit_clock_independent(
         row["detail"]
             .as_str()
             .expect("detail")
-            .starts_with("exit-castellation-first:")
+            .starts_with("castellation/main/exit-castellation-first:")
             && row["at_ms"] == exit + 13100 + exit_delay
     }));
     assert_eq!(
@@ -108,7 +108,7 @@ fn early_and_late_exit_cancel_cycles_and_keep_exit_clock_independent(
             .filter(|row| row["detail"]
                 .as_str()
                 .expect("detail")
-                .starts_with("exit-shift:"))
+                .starts_with("castellation/main/exit-shift:"))
             .count(),
         1
     );

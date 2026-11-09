@@ -163,17 +163,18 @@ mod tests {
                event "hit-second" 5.0 name="Hit""#
         };
         let model = parse(&format!(
-            r#"timeline 1 "Boundary" {{
+            r###"timeline 2 "Boundary" {{
             start "Pull"
-            phase "boss" {{
+	phase boss {{            step main {{
                 enter "Pull"
                 {outside}
-                loop "body" start=0.0 every=4.0 count=3 {{
-                    event "anchor" 0.0 name="Anchor"
+                loop body start=0.0 every=4.0 count=3 {{
+                    event anchor 0.0 name="Anchor"
                     {cues}
-                }}
-            }}
-        }}"#
+			}}
+		}}
+	}}
+}}"###
         ))
         .unwrap();
         let rows = replay(
@@ -204,7 +205,7 @@ mod tests {
             &model,
             &rows,
             &support.iter().collect::<Vec<_>>(),
-            &std::collections::BTreeSet::from(["boss"]),
+            &std::collections::BTreeSet::from(["boss/main"]),
         );
         let candidate = &coverage.loops.first().unwrap().outside_body_candidate;
         assert_eq!(candidate.is_some(), expected);

@@ -1,5 +1,7 @@
 # 타임라인 작성 계획과 도구 개선 이력
 
+현재 계약은 [timeline v2](timeline-v2.md)다. 아래 sequence 및 phase 실행 설명은 구현 이력이며, 현재 저작에서는 각각 reaction과 phase 안의 step을 사용한다. 기존 평가 결과의 해시는 새 KDL에 재사용하지 않는다.
+
 ## 목표와 범위
 
 최종 타임라인은 에이전트가 작성한다. [작성 방식 합의](../.agents/skills/timeline-author/references/agent-timeline-authoring.md)와 `timeline-author` 스킬에 따라 입력 역할을 고정하고, 관측을 해석해 KDL과 근거를 작성한 뒤 오프라인 재생·독립 평가로 검증한다. CLI는 입력 검사·관측 분석·선택적 초안 생성과 검증을 지원한다.

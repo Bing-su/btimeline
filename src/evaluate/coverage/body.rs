@@ -166,19 +166,20 @@ mod tests {
         };
         let tail = if case == "simultaneous" { "1.0" } else { "2.0" };
         let model = crate::timeline::parse(&format!(
-            r#"timeline 1 "Bodies" {{
+            r###"timeline 2 "Bodies" {{
             start "Begin"
-            phase "boss" {{ enter "Begin"
-                loop "rotation" start=0.0 every=4.0 {{
+	phase boss {{            step main {{ enter "Begin"
+                loop rotation start=0.0 every=4.0 {{
                     until "End" at=0.0 before=0.0
-                    event "pulse" 0.0 name="Pulse"
-                    event "middle" 1.0 name="Middle"
-                    event "hidden" 1.5 name="Control" visible=#false
-                    event "tail" {tail} name="Tail"
+                    event pulse 0.0 name="Pulse"
+                    event middle 1.0 name="Middle"
+                    event hidden 1.5 name="Control" visible=#false
+                    event tail {tail} name="Tail"
                     {branch}
-                }}
-            }}
-        }}"#
+			}}
+		}}
+	}}
+}}"###
         ))
         .expect("timeline");
         let input = Recording {
@@ -195,40 +196,41 @@ mod tests {
                 .collect(),
         };
         let rows = crate::timeline::replay(&model, &input).expect("replay");
-        let support = rows
-            .iter()
-            .filter(|row| {
-                row.event.as_ref().is_some_and(|event| {
-                    event.visible
-                        && !(case == "missing" && event.id == "middle" && row.at_ms == 1000)
+        let support =
+            rows.iter()
+                .filter(|row| {
+                    row.event.as_ref().is_some_and(|event| {
+                        event.visible
+                            && !(case == "missing"
+                                && event.id == "boss/main/loop/rotation/middle"
+                                && row.at_ms == 1000)
+                    })
                 })
-            })
-            .map(|record| {
-                let observed_at_ms = match (case, record.at_ms) {
-                    ("order", 1000) => 2200,
-                    ("order", 2000) => 1200,
-                    ("simultaneous", 1000)
-                        if record
-                            .event
-                            .as_ref()
-                            .is_some_and(|event| event.id == "middle") =>
-                    {
-                        1020
+                .map(|record| {
+                    let observed_at_ms = match (case, record.at_ms) {
+                        ("order", 1000) => 2200,
+                        ("order", 2000) => 1200,
+                        ("simultaneous", 1000)
+                            if record.event.as_ref().is_some_and(|event| {
+                                event.id == "boss/main/loop/rotation/middle"
+                            }) =>
+                        {
+                            1020
+                        }
+                        _ => record.at_ms,
+                    };
+                    Support {
+                        record,
+                        raw_index: usize::try_from(observed_at_ms / 10).expect("index"),
+                        observed_at_ms,
                     }
-                    _ => record.at_ms,
-                };
-                Support {
-                    record,
-                    raw_index: usize::try_from(observed_at_ms / 10).expect("index"),
-                    observed_at_ms,
-                }
-            })
-            .collect::<Vec<_>>();
+                })
+                .collect::<Vec<_>>();
         super::super::collect(
             &model,
             &rows,
             &support.iter().collect::<Vec<_>>(),
-            &BTreeSet::from(["boss"]),
+            &BTreeSet::from(["boss/main"]),
         )
         .loops
         .into_iter()

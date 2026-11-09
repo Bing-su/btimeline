@@ -250,6 +250,10 @@ fn unclassified_same_name_casts_do_not_change_the_core_loop_or_add_syncs() {
     let body = phase
         .children()
         .unwrap()
+        .get("step")
+        .unwrap()
+        .children()
+        .unwrap()
         .get("loop")
         .unwrap()
         .children()
@@ -257,7 +261,12 @@ fn unclassified_same_name_casts_do_not_change_the_core_loop_or_add_syncs() {
     let display = body
         .nodes()
         .iter()
-        .find(|node| node.get(0).and_then(kdl::KdlValue::as_string) == helper["event"].as_str())
+        .find(|node| {
+            node.get(0).and_then(kdl::KdlValue::as_string)
+                == helper["event"]
+                    .as_str()
+                    .and_then(|id| id.rsplit('/').next())
+        })
         .unwrap();
     assert!(display.children().is_none());
     for trace in evidence["progression"]["traces"].as_array().unwrap() {

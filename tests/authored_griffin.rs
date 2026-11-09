@@ -68,12 +68,62 @@ fn authored_griffin_predicts_without_evidence_and_resets(#[case] reset: bool) {
 }
 
 #[rstest::rstest]
-#[case("B0EC", 113400, 131200, "rotation-roar-second", 136200)]
-#[case("B0F9", 148000, 158300, "rotation-fulgurous-fall", 163300)]
-#[case("B0EC", 126400, 156000, "rotation-golden-talons", 161000)]
-#[case("B0F9", 161000, 181500, "rotation-roar-last", 186500)]
-#[case("B0EC", 126500, 166100, "rotation-thunderspark", 171100)]
-#[case("B0F9", 161100, 166100, "rotation-thunderspark", 171100)]
+#[case(
+    "B0EC",
+    113400,
+    131200,
+    "griffin/main/loop/late-rotation/rotation-roar-second",
+    136200
+)]
+#[case(
+    "B0F9",
+    148000,
+    158300,
+    "griffin/main/loop/late-rotation/rotation-fulgurous-fall",
+    163300
+)]
+#[case(
+    "B0EC",
+    126399,
+    155999,
+    "griffin/main/loop/late-rotation/rotation-golden-talons",
+    160999
+)]
+#[case(
+    "B0F9",
+    160999,
+    181499,
+    "griffin/main/loop/late-rotation/rotation-roar-last",
+    186499
+)]
+#[case(
+    "B0EC",
+    126400,
+    166100,
+    "griffin/main/loop/late-rotation/rotation-thunderspark",
+    171100
+)]
+#[case(
+    "B0F9",
+    161000,
+    166100,
+    "griffin/main/loop/late-rotation/rotation-thunderspark",
+    171100
+)]
+#[case(
+    "B0EC",
+    126500,
+    166100,
+    "griffin/main/loop/late-rotation/rotation-thunderspark",
+    171100
+)]
+#[case(
+    "B0F9",
+    161100,
+    166100,
+    "griffin/main/loop/late-rotation/rotation-thunderspark",
+    171100
+)]
 fn late_anchor_windows_restore_supported_delays_and_ignore_outside_occurrences(
     #[case] anchor: &str,
     #[case] observed_at: i64,

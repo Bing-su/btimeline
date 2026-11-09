@@ -2,6 +2,7 @@
 mod audit;
 mod coverage;
 mod evidence;
+mod export;
 mod matching;
 mod projection;
 mod review;
@@ -16,6 +17,7 @@ use std::path::Path;
 use anyhow::{Context, Result, ensure};
 use camino::Utf8PathBuf;
 pub use evidence::EvidenceCommand;
+pub use export::ProjectCommand;
 use projection::{InputExclusion, Profile, UnverifiedScope, exclude};
 pub use review::ReviewCommand;
 use ring::digest::{SHA256, digest};

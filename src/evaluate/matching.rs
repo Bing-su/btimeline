@@ -47,11 +47,15 @@ fn group(targets: &[&Target], events: &[&Record], tolerance: i64) -> Result<Vec<
                 best = skipped;
                 choice = 2;
             }
-            let paired = previous
-                .get(j)
-                .copied()
-                .expect("previous column")
-                .paired(event.at_ms.abs_diff(target.at_ms), tolerance);
+            let paired = previous.get(j).copied().expect("previous column").paired(
+                target
+                    .timing_error(
+                        event.at_ms,
+                        event.event.as_ref().map_or(0, |event| event.duration_ms),
+                    )
+                    .unsigned_abs(),
+                tolerance,
+            );
             if paired.rank() >= best.rank() {
                 best = paired;
                 choice = 3;
@@ -131,10 +135,18 @@ mod tests {
     #[test]
     fn maximize_valid_pairs_before_assigning_a_nearby_event_to_an_earlier_bad_target() {
         let model = crate::timeline::parse(
-            r#"timeline 1 "Test" {
-            start "Begin"
-            phase "boss" { enter "Begin"; event "one" 0.2 name="Hit"; event "two" 0.3 name="Hit"; }
-        }"#,
+            r###"
+timeline 2 "Test" {
+    start "Begin"
+    phase boss {
+        step main {
+            enter "Begin"
+            event one 0.2 name="Hit"
+            event two 0.3 name="Hit"
+        }
+    }
+}
+"###,
         )
         .expect("timeline");
         let recording = Recording {
@@ -154,12 +166,14 @@ mod tests {
             .collect::<Vec<_>>();
         let target = |at_ms| Target {
             raw_index: 0,
+            raw_indices: vec![0],
             at_ms,
             id: "A001".into(),
             name: "Hit".into(),
             lead_ms: None,
-            event_ids: vec!["one".into(), "two".into()],
+            event_ids: vec!["boss/main/one".into(), "boss/main/two".into()],
             equivalents: vec![],
+            reference: super::super::projection::Reference::EventStart,
         };
         let matches = assign(&[target(110), target(210)], &events, 15).expect("assignment");
         assert_eq!(matches, vec![None, Some(0)]);
