@@ -1,0 +1,24 @@
+timeline 2 "Waiting recovery" {
+    start Pull
+    boss-complete Done from="fight/first"
+    phase fight {
+        step waiting {
+            enter Pull
+        }
+        step first {
+            enter Anchor resume-at=2
+            event past 1 name="Past"
+            event checkpoint 2 name="Checkpoint"
+            event cancelled 3 name="Cancelled"
+        }
+        step checkpoint {
+            enter Done from="fight/first"
+        }
+        step last {
+            enter Late resume-at=5
+            event past 4 name="Past"
+            event checkpoint 5 name="Checkpoint"
+            event future 6 name="Future"
+        }
+    }
+}

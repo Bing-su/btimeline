@@ -4,6 +4,214 @@ use rstest::rstest;
 
 use super::{Recording, parse, replay};
 
+#[rstest]
+#[case("B4D3")]
+#[case("B4D7")]
+#[case("B51F")]
+#[case("B528")]
+fn r12s_repeated_abilities_do_not_start_mid_combat(#[case] id: &str) {
+    let model = parse(include_str!("../../timelines/r12s.kdl")).unwrap();
+    let input = recording(
+        260000,
+        serde_json::json!([
+            {"at_ms":0,"type":"InCombat","fields":{"inGameCombat":"1","isGameEntering":"0"}},
+            {"at_ms":237000,"type":"Ability","fields":{"id":id,"source":"Lindwurm"}}
+        ]),
+    )
+    .unwrap();
+    assert!(replay(&model, &input).unwrap().is_empty());
+}
+
+#[rstest]
+#[case("BEBD", "pre-checkpoint/main", 66.9)]
+#[case("B505", "post-checkpoint/main", 180.3)]
+#[case("B51C", "post-cosmic-kiss/main", 23.5)]
+fn r12s_unique_anchors_resume_without_past_events(
+    #[case] id: &str,
+    #[case] phase: &str,
+    #[case] checkpoint: f64,
+) {
+    let model = parse(include_str!("../../timelines/r12s.kdl")).unwrap();
+    let input = recording(
+        10001,
+        serde_json::json!([
+            {"at_ms":10000,"type":"Ability","fields":{"id":id,"source":"Lindwurm"}},
+            {"at_ms":10001,"type":"Ability","fields":{"id":id,"source":"Lindwurm"}}
+        ]),
+    )
+    .unwrap();
+    let rows = replay(&model, &input).unwrap();
+    let entries: Vec<_> = rows.iter().filter(|row| row.action == "phase").collect();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].detail, phase);
+    let expected: Vec<_> = model
+        .phases
+        .iter()
+        .find(|entry| entry.id == phase)
+        .unwrap()
+        .events
+        .iter()
+        .filter(|event| event.at == (checkpoint * 10.0).round() as i64)
+        .map(|event| (&event.id, 10000))
+        .collect();
+    assert!(!expected.is_empty());
+    let events: Vec<_> = rows
+        .iter()
+        .filter_map(|row| row.event.as_ref().map(|event| (&event.id, row.at_ms)))
+        .collect();
+    assert_eq!(events, expected);
+    let forecast = super::forecast(&model, &input, 10001, 30000, 100).unwrap();
+    assert!(!forecast.events.is_empty());
+    assert!(forecast.events.iter().all(|event| event.at_ms > 10001));
+}
+
+#[test]
+fn r12s_known_pull_transition_and_checkpoint_restart() {
+    let model = parse(include_str!("../../timelines/r12s.kdl")).unwrap();
+    let input = recording(
+        10000,
+        serde_json::json!([
+            {"at_ms":0,"type":"InCombat","fields":{"inGameCombat":"1","isGameEntering":"1"}},
+            {"at_ms":1000,"type":"Ability","fields":{"id":"B4D3","source":"Lindwurm"}},
+            {"at_ms":1500,"type":"Ability","fields":{"id":"B539","source":"Lindwurm"}},
+            {"at_ms":2000,"type":"Ability","fields":{"id":"B51F","source":"Lindwurm"}},
+            {"at_ms":3000,"type":"ActorControl","fields":{"command":"4000000F"}},
+            {"at_ms":4000,"type":"Ability","fields":{"id":"B528","source":"Lindwurm"}},
+            {"at_ms":5000,"type":"InCombat","fields":{"inGameCombat":"1","isGameEntering":"1"}},
+            {"at_ms":6000,"type":"Ability","fields":{"id":"B51F","source":"Lindwurm"}}
+        ]),
+    )
+    .unwrap();
+    let rows = replay(&model, &input).unwrap();
+    let phases: Vec<_> = rows
+        .iter()
+        .filter(|row| row.action == "phase")
+        .map(|row| (row.detail.as_str(), row.at_ms))
+        .collect();
+    assert_eq!(
+        phases,
+        [
+            ("pull/opening", 0),
+            ("pre-checkpoint/main", 1000),
+            ("pull/checkpoint", 1500),
+            ("post-checkpoint/main", 2000),
+            ("pull/opening", 5000),
+            ("post-checkpoint/main", 6000)
+        ]
+    );
+    assert!(
+        !rows
+            .iter()
+            .any(|row| row.action == "event" && (3000..6000).contains(&row.at_ms))
+    );
+}
+
+#[rstest]
+#[case(false, "BEBD", "pre-checkpoint/main", 70000)]
+#[case(true, "B505", "post-checkpoint/main", 200000)]
+fn r12s_recovers_when_waiting_autos_are_missing(
+    #[case] checkpoint: bool,
+    #[case] anchor: &str,
+    #[case] phase: &str,
+    #[case] at: i64,
+) {
+    let model = parse(include_str!("../../timelines/r12s.kdl")).unwrap();
+    let mut observations = vec![serde_json::json!(
+        {"at_ms":0,"type":"InCombat","fields":{"inGameCombat":"1","isGameEntering":"1"}}
+    )];
+    if checkpoint {
+        observations.extend([
+            serde_json::json!({"at_ms":1000,"type":"Ability","fields":{"id":"B4D3","source":"Lindwurm"}}),
+            serde_json::json!({"at_ms":10000,"type":"Ability","fields":{"id":"B539","source":"Lindwurm"}}),
+        ]);
+    }
+    observations.push(serde_json::json!(
+        {"at_ms":at,"type":"Ability","fields":{"id":anchor,"source":"Lindwurm"}}
+    ));
+    let input = recording(at, serde_json::json!(observations)).unwrap();
+    let rows = replay(&model, &input).unwrap();
+    assert!(
+        rows.iter()
+            .any(|row| row.action == "phase" && row.detail == phase && row.at_ms == at)
+    );
+    assert!(
+        rows.iter()
+            .any(|row| row.action == "event" && row.at_ms == at)
+    );
+    let forecast = super::forecast(&model, &input, at, 30000, 100).unwrap();
+    assert!(!forecast.events.is_empty());
+}
+
+#[rstest]
+#[case("zone-exit")]
+#[case("wipe")]
+#[case("finish")]
+#[case("boss-complete")]
+fn lifecycle_precedes_cold_recovery(#[case] role: &str) {
+    let model = parse(&format!(
+        r#"timeline 2 "Priority" {{
+        {role} Anchor
+        phase fight {{ step main {{
+            enter Anchor resume-at=0
+            event hit 0 name=Hit
+        }} }}
+    }}"#
+    ))
+    .unwrap();
+    let input = recording(
+        1000,
+        serde_json::json!([
+            {"at_ms":1000,"type":"Anchor","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let rows = replay(&model, &input).unwrap();
+    assert!(
+        !rows
+            .iter()
+            .any(|row| matches!(row.action.as_str(), "start" | "phase" | "event"))
+    );
+}
+
+#[test]
+fn ambiguous_cold_recovery_requires_reset() {
+    let model = parse(
+        r#"timeline 2 "Ambiguity" {
+        wipe Wipe
+        phase fight {
+            step first { enter Anchor resume-at=0; event hit 0 name=First; }
+            step second {
+                enter Anchor resume-at=1
+                enter Unique resume-at=1
+                event hit 1 name=Second
+            }
+        }
+    }"#,
+    )
+    .unwrap();
+    let input = recording(
+        4000,
+        serde_json::json!([
+            {"at_ms":1000,"type":"Anchor","fields":{}},
+            {"at_ms":2000,"type":"Unique","fields":{}},
+            {"at_ms":3000,"type":"Wipe","fields":{}},
+            {"at_ms":4000,"type":"Unique","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let rows = replay(&model, &input).unwrap();
+    assert!(rows.iter().any(|row| row.action == "ambiguous"));
+    let events: Vec<_> = rows
+        .iter()
+        .filter_map(|row| {
+            row.event
+                .as_ref()
+                .map(|event| (event.id.as_str(), row.at_ms))
+        })
+        .collect();
+    assert_eq!(events, [("fight/second/hit", 4000)]);
+}
+
 #[test]
 fn v2_root_sync_and_utf16_source_identity() {
     let source = "timeline 2 \"한글😀\" { start Pull; sync 1 Anchor; event hit 3 name=Hit; }";
@@ -112,6 +320,8 @@ timeline 2 "Defaults" {
 }
 
 #[rstest]
+#[case("waiting-recovery", vec![("fight/first/checkpoint",1000),("fight/last/checkpoint",3000),("fight/last/future",4000)])]
+#[case("cold-recovery", vec![("fight/ending/checkpoint",1000),("fight/ending/future",3000),("fight/ending/checkpoint",5000),("fight/ending/future",7000)])]
 #[case("direct-syncs", vec![("fight/main/pick/left/hit",2800),("fight/main/pick/merge/hit",6200)])]
 #[case("flow-sequence", vec![("fight/opening/choice/left/left-hit",6200),("fight/continuation/joined",9500),("recovery/main/recovered",11000)])]
 #[case("branch-join", vec![("fight/opening/choice/left/left-hit",6200),("fight/continuation/joined",9500),("recovery/main/recovered",11000)])]

@@ -2162,12 +2162,39 @@ impl<'a> Replay<'a> {
         })
     }
 
+    fn can_resume(&self) -> bool {
+        let Some(active) = self.phase.as_ref().map(|phase| phase.definition) else {
+            return true;
+        };
+        // A control-only waiting step has no schedule or timed progression to interrupt.
+        active.events.is_empty()
+            && active.syncs.is_empty()
+            && active.sequences.is_empty()
+            && active.branches.is_empty()
+            && active.loops.is_empty()
+            && !self
+                .timeline
+                .choices
+                .iter()
+                .any(|choice| choice.step_id == active.id)
+            && !self.timeline.phases.iter().any(|phase| {
+                phase
+                    .after
+                    .iter()
+                    .any(|transition| transition.from == active.id)
+            })
+    }
+
     // Capture the old phase and clock before boss-complete can close them.
     fn enter_candidates(&self, observation: &Observation) -> Vec<(&'a Phase, Tick)> {
-        if self.fight.is_none() && !self.matches_lifecycle("start", observation) {
+        if self.fight.is_none()
+            && !self.matches_lifecycle("start", observation)
+            && !self.matches_resume_entry(observation)
+        {
             return Vec::new();
         }
         let old_phase = self.phase.as_ref().map(|p| p.definition.id.as_str());
+        let resumable = self.can_resume();
         let time = self
             .phase
             .as_ref()
@@ -2186,7 +2213,7 @@ impl<'a> Replay<'a> {
                             .as_ref()
                             .is_none_or(|from| old_phase == Some(from.as_str()));
                         from_ok
-                            && (signal.resume_at.is_none() || old_phase.is_none())
+                            && (signal.resume_at.is_none() || resumable)
                             && signal.matches(&observation.kind, &observation.fields, time)
                     })
                     .map(|signal| signal.resume_at.unwrap_or(0))
@@ -2196,12 +2223,25 @@ impl<'a> Replay<'a> {
             .collect()
     }
 
+    fn matches_resume_entry(&self, observation: &Observation) -> bool {
+        self.timeline.phases.iter().any(|phase| {
+            phase.enters.iter().any(|signal| {
+                signal.resume_at.is_some()
+                    && signal.matches(&observation.kind, &observation.fields, 0)
+            })
+        })
+    }
+
     fn lifecycle(&self, observation: &Observation) -> Option<&'static str> {
         ["zone-exit", "wipe", "finish", "boss-complete", "start"]
             .into_iter()
             .find(|role| {
                 (*role != "start" || (self.fight.is_none() && !self.suspended))
                     && self.matches_lifecycle(role, observation)
+            })
+            .or_else(|| {
+                (self.fight.is_none() && !self.suspended && self.matches_resume_entry(observation))
+                    .then_some("start")
             })
     }
 

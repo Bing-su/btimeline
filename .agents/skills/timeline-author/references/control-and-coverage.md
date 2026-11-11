@@ -2,6 +2,20 @@
 
 Use this table when similar signals, divergent timing or multiple actors make a control choice ambiguous. Concrete source-index examples are in the [San d'Oria authoring record](../../../../timelines/sandoria-authoring.md); its encounter IDs and timings are not general rules.
 
+## Mid-combat startup
+
+Choose a few major mechanic boundaries for recovery. Uniqueness makes a signal eligible, not mandatory: leave nearby follow-up hits as ordinary syncs and accept waiting until the next major checkpoint.
+
+Use `enter SIGNAL resume-at=T` on the target step for an independently identifiable checkpoint; it starts an idle timeline without a duplicate root `start`. Keep normal progression separate with `from`/`from-phase`. Follow the [execution contract](../../../../docs/timeline-v2.md) for lifecycle priority, active-step exclusion and ambiguous entries.
+
+Test recovery after a known start or checkpoint with the opening signal omitted, not only from an idle runtime. A control-only waiting step can accept recovery; a step with schedule or timed progression remains protected.
+
+1. Check the signal's kind, ID and source across complete development pulls, alternative routes and repeated cycles. One occurrence in a truncated log does not establish uniqueness. Preserve report/fight IDs and raw indices; reject a candidate that maps to multiple positions.
+2. Express T in the target step's clock. Retain useful event syncs for subsequent drift; recovery does not restore missing choice history. For Rangbot combat starts, use its derived `isGameEntering` field as documented in the execution contract.
+3. Replay records cut before and after each candidate with no synthetic opening start. Check checkpoint and future events, skipped past cues, duplicate packets, an already-active step, reset/re-entry, and ambiguous candidates. Record synthetic results separately from ACT evidence.
+
+R12S `B528`, `B4D7` and Lindschrat spawns recur and cannot independently identify cold-start progress. They can still support transitions with known source context. Treat automatically generated opening anchors as drafts to investigate, not proven cold-recovery signals.
+
 | Situation                                 | Decision and check                                                                                                                                                                                                                                                                                                                                     |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Several IDs share a cue and continuation  | Use one display and accept the observed ID set. Verify each ID against the same display. R12S Double Sobat is an example.                                                                                                                                                                                                                              |

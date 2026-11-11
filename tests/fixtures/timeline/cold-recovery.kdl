@@ -1,0 +1,15 @@
+timeline 2 "Cold recovery" {
+    wipe Wipe
+    phase fight {
+        step opening {
+            enter Opening
+            event hit 0 name="Opening"
+        }
+        step ending {
+            enter Anchor resume-at=10
+            event past 5 name="Past"
+            event checkpoint 10 name="Checkpoint"
+            event future 12 name="Future"
+        }
+    }
+}

@@ -62,7 +62,11 @@ local ID에는 `/`를 금지한다. 예약 segment shared/reaction/loop는 생�
 
 필드 literal은 전체 일치, 한 field의 대안은 OR, 여러 field는 AND다. regex는 전체 필드를 매치하며 ignore-case를 지원한다. 예약 속성은 field 자식으로 매치한다. 알 수 없는 속성/노드/참조, 중복, 잘못된 시간·타입·중첩은 거부한다. regex 교집합 및 외부 입력 가용성은 파싱 성공만으로 증명되지 않는다.
 
-start가 fight를 열어야 enter가 활성화된다. enter의 from은 정규 step/choice option 참조이고, 한 from 자식에 비어 있지 않은 서로 다른 참조를 나열할 수 있다. from-phase는 그룹의 모든 진행 위치를 명시적으로 허용하며 from과 배타적이다. choice 자체 ID는 진행 위치가 아니다. enter at/window는 source clock을 검사한다. resume-at은 활성 step이 없을 때만 복구하고 과거 작업을 건너뛴다. 같은 step의 반복 enter는 재시작하지 않는다.
+일반 enter는 start가 fight를 연 뒤 활성화된다. `enter SIGNAL resume-at=T`는 정지 상태에서도 fight를 시작하고 해당 step의 T초로 복구한다. 같은 신호를 root start에 중복 선언하지 않는다. enter의 from은 정규 step/choice option 참조이고, 한 from 자식에 비어 있지 않은 서로 다른 참조를 나열할 수 있다. from-phase는 그룹의 모든 진행 위치를 명시적으로 허용하며 from과 배타적이다. choice 자체 ID는 진행 위치가 아니다. enter at/window는 source clock을 검사한다. resume-at은 활성 step이 없거나 일정 없는 대기 step일 때 복구하고 과거 작업을 건너뛰며 정확한 체크포인트의 이벤트는 실행한다. 같은 step의 반복 enter는 재시작하지 않는다.
+
+복구 신호는 전투 전체의 경로와 반복에서 하나의 진행 위치를 식별해야 한다. 예를 들어 `enter Ability id=B3A0 source="Vamp Fatale" resume-at=9`는 해당 step의 9초로 복구한다. `recover`라는 별도 선언은 지원하지 않는다. lifecycle이 복구보다 우선하며, 여러 진입 후보가 겹치면 중단한다. 중단된 실행은 초기화 전까지 복구하지 않는다. 복구는 원래 pull 시각이나 놓친 분기·트리거 이력을 재구성하지 않는다. 일반 option의 `when resume-at`은 fight를 시작하지 않는다.
+
+Rangbot용 combat 시작은 `InCombat inGameCombat="1" isGameEntering="1"`로 알려진 false→true 전환만 허용한다. `isGameEntering`은 Rangbot 세션이 유도하는 필드이며 ACT/FFLogs 원본 필드가 아니다. 정규화 재생 기록에서는 알려진 시작에만 `"1"`, 초기 전투 중 스냅샷에는 `"0"`을 명시한다. btimeline은 누락된 전투 이력을 추정해 이 필드를 채우지 않는다.
 
 after는 양의 시간과 단일 source를 요구하며 source당 timed successor는 하나다. 관측은 같은 시각의 예정 작업보다 우선하고 제어에 소비한 관측은 event sync로 재사용하지 않는다. sparse tick도 실제 논리 deadline에 전환한다. timed entry의 일치하는 늦은 enter는 한 번만 새 원점을 보정한다.
 
@@ -77,6 +81,8 @@ loop의 직접 event/sync는 every 이전, branch close는 every 이하이고 �
 동일 시계 sync는 절대 창 끝, 원본 선언 순서, 안정적인 확장 순서를 따른다. 서로 다른 시계의 sync 충돌은 그 보정만 생략한다. 전진 보정은 지나친 미실행 작업을 건너뛰고 정확한 도착 시각은 실행한다. 후진 보정은 이미 처리한 발생/회차/선택을 재실행하지 않는다.
 
 ## 중단과 투영
+
+복구가 가능한 대기 step은 event(숨김·이미 실행된 표시 포함), sync, reaction, branch, loop, choice와 timed successor가 모두 없는 step이다. 단순히 지금 예약된 표시가 없다는 이유로 진행 중인 step을 대기로 간주하지 않는다. 이 대기 step에서는 시작 평타를 놓쳐도 기존 `enter ... resume-at`으로 복구할 수 있다.
 
 lifecycle 우선순위는 zone-exit, wipe, finish, boss-complete, start다. boss-complete는 step만 닫고 fight/history를 유지한다. wipe/finish/zone exit는 모든 실행을 닫는다. 제어 모호함 또는 동시 loop 위반은 timeline을 suspended로 만들고 해당 시각 이후 표시를 취소한다. wipe/reset 이후 새 start로 재개한다. sync 충돌은 중단하지 않으며 미선택 close는 unresolved다. 원본 입력 손상/순서 역행은 강한 오류다.
 
