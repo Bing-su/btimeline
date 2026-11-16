@@ -3489,6 +3489,106 @@ timeline 2 "x" {
 }
 
 #[test]
+fn early_opening_sync_moves_each_repeat_without_exceeding_its_count() {
+    let model = parse(
+        r#"timeline 2 "Early repeats" {
+            start Start
+            phase p { step main {
+                enter Start
+                loop cycle start=2 every=5 count=2 {
+                    event opening 0 name=Opening { sync Open before=1 after=1; }
+                    event pulse 1 name=Pulse
+                    event late 4.8 name=Late
+                }
+            } }
+        }"#,
+    )
+    .unwrap();
+    let input = recording(
+        12000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":999,"type":"Open","fields":{}},
+            {"at_ms":1501,"type":"Open","fields":{}},
+            {"at_ms":6002,"type":"Open","fields":{}},
+            {"at_ms":10500,"type":"Open","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let rows = replay(&model, &input).unwrap();
+    let events: Vec<_> = rows
+        .iter()
+        .filter_map(|row| {
+            let event = row.event.as_ref()?;
+            let iteration = row.context.as_ref()?.iteration?;
+            Some((event.name.as_str(), row.at_ms, iteration))
+        })
+        .collect();
+    assert_eq!(
+        events,
+        [
+            ("Opening", 1501, 1),
+            ("Pulse", 2501, 1),
+            ("Opening", 6002, 2),
+            ("Pulse", 7002, 2),
+            ("Late", 10802, 2)
+        ]
+    );
+    let forecast = super::forecast(&model, &input, 6002, 10000, 10).unwrap();
+    let forecast = serde_json::to_value(forecast).unwrap();
+    let events = forecast["events"].as_array().unwrap();
+    let upcoming: Vec<_> = events
+        .iter()
+        .map(|event| {
+            (
+                event["at_ms"].as_i64().unwrap(),
+                event["origin_basis"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(upcoming, [(7002, "observed"), (10802, "observed")]);
+}
+
+#[test]
+fn active_sync_and_loop_exit_precede_early_opening_sync() {
+    let model = parse(
+        r#"timeline 2 "Opening priority" {
+            start Start
+            phase p { step main {
+                enter Start
+                sync 1.5 Open before=0 after=0.1
+                loop cycle start=2 every=5 {
+                    until Open at=6.5 before=0
+                    sync 0 Open before=1 after=0.1
+                    event opening 0 name=Opening
+                }
+            } }
+        }"#,
+    )
+    .unwrap();
+    let input = recording(
+        9000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":1500,"type":"Open","fields":{}},
+            {"at_ms":6500,"type":"Open","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let rows = replay(&model, &input).unwrap();
+    let events: Vec<_> = rows
+        .iter()
+        .filter(|row| row.event.is_some())
+        .map(|row| row.at_ms)
+        .collect();
+    assert_eq!(events, [2000]);
+    assert!(
+        rows.iter()
+            .any(|row| row.action == "until" && row.at_ms == 6500)
+    );
+}
+
+#[test]
 fn finite_loop_exit_window_reports_unresolved_but_keeps_repeating() {
     let model = parse(
         r###"

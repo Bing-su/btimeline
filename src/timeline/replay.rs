@@ -194,6 +194,24 @@ struct PhaseState<'a> {
 struct LoopRef<'a> {
     definition: &'a Loop,
     owner: Option<(usize, usize)>,
+    opening_syncs: Vec<&'a Signal>,
+}
+
+impl<'a> LoopRef<'a> {
+    fn new(definition: &'a Loop, owner: Option<(usize, usize)>) -> Self {
+        let opening_syncs = definition
+            .syncs
+            .iter()
+            .map(|(_, signal)| signal)
+            .chain(definition.events.iter().flat_map(|event| &event.syncs))
+            .filter(|signal| signal.at == Some(0) && signal.before > 0)
+            .collect();
+        Self {
+            definition,
+            owner,
+            opening_syncs,
+        }
+    }
 }
 
 #[derive(Clone, Default)]
@@ -392,17 +410,16 @@ impl<'a> PhaseState<'a> {
         let mut loops: Vec<_> = definition
             .loops
             .iter()
-            .map(|repeat| LoopRef {
-                definition: repeat,
-                owner: None,
-            })
+            .map(|repeat| LoopRef::new(repeat, None))
             .collect();
         for (branch_index, branch) in definition.branches.iter().enumerate() {
             for (option_index, option) in branch.options.iter().enumerate() {
-                loops.extend(option.loops.iter().map(|repeat| LoopRef {
-                    definition: repeat,
-                    owner: Some((branch_index, option_index)),
-                }));
+                loops.extend(
+                    option
+                        .loops
+                        .iter()
+                        .map(|repeat| LoopRef::new(repeat, Some((branch_index, option_index)))),
+                );
             }
         }
         loops.sort_by_key(|repeat| repeat.definition.order);
@@ -936,42 +953,42 @@ fn repeat_sync_targets_one<'a>(
         .collect()
 }
 
-// At a boundary the observation can synchronize the new iteration before its zero-time event.
-fn prepare_repeat_boundary(phase: &mut PhaseState<'_>, id: &str, at: i64) {
-    let Some(index) = phase
+fn early_repeat_sync_targets<'a, 'b>(
+    phase: &'b PhaseState<'a>,
+    observation: &'b Observation,
+) -> impl Iterator<Item = (SyncOwner<'a>, Tick)> + use<'a, 'b> {
+    let at = observation.at_ms;
+    let occupied = phase
         .loops
         .iter()
-        .position(|repeat| repeat.definition.id == id)
-    else {
-        return;
-    };
-    let (Some(definition), Some(state)) = (
-        phase.loops.get(index).map(|entry| entry.definition),
-        phase.repeats.get_mut(index),
-    ) else {
-        return;
-    };
-    if state.exited || state.blocked {
-        return;
-    }
-    if state.current.is_none() && repeat_start(phase.clock.base_ms, definition, state) == Some(at) {
-        state.current = Some(Clock {
-            base_ms: at,
-            phase_instance: state.phase_instance,
-            iteration: Some(1),
-            ..Clock::default()
+        .zip(&phase.repeats)
+        .any(|(entry, state)| {
+            state.current.is_some()
+                || (!state.exited
+                    && !state.blocked
+                    && repeat_start(phase.clock.base_ms, entry.definition, state) == Some(at))
         });
-        return;
-    }
-    let Some(clock) = &mut state.current else {
-        return;
-    };
-    if clock.base_ms + definition.every * 100 == at {
-        clock.base_ms = at;
-        clock.iteration = clock.iteration.map(|iteration| iteration + 1);
-        clock.zero_at = None;
-        clock.processed.clear();
-    }
+    phase
+        .loops
+        .iter()
+        .zip(&phase.repeats)
+        .filter_map(move |(entry, state)| {
+            let repeat = entry.definition;
+            if entry.opening_syncs.is_empty() || state.exited || state.blocked {
+                return None;
+            }
+            let nominal = match &state.current {
+                Some(clock) if !last_iteration(repeat, clock) => clock.base_ms + repeat.every * 100,
+                None if !occupied => repeat_start(phase.clock.base_ms, repeat, state)?,
+                _ => return None,
+            };
+            (at >= state.not_before
+                && at < nominal
+                && entry.opening_syncs.iter().any(|signal| {
+                    signal.matches(&observation.kind, &observation.fields, elapsed(nominal, at))
+                }))
+            .then_some((SyncOwner::Repeat(repeat.id.as_str()), 0))
+        })
 }
 
 fn correct_paths(
@@ -1197,6 +1214,15 @@ fn activate_repeat(definition: &Loop, state: &mut RepeatState, phase_base: i64) 
     true
 }
 
+fn next_repeat_iteration(clock: &mut Clock, branches: &mut [BranchState], at: i64) {
+    clock.base_ms = at;
+    clock.scheduled = true;
+    clock.iteration = clock.iteration.map(|iteration| iteration + 1);
+    clock.zero_at = None;
+    clock.processed.clear();
+    branches.fill_with(BranchState::default);
+}
+
 fn start_repeats(
     phase: &mut PhaseState<'_>,
     at: i64,
@@ -1358,17 +1384,8 @@ fn advance_repeat(
             exhaust_repeat(state);
             return;
         }
-        clock.base_ms += period;
-        clock.scheduled = true;
-        clock.iteration = clock.iteration.map(|iteration| iteration + 1);
-        clock.zero_at = None;
-        clock.processed.clear();
+        next_repeat_iteration(clock, &mut state.branches, boundary);
         boundary = clock.base_ms + period;
-        state.branches = definition
-            .branches
-            .iter()
-            .map(|_| BranchState::default())
-            .collect();
     }
     advance_nested_branches(definition, state, at, inclusive, out, run, history);
     let Some(clock) = &mut state.current else {
@@ -1687,17 +1704,7 @@ impl<'a> Replay<'a> {
             if clock.base_ms + entry.definition.every * 100 != at {
                 return None;
             }
-            clock.base_ms = at;
-            clock.scheduled = true;
-            clock.iteration = clock.iteration.map(|iteration| iteration + 1);
-            clock.zero_at = None;
-            clock.processed.clear();
-            state.branches = entry
-                .definition
-                .branches
-                .iter()
-                .map(|_| BranchState::default())
-                .collect();
+            next_repeat_iteration(clock, &mut state.branches, at);
         }
         advance_nested_branches(
             entry.definition,
@@ -2324,6 +2331,40 @@ impl<'a> Replay<'a> {
         Ok(())
     }
 
+    fn synchronize_repeat(&mut self, id: &str, at: i64, target: Tick, early: bool) {
+        let Some(phase) = &mut self.phase else {
+            return;
+        };
+        let Some((entry, state)) = phase
+            .loops
+            .iter()
+            .zip(&mut phase.repeats)
+            .find(|(entry, _)| entry.definition.id == id)
+        else {
+            return;
+        };
+        let repeat = entry.definition;
+        if let Some(clock) = &mut state.current {
+            if early || clock.base_ms + repeat.every * 100 == at {
+                next_repeat_iteration(clock, &mut state.branches, at);
+            }
+        } else if early || repeat_start(phase.clock.base_ms, repeat, state) == Some(at) {
+            activate_repeat(repeat, state, phase.clock.base_ms);
+            if let Some(clock) = &mut state.current {
+                clock.base_ms = at;
+            }
+        }
+        correct_repeat(
+            repeat,
+            state,
+            at,
+            target,
+            &mut self.out,
+            self.run,
+            &mut self.history,
+        );
+    }
+
     fn synchronize(&mut self, observation: &Observation) -> Result<()> {
         let at = observation.at_ms;
         let mut targets = BTreeSet::new();
@@ -2350,6 +2391,10 @@ impl<'a> Replay<'a> {
             );
             targets.extend(repeat_sync_targets(phase, observation));
             targets.extend(phase.sequence_sync_targets(observation));
+        }
+        let early_repeat = targets.is_empty();
+        if early_repeat && let Some(phase) = &self.phase {
+            targets.extend(early_repeat_sync_targets(phase, observation));
         }
         if targets.len() > 1 {
             record(
@@ -2384,29 +2429,8 @@ impl<'a> Replay<'a> {
                 &mut self.out,
                 self.run,
             ),
-            (SyncOwner::Repeat(id), Some(phase), _) => {
-                prepare_repeat_boundary(phase, id, at);
-                let index = phase
-                    .loops
-                    .iter()
-                    .position(|repeat| repeat.definition.id == *id);
-                if let Some((repeat, state)) = index.and_then(|i| {
-                    phase
-                        .loops
-                        .get(i)
-                        .map(|entry| entry.definition)
-                        .zip(phase.repeats.get_mut(i))
-                }) {
-                    correct_repeat(
-                        repeat,
-                        state,
-                        at,
-                        *target,
-                        &mut self.out,
-                        self.run,
-                        &mut self.history,
-                    );
-                }
+            (SyncOwner::Repeat(id), Some(_), _) => {
+                self.synchronize_repeat(id, at, *target, early_repeat);
             }
             (SyncOwner::Sequence(index, _), Some(phase), _) => {
                 phase.correct_sequence(*index, at, *target, &mut self.out, self.run);
