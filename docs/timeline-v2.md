@@ -62,13 +62,17 @@ local ID에는 `/`를 금지한다. 예약 segment shared/reaction/loop는 생�
 
 필드 literal은 전체 일치, 한 field의 대안은 OR, 여러 field는 AND다. regex는 전체 필드를 매치하며 ignore-case를 지원한다. 예약 속성은 field 자식으로 매치한다. 알 수 없는 속성/노드/참조, 중복, 잘못된 시간·타입·중첩은 거부한다. regex 교집합 및 외부 입력 가용성은 파싱 성공만으로 증명되지 않는다.
 
-일반 enter는 start가 fight를 연 뒤 활성화된다. `enter SIGNAL resume-at=T`는 정지 상태에서도 fight를 시작하고 해당 step의 T초로 복구한다. 같은 신호를 root start에 중복 선언하지 않는다. enter의 from은 정규 step/choice option 참조이고, 한 from 자식에 비어 있지 않은 서로 다른 참조를 나열할 수 있다. from-phase는 그룹의 모든 진행 위치를 명시적으로 허용하며 from과 배타적이다. choice 자체 ID는 진행 위치가 아니다. enter at/window는 source clock을 검사한다. resume-at은 활성 step이 없거나 일정 없는 대기 step일 때 복구하고 과거 작업을 건너뛰며 정확한 체크포인트의 이벤트는 실행한다. 같은 step의 반복 enter는 재시작하지 않는다.
+일반 enter는 start가 fight를 연 뒤 활성화된다. enter의 from은 정규 step/choice option 참조이고, 한 from 자식에 비어 있지 않은 서로 다른 참조를 나열할 수 있다. from-phase는 그룹의 모든 진행 위치를 명시적으로 허용하며 from과 배타적이다. choice 자체 ID는 진행 위치가 아니다. enter at/window는 출발 step의 시계를 검사한다. 현재 step에 다시 진입하려면 출발 step을 명시하고 새 원점보다 늦게 열리는 창을 선언한다.
+
+`enter SIGNAL resume-at=T`는 목적지 step의 T초로 복구한다. `from`이나 `from-phase`를 함께 쓰면 지정된 출발 위치가 활성일 때만 복구한다. 출발 위치를 생략하면 정지 상태에서도 fight를 시작하고, 활성 step이 없거나 일정 없는 대기 step에서도 복구한다. 같은 신호를 root start에 중복 선언하지 않는다. 복구는 목적지의 지난 이벤트를 건너뛰고 정확한 체크포인트의 이벤트를 실행한다. 같은 step에 복구할 때 T초는 같은 신호를 받는 재진입 창 밖이어야 한다.
 
 복구 신호는 전투 전체의 경로와 반복에서 하나의 진행 위치를 식별해야 한다. 예를 들어 `enter Ability id=B3A0 source="Vamp Fatale" resume-at=9`는 해당 step의 9초로 복구한다. `recover`라는 별도 선언은 지원하지 않는다. lifecycle이 복구보다 우선하며, 여러 진입 후보가 겹치면 중단한다. 중단된 실행은 초기화 전까지 복구하지 않는다. 복구는 원래 pull 시각이나 놓친 분기·트리거 이력을 재구성하지 않는다. 일반 option의 `when resume-at`은 fight를 시작하지 않는다.
 
 Rangbot용 combat 시작은 `InCombat inGameCombat="1" isGameEntering="1"`로 알려진 false→true 전환만 허용한다. `isGameEntering`은 Rangbot 세션이 유도하는 필드이며 ACT/FFLogs 원본 필드가 아니다. 정규화 재생 기록에서는 알려진 시작에만 `"1"`, 초기 전투 중 스냅샷에는 `"0"`을 명시한다. btimeline은 누락된 전투 이력을 추정해 이 필드를 채우지 않는다.
 
-after는 양의 시간과 단일 source를 요구하며 source당 timed successor는 하나다. 관측은 같은 시각의 예정 작업보다 우선하고 제어에 소비한 관측은 event sync로 재사용하지 않는다. sparse tick도 실제 논리 deadline에 전환한다. timed entry의 일치하는 늦은 enter는 한 번만 새 원점을 보정한다.
+`after TIME from=PHASE/STEP`은 양의 시간과 단일 출발 위치를 요구하며 출발 위치당 예정 전환은 하나다. 목적지와 출발지가 같으면 예정 시각에 같은 step의 새 실행을 만든다. 관측 재진입이 먼저 오면 이전 실행의 남은 일정을 취소하고 관측 시각부터 시작한다. 관측은 같은 시각의 예정 작업보다 우선하고 제어에 소비한 관측은 event sync로 재사용하지 않는다. 관측 간격이 길어도 실제 예정 시각에 전환한다.
+
+목적지 0초로 진입하는 enter가 예정 전환 시각과 일치하면 늦게 도착한 신호로 새 실행의 원점을 한 번 보정한다. 이미 처리한 이벤트는 다시 실행하지 않는다. 일반 sync가 시계를 움직이면 늦은 보정 창이 닫힌다. 일반 sync가 현재 시각과 정확히 일치하면 창이 유지된다. 동일 step에서 이 늦은 보정 창은 같은 신호를 받을 수 있는 다음 실행의 진입 창과 겹치면 안 된다. 정규식 한 쌍은 다른 필드에서 불일치를 증명할 수 없으면 겹칠 수 있다고 본다.
 
 choice option은 관측 시각이 0초다. 미선택이면 shared 명목 일정과 실제 option의 조건부 대안을 보여주며 option을 추측하지 않는다. `preview` 선언은 거부한다. shared sync는 selected 경로에서만 활성화한다. 미선택 복구용 sync는 부모 step에 choice 시작 시각을 더한 절대 offset으로 선언한다. shared event 및 외부 실행기의 선행 cue는 선택 창 종료 이후여야 한다.
 

@@ -373,14 +373,16 @@ fn option_actions(
 
 impl<'a> PhaseState<'a> {
     fn consume_entry_sync(&mut self, observation: &Observation, target_ms: i64) {
-        if target_ms == 0
-            && self.entry_syncs.iter().any(|signal| {
-                signal.matches(
-                    &observation.kind,
-                    &observation.fields,
-                    signal.at.unwrap_or(0) + elapsed(self.clock.base_ms, observation.at_ms),
-                )
-            })
+        let local_ms = observation.at_ms - self.clock.base_ms;
+        if local_ms != target_ms
+            || (target_ms == 0
+                && self.entry_syncs.iter().any(|signal| {
+                    matches_entry_sync(
+                        signal,
+                        observation,
+                        elapsed(self.clock.base_ms, observation.at_ms),
+                    )
+                }))
         {
             self.entry_syncs.clear();
         }
@@ -768,6 +770,15 @@ fn path_sync_candidates(
         .collect()
 }
 
+fn matches_entry_sync(signal: &Signal, observation: &Observation, time: Tick) -> bool {
+    time >= 0
+        && signal.matches(
+            &observation.kind,
+            &observation.fields,
+            signal.at.unwrap_or(0) + time,
+        )
+}
+
 fn phase_sync_targets(phase: &PhaseState<'_>, observation: &Observation) -> BTreeSet<Tick> {
     let mut candidates = schedule_sync_candidates(
         &phase.definition.events,
@@ -790,13 +801,7 @@ fn phase_sync_targets(phase: &PhaseState<'_>, observation: &Observation) -> BTre
         }
     }
     for signal in &phase.entry_syncs {
-        if time >= 0
-            && signal.matches(
-                &observation.kind,
-                &observation.fields,
-                signal.at.unwrap_or(0) + time,
-            )
-        {
+        if matches_entry_sync(signal, observation, time) {
             candidates.push((
                 phase.clock.base_ms + signal.after.unwrap_or(25) * 100,
                 0,
@@ -1575,7 +1580,11 @@ impl<'a> Replay<'a> {
             let inherited = destination
                 .enters
                 .iter()
-                .filter(|signal| signal.from.as_deref() == from && signal.at == Some(offset))
+                .filter(|signal| {
+                    signal.from.as_deref() == from
+                        && signal.at == Some(offset)
+                        && signal.resume_at.unwrap_or(0) == 0
+                })
                 .collect();
             self.phase_entries += 1;
             let mut state = PhaseState::new(destination, deadline, self.phase_entries);
@@ -2202,7 +2211,6 @@ impl<'a> Replay<'a> {
         self.timeline
             .phases
             .iter()
-            .filter(|p| Some(p.id.as_str()) != old_phase)
             .flat_map(|phase| {
                 let offsets = phase
                     .enters
@@ -2212,8 +2220,11 @@ impl<'a> Replay<'a> {
                             .from
                             .as_ref()
                             .is_none_or(|from| old_phase == Some(from.as_str()));
+                        let new_execution = old_phase != Some(phase.id.as_str())
+                            || (signal.from.as_deref() == old_phase && signal.at.is_some());
                         from_ok
-                            && (signal.resume_at.is_none() || resumable)
+                            && new_execution
+                            && (signal.resume_at.is_none() || signal.from.is_some() || resumable)
                             && signal.matches(&observation.kind, &observation.fields, time)
                     })
                     .map(|signal| signal.resume_at.unwrap_or(0))
@@ -2227,6 +2238,7 @@ impl<'a> Replay<'a> {
         self.timeline.phases.iter().any(|phase| {
             phase.enters.iter().any(|signal| {
                 signal.resume_at.is_some()
+                    && signal.from.is_none()
                     && signal.matches(&observation.kind, &observation.fields, 0)
             })
         })

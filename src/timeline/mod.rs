@@ -24,6 +24,15 @@ pub(crate) enum Field {
     Regex(Vec<Regex>),
 }
 
+impl Field {
+    fn matches(&self, value: &str) -> bool {
+        match self {
+            Self::Literal(values) => values.iter().any(|candidate| candidate == value),
+            Self::Regex(patterns) => patterns.iter().any(|pattern| pattern.find(value).is_some()),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct Signal {
     kind: String,
@@ -36,16 +45,19 @@ pub(crate) struct Signal {
 }
 
 impl Signal {
+    fn in_window(&self, time: Tick) -> bool {
+        self.at.is_none_or(|at| {
+            time >= at - self.before && self.after.is_none_or(|after| time < at + after)
+        })
+    }
+
     fn matches(&self, kind: &str, fields: &BTreeMap<String, String>, time: Tick) -> bool {
         self.kind == kind
-            && self.at.is_none_or(|at| {
-                time >= at - self.before && self.after.is_none_or(|after| time < at + after)
-            })
+            && self.in_window(time)
             && self.fields.iter().all(|(name, condition)| {
-                fields.get(name).is_some_and(|value| match condition {
-                    Field::Literal(values) => values.contains(value),
-                    Field::Regex(patterns) => patterns.iter().any(|p| p.find(value).is_some()),
-                })
+                fields
+                    .get(name)
+                    .is_some_and(|value| condition.matches(value))
             })
     }
 }

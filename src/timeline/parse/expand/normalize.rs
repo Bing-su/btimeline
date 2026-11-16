@@ -119,14 +119,25 @@ fn choice(node: &mut KdlNode, owner: &str) -> Result<()> {
 }
 
 fn references(node: &mut KdlNode, groups: &BTreeSet<String>) -> Result<()> {
-    if let Some(value) = node.get("from-phase") {
-        let group = string(value)?;
+    let is_group_source = |entry: &kdl::KdlEntry| {
+        entry
+            .name()
+            .is_some_and(|name| name.value() == "from-phase")
+    };
+    let mut group_sources = node.entries().iter().filter(|entry| is_group_source(entry));
+    if let Some(entry) = group_sources.next() {
+        ensure!(
+            group_sources.next().is_none(),
+            "Duplicate property from-phase"
+        );
+        ensure!(entry.ty().is_none(), "Type annotations are unsupported");
+        let group = string(entry.value())?;
         ensure!(
             node.get("from").is_none() && named(node, "from").next().is_none(),
             "from-phase and from are mutually exclusive"
         );
         ensure!(groups.contains(&group), "Unknown from-phase: {group}");
-        node.remove("from-phase");
+        node.retain(|entry| !is_group_source(entry));
         node.insert("from", group);
     } else {
         let mut refs = node

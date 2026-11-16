@@ -143,6 +143,300 @@ fn r12s_recovers_when_waiting_autos_are_missing(
 }
 
 #[rstest]
+#[case("from=\"fight/opening\"", false)]
+#[case("from=\"prelude/main\"", true)]
+#[case("from-phase=prelude", true)]
+#[case("{ from \"fight/opening\" \"prelude/main\"; }", true)]
+fn guarded_checkpoints_recover_only_from_a_matching_active_step(
+    #[case] source: &str,
+    #[case] matches_active_step: bool,
+) {
+    let model = parse(&format!(
+        r#"timeline 2 "Guarded checkpoint" {{
+            start Start
+            phase prelude {{ step main {{
+                enter Begin from="fight/opening"
+                event cancelled 2 name=Cancelled
+            }} }}
+            phase fight {{
+                step opening {{ enter Start; event stale 5 name=Stale; }}
+                step recovered {{
+                    enter Checkpoint resume-at=7 {source}
+                    event past 6 name=Past
+                    event here 7 name=Here
+                    event next 10 name=Next
+                }}
+            }}
+        }}"#
+    ))
+    .unwrap();
+    let input = recording(
+        9000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Checkpoint","fields":{}},
+            {"at_ms":1000,"type":"Start","fields":{}},
+            {"at_ms":2000,"type":"Begin","fields":{}},
+            {"at_ms":4000,"type":"Checkpoint","fields":{}},
+            {"at_ms":5000,"type":"Checkpoint","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let rows = replay(&model, &input).unwrap();
+    let starts: Vec<_> = rows
+        .iter()
+        .filter(|row| row.action == "start")
+        .map(|row| row.at_ms)
+        .collect();
+    assert_eq!(starts, [1000]);
+    let events: Vec<_> = rows
+        .iter()
+        .filter_map(|row| {
+            row.event
+                .as_ref()
+                .map(|event| (event.name.as_str(), row.at_ms))
+        })
+        .collect();
+    let expected = if matches_active_step {
+        vec![("Here", 4000), ("Next", 7000)]
+    } else {
+        vec![("Cancelled", 4000)]
+    };
+    assert_eq!(events, expected);
+}
+
+#[test]
+fn from_phase_rejects_duplicate_properties_during_normalization() {
+    let source = r#"timeline 2 "Duplicate group guard" {
+        start Start
+        phase first { step main { enter Start; } }
+        phase second { step main { enter Move from="first/main"; } }
+        phase target { step main {
+            enter Recover from-phase=first from-phase=second resume-at=1
+            event checkpoint 1 name=Checkpoint
+        } }
+    }"#;
+    assert!(format!("{:#}", parse(source).unwrap_err()).contains("Duplicate property from-phase"));
+}
+
+const SELF_ENTRY_TIMELINE: &str = r#"timeline 2 "Scheduled repeats" {
+    start Start
+    phase fight { step cycle {
+        enter Start
+        enter Next from="fight/cycle" at=10 before=3 after=3
+        after 10 from="fight/cycle"
+        event opening 0 name=Opening
+        event pulse 1.4 name=Pulse
+        event tail 9 name=Tail
+    } }
+}"#;
+
+#[rstest]
+#[case::scheduled(None, 10000, 10000)]
+#[case::early(Some(8000), 8000, 8000)]
+#[case::exact(Some(10000), 10000, 10000)]
+#[case::late(Some(11000), 10000, 11000)]
+fn self_entry_uses_a_new_execution_and_corrects_a_late_signal_once(
+    #[case] signal_at: Option<i64>,
+    #[case] entered_at: i64,
+    #[case] origin: i64,
+) {
+    let model = parse(SELF_ENTRY_TIMELINE).unwrap();
+    let mut observations = vec![serde_json::json!({"at_ms":0,"type":"Start","fields":{}})];
+    if let Some(at) = signal_at {
+        observations.extend([
+            serde_json::json!({"at_ms":at,"type":"Next","fields":{}}),
+            serde_json::json!({"at_ms":at + 100,"type":"Next","fields":{}}),
+            serde_json::json!({"at_ms":at + 200,"type":"Start","fields":{}}),
+        ]);
+    }
+    let input = recording(origin + 12000, serde_json::json!(observations)).unwrap();
+    let rows = replay(&model, &input).unwrap();
+    let entries: Vec<_> = rows
+        .iter()
+        .filter(|row| row.action == "phase")
+        .map(|row| (row.at_ms, row.context.as_ref().unwrap().phase_instance))
+        .collect();
+    assert_eq!(entries, [(0, 1), (entered_at, 2), (origin + 10000, 3)]);
+    let event_times = |name| {
+        rows.iter()
+            .filter_map(|row| {
+                let event = row.event.as_ref()?;
+                (event.name == name).then_some(row.at_ms)
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(event_times("Opening"), [0, entered_at, origin + 10000]);
+    assert_eq!(event_times("Pulse"), [1400, origin + 1400, origin + 11400]);
+    assert_eq!(event_times("Tail").contains(&9000), entered_at > 9000);
+    let syncs: Vec<_> = rows
+        .iter()
+        .filter(|row| row.action == "sync")
+        .map(|row| row.at_ms)
+        .collect();
+    assert_eq!(
+        syncs,
+        signal_at
+            .filter(|_| origin > entered_at)
+            .into_iter()
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn forecast_projects_distinct_scheduled_self_entries_and_bounds_the_horizon() {
+    let model = parse(SELF_ENTRY_TIMELINE).unwrap();
+    let input = recording(
+        0,
+        serde_json::json!([{"at_ms":0,"type":"Start","fields":{}}]),
+    )
+    .unwrap();
+    let forecast =
+        serde_json::to_value(super::forecast(&model, &input, 0, 30000, 100).unwrap()).unwrap();
+    let openings: Vec<_> = forecast["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|row| row["name"] == "Opening")
+        .map(|row| {
+            (
+                row["at_ms"].as_i64().unwrap(),
+                row["context"]["phase_instance"].as_u64().unwrap(),
+                row["origin_basis"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        openings,
+        [
+            (10000, 2, "scheduled"),
+            (20000, 3, "scheduled"),
+            (30000, 4, "scheduled")
+        ]
+    );
+    assert_eq!(forecast["truncated"], false);
+}
+
+#[rstest]
+#[case("at=10 before=10 after=3", "strictly after")]
+#[case("", "strictly after")]
+#[case("at=10 before=3 after=8", "overlaps")]
+#[case(
+    "at=10 before=3 after=3\n        enter Next from=\"fight/cycle\" at=1 before=0 after=1",
+    "overlaps"
+)]
+#[case(
+    "at=10 before=3 after=3\n        enter Other from=\"fight/cycle\" at=1 before=0 after=1",
+    ""
+)]
+#[case(
+    "at=10 before=3 after=3\n        enter Next id=Other from=\"fight/cycle\" at=1 before=0 after=1",
+    ""
+)]
+#[case(
+    "at=10 before=3 after=3\n        enter Next from=\"fight/cycle\" at=1 before=0 after=1 { regex id \"Rep.*\"; }",
+    "overlaps"
+)]
+#[case("at=10 before=1 after=1 resume-at=10", "checkpoint overlaps")]
+#[case("at=10 before=1 after=1 resume-at=5", "")]
+#[case(
+    "at=10 before=1 after=1 resume-at=5\n        enter Next from=\"fight/cycle\" at=5 before=0 after=1",
+    "checkpoint overlaps"
+)]
+#[case(
+    "at=10 before=1 after=1 resume-at=5\n        enter Next id=Other from=\"fight/cycle\" at=5 before=0 after=1",
+    ""
+)]
+fn validates_self_entry_windows(#[case] windows: &str, #[case] error: &str) {
+    let source = SELF_ENTRY_TIMELINE
+        .replace("enter Next from=", "enter Next id=Repeat from=")
+        .replace("at=10 before=3 after=3", windows);
+    let result = parse(&source);
+    if error.is_empty() {
+        result.unwrap();
+    } else {
+        assert!(format!("{:#}", result.unwrap_err()).contains(error));
+    }
+}
+
+#[rstest]
+#[case::no_clock_change(10500, 13000, vec![10500, 11000])]
+#[case::clock_changed(10600, 12100, vec![10600])]
+fn only_a_clock_change_or_the_entry_signal_consumes_the_inherited_sync(
+    #[case] align_at: i64,
+    #[case] pulse_at: i64,
+    #[case] syncs_at: Vec<i64>,
+) {
+    let model = parse(
+        r#"timeline 2 "Late entry" {
+            start Start
+            phase fight {
+                step opening { enter Start; }
+                step next {
+                    after 10 from="fight/opening"
+                    enter Next from="fight/opening" at=10 before=3 after=3
+                    sync 0.5 Align before=0 after=0.2
+                    event pulse 2 name=Pulse
+                }
+            }
+        }"#,
+    )
+    .unwrap();
+    let input = recording(
+        14000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":align_at,"type":"Align","fields":{}},
+            {"at_ms":11000,"type":"Next","fields":{}},
+            {"at_ms":11100,"type":"Next","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let rows = replay(&model, &input).unwrap();
+    let syncs: Vec<_> = rows
+        .iter()
+        .filter(|row| row.action == "sync")
+        .map(|row| row.at_ms)
+        .collect();
+    assert_eq!(syncs, syncs_at);
+    assert_eq!(
+        rows.iter().find(|row| row.event.is_some()).unwrap().at_ms,
+        pulse_at
+    );
+}
+
+#[test]
+fn late_timed_entry_does_not_inherit_nonzero_checkpoint() {
+    let model = parse(
+        r#"timeline 2 "Timed checkpoint" {
+            start Start
+            phase fight {
+                step opening { enter Start; }
+                step next {
+                    after 2 from="fight/opening"
+                    enter Checkpoint from="fight/opening" at=2 resume-at=1
+                    event next 3 name=Next
+                }
+            }
+        }"#,
+    )
+    .unwrap();
+    let input = recording(
+        6000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Start","fields":{}},
+            {"at_ms":2100,"type":"Checkpoint","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let rows = replay(&model, &input).unwrap();
+    assert!(rows.iter().all(|row| row.action != "sync"));
+    assert_eq!(
+        rows.iter().find(|row| row.event.is_some()).unwrap().at_ms,
+        5000
+    );
+}
+
+#[rstest]
 #[case("zone-exit")]
 #[case("wipe")]
 #[case("finish")]

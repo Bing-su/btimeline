@@ -234,15 +234,75 @@ fn literal_signals_overlap(left: &Signal, right: &Signal) -> bool {
     if !literals(left) || !literals(right) {
         return false;
     }
-    left.fields.iter().all(|(name, a)| {
-        let Some(b) = right.fields.get(name) else {
-            return true;
-        };
-        match (a, b) {
-            (Field::Literal(a), Field::Literal(b)) => a.iter().any(|value| b.contains(value)),
-            _ => false,
+    signals_may_overlap(left, right)
+}
+
+fn signals_may_overlap(left: &Signal, right: &Signal) -> bool {
+    left.kind == right.kind
+        && left.fields.iter().all(|(name, a)| {
+            right.fields.get(name).is_none_or(|b| match (a, b) {
+                (Field::Literal(values), other) | (other, Field::Literal(values)) => {
+                    values.iter().any(|value| other.matches(value))
+                }
+                (Field::Regex(_), Field::Regex(_)) => true,
+            })
+        })
+}
+
+fn validate_timed_phases(phases: &[Phase]) -> Result<()> {
+    let mut timed_sources = BTreeSet::new();
+    for phase in phases {
+        for after in &phase.after {
+            ensure!(
+                timed_sources.insert(after.from.as_str()),
+                "Duplicate timed transition from phase {}",
+                after.from
+            );
         }
-    })
+        let self_entries: Vec<_> = phase
+            .enters
+            .iter()
+            .filter(|signal| signal.from.as_deref() == Some(phase.id.as_str()))
+            .collect();
+        for entry in &self_entries {
+            ensure!(
+                entry.at.is_some_and(|at| at > entry.before),
+                "Self entry in {} requires a window strictly after the new execution origin",
+                phase.id
+            );
+        }
+        for entry in &self_entries {
+            let Some(offset) = entry.resume_at else {
+                continue;
+            };
+            ensure!(
+                !self_entries
+                    .iter()
+                    .any(|next| next.in_window(offset) && signals_may_overlap(entry, next)),
+                "Self entry checkpoint overlaps a matching reentry window in {}",
+                phase.id
+            );
+        }
+        let Some(timer) = phase.after.iter().find(|after| after.from == phase.id) else {
+            continue;
+        };
+        for inherited in self_entries
+            .iter()
+            .filter(|entry| entry.at == Some(timer.at) && entry.resume_at.unwrap_or(0) == 0)
+        {
+            ensure!(
+                inherited
+                    .after
+                    .is_some_and(|after| self_entries.iter().all(|next| {
+                        !signals_may_overlap(inherited, next)
+                            || next.at.is_some_and(|at| after <= at - next.before)
+                    })),
+                "Late self entry correction overlaps the next execution entry window in {}",
+                phase.id
+            );
+        }
+    }
+    Ok(())
 }
 
 // Identical prerequisites enable both options together whenever those prerequisites hold.
@@ -439,10 +499,6 @@ fn signal_from(node: &KdlNode, role: &str, source: Option<String>) -> Result<Sig
     } else {
         None
     };
-    ensure!(
-        resume_at.is_none() || from.is_none(),
-        "resume-at requires an entry without from"
-    );
     Ok(Signal {
         kind: arg_string(node, usize::from(sync))?,
         fields,
@@ -759,7 +815,6 @@ impl Validation {
                 let at = arg_time(child, 0)?;
                 let from = string(child.get("from").context("after requires from")?)?;
                 ensure!(at > 0, "after must be positive");
-                ensure!(from != id, "Timed phase transition cannot target itself");
                 self.phase_refs.push(from.clone());
                 after.push(super::PhaseAfter { from, at });
             } else if child.name().value() == "sequence" {
@@ -1062,16 +1117,7 @@ pub(crate) fn parse(source: &str) -> Result<Timeline> {
         .with_context(|| location(source, node))?;
     }
     v.references()?;
-    let mut timed_sources = BTreeSet::new();
-    for phase in &timeline.phases {
-        for after in &phase.after {
-            ensure!(
-                timed_sources.insert(after.from.as_str()),
-                "Duplicate timed transition from phase {}",
-                after.from
-            );
-        }
-    }
+    validate_timed_phases(&timeline.phases)?;
     timeline.event_count = v.event_count;
     order_events(&mut timeline);
     timeline.catalog = super::Catalog::from_timeline(&timeline, source, &declarations);
