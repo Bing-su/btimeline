@@ -4,6 +4,224 @@ use rstest::rstest;
 
 use super::{Recording, parse, replay};
 
+const CHOICE_TIMING: &str = r#"
+timeline 2 "Choice timing" {
+    start Pull
+    phase fight {
+        step opening {
+            enter Pull
+            choice route at=10 {
+                option early { when Early at=6; event hit 1 name=Early; }
+                option late { when Late at=20; when Later at=20; event hit 13 name=Late; }
+                shared { event common 12.5 name=Common; }
+                join "fight/end" after=13
+            }
+        }
+        step end { enter End; event joined 0 name=Joined; }
+    }
+}
+"#;
+
+#[test]
+fn choice_options_use_their_own_selection_clock() {
+    let model = parse(CHOICE_TIMING).unwrap();
+    let input = recording(
+        36_000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Pull","fields":{}},
+            {"at_ms":17499,"type":"Late","fields":{}},
+            {"at_ms":17500,"type":"Later","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let query = |at, horizon| {
+        serde_json::to_value(super::forecast(&model, &input, at, horizon, 100).unwrap()).unwrap()
+    };
+    let short = query(0, 8_000);
+    assert_eq!(short["alternatives"].as_array().unwrap().len(), 1);
+    assert_eq!(short["alternatives"][0]["at_ms"], 6_000);
+    assert_eq!(short["alternatives"][0]["events"][0]["at_ms"], 7_000);
+    let full = query(0, 35_000);
+    assert_eq!(full["alternatives"][1]["at_ms"], 20_000);
+    assert_eq!(full["alternatives"][0]["choice_at_ms"], 10_000);
+    assert_eq!(full["alternatives"][1]["choice_at_ms"], 10_000);
+    assert_eq!(full["alternatives"][1]["events"][0]["at_ms"], 33_000);
+    assert_eq!(full["events"][0]["at_ms"], 22_500);
+    let before = query(17_499, 20_000);
+    assert_eq!(before["alternatives"][0]["state"], "unresolved");
+    assert_eq!(before["alternatives"][1]["state"], "waiting");
+    let selected = query(17_500, 20_000);
+    assert_eq!(selected["phase"], "fight/opening/route/late");
+    assert_eq!(selected["alternatives"], serde_json::json!([]));
+    assert_eq!(selected["events"][0]["at_ms"], 30_000);
+    assert_eq!(selected["events"][1]["id"], "fight/opening/route/late/hit");
+    assert_eq!(selected["events"][1]["at_ms"], 30_500);
+    let events: Vec<_> = replay(&model, &input)
+        .unwrap()
+        .into_iter()
+        .filter_map(|row| row.event.map(|event| (event.id, row.at_ms)))
+        .collect();
+    assert_eq!(
+        events,
+        [
+            ("fight/opening/route/shared/common".into(), 30_000),
+            ("fight/end/joined".into(), 30_500),
+        ]
+    );
+}
+
+#[rstest]
+#[case("when Later at=20", "when Later", "Option when times must agree")]
+#[case("event common 12.5", "event common 12.4", "Shared event precedes")]
+#[case("after=13", "after=12.4", "Nominal join precedes")]
+#[case(
+    r#"fight/end" after=13"#,
+    r#"fight/opening/route/late" after=13"#,
+    "join target must be a step"
+)]
+fn choice_timing_rejects_inconsistent_schedules(
+    #[case] original: &str,
+    #[case] replacement: &str,
+    #[case] message: &str,
+) {
+    let error = parse(&CHOICE_TIMING.replace(original, replacement)).unwrap_err();
+    assert!(format!("{error:#}").contains(message), "{error:#}");
+}
+
+#[test]
+fn a_choice_missed_before_rewind_is_only_selectable_in_a_fresh_step() {
+    let model = parse(
+        r#"
+timeline 2 "Choice after reentry" {
+    start Pull
+    phase fight {
+        step opening {
+            enter Pull
+            enter Cycle from="fight/opening" at=6
+            sync 0 Rewind before=0 after=4
+            choice route at=2 {
+                option early { when Early before=0.5 after=0.5; event hit 0 name=Early; }
+                option late { when Late at=8; event hit 0 name=Late; }
+            }
+        }
+    }
+}
+"#,
+    )
+    .unwrap();
+    let input = recording(
+        12_000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Pull","fields":{}},
+            {"at_ms":3000,"type":"Rewind","fields":{}},
+            {"at_ms":5000,"type":"Early","fields":{}},
+            {"at_ms":9000,"type":"Cycle","fields":{}},
+            {"at_ms":11000,"type":"Early","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let at = |cutoff| {
+        serde_json::to_value(super::forecast(&model, &input, cutoff, 6000, 10).unwrap()).unwrap()
+    };
+    assert_eq!(at(3000)["alternatives"][0]["state"], "unresolved");
+    assert_eq!(at(5000)["phase"], "fight/opening");
+    assert_eq!(at(9000)["alternatives"][0]["state"], "waiting");
+    assert_eq!(at(11000)["phase"], "fight/opening/route/early");
+}
+
+#[test]
+fn backward_sync_restores_only_previously_delivered_rows_to_the_forecast() {
+    let model = parse(
+        r#"
+timeline 2 "Backward sync" {
+    start Pull
+    phase fight {
+        step opening {
+            enter Pull
+            event displayed 1 name=Displayed
+            event skipped 2 name=Skipped
+            sync 3 Forward
+            sync 0 Backward before=0 after=5
+        }
+    }
+}
+"#,
+    )
+    .unwrap();
+    let input = recording(
+        6_000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Pull","fields":{}},
+            {"at_ms":1500,"type":"Forward","fields":{}},
+            {"at_ms":2000,"type":"Backward","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let projected = super::forecast(&model, &input, 2_000, 3_000, 100).unwrap();
+    assert_eq!(projected.events.len(), 1);
+    assert_eq!(projected.events[0].id, "fight/opening/displayed");
+    assert_eq!(projected.events[0].at_ms, 3_000);
+    let times: Vec<_> = replay(&model, &input)
+        .unwrap()
+        .into_iter()
+        .filter(|row| row.event.is_some())
+        .map(|row| row.at_ms)
+        .collect();
+    assert_eq!(times, [1_000]);
+}
+
+#[test]
+fn forecast_includes_outgoing_step_rows_at_the_timer_without_delivering_them() {
+    let model = parse(
+        r#"
+timeline 2 "Transition deadline" {
+    start Pull
+    phase fight {
+        step opening {
+            enter Pull
+            event outgoing 2 name=Outgoing
+            reaction child { on Arm; event canceled 1 name=Canceled; }
+        }
+        step middle {
+            after 2 from="fight/opening"
+            event outgoing 2 name=Outgoing
+        }
+        step end { after 2 from="fight/middle"; event incoming 0 name=Incoming; }
+    }
+}
+"#,
+    )
+    .unwrap();
+    let input = recording(
+        4_000,
+        serde_json::json!([
+            {"at_ms":0,"type":"Pull","fields":{}},
+            {"at_ms":1000,"type":"Arm","fields":{}}
+        ]),
+    )
+    .unwrap();
+    let projected = super::forecast(&model, &input, 1_000, 3_000, 100).unwrap();
+    let events: Vec<_> = projected
+        .events
+        .iter()
+        .map(|row| (row.id.as_str(), row.at_ms))
+        .collect();
+    assert_eq!(
+        events,
+        [
+            ("fight/opening/outgoing", 2_000),
+            ("fight/middle/outgoing", 4_000),
+            ("fight/end/incoming", 4_000),
+        ]
+    );
+    let executed: Vec<_> = replay(&model, &input)
+        .unwrap()
+        .into_iter()
+        .filter_map(|row| row.event.map(|event| (event.id, row.at_ms)))
+        .collect();
+    assert_eq!(executed, [("fight/end/incoming".into(), 4_000)]);
+}
+
 #[rstest]
 #[case("B4D3")]
 #[case("B4D7")]

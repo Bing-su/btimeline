@@ -74,9 +74,9 @@ Rangbot용 combat 시작은 `InCombat inGameCombat="1" isGameEntering="1"`로 �
 
 목적지 0초로 진입하는 enter가 예정 전환 시각과 일치하면 늦게 도착한 신호로 새 실행의 원점을 한 번 보정한다. 이미 처리한 이벤트는 다시 실행하지 않는다. 일반 sync가 시계를 움직이면 늦은 보정 창이 닫힌다. 일반 sync가 현재 시각과 정확히 일치하면 창이 유지된다. 동일 step에서 이 늦은 보정 창은 같은 신호를 받을 수 있는 다음 실행의 진입 창과 겹치면 안 된다. 정규식 한 쌍은 다른 필드에서 불일치를 증명할 수 없으면 겹칠 수 있다고 본다.
 
-choice option은 관측 시각이 0초다. 미선택이면 shared 명목 일정과 실제 option의 조건부 대안을 보여주며 option을 추측하지 않는다. `preview` 선언은 거부한다. shared sync는 selected 경로에서만 활성화한다. 미선택 복구용 sync는 부모 step에 choice 시작 시각을 더한 절대 offset으로 선언한다. shared event 및 외부 실행기의 선행 cue는 선택 창 종료 이후여야 한다.
+choice option의 `when`은 기본으로 `choice.at`을 상속하며, `at`을 지정하면 부모 step 시계에서 해당 option의 명목 선택 시각을 바꾼다. 한 option의 모든 `when`은 같은 명목 시각을 사용하고 window 폭은 달라도 된다. 옵션별 명목 시각은 선택 창과 조건부 예측에 사용하고, 실제로 선택하면 관측 시각을 0초로 삼는다. 미선택이면 shared 명목 일정과 실제 option의 조건부 대안을 보여주며 option을 추측하지 않는다. `preview` 선언은 거부한다. shared sync는 selected 경로에서만 활성화한다. 미선택 복구용 sync는 부모 step에 choice 시작 시각을 더한 절대 offset으로 선언한다. shared event 및 외부 실행기의 선행 cue는 모든 선택 창이 닫히는 시각부터 허용한다.
 
-join은 명목 choice at+after 또는 선택 option 원점+after에 timed 진입한다. when은 기본 selected 경로만 허용한다. recover-nominal=#true일 때만 명목 관측 복구를 허용한다. target은 실제 step이며 when은 paired window 외에 from/at/resume-at을 바꿀 수 없다.
+join은 명목 choice at+after 또는 선택 option 원점+after에 timed 진입한다. 명목 경로의 예정 join은 모든 선택 창이 닫히는 시각부터 허용한다. when은 기본 selected 경로만 허용한다. recover-nominal=#true일 때만 명목 관측 복구를 허용한다. target은 실제 step이며 when은 paired window 외에 from/at/resume-at을 바꿀 수 없다.
 
 일반 branch의 requires는 최신 선택 이력을 AND로 검사한다. 미관측을 추측하지 않고, 자기/누락/순환/상충 참조는 거부한다. fallback은 선택 이후 듣지 않는다. option resume-at은 미선택에서만 적용하며 해당 option은 loop를 소유할 수 없다. merge는 부모 창에서 공통 관측으로 미선택 상태도 합류할 수 있으며 이전 option 작업을 취소한다.
 
@@ -94,11 +94,13 @@ lifecycle 우선순위는 zone-exit, wipe, finish, boss-complete, start다. boss
 
 forecast는 cutoff까지 실제 관측을 재생한 뒤 읽기 전용 투영을 수행한다. 미래 실행, scope 생성, cue 소비, clock 변경은 하지 않는다. 현재 일정, 여러 반복 회차, timed successor를 탐색하며 미래 관측 선택/merge/exit는 추측하지 않는다. 예정 successor 계산을 실행기와 공유한다.
 
-컴파일 결과는 choice ID, 부모 step, 명목 시각, option ID 관계를 보존한다. forecast의 `events`는 현재 실행 경로이고, `alternatives`는 별도의 조건부 일정이다. 각 대안은 `choice_id`, `option_id`, `at_ms`, `state`(waiting/open/unresolved), `events`, `omitted`를 갖는다. 대안 이벤트의 `route`는 unresolved, `origin_basis`는 scheduled다. shared와 공통 합류 일정은 events에 한 번만 표시한다. 선택되면 해당 choice 대안은 사라지고 관측 원점을 사용한다. 선택 창을 놓쳐도 재개방하지 않는다.
+후진 보정으로 실행한 행이 다시 미래가 되면 보정된 시각으로 예측에 나타난다. 재생 이력의 실행은 한 번이며, 전진 보정·체크포인트에서 건너뛴 발생은 복원하지 않는다. 예정 전환과 정확히 같은 시각의 직속 step·choice option 행은 전환 전 예측에 포함한다. 해당 시각이 되면 전환이 우선해 이전 일정의 실행을 취소한다.
+
+컴파일 결과는 choice ID, 부모 step, 명목 시각, option ID 관계를 보존한다. forecast의 `events`에는 현재 경로의 예측이, `alternatives`에는 조건부 일정이 들어간다. 각 대안은 `choice_id`, `choice_at_ms`(choice의 공통 명목 시각), `option_id`, `at_ms`(option별 명목 시각), `state`(waiting/open/unresolved), `events`, `omitted`를 갖는다. 명목 시각이 예정 전환 시각과 같아도 그 전에 선택 창이 열리는 대안을 표시한다. 대안 이벤트의 `route`는 unresolved, `origin_basis`는 scheduled다. shared와 공통 합류 일정은 events에 한 번만 표시한다. 선택되면 해당 choice 대안은 사라지고 관측 원점을 사용한다. 이미 닫힌 `when` 창은 후진 보정으로 다시 열리지 않으며 새 step 실행에서 초기화된다.
 
 `--max-rows`는 events와 전체 대안 이벤트에 각각 적용한다. 대안은 각 option에 한 행씩 순환 배분하며 잘린 행 수를 option별 omitted로 알린다. 탐색 예산 소진은 전체 truncated/reason으로 알린다. evaluator는 alternatives를 채점하지 않는다. 모든 후보를 맞은 예측으로 간주하면 평가가 무의미해진다.
 
-horizon-ms는 음이 아닌 유한 정수 시간이고 max-rows는 음이 아닌 정수다. 0은 빈 미래 목록이다. 기본 max-rows는 10000, 계산 budget도 10000이다. 정렬 후 row 제한을 적용하고 truncated와 truncation_reason을 반환한다. 평가기는 잘린 결과를 완전한 예고로 채점하지 않는다. projection_diagnostics는 비어 있으며 가상의 선택 창 닫힘을 실행하지 않는다.
+horizon-ms는 음이 아닌 유한 정수 시간이고 max-rows는 음이 아닌 정수다. 0은 빈 미래 목록이다. 기본 max-rows는 10000, 계산 budget도 10000이다. 시각과 원본 선언 순서로 정렬한 뒤 행 제한을 적용하고 truncated와 truncation_reason을 반환한다. 평가기는 잘린 결과를 완전한 예고로 채점하지 않는다. projection_diagnostics는 비어 있으며 가상의 선택 창 닫힘을 실행하지 않는다.
 
 events에는 origin_basis(observed/scheduled), route(common/selected/unresolved)를 넣는다. observed는 원점의 근거이며 미래 공격 자체가 관측됐다는 뜻이 아니다. 관측되지 않은 대안을 countdown으로 확정하지 않는다. Rust forecast는 `(at_ms, until_ms]`의 미래 visible 행을, Rangbot 표시기는 지속 중인 행과 상대 대안을 추가로 표시한다.
 

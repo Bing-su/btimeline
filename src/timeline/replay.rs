@@ -99,13 +99,19 @@ pub(crate) struct Record {
     event_order: Option<usize>,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EventOutcome {
+    Emitted,
+    Skipped,
+}
+
 #[derive(Clone, Default)]
 struct Clock {
     scheduled: bool,
     base_ms: i64,
     not_before: i64,
     zero_at: Option<i64>,
-    processed: BTreeSet<usize>,
+    processed: BTreeMap<usize, EventOutcome>,
     resume_after: Option<Tick>,
     phase_instance: usize,
     iteration: Option<u64>,
@@ -183,6 +189,7 @@ impl BranchState {
 struct PhaseState<'a> {
     definition: &'a Phase,
     clock: Clock,
+    elapsed_before_correction: Tick,
     branches: Vec<BranchState>,
     loops: Vec<LoopRef<'a>>,
     repeats: Vec<RepeatState>,
@@ -293,7 +300,7 @@ fn option_path(
                 .iter()
                 .enumerate()
                 .filter(|(_, event)| event.at <= offset)
-                .map(|(index, _)| index),
+                .map(|(index, _)| (index, EventOutcome::Skipped)),
         );
     }
     path
@@ -439,6 +446,7 @@ impl<'a> PhaseState<'a> {
                 phase_instance,
                 ..Clock::default()
             },
+            elapsed_before_correction: 0,
             branches: definition
                 .branches
                 .iter()
@@ -642,12 +650,12 @@ fn emit(
         .enumerate()
         .filter(|(i, e)| {
             let at = event_time(clock, e);
-            !clock.processed.contains(i) && (at < until || (inclusive && at == until))
+            !clock.processed.contains_key(i) && (at < until || (inclusive && at == until))
         })
         .collect();
     pending.sort_by_key(|(i, event)| (event.at, *i));
     for (i, event) in pending {
-        clock.processed.insert(i);
+        clock.processed.insert(i, EventOutcome::Emitted);
         record(
             out,
             event_time(clock, event),
@@ -685,8 +693,10 @@ fn correct_ms(
     let previous = at_ms - clock.base_ms;
     if target > previous {
         for (i, event) in events.iter().enumerate() {
-            if event.at * 100 < target && !clock.processed.contains(&i) {
-                clock.processed.insert(i);
+            if event.at * 100 < target
+                && let std::collections::btree_map::Entry::Vacant(entry) = clock.processed.entry(i)
+            {
+                entry.insert(EventOutcome::Skipped);
                 record(out, at_ms, "skipped", event.id.clone(), run);
             }
         }
@@ -840,7 +850,7 @@ fn unobserved(events: &[Event], clock: &Clock, end_ms: i64, run: usize, out: &mu
     for (_, event) in events
         .iter()
         .enumerate()
-        .filter(|(i, _)| !clock.processed.contains(i))
+        .filter(|(i, _)| !clock.processed.contains_key(i))
     {
         record(out, end_ms, "unobserved", event.id.clone(), run);
     }
@@ -1131,7 +1141,7 @@ fn enter_repeat_after_jump_one(
     };
     for (index, event) in events {
         if event.at * 100 < position {
-            clock.processed.insert(index);
+            clock.processed.insert(index, EventOutcome::Skipped);
             record(out, at, "skipped", event.id.clone(), run);
         }
     }
@@ -1159,6 +1169,12 @@ fn correct_phase(
     run: usize,
     history: &mut BTreeMap<String, Option<String>>,
 ) -> Result<()> {
+    if target < at - phase.clock.base_ms {
+        // Window expiry belongs to the step execution, even if its clock moves backward.
+        phase.elapsed_before_correction = phase
+            .elapsed_before_correction
+            .max(elapsed(phase.clock.base_ms, at));
+    }
     enter_repeat_after_jump(phase, at, target, out, run, history)?;
     for state in &mut phase.repeats {
         if state.current.is_none() {
@@ -2210,6 +2226,11 @@ impl<'a> Replay<'a> {
             return Vec::new();
         }
         let old_phase = self.phase.as_ref().map(|p| p.definition.id.as_str());
+        let choice = self
+            .timeline
+            .choices
+            .iter()
+            .find(|choice| old_phase == Some(choice.step_id.as_str()));
         let resumable = self.can_resume();
         let time = self
             .phase
@@ -2219,6 +2240,11 @@ impl<'a> Replay<'a> {
             .phases
             .iter()
             .flat_map(|phase| {
+                let closed_through = self
+                    .phase
+                    .as_ref()
+                    .filter(|_| choice.is_some_and(|choice| choice.option_ids.contains(&phase.id)))
+                    .map(|state| state.elapsed_before_correction);
                 let offsets = phase
                     .enters
                     .iter()
@@ -2232,6 +2258,9 @@ impl<'a> Replay<'a> {
                         from_ok
                             && new_execution
                             && (signal.resume_at.is_none() || signal.from.is_some() || resumable)
+                            && closed_through
+                                .zip(signal.window_end())
+                                .is_none_or(|(elapsed, close)| elapsed < close)
                             && signal.matches(&observation.kind, &observation.fields, time)
                     })
                     .map(|signal| signal.resume_at.unwrap_or(0))

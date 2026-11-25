@@ -4,10 +4,13 @@ use super::{
     BranchState,
     Clock,
     Event,
+    EventOutcome,
     Loop,
     Owner,
     Phase,
     Replay,
+    Tick,
+    elapsed,
     event_time,
     execution_context,
     repeat_start,
@@ -62,7 +65,14 @@ impl Projection {
         self
     }
 
-    fn choices(&mut self, timeline: &super::Timeline, phase: &Phase, origin: i64, deadline: i64) {
+    fn choices(
+        &mut self,
+        timeline: &super::Timeline,
+        phase: &Phase,
+        origin: i64,
+        deadline: i64,
+        elapsed_before_correction: Tick,
+    ) {
         let Some(choice) = timeline
             .choices
             .iter()
@@ -70,10 +80,7 @@ impl Projection {
         else {
             return;
         };
-        let at = origin + choice.at * 100;
-        if at > self.until || at >= deadline {
-            return;
-        }
+        let closed_through = elapsed(origin, self.at).max(elapsed_before_correction);
         for id in &choice.option_ids {
             if !self.spend() {
                 return;
@@ -83,19 +90,27 @@ impl Projection {
                 .iter()
                 .find(|phase| &phase.id == id)
                 .expect("Choice option exists");
-            let open = option
+            let option_at = option
+                .enters
+                .first()
+                .and_then(|signal| signal.at)
+                .expect("Choice option has a selection time");
+            let at = origin + option_at * 100;
+            if at > self.until
+                || !option
+                    .enters
+                    .iter()
+                    .any(|signal| at - signal.before * 100 < deadline)
+            {
+                continue;
+            }
+            let open_remaining = option
                 .enters
                 .iter()
+                .filter(|signal| signal.window_end().is_some_and(|end| end > closed_through))
                 .map(|signal| at - signal.before * 100)
-                .min()
-                .unwrap_or(at);
-            let close = option
-                .enters
-                .iter()
-                .map(|signal| at + signal.after.unwrap_or(25) * 100)
-                .max()
-                .unwrap_or(at);
-            let end = successor(timeline, id, at).map_or(deadline, |(_, end, _)| end);
+                .min();
+            let latest = successor(timeline, id, at).map_or(deadline - 1, |(_, end, _)| end);
             let committed = std::mem::take(&mut self.events);
             self.events(
                 &option.events,
@@ -108,7 +123,7 @@ impl Projection {
                     phase: Some(id.clone()),
                     ..Owner::default()
                 },
-                end,
+                latest,
             );
             let mut events = std::mem::replace(&mut self.events, committed);
             events.retain(|event| !event.id.contains("/shared/"));
@@ -118,14 +133,13 @@ impl Projection {
             }
             self.alternatives.push(Alternative {
                 choice_id: choice.id.clone(),
+                choice_at_ms: origin + choice.at * 100,
                 option_id: id.clone(),
                 at_ms: at,
-                state: if self.at < open {
-                    "waiting"
-                } else if self.at < close {
-                    "open"
-                } else {
-                    "unresolved"
+                state: match open_remaining {
+                    None => "unresolved",
+                    Some(open) if self.at < open => "waiting",
+                    Some(_) => "open",
                 },
                 events,
                 omitted: 0,
@@ -156,23 +170,23 @@ impl Projection {
                         sequence: Some(definition.id.clone()),
                         ..owner.clone()
                     },
-                    deadline,
+                    deadline - 1,
                 );
             }
         }
     }
 
-    fn events(&mut self, events: &[Event], clock: &Clock, owner: &Owner, deadline: i64) {
+    fn events(&mut self, events: &[Event], clock: &Clock, owner: &Owner, latest_ms: i64) {
         for (index, event) in events.iter().enumerate() {
             if !self.spend() {
                 break;
             }
             let at = event_time(clock, event);
             if !event.visible
-                || clock.processed.contains(&index)
+                || clock.processed.get(&index) == Some(&EventOutcome::Skipped)
                 || at <= self.at
                 || at > self.until
-                || at >= deadline
+                || at > latest_ms
             {
                 continue;
             }
@@ -229,7 +243,7 @@ impl Projection {
                     option: option.clone(),
                     ..owner.clone()
                 };
-                self.events(events, &path.clock, &owner, deadline);
+                self.events(events, &path.clock, &owner, deadline - 1);
             }
         }
     }
@@ -261,7 +275,7 @@ impl Projection {
                 break;
             }
             let end = deadline.min(clock.base_ms + period);
-            self.events(&definition.events, &clock, &owner, end);
+            self.events(&definition.events, &clock, &owner, end - 1);
             if initial {
                 self.branches(&definition.branches, branches, &owner, end);
             }
@@ -315,12 +329,14 @@ pub(super) fn project(state: &Replay<'_>, until: i64, max_rows: usize) -> Projec
         phase: Some(active.definition.id.clone()),
         ..Owner::default()
     };
+    // Direct step events can be previewed at the deadline before the transition cancels them.
     result.events(&active.definition.events, &active.clock, &owner, deadline);
     result.choices(
         state.timeline,
         active.definition,
         active.clock.base_ms,
         deadline,
+        active.elapsed_before_correction,
     );
     result.branches(
         &active.definition.branches,
@@ -407,7 +423,7 @@ fn project_successors<'a>(
             ..Clock::default()
         };
         result.events(&phase.events, &clock, &owner, deadline);
-        result.choices(timeline, phase, origin, deadline);
+        result.choices(timeline, phase, origin, deadline, 0);
         for definition in &phase.loops {
             result.repeat(
                 definition,

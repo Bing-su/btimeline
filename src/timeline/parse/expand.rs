@@ -31,6 +31,7 @@ fn named<'a>(node: &'a KdlNode, name: &'a str) -> impl Iterator<Item = &'a KdlNo
 fn add_joins(
     node: &KdlNode,
     sources: &[Source],
+    selection_end: Tick,
     joins: &mut BTreeMap<String, Vec<KdlNode>>,
 ) -> Result<()> {
     for join in named(node, "join") {
@@ -43,6 +44,10 @@ fn add_joins(
         let target = arg_string(join, 0)?;
         let after = property_time(join, "after")?.context("join requires after")?;
         ensure!(after > 0, "join after must be positive");
+        ensure!(
+            after >= selection_end,
+            "Nominal join precedes choice selection close"
+        );
         ensure!(
             children(join)
                 .iter()
@@ -94,6 +99,36 @@ fn shared_events(branch: &KdlNode) -> Result<Vec<KdlNode>> {
     Ok(events)
 }
 
+fn choice_entries(option: &KdlNode, from: &str, nominal: Tick) -> Result<(Vec<KdlNode>, Tick)> {
+    let mut entries = Vec::new();
+    let mut option_at = None;
+    let mut selection_end = 0;
+    for when in named(option, "when") {
+        ensure!(
+            when.get("from").is_none() && when.get("resume-at").is_none(),
+            "Flow option when cannot specify from or resume-at"
+        );
+        let at = property_time(when, "at")?.unwrap_or(nominal);
+        ensure!(
+            option_at.is_none_or(|previous| previous == at),
+            "Option when times must agree"
+        );
+        option_at = Some(at);
+        let after = property_time(when, "after")?.unwrap_or(25);
+        selection_end = selection_end.max(at - nominal + after);
+
+        let mut entry = when.clone();
+        entry.set_name("enter");
+        entry.insert("from", from);
+        if entry.get("at").is_none() {
+            entry.insert("at", at as f64 / 10.0);
+        }
+        entries.push(entry);
+    }
+    ensure!(!entries.is_empty(), "Flow option requires when");
+    Ok((entries, selection_end))
+}
+
 fn branch(
     node: &KdlNode,
     from: &str,
@@ -116,26 +151,14 @@ fn branch(
         offset: at,
     }];
     let mut phases = Vec::new();
+    let mut selection_end = 0;
+    let shared = shared_events(node)?;
     for option in options {
         shape(option, 1, &[])?;
         let option_id = arg_string(option, 0)?;
-        let whens: Vec<_> = named(option, "when").collect();
-        ensure!(!whens.is_empty(), "Flow option requires when");
-        let mut nodes = Vec::new();
-        for when in whens {
-            ensure!(
-                when.get("from").is_none() && when.get("resume-at").is_none(),
-                "Flow option when cannot specify from or resume-at"
-            );
-            let mut copy = when.clone();
-            copy.set_name("enter");
-            copy.insert("from", from);
-            if copy.get("at").is_none() {
-                copy.insert("at", at as f64 / 10.0);
-            }
-            nodes.push(copy);
-        }
-        nodes.extend(shared_events(node)?);
+        let (mut nodes, option_end) = choice_entries(option, from, at)?;
+        selection_end = selection_end.max(option_end);
+        nodes.extend(shared.iter().cloned());
         nodes.extend(
             children(option)
                 .iter()
@@ -149,10 +172,15 @@ fn branch(
         phases.push(phase(&option_id, nodes));
     }
     ensure!(!aliases.contains_key(&id), "Duplicate flow reference: {id}");
-    add_joins(node, &sources, joins)?;
+    add_joins(node, &sources, selection_end, joins)?;
     aliases.insert(id, sources);
     let mut predictions = Vec::new();
-    for mut event in shared_events(node)? {
+    for mut event in shared {
+        ensure!(
+            arg_time(&event, 1)? >= selection_end,
+            "Shared event precedes selection close: {}",
+            arg_string(&event, 0)?
+        );
         body(&mut event, Vec::new());
         shift_scheduled(&mut event, at)?;
         predictions.push(event);
@@ -376,18 +404,21 @@ pub(super) fn document(
     }
     normalize::root(root)?;
     let implicit_syncs = event_syncs(root)?;
+    let mut step_ids = BTreeSet::new();
     for phase in named(root, "phase") {
         for step in children(phase) {
+            let step_id = arg_string(step, 0)?;
             for choice in named(step, "branch").filter(|node| node.get("at").is_some()) {
                 choices.push(super::super::Choice {
                     id: arg_string(choice, 0)?,
-                    step_id: arg_string(step, 0)?,
+                    step_id: step_id.clone(),
                     at: property_time(choice, "at")?.context("Choice requires at")?,
                     option_ids: named(choice, "option")
                         .map(|option| arg_string(option, 0))
                         .collect::<Result<_>>()?,
                 });
             }
+            step_ids.insert(step_id);
         }
     }
     if !children(root).iter().any(is_flow) && !implicit_syncs {
@@ -409,6 +440,10 @@ pub(super) fn document(
         .map(|node| arg_string(node, 0))
         .collect::<Result<BTreeSet<_>>>()?;
     for (target, mut controls) in joins {
+        ensure!(
+            step_ids.contains(&target),
+            "join target must be a step: {target}"
+        );
         let phase = nodes
             .iter_mut()
             .find(|node| {

@@ -25,6 +25,17 @@ cargo run -- compare tests/fixtures/timeline/basic.kdl tests/fixtures/timeline/b
 cargo run -- compare tests/fixtures/timeline/fflogs-native.kdl tests/fixtures/pull.json --json
 ```
 
+## Rangbot과 교차 검증
+
+Rangbot 체크아웃에 Bun 의존성을 설치한 뒤 btimeline 루트에서 실행한다.
+
+```sh
+cargo build --locked
+bun --no-install --cwd ../rangbot - --btimeline "$PWD/target/debug/btimeline" < scripts/rangbot/check-timeline-parity.ts
+```
+
+`--cwd`에는 Rangbot 체크아웃 경로를 지정한다. 스크립트는 Rangbot의 `tests/fixtures/timeline-contract`를 읽어 양쪽의 실행 이벤트, phase, 예측 및 대안 일정을 비교한다. 사용 범위는 합성 fixture이며 실제 ACT 입력과 UI는 별도 검증 대상이다.
+
 ## 미래 일정 조회
 
 ```sh
@@ -39,7 +50,7 @@ btimeline forecast timeline.kdl recording.json --at-ms 10000 --horizon-ms 30000
 | `status`, `phase`, `run`     | 조회 시점의 활성/유휴 상태(`active`/`idle`), 활성 phase 또는 null, 전투 시도 번호. 품질 통과 상태가 아님                                               |
 | `observations_used`          | 조회 시점 이하의 관측 수. 같은 밀리초의 모든 관측·제어를 적용한 뒤 조회                                                                                |
 | `events`                     | 예정된 visible 이벤트의 `id`, `name`, `at_ms`, `lead_ms`, `duration_ms`, `run`, `context`. 반복은 같은 ID의 여러 예정 시각을 반환                      |
-| 완료·hidden 이벤트           | 이미 처리했거나 조회 시각에 처리한 이벤트, `visible=#false` 이벤트는 제외. 과거 이벤트의 지속 중인 표시 조회는 범위 밖                                 |
+| 완료·hidden 이벤트           | 후진 보정으로 다시 미래가 된 visible 행은 포함하고, 이전에 건너뛴 행과 `visible=#false`는 제외. 과거 이벤트의 지속 표시는 범위 밖                      |
 | 분기·합류·탈출               | 이미 관측한 선택·합류·탈출은 반영. 미선택 choice는 별도 alternatives로 제공. 선택 결과와 미래 신호로만 정해지는 phase·merge·until 동작은 추측하지 않음 |
 | `diagnostics`                | 조회 시점까지 발생한 ambiguous·violation·unresolved. 가상 미래에서 선택 창이 닫히는 진단을 현재 사실로 섞지 않음                                       |
 | `assumptions`, `not_checked` | 미래 신호 없음이라는 조건과 ACT·게임·UI 미검증 범위                                                                                                    |
@@ -52,7 +63,7 @@ btimeline forecast timeline.kdl recording.json --at-ms 10000 --horizon-ms 30000
 
 ## 실행 식별자
 
-`alternatives`는 choice의 실제 option 일정에서 계산하며 실행 이벤트와 섞지 않는다. 각 항목의 `choice_id`, `option_id`, `at_ms`, `state`, `events`, `omitted`를 사용한다. 공통 shared 이벤트는 현재 경로에 한 번만 포함한다. 선택 후 해당 choice 대안은 제거되며 선택 창을 놓치면 unresolved로 남는다. `--max-rows`는 현재 경로와 전체 대안 행에 각각 적용하고, 대안에는 option별로 순환 배분한다. `omitted`는 행 제한으로 생략된 수이며 예산 소진으로 방문하지 못한 행 수는 아니다. evaluator는 현재 경로의 `events`만 채점한다. 상세 계약은 [timeline v2](../../../../docs/timeline-v2.md)를 따른다.
+`alternatives`는 choice의 실제 option 일정에서 계산한다. `choice_id`와 `choice_at_ms`로 같은 명목 choice 실행의 대안들을 묶을 수 있다. 각 대안은 `option_id`, option의 명목 선택 시각 `at_ms`, `state`, `events`, `omitted`를 제공한다. 공통 shared 이벤트는 현재 경로에 한 번만 포함한다. 선택 후 해당 choice 대안은 제거되며 선택 창을 놓치면 unresolved로 남는다. `--max-rows`는 현재 경로와 전체 대안 행에 각각 적용하고, 대안에는 option별로 순환 배분한다. `omitted`는 행 제한으로 생략된 수이며 예산 소진으로 방문하지 못한 행 수는 아니다. evaluator는 현재 경로의 `events`만 채점한다. 상세 계약은 [timeline v2](../../../../docs/timeline-v2.md)를 따른다.
 
 JSON 실행 행의 `event`에는 `id`, `name`, `visible`, `duration_ms`를 제공한다. `detail` 문자열을 파싱해 이벤트를 식별하지 않는다. 이벤트와 phase·option·merge·until 제어 행의 `context`는 정적인 `phase`, `loop_id`, `branch`, `option`과 동적인 `phase_instance`, `iteration`을 제공한다. 해당하지 않는 소유자는 null이다. 분기 옵션 안 반복은 상위 선택지 소유를 유지한다.
 
@@ -78,14 +89,14 @@ JSON 실행 행의 `event`에는 `id`, `name`, `visible`, `duration_ms`를 제�
 
 [v2의 reaction](../../../../docs/timeline-v2.md)은 아래 사례로 검증한다. 아래 sequence는 재생 JSON의 기존 실행 필드 이름을 가리킨다.
 
-| 사례                           | 기대 결과                                                                                            |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| 시전 시작 전과 후의 `forecast` | 조회 cutoff까지 시작한 sequence의 미실행 일정만 포함한다. 미래 관측으로 일정을 미리 시작하지 않는다. |
-| 같은 기술 연속 시전            | 새 실행이 같은 sequence의 이전 미실행 예약을 교체한다. 이미 실행한 표시는 기록에 남는다.             |
-| 다른 두 기술이 겹침            | 두 sequence의 예약을 유지한다. 한쪽을 다시 시작해도 다른 쪽의 표시가 남는다.                         |
-| 하위 시계 보정                 | 해당 sequence의 남은 표시만 이동한다. 부모 표시·전환 window와 형제 일정은 유지한다.                  |
-| 처치 전 시작·처치 후 발동      | 부모 전환 이전의 시작과 이후의 발동이 새 단독 sequence를 만들지 않는다.                              |
-| 예약 후 처치·전멸·전환         | 기존 부모의 예약을 취소한다. 종료에 소비된 신호가 하위 일정까지 시작하지 않는다.                     |
+| 사례                           | 기대 결과                                                                                                                                     |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 시전 시작 전과 후의 `forecast` | 조회 cutoff까지 시작한 활성 sequence의 미래 표시를 포함한다. 후진 보정으로 다시 미래가 된 행도 표시한다.                                      |
+| 같은 기술 연속 시전            | 새 실행이 같은 sequence의 이전 미실행 예약을 교체한다. 이미 실행한 표시는 기록에 남는다.                                                      |
+| 다른 두 기술이 겹침            | 두 sequence의 예약을 유지한다. 한쪽을 다시 시작해도 다른 쪽의 표시가 남는다.                                                                  |
+| 하위 시계 보정                 | 해당 sequence의 시각을 이동한다. 후진 보정으로 다시 예측에 나타난 행의 실행은 한 번만 기록한다. 부모 표시·전환 window와 형제 일정은 유지한다. |
+| 처치 전 시작·처치 후 발동      | 부모 전환 이전의 시작과 이후의 발동이 새 단독 sequence를 만들지 않는다.                                                                       |
+| 예약 후 처치·전멸·전환         | 기존 부모의 예약을 취소한다. 종료에 소비된 신호가 하위 일정까지 시작하지 않는다.                                                              |
 
 반복해서 같은 이벤트 ID가 실행될 수 있으므로 재생·조회와 작성 평가에서는 부모 phase 실행과 sequence 실행을 구분할 수 있어야 한다. sequence 시작 행의 동작은 `sequence`다. 시작 행과 실행한 이벤트의 `context`에 `sequence`와 `sequence_instance`를 기록한다. 실행 번호는 같은 부모 phase 인스턴스 안에서 시작 순서대로 증가한다. 작성 평가는 사전 조회에서 실제 대응한 sequence 실행과 같은 식별자를 요구한다.
 

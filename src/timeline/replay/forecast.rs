@@ -21,6 +21,7 @@ pub(crate) struct Upcoming {
 #[derive(Serialize)]
 pub(crate) struct Alternative {
     pub(super) choice_id: String,
+    pub(super) choice_at_ms: i64,
     pub(super) option_id: String,
     pub(super) at_ms: i64,
     pub(super) state: &'static str,

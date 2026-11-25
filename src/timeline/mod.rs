@@ -45,9 +45,13 @@ pub(crate) struct Signal {
 }
 
 impl Signal {
+    fn window_end(&self) -> Option<Tick> {
+        Some(self.at? + self.after?)
+    }
+
     fn in_window(&self, time: Tick) -> bool {
         self.at.is_none_or(|at| {
-            time >= at - self.before && self.after.is_none_or(|after| time < at + after)
+            time >= at - self.before && self.window_end().is_none_or(|end| time < end)
         })
     }
 

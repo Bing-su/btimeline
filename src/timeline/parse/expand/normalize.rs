@@ -82,36 +82,17 @@ fn branch_body(node: &mut KdlNode, id: &str) -> Result<()> {
 
 fn choice(node: &mut KdlNode, owner: &str) -> Result<()> {
     let id = qualify(node, owner)?;
-    let mut selection_end = 0;
     let Some(document) = node.children_mut() else {
         return Ok(());
     };
-    for option in document
-        .nodes_mut()
-        .iter_mut()
-        .filter(|node| node.name().value() == "option")
-    {
-        let option_id = qualify(option, &id)?;
-        schedule(option, &option_id, &["when", "event", "sync", "section"])?;
-        for when in named(option, "when") {
-            ensure!(when.get("at").is_none(), "choice when inherits at");
-            selection_end = selection_end.max(property_time(when, "after")?.unwrap_or(25));
-        }
-    }
     for group in document.nodes_mut() {
-        let role = group.name().value().to_owned();
-        if role != "shared" {
-            continue;
-        }
-        schedule(group, &format!("{id}/{role}"), &["event"])?;
-        if role == "shared" {
-            for event in children(group) {
-                ensure!(
-                    arg_time(event, 1)? >= selection_end,
-                    "Shared event precedes selection close: {}",
-                    arg_string(event, 0)?
-                );
+        match group.name().value() {
+            "option" => {
+                let option_id = qualify(group, &id)?;
+                schedule(group, &option_id, &["when", "event", "sync", "section"])?;
             }
+            "shared" => schedule(group, &format!("{id}/shared"), &["event"])?,
+            _ => {}
         }
     }
     node.set_name("branch");
